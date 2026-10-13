@@ -24,6 +24,7 @@ import { ManagerScreen } from "@/components/astrolabe/manager-screen";
 import { JudgeScreen } from "@/components/astrolabe/judge-screen";
 import { AdminScreen } from "@/components/astrolabe/admin-screen";
 import { ServiceOwnerScreen } from "@/components/astrolabe/service-owner-screen";
+import { QuickActionOrb } from "@/components/astrolabe/quick-action-orb";
 import { Astrolabe3D } from "@/components/three/astrolabe";
 import { NotificationsBell } from "@/components/astrolabe/notifications-bell";
 import { ConstellationBg } from "@/components/astrolabe/constellation-bg";
@@ -351,6 +352,9 @@ export default function Home() {
         {role === "admin" && <AdminScreen />}
         {role === "service_owner" && <ServiceOwnerScreen />}
       </main>
+
+      {/* ========== FLOATING QUICK-ACTION ORB (employee only) ========== */}
+      {role === "employee" && <QuickActionOrb />}
 
       {/* ========== FOOTER (sticky to bottom) ========== */}
       <footer

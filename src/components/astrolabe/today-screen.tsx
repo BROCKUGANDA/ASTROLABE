@@ -303,6 +303,12 @@ function HeroStrip({ data }: { data: JourneyMeData }) {
         className="block sm:hidden absolute top-0 left-0 right-0 h-[3px]"
         style={{ background: "var(--g-horizon)" }}
       />
+      {/* Veil gradient backdrop */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 pointer-events-none"
+        style={{ background: "var(--g-veil)" }}
+      />
 
       <div className="relative grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-4 p-5 sm:p-6">
         <div className="flex flex-col gap-4 min-w-0">
@@ -352,6 +358,27 @@ function HeroStrip({ data }: { data: JourneyMeData }) {
               <span className="tabular">{emp.location}</span>
             </p>
           </div>
+
+          {/* Large animated day counter */}
+          <div className="flex items-end gap-3 mt-1">
+            <div className="flex flex-col">
+              <span
+                className="text-[10px] uppercase tracking-[0.16em] font-mono"
+                style={{ color: "var(--text-lo)" }}
+              >
+                {locale === "ar" ? "يوم في المرحلة" : "DAY IN STAGE"}
+              </span>
+              <div className="flex items-baseline gap-2">
+                <AnimatedDayCounter value={data.dayInStage} />
+                <span
+                  className="text-[14px] font-medium tabular"
+                  style={{ color: "var(--text-mid)" }}
+                >
+                  {locale === "ar" ? `من ${stageLbl}` : `of ${stageLbl}`}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* 3D mini-astrolabe — desktop only */}
@@ -364,6 +391,50 @@ function HeroStrip({ data }: { data: JourneyMeData }) {
       </div>
     </section>
   );
+}
+
+/* ---------- Animated day counter — large number counts up on mount ---------- */
+
+function AnimatedDayCounter({ value }: { value: number }) {
+  const display = useCountUp(value, 800);
+  return (
+    <span
+      className="text-[48px] sm:text-[56px] font-bold leading-none tabular ast-brass"
+      style={{ fontFamily: "var(--font-jetbrains), monospace" }}
+      aria-label={`Day ${value}`}
+    >
+      {display}
+    </span>
+  );
+}
+
+function useCountUp(target: number, duration: number): number {
+  const [reduce, setReduce] = useState(false);
+  const [current, setCurrent] = useState(0);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReduce(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  useEffect(() => {
+    if (reduce) return;
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCurrent(Math.round(eased * target));
+      if (progress < 1) {
+        raf = requestAnimationFrame(tick);
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration, reduce]);
+  return reduce ? target : current;
 }
 
 /* ---------- Next Best Step card ---------- */

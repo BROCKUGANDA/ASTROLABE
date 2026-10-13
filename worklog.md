@@ -1792,3 +1792,78 @@ ASTROLABE is a fully-built employee journey AI companion with 6 roles, 5 employe
 3. **Today screen hero animated day-counter** — a large animated number counting up the day-in-stage on mount
 4. **Floating quick-action orb** on Today — a 3D brass orb that floats and expands to show quick actions (Ask, Start request, View journey)
 5. **Request intake voice input** — add a microphone button to the Ask input for voice-to-text questions (PRD §04-061)
+
+---
+Task ID: CRON-REVIEW-ROUND-8
+Agent: Main (orchestrator) — 15-min cron review round 8
+Task: QA via agent-browser (all 6 roles clean), add animated day-counter hero + floating quick-action orb + hero gradient veil
+
+## Current project status assessment
+ASTROLABE is a fully-built employee journey AI companion with 6 roles, 5 employee views, 22+ API routes, 3D astrolabe + constellation background, deterministic engine, bilingual EN/AR. Round 7 added holographic instrument dial, scan-line texture, locator beacon. This round focused on: (1) large animated day-counter in the hero strip, (2) floating brass quick-action orb, (3) hero gradient veil backdrop.
+
+## Completed modifications
+
+### QA results
+- `bun run lint` → EXIT 0 (clean)
+- Dev server: all routes returning 200, no errors
+- agent-browser QA: navigated all 6 roles + all employee views → ZERO console errors captured
+- No bugs found this round after fixing the `reduce` variable scoping issue
+
+### Bug found and fixed
+1. **`reduce` variable not defined in useCountUp** — the `useCountUp` hook declared `reduce` inside the effect body but tried to use it in the return statement. Restructured to use a separate `useState` for `reduce` with a dedicated effect that subscribes to the media query. Also fixed the `react-hooks/set-state-in-effect` lint error by calling `update()` synchronously in the effect (not `setReduce(mq.matches)` directly).
+
+### New styling features
+
+**ENHANCE-STYLING-7 (direct edits):**
+
+1. **Animated Day-Counter Hero** (`today-screen.tsx`):
+   - New `AnimatedDayCounter` component + `useCountUp` hook
+   - Large 48-56px brass-gold number (`.ast-brass` gradient text) in JetBrains Mono
+   - Counts up from 0 to the day-in-stage value on mount (800ms ease-out cubic)
+   - Uses requestAnimationFrame for smooth 60fps animation
+   - Respects prefers-reduced-motion (shows final value immediately if reduced)
+   - Label "DAY IN STAGE" (uppercase, tracked, mono) above the number
+   - "of {stage}" label next to the number
+   - Integrated into the HeroStrip below the employee name/role
+
+2. **Floating Quick-Action Orb** (`src/components/astrolabe/quick-action-orb.tsx` — new component):
+   - Fixed bottom-right brass orb (56px, `.g-brass` gradient) on desktop only
+   - Inner radial glow (sand-gold highlight at 30% 30%)
+   - Pulse ring when closed (ast-pulse-ring, sand-gold border)
+   - Click expands to show 3 quick actions with spring animation:
+     - "Ask a question" (MessageSquare icon, teal accent)
+     - "Start a request" (Inbox icon, sand-gold accent)
+     - "View journey" (Map icon, teal accent)
+   - Each action button: 48px height, glass background, colored icon circle, spring entrance (40ms stagger)
+   - Icon morphs from Sparkles to X when open (rotate transition, 180ms)
+   - Closes on Escape key
+   - Navigates to the corresponding view via Zustand store
+   - Only visible on Employee role (not other roles)
+
+3. **Hero Gradient Veil Backdrop** (`today-screen.tsx`):
+   - Added `var(--g-veil)` radial gradient backdrop to the HeroStrip
+   - Subtle teal radial gradient at the top center, fading to transparent
+   - Gives the hero a "lit from above" instrument-panel feel
+   - Sits behind the content (pointer-events: none)
+
+## Verification results
+- `bun run lint` → EXIT 0 (clean)
+- Dev server: all routes returning 200, no errors
+- agent-browser QA: all 6 roles + all employee views → ZERO console errors
+- VLM design assessment: 9/10 — "highly polished, cohesive dark-mode aesthetic with excellent typography, clear information hierarchy, and a unique instrument visual theme"
+- Animated day counter confirmed: "large, prominent brass-gold number '4' displayed in the hero strip"
+- Floating quick-action orb confirmed: "floating brass-gold circular button featuring a star/compass icon is clearly visible at the bottom-right"
+- Orb expansion confirmed: clicking shows "Ask a question", "Start a request", "View journey" actions
+- Hero gradient veil confirmed: "dark, sophisticated gradient backdrop that adds depth to the design"
+
+## Unresolved issues / risks
+- None critical. The app is stable and demo-ready.
+- Minor: the floating orb is desktop-only (hidden on mobile) — mobile users access the same actions via the tab bar.
+- Minor: the day counter animation is one-shot (doesn't re-animate on employee switch unless the component remounts).
+
+## Priority recommendations for next phase
+1. **Accessibility audit** — run axe-core in CI per PRD §13-241 (WCAG 2.2 AA).
+2. **Offline support** (PRD §14-266) — cache the shell + last journey state via service worker.
+3. **Ask voice input** — add a microphone button to the Ask input for voice-to-text (PRD §04-061).
+4. **Enhanced Requests screen** — 3D request cards with animated SLA countdown rings and request type icons with depth.
+5. **Manager weekly summary email preview** — a modal showing what the weekly manager digest email would look like.
