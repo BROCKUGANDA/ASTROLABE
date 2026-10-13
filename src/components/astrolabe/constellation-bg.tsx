@@ -27,6 +27,102 @@ interface Star {
   nav: boolean;       // navigation star (bigger, glow)
 }
 
+/* ---------- Shooting stars (occasional, subtle) ----------
+   Every 8–12 seconds, one shooting star streaks across the canvas
+   in a random direction. Teal trail (~200ms visible streak), then
+   fades. Disabled entirely under prefers-reduced-motion.
+   Performance: at most ONE star alive at any time, so the per-frame
+   cost is negligible (a single linear-gradient stroke + a 1.5px
+   arc head). */
+interface ShootingStar {
+  x: number;          // current head x (CSS px)
+  y: number;          // current head y (CSS px)
+  vx: number;         // velocity x (px/sec)
+  vy: number;         // velocity y (px/sec)
+  age: number;        // seconds since spawn
+  ttl: number;        // total lifetime (seconds)
+  trailLen: number;   // trail length (px)
+  speed: number;      // |v| (px/sec) — cached for trail math
+}
+
+const SHOOT_MIN_INTERVAL = 8;   // seconds
+const SHOOT_MAX_INTERVAL = 12;  // seconds
+const SHOOT_TTL = 0.6;          // total streak lifetime (fade-in + hold + fade-out)
+const SHOOT_SPEED_MIN = 540;    // px/sec
+const SHOOT_SPEED_MAX = 780;    // px/sec
+const SHOOT_TRAIL_MIN = 70;     // px
+const SHOOT_TRAIL_MAX = 120;    // px
+
+function spawnShootingStar(w: number, h: number): ShootingStar {
+  // Random direction: anywhere in a 0..90deg cone from horizontal-right,
+  // biased downward so the streak appears to "fall" across the sky.
+  const angle = Math.PI * (0.08 + Math.random() * 0.42);
+  const speed = SHOOT_SPEED_MIN + Math.random() * (SHOOT_SPEED_MAX - SHOOT_SPEED_MIN);
+  // Spawn somewhere in the top-left 70% × 50% of the canvas so the
+  // streak has room to travel before exiting.
+  return {
+    x: Math.random() * w * 0.7,
+    y: Math.random() * h * 0.5,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    age: 0,
+    ttl: SHOOT_TTL,
+    trailLen: SHOOT_TRAIL_MIN + Math.random() * (SHOOT_TRAIL_MAX - SHOOT_TRAIL_MIN),
+    speed,
+  };
+}
+
+/**
+ * Draw a single shooting star with a fading teal trail and a small
+ * bright head. Opacity follows a 3-phase curve: 0→1 fade-in over
+ * the first 15% of ttl, hold at 1 until 60%, then 1→0 fade-out for
+ * the remainder.
+ */
+function drawShootingStar(c: CanvasRenderingContext2D, s: ShootingStar) {
+  const t = s.age / s.ttl; // 0..1
+  let opacity: number;
+  if (t < 0.15) {
+    opacity = t / 0.15;
+  } else if (t < 0.6) {
+    opacity = 1;
+  } else {
+    opacity = Math.max(0, 1 - (t - 0.6) / 0.4);
+  }
+  if (opacity <= 0) return;
+
+  // Trail — linear gradient from transparent (tail) to teal (head).
+  const inv = 1 / s.speed;
+  const tailX = s.x - s.vx * inv * s.trailLen;
+  const tailY = s.y - s.vy * inv * s.trailLen;
+  const grad = c.createLinearGradient(tailX, tailY, s.x, s.y);
+  grad.addColorStop(0, "rgba(22, 154, 165, 0)");
+  grad.addColorStop(0.6, `rgba(22, 154, 165, ${(opacity * 0.35).toFixed(3)})`);
+  grad.addColorStop(1, `rgba(22, 154, 165, ${(opacity * 0.85).toFixed(3)})`);
+  c.strokeStyle = grad;
+  c.lineWidth = 1.4;
+  c.lineCap = "round";
+  c.beginPath();
+  c.moveTo(tailX, tailY);
+  c.lineTo(s.x, s.y);
+  c.stroke();
+
+  // Head — bright sand-gold pinprick with a soft teal glow.
+  const headGrad = c.createRadialGradient(s.x, s.y, 0, s.x, s.y, 4);
+  headGrad.addColorStop(0, `rgba(246, 236, 201, ${opacity.toFixed(3)})`);
+  headGrad.addColorStop(0.5, `rgba(22, 154, 165, ${(opacity * 0.5).toFixed(3)})`);
+  headGrad.addColorStop(1, "rgba(22, 154, 165, 0)");
+  c.fillStyle = headGrad;
+  c.beginPath();
+  c.arc(s.x, s.y, 4, 0, Math.PI * 2);
+  c.fill();
+
+  // Solid core dot for crispness.
+  c.fillStyle = `rgba(246, 236, 201, ${opacity.toFixed(3)})`;
+  c.beginPath();
+  c.arc(s.x, s.y, 1.2, 0, Math.PI * 2);
+  c.fill();
+}
+
 const COLOR_TEAL = "rgba(22, 154, 165, ";
 const COLOR_GOLD = "rgba(201, 162, 39, ";
 
@@ -186,10 +282,17 @@ export function ConstellationBg() {
     let driftY = 0;
     let running = true;
 
+    // Shooting star state — at most one alive at a time. The first
+    // spawn happens 4–8s after mount so the user sees one quickly,
+    // then on the 8–12s cadence thereafter.
+    let shootingStars: ShootingStar[] = [];
+    let elapsedSec = 0;
+    let nextShootAt = 4 + Math.random() * 4;
+
     const step = (ts: number) => {
       if (!running) return;
       if (lastTs === 0) lastTs = ts;
-      const dt = (ts - lastTs) / 1000;
+      const dt = Math.min(0.1, (ts - lastTs) / 1000); // cap dt at 100ms to avoid huge jumps after tab-switch
       lastTs = ts;
 
       // Cumulative drift — wraps around the canvas so stars never leave.
@@ -198,8 +301,34 @@ export function ConstellationBg() {
       const dx = driftX - w;
       const dy = driftY - h;
 
+      // Advance shooting-star clock + maybe spawn a new streak.
+      elapsedSec += dt;
+      if (elapsedSec >= nextShootAt && shootingStars.length === 0) {
+        shootingStars.push(spawnShootingStar(w, h));
+        nextShootAt =
+          elapsedSec +
+          SHOOT_MIN_INTERVAL +
+          Math.random() * (SHOOT_MAX_INTERVAL - SHOOT_MIN_INTERVAL);
+      }
+      // Update active shooting stars (age + position).
+      for (const s of shootingStars) {
+        s.age += dt;
+        s.x += s.vx * dt;
+        s.y += s.vy * dt;
+      }
+      // Cull expired or off-screen streaks.
+      if (shootingStars.length > 0) {
+        shootingStars = shootingStars.filter(
+          (s) => s.age < s.ttl && s.x < w + 60 && s.y < h + 60,
+        );
+      }
+
       if (ts - lastDraw >= FRAME_MS) {
         drawFrame(ctx, stars, ts / 1000, dx, dy);
+        // Draw shooting stars ON TOP of the regular starfield + lines.
+        for (const s of shootingStars) {
+          drawShootingStar(ctx, s);
+        }
         lastDraw = ts;
       }
       raf = requestAnimationFrame(step);
@@ -221,6 +350,9 @@ export function ConstellationBg() {
     const onResize = () => {
       setup();
       lastDraw = 0;
+      // Clear any in-flight shooting stars on resize so they don't
+      // appear to teleport across the new canvas dimensions.
+      shootingStars = [];
     };
     window.addEventListener("resize", onResize);
 

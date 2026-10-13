@@ -1,0 +1,1516 @@
+     1→"use client";
+     2→
+     3→/* ============================================================
+     4→   ASTROLABE — Ask Screen (cited-answers, PRD §13)
+     5→   Instrument-style policy answering with three-stage progress,
+     6→   simulated streaming, abstention handoff, follow-ups, and
+     7→   last-5 history. Plain-language copy kit throughout.
+     8→   ============================================================ */
+     9→
+    10→import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+    11→import { motion, AnimatePresence } from "framer-motion";
+    12→import { format } from "date-fns";
+    13→import { NOW as PACK_NOW } from "@/lib/data/pack";
+    14→import ReactMarkdown from "react-markdown";
+    15→import {
+    16→  Send,
+    17→  Copy,
+    18→  Check,
+    19→  AlertTriangle,
+    20→  RotateCcw,
+    21→  Compass,
+    22→  ChevronDown,
+    23→  ChevronUp,
+    24→  Mail,
+    25→  ShieldAlert,
+    26→  Star,
+    27→  ArrowRight,
+    28→  Clock,
+    29→  ThumbsDown,
+    30→  Share2,
+    31→  FileText,
+    32→  Ban,
+    33→  Hash,
+    34→  Sparkles,
+    35→} from "lucide-react";
+    36→import { useAppStore } from "@/lib/store/app-store";
+    37→import { CitationChip } from "@/components/astrolabe/widgets";
+    38→import {
+    39→  CitationHover,
+    40→  NumberTicker,
+    41→} from "@/components/astrolabe/micro-interactions";
+    42→import { PolicySearchTriggerButton } from "@/components/astrolabe/policy-search";
+    43→import { cn } from "@/lib/utils";
+    44→import { toast } from "sonner";
+    45→
+    46→/* ---------- Types (mirror the API envelope) ---------- */
+    47→
+    48→interface Citation {
+    49→  docSlug: string;
+    50→  title: string;
+    51→  section: string;
+    52→  effectiveDate: string;
+    53→  reviewDate: string;
+    54→  lang: string;
+    55→  chunkId: string;
+    56→  snippet: string;
+    57→}
+    58→
+    59→interface PolicyAnswer {
+    60→  answerId: string;
+    61→  kind: "answer" | "abstain";
+    62→  answerMarkdown?: string;
+    63→  citations: Citation[];
+    64→  followUps: string[];
+    65→  abstainReasonCode?:
+    66→    | "low_grounding"
+    67→    | "low_top_chunk"
+    68→    | "equal_authority_conflict"
+    69→    | "compensation_legal_medical_disciplinary"
+    70→    | "about_another_employee"
+    71→    | "corpus_unavailable"
+    72→    | "out_of_scope";
+    73→  abstainReasonEn?: string;
+    74→  abstainReasonAr?: string;
+    75→  ownerHint?: { name: string; role: string; email: string };
+    76→  groundingScore: number;
+    77→  servedFrom: string;
+    78→  degraded: string[];
+    79→  corpusVersion: string;
+    80→  usedEmployeeFields: string[];
+    81→}
+    82→
+    83→interface AskResponse {
+    84→  stages: string[];
+    85→  answer: PolicyAnswer;
+    86→  employeeId: string | null;
+    87→}
+    88→
+    89→interface ApiEnvelope<T> {
+    90→  ok: boolean;
+    91→  data: T | null;
+    92→  meta: { requestId: string; asOf: string; servedFrom: string; latencyMs: number };
+    93→  error: { code: string; message: string; hint?: string } | null;
+    94→}
+    95→
+    96→interface Turn {
+    97→  id: string;
+    98→  question: string;
+    99→  answer?: PolicyAnswer;
+   100→  loading: boolean;
+   101→  error?: string;
+   102→  startedAt: number;
+   103→}
+   104→
+   105→/* ---------- Starters (PRD §13) ---------- */
+   106→
+   107→const STARTERS_EN = [
+   108→  "How many days of relocation allowance do I get?",
+   109→  "When is my flight booked?",
+   110→  "What training must I complete?",
+   111→  "How long does visa processing take?",
+   112→  "What happens if my laptop is delayed?",
+   113→  "Who is my HRBP?",
+   114→];
+   115→
+   116→const STARTERS_AR = [
+   117→  "كم يوماً من بدل الانتقال أحصل عليه؟",
+   118→  "متى يُحجز طيراني؟",
+   119→  "ما التدريب الذي يجب أن أكمله؟",
+   120→  "كم تستغرق معالجة التأشيرة؟",
+   121→  "ماذا يحدث إذا تأخر حاسوبي؟",
+   122→  "من هو شريك الموارد البشرية الخاص بي؟",
+   123→];
+   124→
+   125→/* ---------- Helpers ---------- */
+   126→
+   127→/** Strip inline [^n] refs and footnote definitions; return clean markdown. */
+   128→function stripCitations(md: string): string {
+   129→  return md
+   130→    // Strip footnote definition lines FIRST (before removing the [^n] markers they start with)
+   131→    .replace(/^\[\^\d+\]:.*$/gm, "")
+   132→    // Then strip inline [^n] references
+   133→    .replace(/\[\^\d+\]/g, "")
+   134→    .replace(/\n{3,}/g, "\n\n")
+   135→    .trim();
+   136→}
+   137→
+   138→/**
+   139→ * Extract the first "decisive" sentence from a markdown answer.
+   140→ * Used by the "Say it simply" toggle (PRD §01-016) so an employee can
+   141→ * collapse a long answer to just the headline + citations.
+   142→ *
+   143→ * Strategy: walk the text looking for the first sentence-ending
+   144→ * punctuation (`.`, `!`, `?`) that is followed by whitespace or end of
+   145→ * string. If none found, return the whole text. Markdown emphasis
+   146→ * markers (`*`, `_`, `**`) are preserved so ReactMarkdown still renders
+   147→ * them — we only slice on punctuation.
+   148→ */
+   149→function firstSentence(md: string): string {
+   150→  const text = md.trim();
+   151→  if (!text) return "";
+   152→  // Match up to and including the first . ! or ? that is followed by
+   153→  // whitespace, end-of-string, or a newline.
+   154→  const match = text.match(/^[^.!?\n]*[.!?](?=\s|$)/);
+   155→  if (match) return match[0].trim();
+   156→  // Fallback: first line, no terminal punctuation.
+   157→  const firstLine = text.split(/\n/)[0];
+   158→  return firstLine.trim();
+   159→}
+   160→
+   161→function fmtMs(ms: number): string {
+   162→  if (ms < 1000) return `${ms}ms`;
+   163→  return `${(ms / 1000).toFixed(1)}s`;
+   164→}
+   165→
+   166→/* ============================================================
+   167→   Main screen
+   168→   ============================================================ */
+   169→
+   170→export function AskScreen() {
+   171→  const locale = useAppStore((s) => s.locale);
+   172→  const currentEmployeeId = useAppStore((s) => s.currentEmployeeId);
+   173→  const setView = useAppStore((s) => s.setView);
+   174→  const setActiveRequestType = useAppStore((s) => s.setActiveRequestType);
+   175→  const askPrefill = useAppStore((s) => s.askPrefill);
+   176→  const setAskPrefill = useAppStore((s) => s.setAskPrefill);
+   177→
+   178→  const [question, setQuestion] = useState("");
+   179→  const [turns, setTurns] = useState<Turn[]>([]);
+   180→  const [activeStage, setActiveStage] = useState<number>(-1);
+   181→  const [stageElapsed, setStageElapsed] = useState<number[]>([0, 0, 0]);
+   182→
+   183→  const textareaRef = useRef<HTMLTextAreaElement>(null);
+   184→  const historyRef = useRef<HTMLDivElement>(null);
+   185→
+   186→  // Auto-scroll history to bottom on new turn
+   187→  useEffect(() => {
+   188→    if (historyRef.current) {
+   189→      historyRef.current.scrollTo({ top: historyRef.current.scrollHeight, behavior: "smooth" });
+   190→    }
+   191→  }, [turns]);
+   192→
+   193→  // Clear turns when employee changes (deterministic reset)
+   194→  useEffect(() => {
+   195→    setTurns([]);
+   196→    setQuestion("");
+   197→    setActiveStage(-1);
+   198→  }, [currentEmployeeId]);
+   199→
+   200→  // PRD §18-347 — when the user clicks "Ask about this instead" inside the
+   201→  // policy search modal, the query is handed to us via `askPrefill`. Drop it
+   202→  // into the textarea, focus, and clear the prefilled value so it doesn't
+   203→  // re-apply on the next render.
+   204→  useEffect(() => {
+   205→    if (askPrefill !== undefined && askPrefill.length > 0) {
+   206→      setQuestion(askPrefill);
+   207→      setAskPrefill(undefined);
+   208→      // Defer focus until after the textarea re-renders with the new value.
+   209→      requestAnimationFrame(() => {
+   210→        textareaRef.current?.focus();
+   211→      });
+   212→    }
+   213→  }, [askPrefill, setAskPrefill]);
+   214→
+   215→  const sendQuestion = useCallback(
+   216→    async (q: string) => {
+   217→      const trimmed = q.trim();
+   218→      if (!trimmed) return;
+   219→      if (!currentEmployeeId) return;
+   220→      if (trimmed.length > 1000) {
+   221→        toast.error(locale === "ar" ? "السؤال طويل جداً (1000 حرف كحد أقصى)" : "Question too long (max 1000 chars)");
+   222→        return;
+   223→      }
+   224→
+   225→      const turnId = `turn-${Date.now().toString(36)}`;
+   226→      const newTurn: Turn = {
+   227→        id: turnId,
+   228→        question: trimmed,
+   229→        loading: true,
+   230→        startedAt: Date.now(),
+   231→      };
+   232→      // Keep last 5 turns
+   233→      setTurns((prev) => [...prev.slice(-4), newTurn]);
+   234→      setQuestion("");
+   235→      setActiveStage(0);
+   236→      setStageElapsed([0, 0, 0]);
+   237→
+   238→      // Animate stage 1
+   239→      const stageTimers: ReturnType<typeof setTimeout>[] = [];
+   240→      const stageIntervals: ReturnType<typeof setInterval>[] = [];
+   241→
+   242→      const startStage = (idx: number, durMs: number) => {
+   243→        const start = Date.now();
+   244→        const interval = setInterval(() => {
+   245→          const elapsed = Date.now() - start;
+   246→          setStageElapsed((prev) => {
+   247→            const next = [...prev];
+   248→            next[idx] = elapsed;
+   249→            return next;
+   250→          });
+   251→        }, 80);
+   252→        stageIntervals.push(interval);
+   253→        const timer = setTimeout(() => {
+   254→          clearInterval(interval);
+   255→          if (idx < 2) {
+   256→            setActiveStage(idx + 1);
+   257→            startStage(idx + 1, idx === 0 ? 600 : 400);
+   258→          }
+   259→        }, durMs);
+   260→        stageTimers.push(timer);
+   261→      };
+   262→      startStage(0, 400);
+   263→
+   264→      try {
+   265→        const res = await fetch("/api/v1/ask", {
+   266→          method: "POST",
+   267→          headers: { "Content-Type": "application/json" },
+   268→          body: JSON.stringify({ question: trimmed, locale, employeeId: currentEmployeeId }),
+   269→        });
+   270→        const json: ApiEnvelope<AskResponse> = await res.json();
+   271→        if (!json.ok || !json.data) {
+   272→          throw new Error(json.error?.message ?? "Failed to get answer");
+   273→        }
+   274→        setTurns((prev) =>
+   275→          prev.map((t) =>
+   276→            t.id === turnId
+   277→              ? { ...t, answer: json.data!.answer, loading: false }
+   278→              : t,
+   279→          ),
+   280→        );
+   281→      } catch (err) {
+   282→        setTurns((prev) =>
+   283→          prev.map((t) =>
+   284→            t.id === turnId
+   285→              ? {
+   286→                  ...t,
+   287→                  loading: false,
+   288→                  error: err instanceof Error ? err.message : "Unknown error",
+   289→                }
+   290→              : t,
+   291→          ),
+   292→        );
+   293→        toast.error(locale === "ar" ? "تعذّر الوصول إلى السياسة" : "Couldn't reach the policy service");
+   294→      } finally {
+   295→        // Stop animations after fetch resolves (regardless of stage reached)
+   296→        stageTimers.forEach(clearTimeout);
+   297→        stageIntervals.forEach(clearInterval);
+   298→        setActiveStage(-1);
+   299→      }
+   300→    },
+   301→    [currentEmployeeId, locale],
+   302→  );
+   303→
+   304→  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+   305→    if (e.key === "Enter" && !e.shiftKey) {
+   306→      e.preventDefault();
+   307→      sendQuestion(question);
+   308→    }
+   309→  };
+   310→
+   311→  const starters = locale === "ar" ? STARTERS_AR : STARTERS_EN;
+   312→
+   313→  return (
+   314→    <div className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+   315→      {/* Header */}
+   316→      <div className="mb-5 flex items-center gap-3">
+   317→        <div
+   318→          className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
+   319→          style={{ background: "var(--g-veil)", color: "var(--brand-400)" }}
+   320→          aria-hidden="true"
+   321→        >
+   322→          <Compass className="w-5 h-5" strokeWidth={1.75} />
+   323→        </div>
+   324→        <div className="min-w-0 flex-1">
+   325→          <h1
+   326→            className="text-[20px] sm:text-[22px] font-semibold leading-tight"
+   327→            style={{ color: "var(--text-hi)" }}
+   328→          >
+   329→            {locale === "ar" ? "اسأل عن السياسة" : "Ask about policy"}
+   330→          </h1>
+   331→          <p className="text-[13px] mt-0.5" style={{ color: "var(--text-mid)" }}>
+   332→            {locale === "ar"
+   333→              ? "أسألني أي شيء عن رحلتك أو سياساتنا. أُجيب من الوثائق الرسمية فقط — وإذا لم أكن متأكداً، أحيلك إلى الشخص المناسب."
+   334→              : "Ask me anything about your journey or our policies. I answer from official documents only — and if I'm not sure, I hand you to the right person."}
+   335→          </p>
+   336→        </div>
+   337→        {/* PRD §18-347 — "Search policies" trigger button. Opens the global
+   338→            policy search modal. Sits next to the heading for parity with the
+   339→            "Say it simply" toggle on each answer card. */}
+   340→        <div className="shrink-0 hidden sm:block">
+   341→          <PolicySearchTriggerButton locale={locale} />
+   342→        </div>
+   343→      </div>
+   344→
+   345→      {/* Mobile: Search policies trigger (below header, above history) */}
+   346→      <div className="sm:hidden mb-3">
+   347→        <PolicySearchTriggerButton locale={locale} />
+   348→      </div>
+   349→
+   350→      {/* History (last 5 turns) — scrollable */}
+   351→      {turns.length > 0 && (
+   352→        <section
+   353→          className="ast-card p-3 sm:p-4 mb-4"
+   354→          aria-label={locale === "ar" ? "آخر الأسئلة" : "Recent questions"}
+   355→        >
+   356→          <div className="flex items-center justify-between mb-2 px-1">
+   357→            <span
+   358→              className="text-[11px] font-semibold uppercase tracking-[0.14em]"
+   359→              style={{ color: "var(--text-lo)" }}
+   360→            >
+   361→              {locale === "ar" ? "آخر 5 أسئلة" : "Last 5 questions"}
+   362→            </span>
+   363→            <button
+   364→              onClick={() => setTurns([])}
+   365→              className="ast-focus text-[11px] font-medium h-7 px-2 rounded-md transition-colors"
+   366→              style={{ color: "var(--text-lo)" }}
+   367→            >
+   368→              {locale === "ar" ? "مسح" : "Clear"}
+   369→            </button>
+   370→          </div>
+   371→          <div
+   372→            ref={historyRef}
+   373→            className="max-h-32 overflow-y-auto pr-1 space-y-1.5"
+   374→          >
+   375→            {turns.map((t) => (
+   376→              <button
+   377→                key={t.id}
+   378→                onClick={() => sendQuestion(t.question)}
+   379→                className="ast-focus w-full text-left flex items-center gap-2 h-8 px-2.5 rounded-md text-[12px] transition-colors hover:bg-[var(--surface-2)]"
+   380→                style={{ color: "var(--text-mid)" }}
+   381→                title={t.question}
+   382→              >
+   383→                <Sparkles
+   384→                  className="w-3 h-3 shrink-0"
+   385→                  strokeWidth={1.75}
+   386→                  style={{ color: "var(--brand-400)" }}
+   387→                />
+   388→                <span className="truncate">{t.question}</span>
+   389→                {t.loading && (
+   390→                  <span
+   391→                    className="ml-auto shrink-0 tabular text-[10px]"
+   392→                    style={{ color: "var(--brand-400)" }}
+   393→                  >
+   394→                    {locale === "ar" ? "قيد التفكير…" : "thinking…"}
+   395→                  </span>
+   396→                )}
+   397→              </button>
+   398→            ))}
+   399→          </div>
+   400→        </section>
+   401→      )}
+   402→
+   403→      {/* Three-stage progress (only while loading) */}
+   404→      <AnimatePresence>
+   405→        {activeStage >= 0 && (
+   406→          <motion.div
+   407→            initial={{ opacity: 0, y: 8 }}
+   408→            animate={{ opacity: 1, y: 0 }}
+   409→            exit={{ opacity: 0, y: -4 }}
+   410→            transition={{ duration: 0.18 }}
+   411→            className="ast-card p-4 sm:p-5 mb-4"
+   412→            aria-live="polite"
+   413→            aria-label={locale === "ar" ? "مراحل التفكير" : "Thinking stages"}
+   414→          >
+   415→            <ThreeStageProgress
+   416→              activeStage={activeStage}
+   417→              stageElapsed={stageElapsed}
+   418→              locale={locale}
+   419→            />
+   420→          </motion.div>
+   421→        )}
+   422→      </AnimatePresence>
+   423→
+   424→      {/* Answers / abstentions / errors */}
+   425→      <div className="space-y-4 mb-4">
+   426→        {turns.length === 0 && (
+   427→          <StartersRow starters={starters} onPick={sendQuestion} locale={locale} />
+   428→        )}
+   429→        <AnimatePresence initial={false}>
+   430→          {[...turns].reverse().map((turn) => (
+   431→            <TurnCard
+   432→              key={turn.id}
+   433→              turn={turn}
+   434→              locale={locale}
+   435→              onFollowUp={(q) => sendQuestion(q)}
+   436→              onStartRequest={(type) => {
+   437→                setActiveRequestType(type);
+   438→                setView("requests");
+   439→              }}
+   440→              onViewJourney={() => setView("today")}
+   441→              onViewRequests={() => setView("requests")}
+   442→            />
+   443→          ))}
+   444→        </AnimatePresence>
+   445→      </div>
+   446→
+   447→      {/* Sticky ask input area */}
+   448→      <div
+   449→        className="sticky bottom-0 z-30 -mx-4 sm:mx-0 px-4 sm:px-0 pb-4 pt-2"
+   450→        style={{
+   451→          background: "linear-gradient(180deg, transparent 0%, var(--surface-0) 30%)",
+   452→        }}
+   453→      >
+   454→        <div
+   455→          className="ast-card p-3 sm:p-4"
+   456→          style={{ boxShadow: "var(--e2)" }}
+   457→        >
+   458→          <div className="flex items-end gap-2">
+   459→            <div className="flex-1 min-w-0">
+   460→              <textarea
+   461→                ref={textareaRef}
+   462→                value={question}
+   463→                onChange={(e) => setQuestion(e.target.value)}
+   464→                onKeyDown={onKeyDown}
+   465→                rows={2}
+   466→                aria-label={locale === "ar" ? "اكتب سؤالك عن السياسة" : "Ask a policy question"}
+   467→                placeholder={
+   468→                  locale === "ar"
+   469→                    ? "اسأل عن السياسة… (Enter للإرسال · Shift+Enter لسطر جديد)"
+   470→                    : "Ask a policy question… (Enter to send · Shift+Enter for a new line)"
+   471→                }
+   472→                className="ast-focus w-full resize-none bg-transparent px-1 py-1.5 text-[15px] leading-relaxed outline-none placeholder:text-[var(--text-lo)]"
+   473→                style={{ color: "var(--text-hi)" }}
+   474→                maxLength={1000}
+   475→              />
+   476→              <div className="flex items-center justify-between px-1">
+   477→                <span
+   478→                  className="text-[10px] font-mono tabular"
+   479→                  style={{ color: "var(--text-lo)" }}
+   480→                >
+   481→                  {question.length}/1000
+   482→                </span>
+   483→                <span
+   484→                  className="text-[10px]"
+   485→                  style={{ color: "var(--text-lo)" }}
+   486→                >
+   487→                  {locale === "ar" ? "Enter للإرسال" : "Enter to send"}
+   488→                </span>
+   489→              </div>
+   490→            </div>
+   491→            <button
+   492→              onClick={() => sendQuestion(question)}
+   493→              disabled={!question.trim()}
+   494→              aria-label={locale === "ar" ? "إرسال السؤال" : "Send question"}
+   495→              className="ast-focus inline-flex items-center justify-center gap-2 h-11 px-5 rounded-[10px] text-[14px] font-semibold shrink-0 transition-transform hover:-translate-y-0.5 disabled:opacity-40 disabled:hover:translate-y-0"
+   496→              style={{
+   497→                background: "var(--brand-500)",
+   498→                color: "var(--surface-0)",
+   499→                boxShadow: "0 4px 14px rgba(22,154,165,0.28)",
+   500→              }}
+   501→            >
+   502→              <Send className="w-4 h-4" strokeWidth={2} />
+   503→              <span className="hidden sm:inline">
+   504→                {locale === "ar" ? "اسأل" : "Ask"}
+   505→              </span>
+   506→            </button>
+   507→          </div>
+   508→        </div>
+   509→      </div>
+   510→    </div>
+   511→  );
+   512→}
+   513→
+   514→/* ============================================================
+   515→   Three-stage progress — instrument style with pulse dots
+   516→   connected by hairlines.
+   517→   ============================================================ */
+   518→
+   519→function ThreeStageProgress({
+   520→  activeStage,
+   521→  stageElapsed,
+   522→  locale,
+   523→}: {
+   524→  activeStage: number;
+   525→  stageElapsed: number[];
+   526→  locale: "en" | "ar";
+   527→}) {
+   528→  const labels =
+   529→    locale === "ar"
+   530→      ? ["يفحص رحلتك", "يقرأ السياسة", "يصيغ الإجابة"]
+   531→      : ["checking your journey", "reading policy", "drafting"];
+   532→  return (
+   533→    <div>
+   534→      <ol className="flex items-center gap-2">
+   535→        {labels.map((label, i) => {
+   536→          const isPast = i < activeStage;
+   537→          const isActive = i === activeStage;
+   538→          const isPending = i > activeStage;
+   539→          return (
+   540→            <li key={label} className="flex items-center gap-2 flex-1 min-w-0">
+   541→              <span
+   542→                className={cn(
+   543→                  "inline-flex items-center justify-center w-3 h-3 rounded-full shrink-0",
+   544→                  isActive && "ast-pulse-ring",
+   545→                )}
+   546→                style={{
+   547→                  background: isPast
+   548→                    ? "var(--brand-500)"
+   549→                    : isActive
+   550→                      ? "var(--brand-400)"
+   551→                      : "var(--surface-3)",
+   552→                  border: `1px solid ${
+   553→                    isPast || isActive ? "var(--brand-500)" : "var(--border)"
+   554→                  }`,
+   555→                }}
+   556→                aria-hidden="true"
+   557→              />
+   558→              <div className="flex-1 min-w-0">
+   559→                <p
+   560→                  className="text-[12px] font-medium leading-tight truncate"
+   561→                  style={{
+   562→                    color: isPast
+   563→                      ? "var(--brand-400)"
+   564→                      : isActive
+   565→                        ? "var(--text-hi)"
+   566→                        : "var(--text-lo)",
+   567→                  }}
+   568→                >
+   569→                  {label}
+   570→                </p>
+   571→                {(isActive || isPast) && (
+   572→                  <p
+   573→                    className="text-[10px] tabular mt-0.5"
+   574→                    style={{ color: "var(--text-lo)" }}
+   575→                  >
+   576→                    {fmtMs(stageElapsed[i] || 0)}
+   577→                  </p>
+   578→                )}
+   579→              </div>
+   580→              {i < labels.length - 1 && (
+   581→                <span
+   582→                  aria-hidden="true"
+   583→                  className="hidden sm:block h-[1px] w-8 shrink-0"
+   584→                  style={{
+   585→                    background:
+   586→                      isPast || isActive
+   587→                        ? "var(--brand-500)"
+   588→                        : "var(--border)",
+   589→                  }}
+   590→                />
+   591→              )}
+   592→            </li>
+   593→          );
+   594→        })}
+   595→      </ol>
+   596→      <p
+   597→        className="text-[11px] mt-3"
+   598→        style={{ color: "var(--text-lo)" }}
+   599→      >
+   600→        {locale === "ar"
+   601→          ? "أبحث في سياساتك الرسمية فقط — لا تخمين."
+   602→          : "I'm searching your official policies only — no guessing."}
+   603→      </p>
+   604→    </div>
+   605→  );
+   606→}
+   607→
+   608→/* ============================================================
+   609→   Starters row
+   610→   ============================================================ */
+   611→
+   612→function StartersRow({
+   613→  starters,
+   614→  onPick,
+   615→  locale,
+   616→}: {
+   617→  starters: string[];
+   618→  onPick: (q: string) => void;
+   619→  locale: "en" | "ar";
+   620→}) {
+   621→  return (
+   622→    <section aria-label={locale === "ar" ? "أسئلة مقترحة" : "Suggested questions"}>
+   623→      <div className="flex items-center gap-2 mb-3">
+   624→        <Sparkles
+   625→          className="w-4 h-4"
+   626→          strokeWidth={1.75}
+   627→          style={{ color: "var(--brand-400)" }}
+   628→        />
+   629→        <h2
+   630→          className="text-[13px] font-semibold uppercase tracking-[0.12em]"
+   631→          style={{ color: "var(--text-hi)" }}
+   632→        >
+   633→          {locale === "ar" ? "جرّب أحد هذه" : "Try one of these"}
+   634→        </h2>
+   635→      </div>
+   636→      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+   637→        {starters.map((s, i) => (
+   638→          <motion.button
+   639→            key={s}
+   640→            initial={{ opacity: 0, y: 6 }}
+   641→            animate={{ opacity: 1, y: 0 }}
+   642→            transition={{ duration: 0.18, delay: i * 0.04 }}
+   643→            onClick={() => onPick(s)}
+   644→            className="ast-focus ast-card-2 p-3 text-left text-[13px] leading-snug transition-all hover:-translate-y-0.5 hover:border-[var(--brand-500)]"
+   645→            style={{ color: "var(--text-mid)" }}
+   646→          >
+   647→            {s}
+   648→          </motion.button>
+   649→        ))}
+   650→      </div>
+   651→    </section>
+   652→  );
+   653→}
+   654→
+   655→/* ============================================================
+   656→   Turn card — renders question + answer/abstain/error
+   657→   ============================================================ */
+   658→
+   659→function TurnCard({
+   660→  turn,
+   661→  locale,
+   662→  onFollowUp,
+   663→  onStartRequest,
+   664→  onViewJourney,
+   665→  onViewRequests,
+   666→}: {
+   667→  turn: Turn;
+   668→  locale: "en" | "ar";
+   669→  onFollowUp: (q: string) => void;
+   670→  onStartRequest: (type: string) => void;
+   671→  onViewJourney: () => void;
+   672→  onViewRequests: () => void;
+   673→}) {
+   674→  return (
+   675→    <motion.article
+   676→      initial={{ opacity: 0, y: 12 }}
+   677→      animate={{ opacity: 1, y: 0 }}
+   678→      exit={{ opacity: 0, y: -8 }}
+   679→      transition={{ duration: 0.22 }}
+   680→      className="space-y-3"
+   681→    >
+   682→      {/* Question bubble */}
+   683→      <div className="flex justify-end">
+   684→        <div
+   685→          className="max-w-[85%] sm:max-w-[75%] px-4 py-2.5 rounded-[14px] rounded-tr-md"
+   686→          style={{
+   687→            background: "rgba(22,154,165,0.10)",
+   688→            border: "1px solid rgba(22,154,165,0.25)",
+   689→            color: "var(--text-hi)",
+   690→          }}
+   691→        >
+   692→          <p className="text-[14px] leading-relaxed">{turn.question}</p>
+   693→        </div>
+   694→      </div>
+   695→
+   696→      {/* Loading skeleton while waiting */}
+   697→      {turn.loading && (
+   698→        <div className="ast-card p-4" aria-hidden="true">
+   699→          <div className="space-y-2">
+   700→            <div className="h-3 w-3/4 ast-shimmer rounded" />
+   701→            <div className="h-3 w-1/2 ast-shimmer rounded" />
+   702→            <div className="h-3 w-2/3 ast-shimmer rounded" />
+   703→          </div>
+   704→        </div>
+   705→      )}
+   706→
+   707→      {/* Error */}
+   708→      {!turn.loading && turn.error && (
+   709→        <ErrorCard
+   710→          message={turn.error}
+   711→          locale={locale}
+   712→          onRetry={() => onFollowUp(turn.question)}
+   713→        />
+   714→      )}
+   715→
+   716→      {/* Answer */}
+   717→      {!turn.loading && turn.answer && turn.answer.kind === "answer" && (
+   718→        <AnswerCard
+   719→          answer={turn.answer}
+   720→          locale={locale}
+   721→          onFollowUp={onFollowUp}
+   722→          onStartRequest={onStartRequest}
+   723→        />
+   724→      )}
+   725→
+   726→      {/* Abstain / handoff */}
+   727→      {!turn.loading && turn.answer && turn.answer.kind === "abstain" && (
+   728→        <AbstainCard
+   729→          answer={turn.answer}
+   730→          question={turn.question}
+   731→          locale={locale}
+   732→          onFollowUp={onFollowUp}
+   733→          onViewJourney={onViewJourney}
+   734→          onViewRequests={onViewRequests}
+   735→        />
+   736→      )}
+   737→    </motion.article>
+   738→  );
+   739→}
+   740→
+   741→/* ============================================================
+   742→   Answer card (kind: "answer")
+   743→   - Simulated streaming reveal
+   744→   - Sources row (collapsible)
+   745→   - answerId copy + last checked time
+   746→   - Feedback buttons
+   747→   ============================================================ */
+   748→
+   749→function AnswerCard({
+   750→  answer,
+   751→  locale,
+   752→  onFollowUp,
+   753→  onStartRequest,
+   754→}: {
+   755→  answer: PolicyAnswer;
+   756→  locale: "en" | "ar";
+   757→  onFollowUp: (q: string) => void;
+   758→  onStartRequest: (type: string) => void;
+   759→}) {
+   760→  const [revealed, setRevealed] = useState(0);
+   761→  const [sourcesOpen, setSourcesOpen] = useState(false);
+   762→  const [copied, setCopied] = useState(false);
+   763→  const [wrongReported, setWrongReported] = useState(false);
+   764→  // "Say it simply" preference — per-question (local state, no persistence
+   765→  // needed beyond the life of this card which is keyed by turn.id).
+   766→  const [simple, setSimple] = useState(false);
+   767→
+   768→  const cleanMd = useMemo(
+   769→    () => (answer.answerMarkdown ? stripCitations(answer.answerMarkdown) : ""),
+   770→    [answer.answerMarkdown],
+   771→  );
+   772→
+   773→  // Pre-compute the "simple" form once: just the first decisive sentence.
+   774→  const simpleMd = useMemo(() => firstSentence(cleanMd), [cleanMd]);
+   775→
+   776→  // Derived: streaming is done once revealed covers the full markdown.
+   777→  const done = revealed >= cleanMd.length;
+   778→
+   779→  // Simulate token streaming — 4 chars every 16ms.
+   780→  // AnswerCard is keyed by turn.id, so it remounts per answer and
+   781→  // `revealed` always starts at 0 — no reset needed.
+   782→  useEffect(() => {
+   783→    if (!cleanMd) return;
+   784→    const interval = setInterval(() => {
+   785→      setRevealed((prev) => {
+   786→        const next = prev + 4;
+   787→        if (next >= cleanMd.length) {
+   788→          clearInterval(interval);
+   789→          return cleanMd.length;
+   790→        }
+   791→        return next;
+   792→      });
+   793→    }, 16);
+   794→    return () => clearInterval(interval);
+   795→  }, [cleanMd]);
+   796→
+   797→  const streamed = cleanMd.slice(0, revealed);
+   798→
+   799→  // When simple mode is on, show the pre-computed first sentence in full
+   800→  // (no streaming animation — it should feel instant).
+   801→  const displayMd = simple ? simpleMd : streamed;
+   802→
+   803→  const handleCopyAnswer = async () => {
+   804→    try {
+   805→      await navigator.clipboard.writeText(cleanMd);
+   806→      setCopied(true);
+   807→      setTimeout(() => setCopied(false), 1800);
+   808→      toast.success(locale === "ar" ? "تم نسخ الإجابة" : "Answer copied");
+   809→    } catch {
+   810→      toast.error(locale === "ar" ? "تعذّر النسخ" : "Couldn't copy");
+   811→    }
+   812→  };
+   813→
+   814→  const handleCopyAnswerId = async () => {
+   815→    try {
+   816→      await navigator.clipboard.writeText(answer.answerId);
+   817→      toast.success(locale === "ar" ? "تم نسخ مُعرّف الإجابة" : "Answer ID copied");
+   818→    } catch {
+   819→      toast.error(locale === "ar" ? "تعذّر النسخ" : "Couldn't copy");
+   820→    }
+   821→  };
+   822→
+   823→  const handleShareOwner = () => {
+   824→    if (!answer.ownerHint) {
+   825→      toast.info(
+   826→        locale === "ar"
+   827→          ? "لا يوجد مالك محدد لهذه الإجابة"
+   828→          : "No named owner for this answer",
+   829→      );
+   830→      return;
+   831→    }
+   832→    const subject = encodeURIComponent(
+   833→      locale === "ar"
+   834→        ? `سؤال عن السياسة: ${cleanMd.slice(0, 60)}…`
+   835→        : `Policy question: ${cleanMd.slice(0, 60)}…`,
+   836→    );
+   837→    const body = encodeURIComponent(
+   838→      `${locale === "ar" ? "السؤال" : "Question"}:\n${cleanMd}\n\n${locale === "ar" ? "مُعرّف الإجابة" : "Answer ID"}: ${answer.answerId}`,
+   839→    );
+   840→    window.location.href = `mailto:${answer.ownerHint.email}?subject=${subject}&body=${body}`;
+   841→  };
+   842→
+   843→  const handleWrong = () => {
+   844→    setWrongReported(true);
+   845→    toast.success(
+   846→      locale === "ar"
+   847→        ? "شكراً — سيراجع الفريق هذه الإجابة"
+   848→        : "Thanks — the team will review this answer",
+   849→    );
+   850→  };
+   851→
+   852→  const isStale = answer.degraded.includes("policy_stale");
+   853→
+   854→  return (
+   855→    <div
+   856→      className="ast-card p-4 sm:p-5"
+   857→      style={isStale ? { borderColor: "rgba(217,119,6,0.40)" } : undefined}
+   858→    >
+   859→      {/* Stale banner */}
+   860→      {isStale && (
+   861→        <div
+   862→          className="flex items-start gap-2 mb-3 p-3 rounded-md text-[12px]"
+   863→          style={{
+   864→            background: "rgba(217,119,6,0.08)",
+   865→            border: "1px solid rgba(217,119,6,0.25)",
+   866→            color: "var(--status-watch)",
+   867→          }}
+   868→          role="status"
+   869→        >
+   870→          <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={1.75} />
+   871→          <span>
+   872→            {locale === "ar"
+   873→              ? "بحث السياسة أعاد وثيقة قديمة — يرجى التأكيد مع المالك."
+   874→              : "Policy search returned a stale document — please confirm with the owner."}
+   875→          </span>
+   876→        </div>
+   877→      )}
+   878→
+   879→      {/* "Say it simply" toggle (PRD §01-016) — pill button + Simple badge */}
+   880→      <div className="flex items-center gap-2 mb-3">
+   881→        <button
+   882→          type="button"
+   883→          onClick={() => setSimple((v) => !v)}
+   884→          aria-pressed={simple}
+   885→          aria-label={locale === "ar" ? "ببساطة" : "Say it simply"}
+   886→          className="ast-focus inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium transition-colors"
+   887→          style={{
+   888→            background: simple ? "rgba(22,154,165,0.12)" : "var(--surface-2)",
+   889→            border: `1px solid ${simple ? "rgba(22,154,165,0.40)" : "var(--border)"}`,
+   890→            color: simple ? "var(--brand-400)" : "var(--text-mid)",
+   891→          }}
+   892→        >
+   893→          <Sparkles className="w-3.5 h-3.5" strokeWidth={1.75} />
+   894→          {locale === "ar" ? "ببساطة" : "Say it simply"}
+   895→        </button>
+   896→        <AnimatePresence initial={false}>
+   897→          {simple && (
+   898→            <motion.span
+   899→              initial={{ opacity: 0, scale: 0.92 }}
+   900→              animate={{ opacity: 1, scale: 1 }}
+   901→              exit={{ opacity: 0, scale: 0.92 }}
+   902→              transition={{ duration: 0.14 }}
+   903→              className="ast-chip"
+   904→              style={{
+   905→                color: "var(--brand-400)",
+   906→                background: "rgba(22,154,165,0.06)",
+   907→                borderColor: "rgba(22,154,165,0.30)",
+   908→              }}
+   909→            >
+   910→              {locale === "ar" ? "مبسّط" : "Simple"}
+   911→            </motion.span>
+   912→          )}
+   913→        </AnimatePresence>
+   914→      </div>
+   915→
+   916→      {/* Answer body (streamed, or first-sentence-only when simple is on) */}
+   917→      <div
+   918→        className="text-[15px] leading-relaxed"
+   919→        style={{ color: "var(--text-hi)" }}
+   920→      >
+   921→        {displayMd ? (
+   922→          <ReactMarkdown
+   923→            components={{
+   924→              p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+   925→              em: ({ children }) => (
+   926→                <em style={{ color: "var(--text-mid)" }}>{children}</em>
+   927→              ),
+   928→              strong: ({ children }) => (
+   929→                <strong style={{ color: "var(--text-hi)" }}>{children}</strong>
+   930→              ),
+   931→            }}
+   932→          >
+   933→            {displayMd}
+   934→          </ReactMarkdown>
+   935→        ) : (
+   936→          <span style={{ color: "var(--text-lo)" }}>…</span>
+   937→        )}
+   938→        {!done && !simple && (
+   939→          <span
+   940→            aria-hidden="true"
+   941→            className="inline-block w-[2px] h-4 ml-0.5 align-middle ast-pulse-ring"
+   942→            style={{ background: "var(--brand-400)" }}
+   943→          />
+   944→        )}
+   945→      </div>
+   946→
+   947→      {/* Sources row — collapsed to chips by default */}
+   948→      {answer.citations.length > 0 && (
+   949→        <div className="mt-4 pt-4 border-t border-[var(--border-soft)]">
+   950→          <button
+   951→            onClick={() => setSourcesOpen((v) => !v)}
+   952→            className="ast-focus inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em]"
+   953→            style={{ color: "var(--brand-400)" }}
+   954→            aria-expanded={sourcesOpen}
+   955→          >
+   956→            <FileText className="w-3.5 h-3.5" strokeWidth={1.75} />
+   957→            {locale === "ar" ? "المصادر" : "Sources"}
+   958→            <span className="tabular">({answer.citations.length})</span>
+   959→            {sourcesOpen ? (
+   960→              <ChevronUp className="w-3.5 h-3.5" strokeWidth={1.75} />
+   961→            ) : (
+   962→              <ChevronDown className="w-3.5 h-3.5" strokeWidth={1.75} />
+   963→            )}
+   964→          </button>
+   965→
+   966→          {/* Chips row — always visible (collapsed) */}
+   967→          {!sourcesOpen && (
+   968→            <div className="mt-2 flex flex-wrap gap-2">
+   969→              {answer.citations.map((c) => (
+   970→                <CitationHover key={c.chunkId}>
+   971→                  <CitationChip citation={c} locale={locale} />
+   972→                </CitationHover>
+   973→              ))}
+   974→            </div>
+   975→          )}
+   976→
+   977→          {/* Expanded snippets */}
+   978→          <AnimatePresence initial={false}>
+   979→            {sourcesOpen && (
+   980→              <motion.div
+   981→                initial={{ opacity: 0, height: 0 }}
+   982→                animate={{ opacity: 1, height: "auto" }}
+   983→                exit={{ opacity: 0, height: 0 }}
+   984→                transition={{ duration: 0.2 }}
+   985→                className="mt-3 space-y-2 overflow-hidden"
+   986→              >
+   987→                {answer.citations.map((c, i) => (
+   988→                  <div
+   989→                    key={c.chunkId}
+   990→                    className="ast-card-2 p-3"
+   991→                  >
+   992→                    <div className="flex items-center justify-between gap-2 mb-1.5">
+   993→                      <CitationHover>
+   994→                        <CitationChip citation={c} locale={locale} />
+   995→                      </CitationHover>
+   996→                      <span
+   997→                        className="text-[10px] tabular font-mono shrink-0"
+   998→                        style={{ color: "var(--text-lo)" }}
+   999→                      >
+  1000→                        [{i + 1}]
+  1001→                      </span>
+  1002→                    </div>
+  1003→                    <p
+  1004→                      className="text-[12px] leading-relaxed"
+  1005→                      style={{ color: "var(--text-mid)" }}
+  1006→                    >
+  1007→                      “{c.snippet}”
+  1008→                    </p>
+  1009→                    <p
+  1010→                      className="text-[10px] mt-2 tabular"
+  1011→                      style={{ color: "var(--text-lo)" }}
+  1012→                    >
+  1013→                      {locale === "ar" ? "ساري منذ" : "Effective"}{" "}
+  1014→                      {format(new Date(c.effectiveDate), "d MMM yyyy")}
+  1015→                      {" · "}
+  1016→                      {locale === "ar" ? "يُراجع في" : "review"}{" "}
+  1017→                      {format(new Date(c.reviewDate), "d MMM yyyy")}
+  1018→                    </p>
+  1019→                  </div>
+  1020→                ))}
+  1021→              </motion.div>
+  1022→            )}
+  1023→          </AnimatePresence>
+  1024→        </div>
+  1025→      )}
+  1026→
+  1027→      {/* Footer: answer id + last checked + actions */}
+  1028→      <div className="mt-4 pt-4 border-t border-[var(--border-soft)] flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+  1029→        <button
+  1030→          onClick={handleCopyAnswerId}
+  1031→          className="ast-focus inline-flex items-center gap-1.5 h-7 px-2 rounded-md text-[10px] font-mono tabular shrink-0 transition-colors hover:bg-[var(--surface-2)]"
+  1032→          style={{ color: "var(--text-lo)" }}
+  1033→          title={locale === "ar" ? "نسخ مُعرّف الإجابة" : "Copy answer ID"}
+  1034→        >
+  1035→          <Hash className="w-3 h-3" strokeWidth={1.75} />
+  1036→          {answer.answerId}
+  1037→        </button>
+  1038→        <span
+  1039→          className="inline-flex items-center gap-1.5 text-[10px] tabular shrink-0"
+  1040→          style={{ color: "var(--text-lo)" }}
+  1041→        >
+  1042→          <Clock className="w-3 h-3" strokeWidth={1.75} />
+  1043→          {locale === "ar" ? "آخر فحص" : "Last checked"}{" "}
+  1044→          {format(PACK_NOW, "d MMM yyyy HH:mm")}
+  1045→        </span>
+  1046→        {/* Grounding score — animated ticker */}
+  1047→        <span
+  1048→          className="inline-flex items-center gap-1.5 text-[10px] tabular shrink-0"
+  1049→          style={{ color: "var(--text-lo)" }}
+  1050→          title={locale === "ar" ? "درجة التحقق من المصدر" : "How well the answer is backed by cited sources"}
+  1051→        >
+  1052→          <ShieldAlert className="w-3 h-3" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+  1053→          {locale === "ar" ? "تثبيت" : "Grounding"}{" "}
+  1054→          <span style={{ color: "var(--brand-400)" }}>
+  1055→            <NumberTicker
+  1056→              value={Math.round(answer.groundingScore * 100)}
+  1057→              suffix="%"
+  1058→            />
+  1059→          </span>
+  1060→        </span>
+  1061→
+  1062→        <div className="sm:ml-auto flex items-center gap-1.5 flex-wrap">
+  1063→          <button
+  1064→            onClick={handleCopyAnswer}
+  1065→            className="ast-focus inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[11px] font-medium transition-colors hover:bg-[var(--surface-2)]"
+  1066→            style={{ color: "var(--text-mid)" }}
+  1067→          >
+  1068→            {copied ? (
+  1069→              <Check
+  1070→                className="w-3.5 h-3.5"
+  1071→                strokeWidth={1.75}
+  1072→                style={{ color: "var(--status-steady)" }}
+  1073→              />
+  1074→            ) : (
+  1075→              <Copy className="w-3.5 h-3.5" strokeWidth={1.75} />
+  1076→            )}
+  1077→            {locale === "ar" ? "نسخ" : "Copy"}
+  1078→          </button>
+  1079→          {answer.ownerHint && (
+  1080→            <button
+  1081→              onClick={handleShareOwner}
+  1082→              className="ast-focus inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[11px] font-medium transition-colors hover:bg-[var(--surface-2)]"
+  1083→              style={{ color: "var(--text-mid)" }}
+  1084→            >
+  1085→              <Share2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+  1086→              {locale === "ar" ? "إرسال للمالك" : "Share to owner"}
+  1087→            </button>
+  1088→          )}
+  1089→          <button
+  1090→            onClick={handleWrong}
+  1091→            disabled={wrongReported}
+  1092→            className="ast-focus inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[11px] font-medium transition-colors hover:bg-[var(--surface-2)] disabled:opacity-50"
+  1093→            style={
+  1094→              wrongReported
+  1095→                ? { color: "var(--status-steady)" }
+  1096→                : { color: "var(--text-mid)" }
+  1097→            }
+  1098→          >
+  1099→            {wrongReported ? (
+  1100→              <Check className="w-3.5 h-3.5" strokeWidth={1.75} />
+  1101→            ) : (
+  1102→              <ThumbsDown className="w-3.5 h-3.5" strokeWidth={1.75} />
+  1103→            )}
+  1104→            {wrongReported
+  1105→              ? locale === "ar"
+  1106→                ? "تم الإبلاغ"
+  1107→                : "Reported"
+  1108→              : locale === "ar"
+  1109→                ? "هذا خطأ"
+  1110→                : "This was wrong"}
+  1111→          </button>
+  1112→        </div>
+  1113→      </div>
+  1114→
+  1115→      {/* Follow-ups */}
+  1116→      {answer.followUps.length > 0 && (
+  1117→        <div className="mt-3 flex flex-wrap gap-1.5">
+  1118→          {answer.followUps.map((f) => (
+  1119→            <button
+  1120→              key={f}
+  1121→              onClick={() => onFollowUp(f)}
+  1122→              className="ast-focus ast-chip transition-all hover:-translate-y-0.5 hover:border-[var(--brand-500)]"
+  1123→              style={{
+  1124→                color: "var(--brand-400)",
+  1125→                background: "rgba(22,154,165,0.06)",
+  1126→                borderColor: "rgba(22,154,165,0.22)",
+  1127→                cursor: "pointer",
+  1128→                height: 28,
+  1129→                paddingInline: 10,
+  1130→              }}
+  1131→            >
+  1132→              <Sparkles className="w-3 h-3" strokeWidth={1.75} />
+  1133→              <span className="max-w-[260px] truncate">{f}</span>
+  1134→            </button>
+  1135→          ))}
+  1136→        </div>
+  1137→      )}
+  1138→
+  1139→      {/* Start this request CTA — only if answer has an actionable next step */}
+  1140→      {answer.citations.length > 0 && (
+  1141→        <div className="mt-3">
+  1142→          <StartRequestInline
+  1143→            locale={locale}
+  1144→            onStart={onStartRequest}
+  1145→          />
+  1146→        </div>
+  1147→      )}
+  1148→    </div>
+  1149→  );
+  1150→}
+  1151→
+  1152→/* ============================================================
+  1153→   Abstain / handoff card (kind: "abstain")
+  1154→   - Plain-language EN/AR copy
+  1155→   - Named owner with role + email
+  1156→   - Editable prefilled question + Send to {owner} button
+  1157→   - "What I won't do: guess" line
+  1158→   - out_of_scope + journey/action intent → route to Today / Requests
+  1159→   ============================================================ */
+  1160→
+  1161→function AbstainCard({
+  1162→  answer,
+  1163→  question,
+  1164→  locale,
+  1165→  onFollowUp,
+  1166→  onViewJourney,
+  1167→  onViewRequests,
+  1168→}: {
+  1169→  answer: PolicyAnswer;
+  1170→  question: string;
+  1171→  locale: "en" | "ar";
+  1172→  onFollowUp: (q: string) => void;
+  1173→  onViewJourney: () => void;
+  1174→  onViewRequests: () => void;
+  1175→}) {
+  1176→  const [editQ, setEditQ] = useState(question);
+  1177→  const [sending, setSending] = useState(false);
+  1178→
+  1179→  const reasonEn = answer.abstainReasonEn ?? "I'm not sure, and I won't guess.";
+  1180→  const reasonAr = answer.abstainReasonAr ?? "لست متأكداً، ولن أخمن.";
+  1181→  const reason = locale === "ar" ? reasonAr : reasonEn;
+  1182→  const owner = answer.ownerHint;
+  1183→
+  1184→  const isOosRoute =
+  1185→    answer.abstainReasonCode === "out_of_scope" &&
+  1186→    /journey|action/i.test(answer.abstainReasonEn ?? "");
+  1187→
+  1188→  const handleSendToOwner = () => {
+  1189→    if (!owner) return;
+  1190→    setSending(true);
+  1191→    const subject = encodeURIComponent(
+  1192→      locale === "ar" ? "سؤال من موظف عبر ASTROLABE" : "Employee question via ASTROLABE",
+  1193→    );
+  1194→    const body = encodeURIComponent(
+  1195→      `${locale === "ar" ? "السؤال" : "Question"}:\n${editQ}\n\n${locale === "ar" ? "مُعرّف الإجابة" : "Answer ID"}: ${answer.answerId}`,
+  1196→    );
+  1197→    window.location.href = `mailto:${owner.email}?subject=${subject}&body=${body}`;
+  1198→    setTimeout(() => setSending(false), 600);
+  1199→  };
+  1200→
+  1201→  return (
+  1202→    <div
+  1203→      className="ast-card p-4 sm:p-5"
+  1204→      style={{ borderColor: "rgba(201,162,39,0.30)" }}
+  1205→      aria-label={locale === "ar" ? "إحالة إلى مالك" : "Handoff to owner"}
+  1206→    >
+  1207→      {/* Header — handoff, not failure */}
+  1208→      <div className="flex items-start gap-3 mb-3">
+  1209→        <div
+  1210→          className="flex items-center justify-center w-9 h-9 rounded-full shrink-0"
+  1211→          style={{
+  1212→            background: "rgba(201,162,39,0.12)",
+  1213→            color: "var(--accent-500)",
+  1214→          }}
+  1215→          aria-hidden="true"
+  1216→        >
+  1217→          <Compass className="w-4.5 h-4.5" strokeWidth={1.75} />
+  1218→        </div>
+  1219→        <div className="flex-1 min-w-0">
+  1220→          <h3
+  1221→            className="text-[15px] font-semibold leading-snug"
+  1222→            style={{ color: "var(--text-hi)" }}
+  1223→          >
+  1224→            {locale === "ar"
+  1225→              ? "أُحيلك إلى من يعرف هذه."
+  1226→              : "I'll hand you to someone who knows this one."}
+  1227→          </h3>
+  1228→          <p
+  1229→            className="text-[13px] mt-1 leading-relaxed"
+  1230→            style={{ color: "var(--text-mid)" }}
+  1231→          >
+  1232→            {reason}
+  1233→          </p>
+  1234→        </div>
+  1235→      </div>
+  1236→
+  1237→      {/* "What I won't do: guess" — explicit boundary */}
+  1238→      <div
+  1239→        className="mb-3 p-3 rounded-md flex items-start gap-2"
+  1240→        style={{
+  1241→          background: "var(--surface-2)",
+  1242→          border: "1px solid var(--border)",
+  1243→        }}
+  1244→      >
+  1245→        <Ban
+  1246→          className="w-3.5 h-3.5 shrink-0 mt-0.5"
+  1247→          strokeWidth={1.75}
+  1248→          style={{ color: "var(--status-friction)" }}
+  1249→        />
+  1250→        <p
+  1251→          className="text-[12px] leading-relaxed"
+  1252→          style={{ color: "var(--text-mid)" }}
+  1253→        >
+  1254→          {locale === "ar"
+  1255→            ? "ما لن أفعله: التخمين. لم أصنع إجابة من لا شيء."
+  1256→            : "What I won't do: guess. I didn't fabricate an answer from nothing."}
+  1257→        </p>
+  1258→      </div>
+  1259→
+  1260→      {/* Named owner with role + email */}
+  1261→      {owner && (
+  1262→        <div
+  1263→          className="ast-card-2 p-3.5 mb-3 flex items-center gap-3"
+  1264→        >
+  1265→          <div
+  1266→            className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
+  1267→            style={{
+  1268→              background: "rgba(22,154,165,0.10)",
+  1269→              color: "var(--brand-400)",
+  1270→            }}
+  1271→            aria-hidden="true"
+  1272→          >
+  1273→            <Mail className="w-4 h-4" strokeWidth={1.75} />
+  1274→          </div>
+  1275→          <div className="flex-1 min-w-0">
+  1276→            <p
+  1277→              className="text-[14px] font-semibold leading-tight truncate"
+  1278→              style={{ color: "var(--text-hi)" }}
+  1279→            >
+  1280→              {owner.name}
+  1281→            </p>
+  1282→            <p
+  1283→              className="text-[12px] truncate"
+  1284→              style={{ color: "var(--text-mid)" }}
+  1285→            >
+  1286→              {owner.role}
+  1287→            </p>
+  1288→            <p
+  1289→              className="text-[11px] font-mono tabular truncate"
+  1290→              style={{ color: "var(--text-lo)" }}
+  1291→            >
+  1292→              {owner.email}
+  1293→            </p>
+  1294→          </div>
+  1295→        </div>
+  1296→      )}
+  1297→
+  1298→      {/* Out-of-scope journey/action route — buttons instead of mailto */}
+  1299→      {isOosRoute ? (
+  1300→        <div className="flex flex-col sm:flex-row gap-2">
+  1301→          <button
+  1302→            onClick={onViewJourney}
+  1303→            className="ast-focus inline-flex items-center justify-center gap-2 h-11 px-4 rounded-[10px] text-[13px] font-semibold transition-transform hover:-translate-y-0.5"
+  1304→            style={{
+  1305→              background: "var(--brand-500)",
+  1306→              color: "var(--surface-0)",
+  1307→              boxShadow: "0 4px 14px rgba(22,154,165,0.28)",
+  1308→            }}
+  1309→          >
+  1310→            <Compass className="w-4 h-4" strokeWidth={1.75} />
+  1311→            {locale === "ar" ? "اذهب إلى اليوم" : "Go to Today"}
+  1312→          </button>
+  1313→          <button
+  1314→            onClick={onViewRequests}
+  1315→            className="ast-focus inline-flex items-center justify-center gap-2 h-11 px-4 rounded-[10px] text-[13px] font-semibold transition-colors"
+  1316→            style={{
+  1317→              background: "var(--surface-2)",
+  1318→              color: "var(--text-hi)",
+  1319→              border: "1px solid var(--border)",
+  1320→            }}
+  1321→          >
+  1322→            {locale === "ar" ? "اذهب إلى الطلبات" : "Go to Requests"}
+  1323→            <ArrowRight className="w-4 h-4" strokeWidth={1.75} />
+  1324→          </button>
+  1325→        </div>
+  1326→      ) : owner ? (
+  1327→        <div className="space-y-2">
+  1328→          <label
+  1329→            className="text-[11px] font-semibold uppercase tracking-[0.12em]"
+  1330→            style={{ color: "var(--text-lo)" }}
+  1331→          >
+  1332→            {locale === "ar" ? "راسلهم بهذا السؤال" : "Send them this question"}
+  1333→          </label>
+  1334→          <textarea
+  1335→            value={editQ}
+  1336→            onChange={(e) => setEditQ(e.target.value)}
+  1337→            rows={2}
+  1338→            className="ast-focus w-full resize-none rounded-md px-3 py-2 text-[14px] leading-relaxed bg-[var(--surface-2)] outline-none"
+  1339→            style={{
+  1340→              color: "var(--text-hi)",
+  1341→              border: "1px solid var(--border)",
+  1342→            }}
+  1343→          />
+  1344→          <button
+  1345→            onClick={handleSendToOwner}
+  1346→            disabled={sending || !editQ.trim()}
+  1347→            className="ast-focus inline-flex items-center justify-center gap-2 h-11 px-5 rounded-[10px] text-[13px] font-semibold transition-transform hover:-translate-y-0.5 disabled:opacity-50"
+  1348→            style={{
+  1349→              background: "var(--accent-500)",
+  1350→              color: "var(--surface-0)",
+  1351→              boxShadow: "0 4px 14px rgba(201,162,39,0.28)",
+  1352→            }}
+  1353→          >
+  1354→            <Send className="w-4 h-4" strokeWidth={2} />
+  1355→            {sending
+  1356→              ? locale === "ar"
+  1357→                ? "جارٍ الفتح…"
+  1358→                : "Opening…"
+  1359→              : locale === "ar"
+  1360→                ? `أرسل إلى ${owner.name}`
+  1361→                : `Send to ${owner.name}`}
+  1362→          </button>
+  1363→        </div>
+  1364→      ) : null}
+  1365→
+  1366→      {/* Follow-ups even on abstain */}
+  1367→      {answer.followUps.length > 0 && (
+  1368→        <div className="mt-3 pt-3 border-t border-[var(--border-soft)] flex flex-wrap gap-1.5">
+  1369→          {answer.followUps.map((f) => (
+  1370→            <button
+  1371→              key={f}
+  1372→              onClick={() => onFollowUp(f)}
+  1373→              className="ast-focus ast-chip transition-all hover:-translate-y-0.5 hover:border-[var(--brand-500)]"
+  1374→              style={{
+  1375→                color: "var(--brand-400)",
+  1376→                background: "rgba(22,154,165,0.06)",
+  1377→                borderColor: "rgba(22,154,165,0.22)",
+  1378→                cursor: "pointer",
+  1379→                height: 28,
+  1380→                paddingInline: 10,
+  1381→              }}
+  1382→            >
+  1383→              <Sparkles className="w-3 h-3" strokeWidth={1.75} />
+  1384→              <span className="max-w-[260px] truncate">{f}</span>
+  1385→            </button>
+  1386→          ))}
+  1387→        </div>
+  1388→      )}
+  1389→    </div>
+  1390→  );
+  1391→}
+  1392→
+  1393→/* ============================================================
+  1394→   "Start this request" inline CTA — sand-gold accent
+  1395→   ============================================================ */
+  1396→
+  1397→function StartRequestInline({
+  1398→  locale,
+  1399→  onStart,
+  1400→}: {
+  1401→  locale: "en" | "ar";
+  1402→  onStart: (type: string) => void;
+  1403→}) {
+  1404→  const [open, setOpen] = useState(false);
+  1405→  const types: { value: string; labelEn: string; labelAr: string }[] = [
+  1406→    { value: "it_kit", labelEn: "IT kit", labelAr: "جهاز تقنية" },
+  1407→    { value: "system_access", labelEn: "System access", labelAr: "وصول للأنظمة" },
+  1408→    { value: "relocation", labelEn: "Relocation", labelAr: "انتقال" },
+  1409→    { value: "training", labelEn: "Training", labelAr: "تدريب" },
+  1410→  ];
+  1411→  return (
+  1412→    <div>
+  1413→      <button
+  1414→        onClick={() => setOpen((v) => !v)}
+  1415→        className="ast-focus inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em]"
+  1416→        style={{ color: "var(--accent-500)" }}
+  1417→        aria-expanded={open}
+  1418→      >
+  1419→        <Star className="w-3.5 h-3.5" strokeWidth={1.75} />
+  1420→        {locale === "ar" ? "ابدأ طلباً ذا صلة" : "Start a related request"}
+  1421→        {open ? (
+  1422→          <ChevronUp className="w-3.5 h-3.5" strokeWidth={1.75} />
+  1423→        ) : (
+  1424→          <ChevronDown className="w-3.5 h-3.5" strokeWidth={1.75} />
+  1425→        )}
+  1426→      </button>
+  1427→      <AnimatePresence initial={false}>
+  1428→        {open && (
+  1429→          <motion.div
+  1430→            initial={{ opacity: 0, height: 0 }}
+  1431→            animate={{ opacity: 1, height: "auto" }}
+  1432→            exit={{ opacity: 0, height: 0 }}
+  1433→            transition={{ duration: 0.18 }}
+  1434→            className="mt-2 overflow-hidden"
+  1435→          >
+  1436→            <div className="flex flex-wrap gap-1.5">
+  1437→              {types.map((t) => (
+  1438→                <button
+  1439→                  key={t.value}
+  1440→                  onClick={() => onStart(t.value)}
+  1441→                  className="ast-focus ast-chip transition-all hover:-translate-y-0.5"
+  1442→                  style={{
+  1443→                    color: "var(--accent-500)",
+  1444→                    background: "rgba(201,162,39,0.06)",
+  1445→                    borderColor: "rgba(201,162,39,0.30)",
+  1446→                    cursor: "pointer",
+  1447→                    height: 28,
+  1448→                    paddingInline: 10,
+  1449→                  }}
+  1450→                >
+  1451→                  <ArrowRight className="w-3 h-3" strokeWidth={1.75} />
+  1452→                  {locale === "ar" ? t.labelAr : t.labelEn}
+  1453→                </button>
+  1454→              ))}
+  1455→            </div>
+  1456→          </motion.div>
+  1457→        )}
+  1458→      </AnimatePresence>
+  1459→    </div>
+  1460→  );
+  1461→}
+  1462→
+  1463→/* ============================================================
+  1464→   Error card with retry
+  1465→   ============================================================ */
+  1466→
+  1467→function ErrorCard({
+  1468→  message,
+  1469→  locale,
+  1470→  onRetry,
+  1471→}: {
+  1472→  message: string;
+  1473→  locale: "en" | "ar";
+  1474→  onRetry: () => void;
+  1475→}) {
+  1476→  return (
+  1477→    <div
+  1478→      className="ast-card p-4 flex flex-col sm:flex-row sm:items-center gap-3"
+  1479→      role="alert"
+  1480→      style={{ borderColor: "rgba(220,38,38,0.40)" }}
+  1481→    >
+  1482→      <div
+  1483→        className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
+  1484→        style={{ background: "rgba(220,38,38,0.12)", color: "var(--status-friction)" }}
+  1485→      >
+  1486→        <AlertTriangle className="w-5 h-5" strokeWidth={1.75} />
+  1487→      </div>
+  1488→      <div className="flex-1 min-w-0">
+  1489→        <p
+  1490→          className="text-[14px] font-medium"
+  1491→          style={{ color: "var(--text-hi)" }}
+  1492→        >
+  1493→          {locale === "ar"
+  1494→            ? "تعذّر الوصول إلى خدمة السياسة."
+  1495→            : "Couldn't reach the policy service."}
+  1496→        </p>
+  1497→        <p className="text-[12px] mt-1" style={{ color: "var(--text-mid)" }}>
+  1498→          {message}
+  1499→        </p>
+  1500→      </div>
+  1501→      <button
+  1502→        onClick={onRetry}
+  1503→        className="ast-focus inline-flex items-center justify-center gap-2 h-11 px-4 rounded-[10px] text-[13px] font-medium shrink-0"
+  1504→        style={{
+  1505→          background: "var(--surface-2)",
+  1506→          color: "var(--text-hi)",
+  1507→          border: "1px solid var(--border)",
+  1508→        }}
+  1509→      >
+  1510→        <RotateCcw className="w-4 h-4" strokeWidth={1.75} />
+  1511→        {locale === "ar" ? "إعادة" : "Retry"}
+  1512→      </button>
+  1513→    </div>
+  1514→  );
+  1515→}
+  1516→

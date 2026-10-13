@@ -96,6 +96,22 @@ export interface JourneyEvent {
   payloadHash: string;
 }
 
+/**
+ * Structured "needs more info" question attached to a service request when a
+ * service owner returns it for clarification (PRD §11-212). This is NOT a
+ * free-text email — it carries the standard question the owner picked, an
+ * optional free-text additional-detail, and the named owner + timestamp so
+ * the employee knows exactly who to answer and when it was asked.
+ */
+export interface ReturnQuestion {
+  question: string;
+  additionalDetail?: string;
+  returnedBy: string;
+  returnedAt: string;
+  /** Optional employee answer (set when they resubmit) — kept for audit. */
+  answer?: string;
+}
+
 export interface ServiceRequest {
   id: string;
   ref: string;
@@ -121,6 +137,8 @@ export interface ServiceRequest {
   returnCount: number;
   parentId?: string;
   idempotencyKey: string;
+  /** Present when status === "returned" and the owner asked a structured question. */
+  returnQuestion?: ReturnQuestion;
 }
 
 export interface PolicyChunk {
@@ -387,12 +405,22 @@ export const serviceRequests: ServiceRequest[] = [
     type: "payroll",
     ownerGroup: "Payroll",
     assignee: "O-PAY-1",
-    status: "in_progress",
+    status: "returned",
     openedAt: hoursAgo(24 * 4),
     slaHours: 48,
     reassignCount: 0,
     returnCount: 1,
     idempotencyKey: "idm-E1044-payroll-20241015",
+    // Seed demo: a structured "needs more info" question from Mona Said in
+    // Payroll so the employee-side return-question card (PRD §11-212) is
+    // visible without a manual flow. PRD §11-212 — "your next move" trigger.
+    returnQuestion: {
+      question: "What's the new bank account IBAN?",
+      additionalDetail:
+        "The one on file ends in 4521 — is that still correct?",
+      returnedBy: "Mona Said",
+      returnedAt: "2024-10-18T14:00:00Z",
+    },
   },
   {
     // A fresh IT request in `submitted` state — lets the service owner

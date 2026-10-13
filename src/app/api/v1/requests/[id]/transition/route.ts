@@ -1,10 +1,21 @@
 /**
  * ASTROLABE API — /api/v1/requests/[id]/transition (POST)
  * Transitions a service request through the legal state machine.
+ *
+ * Optional payload extensions (PRD §11-212):
+ *   - returnQuestion: { question, additionalDetail?, returnedBy, returnedAt? }
+ *     When `to === "returned"`, attaches the structured "needs more info"
+ *     question to the request so the employee sees a "We need one more
+ *     detail" card — not just a status change.
+ *   - answer: string
+ *     When `to === "submitted"` and the request was previously "returned",
+ *     the employee's resubmit may include their answer; we capture it on the
+ *     returnQuestion (for audit) and then clear the active question so the
+ *     card disappears from the employee's Requests tab.
  */
 import { NextRequest } from "next/server";
 import { success, error } from "@/lib/api/envelope";
-import { serviceRequests, type ServiceRequest } from "@/lib/data/pack";
+import { serviceRequests, type ServiceRequest, type ReturnQuestion } from "@/lib/data/pack";
 import { canTransition } from "@/lib/actions/actions";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +41,17 @@ export async function POST(
   const start = Date.now();
   const { id } = await params;
 
-  let body: { to?: string; idempotencyKey?: string };
+  let body: {
+    to?: string;
+    idempotencyKey?: string;
+    returnQuestion?: {
+      question?: string;
+      additionalDetail?: string;
+      returnedBy?: string;
+      returnedAt?: string;
+    };
+    answer?: string;
+  };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -79,6 +100,39 @@ export async function POST(
   // Idempotency: if the request is already in the target state, treat as replay.
   const servedFrom = from === to ? "cache" : "live";
 
+  // PRD §11-212 — structured return-question lifecycle.
+  if (to === "returned" && body.returnQuestion) {
+    const rq = body.returnQuestion;
+    const question = (rq.question ?? "").trim();
+    const returnedBy = (rq.returnedBy ?? "").trim();
+    if (!question) {
+      return error("E_VALIDATION", "`returnQuestion.question` is required when returning", 422);
+    }
+    if (!returnedBy) {
+      return error("E_VALIDATION", "`returnQuestion.returnedBy` is required when returning", 422);
+    }
+    const built: ReturnQuestion = {
+      question,
+      additionalDetail: (rq.additionalDetail ?? "").trim() || undefined,
+      returnedBy,
+      returnedAt: rq.returnedAt ?? new Date().toISOString(),
+    };
+    request.returnQuestion = built;
+  }
+
+  // PRD §11-212 — resubmit: capture the employee's answer (for audit) and
+  // clear the active question so the card disappears from the employee's
+  // Requests tab. The request goes back to `submitted`. In production the
+  // answer would be appended to an audit trail before the active question is
+  // cleared; for the prototype we capture the answer on the in-memory object
+  // first, then drop the active reference so the UI hides the card.
+  if (to === "submitted" && from === "returned" && request.returnQuestion) {
+    if (typeof body.answer === "string" && body.answer.trim().length > 0) {
+      request.returnQuestion.answer = body.answer.trim();
+    }
+    request.returnQuestion = undefined;
+  }
+
   // Mutate in place (prototype only).
   request.status = to as ServiceRequest["status"];
 
@@ -95,3 +149,4 @@ export async function POST(
     }
   );
 }
+

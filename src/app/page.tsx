@@ -5,6 +5,7 @@ import {
   motion,
   AnimatePresence,
   useMotionValue,
+  useScroll,
   useTransform,
   type MotionValue,
 } from "framer-motion";
@@ -26,6 +27,7 @@ import { ServiceOwnerScreen } from "@/components/astrolabe/service-owner-screen"
 import { Astrolabe3D } from "@/components/three/astrolabe";
 import { NotificationsBell } from "@/components/astrolabe/notifications-bell";
 import { ConstellationBg } from "@/components/astrolabe/constellation-bg";
+import { PolicySearchModal } from "@/components/astrolabe/policy-search";
 
 type View = "today" | "journey" | "ask" | "requests" | "me";
 type Role = "employee" | "hrbp" | "manager" | "judge" | "admin" | "service_owner";
@@ -485,9 +487,13 @@ export default function Home() {
             onRole={(r) => { setRole(r); setCommandPalette(false); }}
             onEmployee={(id) => { setEmployee(id); setCommandPalette(false); }}
             onLocale={() => { setLocale(locale === "en" ? "ar" : "en"); setCommandPalette(false); }}
+            onPolicySearch={() => { useAppStore.getState().setPolicySearchOpen(true); setCommandPalette(false); }}
           />
         )}
       </AnimatePresence>
+
+      {/* ========== GLOBAL POLICY SEARCH MODAL (PRD §18-347) ========== */}
+      <PolicySearchModal />
     </div>
   );
 }
@@ -541,6 +547,15 @@ function HeroParallax() {
   // Hero text: 4px in the same direction as the cursor.
   const textX: MotionValue<number> = useTransform(mx, [-0.5, 0.5], [-4, 4]);
   const textY: MotionValue<number> = useTransform(my, [-0.5, 0.5], [-4, 4]);
+
+  // Scroll-linked rotation — as the user scrolls down, the astrolabe
+  // slowly rotates up to 30deg over the first 200px of scroll. Creates
+  // a "the instrument turns as you navigate" effect. Desktop-only and
+  // reduced-motion-aware (the rotate MotionValue is only applied when
+  // `enabled` is true; under reduced-motion the astrolabe renders
+  // static, matching the existing cursor-parallax behavior).
+  const { scrollY } = useScroll();
+  const astRotate: MotionValue<number> = useTransform(scrollY, [0, 200], [0, 30]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!enabled) return;
@@ -631,7 +646,7 @@ function HeroParallax() {
 
         <motion.div
           className="hidden lg:block relative h-[260px]"
-          style={enabled ? { x: astX, y: astY } : undefined}
+          style={enabled ? { x: astX, y: astY, rotate: astRotate } : undefined}
           transition={{ type: "spring", stiffness: 120, damping: 18 }}
         >
           <Astrolabe3D size={1.05} spin />
@@ -656,12 +671,14 @@ function CommandPalette({
   onRole,
   onEmployee,
   onLocale,
+  onPolicySearch,
 }: {
   onClose: () => void;
   onNavigate: (v: View) => void;
   onRole: (r: Role) => void;
   onEmployee: (id: string) => void;
   onLocale: () => void;
+  onPolicySearch: () => void;
 }) {
   const [query, setQuery] = useState("");
   const locale = useAppStore((s) => s.locale);
@@ -681,6 +698,9 @@ function CommandPalette({
       { id: "judge", label: locale === "ar" ? "قاضٍ" : "Judge", hint: "Engine trace", run: () => onRole("judge") },
       { id: "admin", label: locale === "ar" ? "إدارة" : "Admin", hint: "Operability console", run: () => onRole("admin") },
       { id: "service_owner", label: locale === "ar" ? "مالك الخدمة" : "Service owner", hint: "Intake queue + payload", run: () => onRole("service_owner") },
+    ]},
+    { group: locale === "ar" ? "بحث" : "Search", actions: [
+      { id: "policy-search", label: locale === "ar" ? "ابحث في السياسات" : "Search policies", hint: locale === "ar" ? "عبر كل الوثائق" : "Across all docs", run: onPolicySearch },
     ]},
     { group: locale === "ar" ? "السيناريو" : "Scenario", actions: EMPLOYEES.map((e) => ({
       id: e.id, label: `${e.id} · ${e.name}`, hint: e.journey, run: () => onEmployee(e.id),

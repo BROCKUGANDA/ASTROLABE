@@ -23,6 +23,8 @@ import {
   ChevronUp,
   Mail,
   ShieldAlert,
+  ShieldCheck,
+  HandHeart,
   Star,
   ArrowRight,
   Clock,
@@ -34,11 +36,12 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
-import { CitationChip } from "@/components/astrolabe/widgets";
 import {
-  CitationHover,
   NumberTicker,
+  Tilt3D,
 } from "@/components/astrolabe/micro-interactions";
+import { PolicySearchTriggerButton } from "@/components/astrolabe/policy-search";
+import { SourcePreviewModal } from "@/components/astrolabe/source-preview-modal";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -171,6 +174,8 @@ export function AskScreen() {
   const currentEmployeeId = useAppStore((s) => s.currentEmployeeId);
   const setView = useAppStore((s) => s.setView);
   const setActiveRequestType = useAppStore((s) => s.setActiveRequestType);
+  const askPrefill = useAppStore((s) => s.askPrefill);
+  const setAskPrefill = useAppStore((s) => s.setAskPrefill);
 
   const [question, setQuestion] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -193,6 +198,21 @@ export function AskScreen() {
     setQuestion("");
     setActiveStage(-1);
   }, [currentEmployeeId]);
+
+  // PRD §18-347 — when the user clicks "Ask about this instead" inside the
+  // policy search modal, the query is handed to us via `askPrefill`. Drop it
+  // into the textarea, focus, and clear the prefilled value so it doesn't
+  // re-apply on the next render.
+  useEffect(() => {
+    if (askPrefill !== undefined && askPrefill.length > 0) {
+      setQuestion(askPrefill);
+      setAskPrefill(undefined);
+      // Defer focus until after the textarea re-renders with the new value.
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+      });
+    }
+  }, [askPrefill, setAskPrefill]);
 
   const sendQuestion = useCallback(
     async (q: string) => {
@@ -303,7 +323,7 @@ export function AskScreen() {
         >
           <Compass className="w-5 h-5" strokeWidth={1.75} />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1
             className="text-[20px] sm:text-[22px] font-semibold leading-tight"
             style={{ color: "var(--text-hi)" }}
@@ -316,6 +336,17 @@ export function AskScreen() {
               : "Ask me anything about your journey or our policies. I answer from official documents only — and if I'm not sure, I hand you to the right person."}
           </p>
         </div>
+        {/* PRD §18-347 — "Search policies" trigger button. Opens the global
+            policy search modal. Sits next to the heading for parity with the
+            "Say it simply" toggle on each answer card. */}
+        <div className="shrink-0 hidden sm:block">
+          <PolicySearchTriggerButton locale={locale} />
+        </div>
+      </div>
+
+      {/* Mobile: Search policies trigger (below header, above history) */}
+      <div className="sm:hidden mb-3">
+        <PolicySearchTriggerButton locale={locale} />
       </div>
 
       {/* History (last 5 turns) — scrollable */}
@@ -735,6 +766,14 @@ function AnswerCard({
   // "Say it simply" preference — per-question (local state, no persistence
   // needed beyond the life of this card which is keyed by turn.id).
   const [simple, setSimple] = useState(false);
+  // Source preview modal — opens when a 3D citation chip is clicked.
+  const [activeSource, setActiveSource] = useState<Citation | null>(null);
+  const [sourceOpen, setSourceOpen] = useState(false);
+
+  const handleOpenSource = (c: Citation) => {
+    setActiveSource(c);
+    setSourceOpen(true);
+  };
 
   const cleanMd = useMemo(
     () => (answer.answerMarkdown ? stripCitations(answer.answerMarkdown) : ""),
@@ -821,12 +860,43 @@ function AnswerCard({
   };
 
   const isStale = answer.degraded.includes("policy_stale");
+  const isVerified = answer.kind === "answer" && answer.groundingScore >= 0.95;
 
   return (
-    <div
-      className="ast-card p-4 sm:p-5"
+    <>
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 220, damping: 26, duration: 0.32 }}
+      className="ast-card p-4 sm:p-5 relative"
       style={isStale ? { borderColor: "rgba(217,119,6,0.40)" } : undefined}
     >
+      {/* Top accent bar — 2px teal gradient, instrument signature */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 2,
+          background:
+            "linear-gradient(90deg, transparent 0%, var(--brand-500) 30%, var(--brand-400) 70%, transparent 100%)",
+          opacity: 0.7,
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* Verified answer badge — top-right when groundingScore ≥ 0.95 */}
+      {isVerified && (
+        <div
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10"
+          style={{ pointerEvents: "none" }}
+        >
+          <VerifiedAnswerBadge locale={locale} />
+        </div>
+      )}
+
       {/* Stale banner */}
       {isStale && (
         <div
@@ -884,11 +954,26 @@ function AnswerCard({
         </AnimatePresence>
       </div>
 
-      {/* Answer body (streamed, or first-sentence-only when simple is on) */}
+      {/* Answer body — slight left padding with a teal vertical accent
+          line (instrument-themed blockquote). Streaming reveal continues
+          to work inside this wrapper. */}
       <div
-        className="text-[15px] leading-relaxed"
+        className="text-[15px] leading-relaxed pl-3.5 sm:pl-4 relative"
         style={{ color: "var(--text-hi)" }}
       >
+        <span
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 4,
+            bottom: 4,
+            width: 1,
+            background:
+              "linear-gradient(180deg, rgba(22,154,165,0.45), rgba(22,154,165,0.08))",
+            borderRadius: 1,
+          }}
+        />
         {displayMd ? (
           <ReactMarkdown
             components={{
@@ -934,13 +1019,23 @@ function AnswerCard({
             )}
           </button>
 
-          {/* Chips row — always visible (collapsed) */}
+          {/* Chips row — 3D citation chips (Tilt3D + Sparkles + brass dot).
+              Clicking a chip opens the source preview modal (Track 2). */}
           {!sourcesOpen && (
             <div className="mt-2 flex flex-wrap gap-2">
               {answer.citations.map((c) => (
-                <CitationHover key={c.chunkId}>
-                  <CitationChip citation={c} locale={locale} />
-                </CitationHover>
+                <Tilt3D
+                  key={c.chunkId}
+                  maxDeg={3}
+                  as="span"
+                  style={{ display: "inline-flex" }}
+                >
+                  <CitationChip3D
+                    citation={c}
+                    locale={locale}
+                    onOpen={() => handleOpenSource(c)}
+                  />
+                </Tilt3D>
               ))}
             </div>
           )}
@@ -961,9 +1056,17 @@ function AnswerCard({
                     className="ast-card-2 p-3"
                   >
                     <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <CitationHover>
-                        <CitationChip citation={c} locale={locale} />
-                      </CitationHover>
+                      <Tilt3D
+                        maxDeg={3}
+                        as="span"
+                        style={{ display: "inline-flex" }}
+                      >
+                        <CitationChip3D
+                          citation={c}
+                          locale={locale}
+                          onOpen={() => handleOpenSource(c)}
+                        />
+                      </Tilt3D>
                       <span
                         className="text-[10px] tabular font-mono shrink-0"
                         style={{ color: "var(--text-lo)" }}
@@ -1014,21 +1117,14 @@ function AnswerCard({
           {locale === "ar" ? "آخر فحص" : "Last checked"}{" "}
           {format(PACK_NOW, "d MMM yyyy HH:mm")}
         </span>
-        {/* Grounding score — animated ticker */}
-        <span
-          className="inline-flex items-center gap-1.5 text-[10px] tabular shrink-0"
-          style={{ color: "var(--text-lo)" }}
-          title={locale === "ar" ? "درجة التحقق من المصدر" : "How well the answer is backed by cited sources"}
-        >
-          <ShieldAlert className="w-3 h-3" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
-          {locale === "ar" ? "تثبيت" : "Grounding"}{" "}
-          <span style={{ color: "var(--brand-400)" }}>
-            <NumberTicker
-              value={Math.round(answer.groundingScore * 100)}
-              suffix="%"
-            />
-          </span>
-        </span>
+        {/* Grounding meter — animated visual bar + NumberTicker label +
+            verified check (replaces the plain "Grounding · X%" text).
+            Makes the grounding visible at a glance: the employee can SEE
+            that every claim is verified. */}
+        <GroundingMeter
+          score={answer.groundingScore}
+          locale={locale}
+        />
 
         <div className="sm:ml-auto flex items-center gap-1.5 flex-wrap">
           <button
@@ -1116,7 +1212,268 @@ function AnswerCard({
           />
         </div>
       )}
+    </motion.div>
+    {/* Source preview modal — opens when a 3D citation chip is clicked.
+        Renders the full policy chunk with the cited sentence highlighted
+        in teal. Frosted-glass surface. */}
+    <SourcePreviewModal
+      open={sourceOpen}
+      onOpenChange={setSourceOpen}
+      citation={activeSource}
+      locale={locale}
+    />
+    </>
+  );
+}
+
+/* ============================================================
+   CitationChip3D — button (not a link) that opens the source
+   preview modal. Wrapped in <Tilt3D maxDeg={3}> by the parent.
+   - 3px brass dot on the left (signals: this is a real source)
+   - 12px Sparkles icon (sand-gold) before the citation text
+   - Hover: lift 2px + teal underline glow
+   - Click: opens SourcePreviewModal (parent passes onOpen)
+   ============================================================ */
+
+function CitationChip3D({
+  citation,
+  locale,
+  onOpen,
+}: {
+  citation: Citation;
+  locale: "en" | "ar";
+  onOpen: () => void;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      aria-label={
+        locale === "ar"
+          ? `افتح المصدر: ${citation.title}، قسم ${citation.section}`
+          : `Open source: ${citation.title}, section ${citation.section}`
+      }
+      className="ast-focus relative inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[11px] font-medium transition-transform hover:-translate-y-0.5"
+      style={{
+        color: "var(--brand-400)",
+        background: "rgba(22,154,165,0.08)",
+        border: "1px solid rgba(22,154,165,0.25)",
+        cursor: "pointer",
+        textDecoration: "none",
+      }}
+      title={`${citation.title} · §${citation.section} · effective ${citation.effectiveDate}`}
+    >
+      {/* Brass dot — 3px, sand-gold, signals "this is a source" */}
+      <span
+        aria-hidden="true"
+        className="shrink-0 rounded-full"
+        style={{
+          width: 3,
+          height: 3,
+          background: "var(--accent-500)",
+          boxShadow: "0 0 4px rgba(201,162,39,0.6)",
+        }}
+      />
+      {/* Sparkles icon — 12px, sand-gold, source indicator */}
+      <Sparkles
+        className="w-3 h-3 shrink-0"
+        strokeWidth={1.75}
+        style={{ color: "var(--accent-500)" }}
+        aria-hidden="true"
+      />
+      <span className="truncate max-w-[180px]">{citation.title}</span>
+      <span className="opacity-60 shrink-0">· §{citation.section}</span>
+      {/* Teal underline glow on hover */}
+      <span
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          left: 6,
+          right: 6,
+          bottom: -2,
+          height: 2,
+          borderRadius: 2,
+          background: "rgba(22, 154, 165, 0.85)",
+          opacity: hover ? 1 : 0,
+          transition: "opacity 180ms var(--ease-standard)",
+          boxShadow: hover ? "0 0 8px rgba(22,154,165,0.55)" : "none",
+          pointerEvents: "none",
+        }}
+      />
+    </button>
+  );
+}
+
+/* ============================================================
+   GroundingMeter — animated horizontal bar + NumberTicker label.
+   - 120×6px rounded bar, fills 0→score on mount (640ms ease-out)
+   - Teal fill for ≥0.95, amber for 0.7-0.94, red for <0.7
+   - Label: "Grounding · {score}%" with NumberTicker
+   - Verified check icon (teal) when score = 1.0
+   - Respects prefers-reduced-motion (instant fill when reduced)
+   ============================================================ */
+
+function GroundingMeter({
+  score,
+  locale,
+}: {
+  score: number;
+  locale: "en" | "ar";
+}) {
+  const pct = Math.round(score * 100);
+  const [reduce, setReduce] = useState(false);
+  // animatedW is null until the first rAF tick fires; before that we
+  // render 0 (the bar starts empty). Once animation completes it
+  // holds the final value. When reduce is on, we skip animation and
+  // render `pct` directly via the derived `shown` below.
+  const [animateW, setAnimateW] = useState<number | null>(null);
+
+  // Detect prefers-reduced-motion once on mount.
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReduce(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  // Animate the bar fill from 0 → pct over 640ms (ease-out cubic).
+  // The setState calls happen inside the rAF callback (async), which
+  // the react-hooks/set-state-in-effect rule allows. When reduce is
+  // on, we skip the animation entirely — `shown` below renders `pct`
+  // directly.
+  useEffect(() => {
+    if (reduce) return; // reduced-motion: render `pct` directly (see `shown`)
+    const duration = 640;
+    const startTs = performance.now();
+    const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+    let raf = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - startTs) / duration);
+      setAnimateW(pct * ease(t));
+      if (t < 1) {
+        raf = requestAnimationFrame(tick);
+      } else {
+        setAnimateW(pct);
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [pct, reduce]);
+
+  // Derived display value: 0 until the first tick, then the animated
+  // value. When reduced-motion is on, snap straight to `pct`.
+  const shown = reduce ? pct : (animateW ?? 0);
+
+  const color =
+    score >= 0.95
+      ? "var(--brand-500)"
+      : score >= 0.7
+        ? "var(--status-watch)"
+        : "var(--status-friction)";
+  const glow =
+    score >= 0.95
+      ? "rgba(22,154,165,0.50)"
+      : score >= 0.7
+        ? "rgba(217,119,6,0.40)"
+        : "rgba(220,38,38,0.40)";
+  const isPerfect = score >= 1.0;
+
+  return (
+    <div
+      className="inline-flex items-center gap-2 shrink-0"
+      title={
+        locale === "ar"
+          ? "درجة التحقق من المصدر"
+          : "How well the answer is backed by cited sources"
+      }
+    >
+      <div
+        className="relative rounded-full overflow-hidden"
+        style={{ width: 120, height: 6, background: "var(--surface-3)" }}
+        role="meter"
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={locale === "ar" ? "التثبيت" : "Grounding"}
+      >
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: `${shown}%`,
+            background: color,
+            boxShadow: `0 0 8px ${glow}`,
+          }}
+        />
+      </div>
+      <span
+        className="inline-flex items-center gap-1 text-[10px] tabular"
+        style={{ color: "var(--text-lo)" }}
+      >
+        {locale === "ar" ? "تثبيت" : "Grounding"} ·
+        <span style={{ color }}>
+          <NumberTicker value={pct} suffix="%" />
+        </span>
+        {isPerfect && (
+          <Check
+            className="w-3 h-3"
+            strokeWidth={2.5}
+            style={{ color: "var(--brand-500)" }}
+            aria-label={locale === "ar" ? "موثّق" : "verified"}
+          />
+        )}
+      </span>
     </div>
+  );
+}
+
+/* ============================================================
+   VerifiedAnswerBadge — teal badge with ShieldCheck, top-right of
+   AnswerCard when groundingScore ≥ 0.95. Signals "every claim is
+   cited".
+   ============================================================ */
+
+function VerifiedAnswerBadge({ locale }: { locale: "en" | "ar" }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium whitespace-nowrap"
+      style={{
+        color: "var(--brand-400)",
+        background: "rgba(22,154,165,0.12)",
+        border: "1px solid rgba(22,154,165,0.40)",
+      }}
+      title={locale === "ar" ? "إجابة موثّقة من المصادر" : "Every claim is cited"}
+    >
+      <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
+      {locale === "ar" ? "إجابة موثّقة" : "Verified answer"}
+    </span>
+  );
+}
+
+/* ============================================================
+   HandoffBadge — sand-gold badge with HandHeart, top-right of
+   AbstainCard. Signals "your next move is to talk to a person".
+   ============================================================ */
+
+function HandoffBadge({ locale }: { locale: "en" | "ar" }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium whitespace-nowrap"
+      style={{
+        color: "var(--accent-500)",
+        background: "rgba(201,162,39,0.12)",
+        border: "1px solid rgba(201,162,39,0.40)",
+      }}
+      title={locale === "ar" ? "إحالة إلى مالك" : "Handoff to owner"}
+    >
+      <HandHeart className="w-3.5 h-3.5" strokeWidth={1.75} />
+      {locale === "ar" ? "إحالة" : "Handoff"}
+    </span>
   );
 }
 
@@ -1170,11 +1527,38 @@ function AbstainCard({
   };
 
   return (
-    <div
-      className="ast-card p-4 sm:p-5"
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 220, damping: 26, duration: 0.32 }}
+      className="ast-card p-4 sm:p-5 relative"
       style={{ borderColor: "rgba(201,162,39,0.30)" }}
       aria-label={locale === "ar" ? "إحالة إلى مالك" : "Handoff to owner"}
     >
+      {/* Top accent bar — 2px sand-gold gradient, "your next move" signature */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 2,
+          background:
+            "linear-gradient(90deg, transparent 0%, var(--accent-500) 30%, var(--accent-400) 70%, transparent 100%)",
+          opacity: 0.7,
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* Handoff badge — top-right (always shown on AbstainCard) */}
+      <div
+        className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10"
+        style={{ pointerEvents: "none" }}
+      >
+        <HandoffBadge locale={locale} />
+      </div>
+
       {/* Header — handoff, not failure */}
       <div className="flex items-start gap-3 mb-3">
         <div
@@ -1357,7 +1741,7 @@ function AbstainCard({
           ))}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 

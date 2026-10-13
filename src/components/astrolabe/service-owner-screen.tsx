@@ -75,6 +75,14 @@ interface ServiceRequest {
   reassignCount: number;
   returnCount: number;
   idempotencyKey: string;
+  /** PRD §11-212 — structured "needs more info" question, present when status === "returned". */
+  returnQuestion?: {
+    question: string;
+    additionalDetail?: string;
+    returnedBy: string;
+    returnedAt: string;
+    answer?: string;
+  };
 }
 
 interface ApiEnvelope<T> {
@@ -1072,10 +1080,28 @@ export function ServiceOwnerScreen() {
   const handleAction = useCallback(
     async (id: string, to: string, opts?: { note?: string; question?: string; detail?: string }) => {
       try {
+        // PRD §11-212 — when returning with "needs more info", persist the
+        // structured question on the request via the transition endpoint's
+        // optional `returnQuestion` payload. The named owner (returnedBy) is
+        // resolved from the request's assignee.
+        const body: Record<string, unknown> = {
+          to,
+          idempotencyKey: `${id}-${to}-${Date.now()}`,
+        };
+        if (to === "returned" && opts?.question) {
+          const target = items.find((r) => r.id === id);
+          const asker = target ? findAssignee(target.assignee) : null;
+          body.returnQuestion = {
+            question: opts.question,
+            additionalDetail: opts.detail ?? "",
+            returnedBy: asker?.name ?? target?.assignee ?? "Service owner",
+          };
+        }
+
         const res = await fetch(`/api/v1/requests/${id}/transition`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ to, idempotencyKey: `${id}-${to}-${Date.now()}` }),
+          body: JSON.stringify(body),
         });
         if (!res.ok) {
           const json = await res.json().catch(() => null);
@@ -1084,8 +1110,30 @@ export function ServiceOwnerScreen() {
         const json: ApiEnvelope<ServiceRequest> = await res.json();
         if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
 
-        // Optimistically update local state
-        setItems((prev) => prev.map((r) => (r.id === id ? { ...r, status: to } : r)));
+        // Optimistically update local state — including the structured
+        // returnQuestion payload so the queue card shows the active question
+        // until the page is re-fetched.
+        const askerName =
+          (body.returnQuestion as { returnedBy?: string } | undefined)?.returnedBy ?? null;
+        setItems((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  status: to,
+                  returnQuestion:
+                    to === "returned" && opts?.question && askerName
+                      ? {
+                          question: opts.question,
+                          additionalDetail: opts.detail || undefined,
+                          returnedBy: askerName,
+                          returnedAt: new Date().toISOString(),
+                        }
+                      : r.returnQuestion,
+                }
+              : r,
+          ),
+        );
 
         if (to === "returned") {
           // Also bump the return count locally
@@ -1114,7 +1162,7 @@ export function ServiceOwnerScreen() {
         });
       }
     },
-    [locale]
+    [items, locale]
   );
 
   return (

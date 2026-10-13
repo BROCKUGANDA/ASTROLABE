@@ -41,6 +41,8 @@ import {
   Ban,
   CircleDot,
   CheckCircle2,
+  HelpCircle,
+  CornerUpLeft,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
@@ -74,6 +76,14 @@ import { toast } from "sonner";
 
 /* ---------- Types (mirror the API envelope) ---------- */
 
+interface ReturnQuestion {
+  question: string;
+  additionalDetail?: string;
+  returnedBy: string;
+  returnedAt: string;
+  answer?: string;
+}
+
 interface ServiceRequest {
   id: string;
   ref: string;
@@ -87,6 +97,8 @@ interface ServiceRequest {
   reassignCount: number;
   returnCount: number;
   idempotencyKey: string;
+  /** PRD §11-212 — structured "needs more info" question, present when status === "returned". */
+  returnQuestion?: ReturnQuestion;
 }
 
 interface Employee {
@@ -387,6 +399,42 @@ export function RequestsScreen() {
     }
   };
 
+  // PRD §11-212 — when an employee answers a structured "needs more info"
+  // question and clicks Resubmit, transition the request back to `submitted`
+  // (which clears the active returnQuestion server-side) and refetch the
+  // list so the card disappears.
+  const handleResubmit = useCallback(
+    async (reqId: string, answer: string): Promise<void> => {
+      try {
+        const res = await fetch(`/api/v1/requests/${reqId}/transition`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: "submitted",
+            idempotencyKey: `${reqId}-resubmit-${Date.now()}`,
+            answer,
+          }),
+        });
+        const json: ApiEnvelope<ServiceRequest> = await res.json();
+        if (!res.ok || !json.ok) {
+          throw new Error(json.error?.message ?? `HTTP ${res.status}`);
+        }
+        await fetchRequests();
+        toast.success(
+          locale === "ar"
+            ? "أُرسلت إلى IT — سيتولّونها الآن."
+            : "Sent back to IT — they'll pick it up now.",
+        );
+      } catch (err) {
+        toast.error(
+          locale === "ar" ? "تعذّر إعادة الإرسال" : "Couldn't resubmit",
+          { description: err instanceof Error ? err.message : "Network error" },
+        );
+      }
+    },
+    [fetchRequests, locale],
+  );
+
   return (
     <div className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {/* Header */}
@@ -490,6 +538,7 @@ export function RequestsScreen() {
                     onToggle={() =>
                       setExpandedId((cur) => (cur === req.id ? null : req.id))
                     }
+                    onResubmit={handleResubmit}
                     locale={locale}
                     index={i}
                   />
@@ -576,6 +625,249 @@ export function RequestsScreen() {
 }
 
 /* ============================================================
+   Return-question banner — "We need one more detail" (PRD §11-212)
+   Sand-gold accent border (NOT red — this is a "your next move"
+   trigger, not an error). Renders ABOVE the normal request details
+   when status === "returned" && req.returnQuestion is present.
+   ============================================================ */
+
+function ReturnQuestionBanner({
+  req,
+  ownerGroupText,
+  onResubmit,
+  locale,
+}: {
+  req: ServiceRequest;
+  ownerGroupText: string;
+  onResubmit: (reqId: string, answer: string) => Promise<void>;
+  locale: "en" | "ar";
+}) {
+  const rq = req.returnQuestion!;
+  const [showForm, setShowForm] = useState(false);
+  const [answer, setAnswer] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  // Plain-language: "{first name} from {group} needs this to finish your
+  // request. One quick answer and it's back on its way."
+  const first = rq.returnedBy.split(" ")[0] || rq.returnedBy;
+  const timeAgo = formatDistanceToNow(new Date(rq.returnedAt), { addSuffix: false });
+
+  const handleSubmit = async () => {
+    const trimmed = answer.trim();
+    if (!trimmed) {
+      toast.error(
+        locale === "ar" ? "اكتب الإجابة قبل الإرسال" : "Write an answer before resubmitting",
+      );
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await onResubmit(req.id, trimmed);
+      // Parent refetches + the card disappears; nothing else to do here.
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: "auto" }}
+      transition={{ duration: 0.2 }}
+      className="overflow-hidden"
+      style={{
+        borderBottom: "1px solid var(--border-soft)",
+        background:
+          "linear-gradient(180deg, rgba(201,162,39,0.08) 0%, rgba(201,162,39,0.02) 100%)",
+      }}
+    >
+      {/* Sand-gold accent strip — the "your next move" cue */}
+      <div
+        className="h-[3px] w-full"
+        style={{
+          background: "var(--g-brass)",
+        }}
+        aria-hidden="true"
+      />
+      <div className="p-4 sm:p-5">
+        {/* Header row */}
+        <div className="flex items-start gap-3">
+          <div
+            className="flex items-center justify-center w-9 h-9 rounded-full shrink-0"
+            style={{
+              background: "rgba(201,162,39,0.12)",
+              color: "var(--accent-500)",
+            }}
+            aria-hidden="true"
+          >
+            <HelpCircle className="w-4.5 h-4.5" strokeWidth={1.75} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3
+              className="text-[15px] font-semibold leading-snug"
+              style={{ color: "var(--text-hi)" }}
+            >
+              {locale === "ar" ? "نحتاج تفصيلاً إضافياً واحداً" : "We need one more detail"}
+            </h3>
+            <p
+              className="text-[11px] mt-0.5 inline-flex items-center gap-1.5"
+              style={{ color: "var(--text-lo)" }}
+            >
+              <User className="w-3 h-3" strokeWidth={1.75} />
+              {locale === "ar"
+                ? `${rq.returnedBy} من ${ownerGroupText} · قبل ${timeAgo}`
+                : `${rq.returnedBy} from ${ownerGroupText} · ${timeAgo} ago`}
+            </p>
+          </div>
+          <span
+            className="ast-chip shrink-0"
+            style={{
+              color: "var(--accent-500)",
+              background: "rgba(201,162,39,0.10)",
+              borderColor: "rgba(201,162,39,0.32)",
+            }}
+          >
+            {locale === "ar" ? "خطوتك التالية" : "Your next move"}
+          </span>
+        </div>
+
+        {/* The structured question — large, clear */}
+        <div className="mt-3 p-3 rounded-md ast-card-2">
+          <p
+            className="text-[10px] font-semibold uppercase tracking-[0.14em] mb-1.5"
+            style={{ color: "var(--text-lo)" }}
+          >
+            {locale === "ar" ? "السؤال" : "Question"}
+          </p>
+          <p
+            className="text-[15px] sm:text-[16px] font-medium leading-snug"
+            style={{ color: "var(--text-hi)" }}
+            dir={locale === "ar" ? "rtl" : "ltr"}
+          >
+            {rq.question}
+          </p>
+          {rq.additionalDetail && (
+            <p
+              className="text-[13px] mt-2 leading-relaxed"
+              style={{ color: "var(--text-mid)" }}
+              dir={locale === "ar" ? "rtl" : "ltr"}
+            >
+              {rq.additionalDetail}
+            </p>
+          )}
+        </div>
+
+        {/* Plain-language explainer */}
+        <p
+          className="text-[12px] mt-3 leading-relaxed"
+          style={{ color: "var(--text-mid)" }}
+        >
+          {locale === "ar"
+            ? `${first} من ${ownerGroupText} يحتاج هذا لإنهاء طلبك. إجابة سريعة واحدة ويعود في طريقه.`
+            : `${first} from ${ownerGroupText} needs this to finish your request. One quick answer and it's back on its way.`}
+        </p>
+
+        {/* Answer form — toggled by the "Answer and resubmit" button */}
+        <AnimatePresence initial={false}>
+          {showForm && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.18 }}
+              className="overflow-hidden"
+            >
+              <div className="mt-3">
+                <label
+                  htmlFor={`answer-${req.id}`}
+                  className="text-[11px] font-semibold uppercase tracking-[0.12em]"
+                  style={{ color: "var(--text-lo)" }}
+                >
+                  {locale === "ar" ? "إجابتك" : "Your answer"}
+                </label>
+                <Textarea
+                  id={`answer-${req.id}`}
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                  rows={3}
+                  autoFocus
+                  placeholder={
+                    locale === "ar"
+                      ? "اكتب الإجابة هنا…"
+                      : "Type your answer here…"
+                  }
+                  className="ast-focus mt-1.5 text-[14px] leading-relaxed"
+                  style={{
+                    background: "var(--surface-2)",
+                    color: "var(--text-hi)",
+                    border: "1px solid var(--border)",
+                  }}
+                />
+                <div className="mt-2 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForm(false);
+                      setAnswer("");
+                    }}
+                    disabled={submitting}
+                    className="ast-focus inline-flex items-center justify-center gap-1.5 h-11 px-3 rounded-[10px] text-[13px] font-medium"
+                    style={{
+                      background: "var(--surface-2)",
+                      color: "var(--text-hi)",
+                      border: "1px solid var(--border)",
+                    }}
+                  >
+                    {locale === "ar" ? "إلغاء" : "Cancel"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                    className="ast-focus inline-flex items-center justify-center gap-2 h-11 px-5 rounded-[10px] text-[13px] font-semibold transition-transform hover:-translate-y-0.5 disabled:opacity-50"
+                    style={{
+                      background: "var(--accent-500)",
+                      color: "var(--surface-0)",
+                      boxShadow: "0 4px 14px rgba(201,162,39,0.28)",
+                    }}
+                  >
+                    {submitting ? (
+                      <Hourglass className="w-4 h-4 animate-pulse" strokeWidth={1.75} />
+                    ) : (
+                      <CornerUpLeft className="w-4 h-4" strokeWidth={1.75} />
+                    )}
+                    {submitting
+                      ? (locale === "ar" ? "جارٍ الإرسال…" : "Sending…")
+                      : (locale === "ar" ? "إعادة الإرسال" : "Resubmit")}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* CTA button */}
+        {!showForm && (
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="ast-focus mt-3 inline-flex items-center justify-center gap-2 h-11 px-5 rounded-[10px] text-[13px] font-semibold transition-transform hover:-translate-y-0.5"
+            style={{
+              background: "var(--accent-500)",
+              color: "var(--surface-0)",
+              boxShadow: "0 4px 14px rgba(201,162,39,0.28)",
+            }}
+          >
+            <CornerUpLeft className="w-4 h-4" strokeWidth={1.75} />
+            {locale === "ar" ? "أجب وأعد الإرسال" : "Answer and resubmit"}
+          </button>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+/* ============================================================
    Request card (list item)
    ============================================================ */
 
@@ -583,12 +875,14 @@ function RequestCard({
   req,
   expanded,
   onToggle,
+  onResubmit,
   locale,
   index,
 }: {
   req: ServiceRequest;
   expanded: boolean;
   onToggle: () => void;
+  onResubmit: (reqId: string, answer: string) => Promise<void>;
   locale: "en" | "ar";
   index: number;
 }) {
@@ -612,8 +906,8 @@ function RequestCard({
       : ownerGroupLabel.en
     : req.ownerGroup;
 
-  const handleCopyRef = async (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleCopyRef = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     try {
       await navigator.clipboard.writeText(req.ref);
       setCopied(true);
@@ -624,6 +918,13 @@ function RequestCard({
     }
   };
 
+  // PRD §11-212 — when the request has been returned WITH a structured
+  // question, show the prominent "We need one more detail" banner ABOVE the
+  // normal request details. Sand-gold accent — this is a "your next move"
+  // trigger, NOT an error.
+  const showReturnQuestion =
+    req.status === "returned" && !!req.returnQuestion;
+
   return (
     <motion.li
       initial={{ opacity: 0, y: 8 }}
@@ -632,6 +933,14 @@ function RequestCard({
       transition={{ duration: 0.18, delay: Math.min(index * 0.04, 0.2) }}
       className="ast-card overflow-hidden"
     >
+      {showReturnQuestion && req.returnQuestion && (
+        <ReturnQuestionBanner
+          req={req}
+          ownerGroupText={ownerGroupText}
+          onResubmit={onResubmit}
+          locale={locale}
+        />
+      )}
       {/* Outer clickable area uses role=button on a div to avoid nested <button> hydration errors */}
       <div
         onClick={onToggle}

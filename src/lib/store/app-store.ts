@@ -17,7 +17,7 @@ export interface AppState {
   locale: Locale;
   view: View;
   hrbpView: "queue" | "employee" | "stalls";
-  managerView: "cohort" | "my_steps";
+  managerView: "cohort" | "my_steps" | "compare";
   judgeView: "scenarios" | "trace" | "degraded" | "backtest";
 
   // Display prefs
@@ -41,6 +41,15 @@ export interface AppState {
   // Active request being intaked
   activeRequestType?: string;
 
+  // PRD §18-347 — global policy search modal (opens from Ask screen header
+  // and the ⌘K command palette).
+  policySearchOpen: boolean;
+  policySearchInitialQuery?: string;
+
+  // PRD §18-347 — prefilled question for the Ask tab (set when the user
+  // clicks "Ask about this instead" inside the policy search modal).
+  askPrefill?: string;
+
   // Actions
   setRole: (r: Role) => void;
   setEmployee: (id: string) => void;
@@ -58,6 +67,8 @@ export interface AppState {
   setCommandPalette: (open: boolean) => void;
   setActiveEscalation: (id?: string) => void;
   setActiveRequestType: (t?: string) => void;
+  setPolicySearchOpen: (open: boolean, initialQuery?: string) => void;
+  setAskPrefill: (q?: string) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -77,6 +88,7 @@ export const useAppStore = create<AppState>()(
       degradedLevel: "L0",
       asOfOffsetHours: 0,
       commandPaletteOpen: false,
+      policySearchOpen: false,
 
       setRole: (r) => set({ role: r }),
       setEmployee: (id) => set({ currentEmployeeId: id }),
@@ -94,6 +106,9 @@ export const useAppStore = create<AppState>()(
       setCommandPalette: (open) => set({ commandPaletteOpen: open }),
       setActiveEscalation: (id) => set({ activeEscalationId: id }),
       setActiveRequestType: (t) => set({ activeRequestType: t }),
+      setPolicySearchOpen: (open, initialQuery) =>
+        set({ policySearchOpen: open, policySearchInitialQuery: open ? initialQuery : undefined }),
+      setAskPrefill: (q) => set({ askPrefill: q }),
     }),
     {
       name: "astrolabe-state",

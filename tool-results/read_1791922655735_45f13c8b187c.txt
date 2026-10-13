@@ -1,0 +1,798 @@
+     1→"use client";
+     2→
+     3→import { useEffect, useState } from "react";
+     4→import {
+     5→  motion,
+     6→  AnimatePresence,
+     7→  useMotionValue,
+     8→  useTransform,
+     9→  type MotionValue,
+    10→} from "framer-motion";
+    11→import {
+    12→  Compass, Map, MessageSquare, Inbox, User, Users, ClipboardList, Microscope,
+    13→  Search, Command, ShieldCheck, Languages, Monitor, Sparkles, X, ArrowRight, Server,
+    14→} from "lucide-react";
+    15→import { useAppStore } from "@/lib/store/app-store";
+    16→import { TodayScreen } from "@/components/astrolabe/today-screen";
+    17→import { JourneyScreen } from "@/components/astrolabe/journey-screen";
+    18→import { AskScreen } from "@/components/astrolabe/ask-screen";
+    19→import { RequestsScreen } from "@/components/astrolabe/requests-screen";
+    20→import { MeScreen } from "@/components/astrolabe/me-screen";
+    21→import { HrbpScreen } from "@/components/astrolabe/hrbp-screen";
+    22→import { ManagerScreen } from "@/components/astrolabe/manager-screen";
+    23→import { JudgeScreen } from "@/components/astrolabe/judge-screen";
+    24→import { AdminScreen } from "@/components/astrolabe/admin-screen";
+    25→import { ServiceOwnerScreen } from "@/components/astrolabe/service-owner-screen";
+    26→import { Astrolabe3D } from "@/components/three/astrolabe";
+    27→import { NotificationsBell } from "@/components/astrolabe/notifications-bell";
+    28→import { ConstellationBg } from "@/components/astrolabe/constellation-bg";
+    29→
+    30→type View = "today" | "journey" | "ask" | "requests" | "me";
+    31→type Role = "employee" | "hrbp" | "manager" | "judge" | "admin" | "service_owner";
+    32→
+    33→const EMPLOYEE_TABS: { id: View; label: string; labelAr: string; Icon: typeof Compass; hint: string }[] = [
+    34→  { id: "today", label: "Today", labelAr: "اليوم", Icon: Compass, hint: "What now?" },
+    35→  { id: "journey", label: "Journey", labelAr: "الرحلة", Icon: Map, hint: "Full map & history" },
+    36→  { id: "ask", label: "Ask", labelAr: "اسأل", Icon: MessageSquare, hint: "Cited policy answers" },
+    37→  { id: "requests", label: "Requests", labelAr: "الطلبات", Icon: Inbox, hint: "Status & intake" },
+    38→  { id: "me", label: "Me", labelAr: "حسابي", Icon: User, hint: "Consent & data" },
+    39→];
+    40→
+    41→const ROLES: { id: Role; label: string; labelAr: string; Icon: typeof Compass; accent: string }[] = [
+    42→  { id: "employee", label: "Employee", labelAr: "موظف", Icon: User, accent: "var(--brand-500)" },
+    43→  { id: "hrbp", label: "HRBP", labelAr: "شريك الموارد", Icon: Users, accent: "var(--status-watch)" },
+    44→  { id: "manager", label: "Manager", labelAr: "مدير", Icon: ClipboardList, accent: "var(--accent-500)" },
+    45→  { id: "judge", label: "Judge", labelAr: "قاضٍ", Icon: Microscope, accent: "#8B5CF6" },
+    46→  { id: "admin", label: "Admin", labelAr: "إدارة", Icon: Server, accent: "var(--brand-400)" },
+    47→  { id: "service_owner", label: "Service owner", labelAr: "مالك الخدمة", Icon: Inbox, accent: "var(--brand-500)" },
+    48→];
+    49→
+    50→const EMPLOYEES = [
+    51→  { id: "E-1042", name: "Maria Santos", journey: "Onboarding · Day 5", loc: "DXB" },
+    52→  { id: "E-1043", name: "Daniel Okonkwo", journey: "Onboarding · Visa", loc: "DXB" },
+    53→  { id: "E-1044", name: "Aisha Rahman", journey: "Mobility · Effective", loc: "AUH" },
+    54→  { id: "E-1045", name: "James Park", journey: "Onboarding · Day 1", loc: "DXB" },
+    55→  { id: "E-1046", name: "Sara Kovač", journey: "Mobility · Handover", loc: "DXB" },
+    56→];
+    57→
+    58→export default function Home() {
+    59→  const view = useAppStore((s) => s.view);
+    60→  const setView = useAppStore((s) => s.setView);
+    61→  const role = useAppStore((s) => s.role);
+    62→  const setRole = useAppStore((s) => s.setRole);
+    63→  const locale = useAppStore((s) => s.locale);
+    64→  const setLocale = useAppStore((s) => s.setLocale);
+    65→  const employeeId = useAppStore((s) => s.currentEmployeeId);
+    66→  const setEmployee = useAppStore((s) => s.setEmployee);
+    67→  const projectorMode = useAppStore((s) => s.projectorMode);
+    68→  const toggleProjector = useAppStore((s) => s.toggleProjector);
+    69→  const commandPaletteOpen = useAppStore((s) => s.commandPaletteOpen);
+    70→  const setCommandPalette = useAppStore((s) => s.setCommandPalette);
+    71→  const degradedLevel = useAppStore((s) => s.degradedLevel);
+    72→
+    73→  const dir = locale === "ar" ? "rtl" : "ltr";
+    74→  const [scrolled, setScrolled] = useState(false);
+    75→
+    76→  useEffect(() => {
+    77→    const onScroll = () => setScrolled(window.scrollY > 60);
+    78→    window.addEventListener("scroll", onScroll, { passive: true });
+    79→    return () => window.removeEventListener("scroll", onScroll);
+    80→  }, []);
+    81→
+    82→  // ⌘K command palette
+    83→  useEffect(() => {
+    84→    const onKey = (e: KeyboardEvent) => {
+    85→      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+    86→        e.preventDefault();
+    87→        setCommandPalette(!commandPaletteOpen);
+    88→      }
+    89→      if (e.key === "Escape") setCommandPalette(false);
+    90→    };
+    91→    window.addEventListener("keydown", onKey);
+    92→    return () => window.removeEventListener("keydown", onKey);
+    93→  }, [commandPaletteOpen, setCommandPalette]);
+    94→
+    95→  const showHero = role === "employee" && view === "today" && !scrolled;
+    96→
+    97→  return (
+    98→    <div
+    99→      dir={dir}
+   100→      className={`flex min-h-screen flex-col ${projectorMode ? "projector" : ""}`}
+   101→      style={{ color: "var(--text-hi)" }}
+   102→    >
+   103→      {/* ========== CONSTELLATION BACKGROUND (fixed, behind everything) ========== */}
+   104→      <ConstellationBg />
+   105→
+   106→      {/* ========== HEADER ========== */}
+   107→      <header
+   108→        className="sticky top-0 z-40 backdrop-blur-xl transition-all"
+   109→        style={{
+   110→          background: scrolled ? "rgba(11,17,28,0.92)" : "rgba(11,17,28,0.62)",
+   111→          borderBottom: `1px solid ${scrolled ? "var(--border)" : "transparent"}`,
+   112→        }}
+   113→      >
+   114→        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center gap-2 sm:gap-3">
+   115→          {/* Brand */}
+   116→          <button
+   117→            onClick={() => { setRole("employee"); setView("today"); }}
+   118→            className="ast-focus flex items-center gap-2.5 mr-auto group"
+   119→            aria-label="ASTROLABE home"
+   120→          >
+   121→            <div
+   122→              className="relative flex items-center justify-center w-9 h-9 rounded-full transition-transform group-hover:rotate-12"
+   123→              style={{
+   124→                background: "radial-gradient(circle at 30% 30%, rgba(22,154,165,0.35), rgba(11,17,28,0.4))",
+   125→                border: "1px solid rgba(22,154,165,0.35)",
+   126→                boxShadow: "0 0 0 1px rgba(201,162,39,0.15), 0 6px 16px rgba(22,154,165,0.18)",
+   127→              }}
+   128→            >
+   129→              <Compass className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+   130→              <span
+   131→                className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
+   132→                style={{ background: "var(--accent-500)", boxShadow: "0 0 6px rgba(201,162,39,0.6)" }}
+   133→              />
+   134→            </div>
+   135→            <div className="flex flex-col items-start leading-none">
+   136→              <span
+   137→                className="text-[13px] font-semibold uppercase ast-brass"
+   138→                style={{ letterSpacing: "0.22em" }}
+   139→              >
+   140→                ASTROLABE
+   141→              </span>
+   142→              <span
+   143→                className="text-[9px] uppercase tracking-[0.18em] hidden sm:block"
+   144→                style={{ color: "var(--text-lo)" }}
+   145→              >
+   146→                {locale === "ar" ? "بوصلتك في الرحلة" : "Journey companion"}
+   147→              </span>
+   148→            </div>
+   149→          </button>
+   150→
+   151→          {/* Employee tabs (only in employee role) */}
+   152→          {role === "employee" && (
+   153→            <nav
+   154→              className="flex items-center gap-0.5 p-1 rounded-full overflow-x-auto max-w-[55%] sm:max-w-none"
+   155→              style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
+   156→              aria-label="View switcher"
+   157→            >
+   158→              {EMPLOYEE_TABS.map((t) => {
+   159→                const Icon = t.Icon;
+   160→                const isActive = view === t.id;
+   161→                return (
+   162→                  <button
+   163→                    key={t.id}
+   164→                    onClick={() => setView(t.id)}
+   165→                    aria-pressed={isActive}
+   166→                    aria-label={locale === "ar" ? t.labelAr : t.label}
+   167→                    title={t.hint}
+   168→                    className="ast-focus relative inline-flex items-center gap-1.5 h-7 px-2.5 sm:px-3 rounded-full text-[12px] font-medium transition-colors whitespace-nowrap"
+   169→                    style={{
+   170→                      color: isActive ? "var(--surface-0)" : "var(--text-mid)",
+   171→                    }}
+   172→                  >
+   173→                    {isActive && (
+   174→                      <motion.span
+   175→                        layoutId="active-tab-pill"
+   176→                        className="absolute inset-0 rounded-full"
+   177→                        style={{ background: "var(--brand-500)" }}
+   178→                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
+   179→                      />
+   180→                    )}
+   181→                    <Icon className="w-3.5 h-3.5 relative z-10" strokeWidth={1.75} />
+   182→                    <span className="hidden sm:inline relative z-10">
+   183→                      {locale === "ar" ? t.labelAr : t.label}
+   184→                    </span>
+   185→                  </button>
+   186→                );
+   187→              })}
+   188→            </nav>
+   189→          )}
+   190→
+   191→          {/* Command palette trigger */}
+   192→          <button
+   193→            onClick={() => setCommandPalette(true)}
+   194→            aria-label="Command palette (⌘K)"
+   195→            title="⌘K"
+   196→            className="ast-focus hidden md:inline-flex items-center gap-2 h-8 px-2.5 rounded-full text-[11px] tabular"
+   197→            style={{
+   198→              background: "var(--surface-2)",
+   199→              border: "1px solid var(--border)",
+   200→              color: "var(--text-lo)",
+   201→            }}
+   202→          >
+   203→            <Search className="w-3 h-3" strokeWidth={1.75} />
+   204→            <span className="hidden lg:inline">Search…</span>
+   205→            <kbd
+   206→              className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-mono"
+   207→              style={{ background: "var(--surface-3)", color: "var(--text-mid)" }}
+   208→            >
+   209→              ⌘K
+   210→            </kbd>
+   211→          </button>
+   212→
+   213→          {/* Notifications bell */}
+   214→          <NotificationsBell />
+   215→
+   216→          {/* Projector toggle */}
+   217→          <button
+   218→            onClick={toggleProjector}
+   219→            aria-pressed={projectorMode}
+   220→            aria-label="Projector mode"
+   221→            title="Projector mode"
+   222→            className="ast-focus inline-flex items-center justify-center h-8 w-8 rounded-full transition-colors"
+   223→            style={{
+   224→              background: projectorMode ? "var(--accent-500)" : "var(--surface-2)",
+   225→              color: projectorMode ? "var(--surface-0)" : "var(--text-mid)",
+   226→              border: `1px solid ${projectorMode ? "var(--accent-500)" : "var(--border)"}`,
+   227→            }}
+   228→          >
+   229→            <Monitor className="w-3.5 h-3.5" strokeWidth={1.75} />
+   230→          </button>
+   231→
+   232→          {/* Locale toggle */}
+   233→          <button
+   234→            onClick={() => setLocale(locale === "en" ? "ar" : "en")}
+   235→            className="ast-focus inline-flex items-center gap-1 h-8 px-2.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.12em]"
+   236→            style={{
+   237→              background: "var(--surface-2)",
+   238→              border: "1px solid var(--border)",
+   239→              color: "var(--text-hi)",
+   240→            }}
+   241→            aria-label="Toggle language"
+   242→          >
+   243→            <Languages className="w-3 h-3" strokeWidth={1.75} />
+   244→            {locale === "en" ? "AR" : "EN"}
+   245→          </button>
+   246→        </div>
+   247→
+   248→        {/* Role switcher strip */}
+   249→        <div className="border-t" style={{ borderColor: "var(--border-soft)" }}>
+   250→          <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center gap-1.5 overflow-x-auto">
+   251→            <span
+   252→              className="text-[10px] uppercase tracking-[0.14em] mr-1 whitespace-nowrap"
+   253→              style={{ color: "var(--text-lo)" }}
+   254→            >
+   255→              {locale === "ar" ? "وضع" : "Mode"}
+   256→            </span>
+   257→            {ROLES.map((r) => {
+   258→              const Icon = r.Icon;
+   259→              const isActive = role === r.id;
+   260→              return (
+   261→                <button
+   262→                  key={r.id}
+   263→                  onClick={() => setRole(r.id)}
+   264→                  aria-pressed={isActive}
+   265→                  className="ast-focus inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all"
+   266→                  style={{
+   267→                    background: isActive ? r.accent : "transparent",
+   268→                    color: isActive ? "var(--surface-0)" : "var(--text-mid)",
+   269→                    border: `1px solid ${isActive ? r.accent : "var(--border)"}`,
+   270→                  }}
+   271→                >
+   272→                  <Icon className="w-3 h-3" strokeWidth={1.75} />
+   273→                  {locale === "ar" ? r.labelAr : r.label}
+   274→                </button>
+   275→              );
+   276→            })}
+   277→
+   278→            {/* Employee picker for judge/preview */}
+   279→            {(role === "employee" || role === "judge") && (
+   280→              <div className="ml-auto flex items-center gap-1.5">
+   281→                <span
+   282→                  className="text-[10px] uppercase tracking-[0.14em] hidden sm:inline"
+   283→                  style={{ color: "var(--text-lo)" }}
+   284→                >
+   285→                  {locale === "ar" ? "السيناريو" : "Scenario"}
+   286→                </span>
+   287→                <select
+   288→                  value={employeeId}
+   289→                  onChange={(e) => setEmployee(e.target.value)}
+   290→                  aria-label="Employee scenario"
+   291→                  className="ast-focus h-7 px-2 rounded-full text-[11px] tabular"
+   292→                  style={{
+   293→                    background: "var(--surface-2)",
+   294→                    border: "1px solid var(--border)",
+   295→                    color: "var(--text-hi)",
+   296→                  }}
+   297→                >
+   298→                  {EMPLOYEES.map((e) => (
+   299→                    <option key={e.id} value={e.id}>
+   300→                      {e.id} · {e.name} ({e.journey})
+   301→                    </option>
+   302→                  ))}
+   303→                </select>
+   304→              </div>
+   305→            )}
+   306→          </div>
+   307→        </div>
+   308→
+   309→        {/* Degraded banner */}
+   310→        {degradedLevel !== "L0" && (
+   311→          <div
+   312→            className="px-4 sm:px-6 lg:px-8 py-2 text-[11px] flex items-center gap-2"
+   313→            style={{
+   314→              background: "rgba(217,119,6,0.10)",
+   315→              borderBottom: "1px solid rgba(217,119,6,0.30)",
+   316→              color: "var(--status-watch)",
+   317→            }}
+   318→          >
+   319→            <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
+   320→            <span>
+   321→              {degradedLevel === "L1" && (locale === "ar" ? "نقتبس السياسة مباشرة الآن" : "Quoting policy directly right now")}
+   322→              {degradedLevel === "L2" && (locale === "ar" ? "بحث السياسة غير متاح — سأحيلك للمالك المناسب" : "Policy search unavailable — handing you to the right owner")}
+   323→              {degradedLevel === "L3" && (locale === "ar" ? "طلبك في قائمة الانتظار، لم يُفقد" : "Your request is queued, not lost")}
+   324→              {degradedLevel === "L4" && (locale === "ar" ? "وضع القراءة فقط — إليك من تتواصل معه" : "Read-only mode — here is who to contact")}
+   325→            </span>
+   326→          </div>
+   327→        )}
+   328→      </header>
+   329→
+   330→      {/* ========== 3D ASTROLABE HERO (Today only, when not scrolled) ========== */}
+   331→      <AnimatePresence>
+   332→        {showHero && <HeroParallax key="hero" />}
+   333→      </AnimatePresence>
+   334→
+   335→      {/* ========== MAIN ========== */}
+   336→      <main className="flex-1 max-w-[1280px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+   337→        {role === "employee" && (
+   338→          <>
+   339→            {view === "today" && <TodayScreen />}
+   340→            {view === "journey" && <JourneyScreen />}
+   341→            {view === "ask" && <AskScreen />}
+   342→            {view === "requests" && <RequestsScreen />}
+   343→            {view === "me" && <MeScreen />}
+   344→          </>
+   345→        )}
+   346→        {role === "hrbp" && <HrbpScreen />}
+   347→        {role === "manager" && <ManagerScreen />}
+   348→        {role === "judge" && <JudgeScreen />}
+   349→        {role === "admin" && <AdminScreen />}
+   350→        {role === "service_owner" && <ServiceOwnerScreen />}
+   351→      </main>
+   352→
+   353→      {/* ========== FOOTER (sticky to bottom) ========== */}
+   354→      <footer
+   355→        className="mt-auto border-t"
+   356→        style={{
+   357→          borderColor: "var(--border)",
+   358→          background: "var(--surface-1)",
+   359→        }}
+   360→      >
+   361→        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-5">
+   362→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+   363→            {/* Brand */}
+   364→            <div className="sm:col-span-2 lg:col-span-1">
+   365→              <div className="flex items-center gap-2 mb-2">
+   366→                <div
+   367→                  className="flex items-center justify-center w-6 h-6 rounded-full"
+   368→                  style={{ background: "var(--g-veil)", color: "var(--brand-400)" }}
+   369→                >
+   370→                  <Compass className="w-3 h-3" strokeWidth={1.75} />
+   371→                </div>
+   372→                <span
+   373→                  className="text-[11px] font-semibold uppercase ast-brass"
+   374→                  style={{ letterSpacing: "0.2em" }}
+   375→                >
+   376→                  ASTROLABE
+   377→                </span>
+   378→              </div>
+   379→              <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-lo)" }}>
+   380→                {locale === "ar"
+   381→                  ? "أداة ملاحة للموظف. المحرك يقرر، النموذج يشرح. كل إجابة تستشهد بمصدرها. غير المتأكد إجابة من الدرجة الأولى."
+   382→                  : "An employee-side navigation instrument. The engine decides, the model explains. Every answer cites its source. Unsure is a first-class answer."}
+   383→              </p>
+   384→            </div>
+   385→
+   386→            {/* Engine + versions */}
+   387→            <div>
+   388→              <h4 className="text-[10px] uppercase tracking-[0.16em] mb-2" style={{ color: "var(--text-lo)" }}>
+   389→                {locale === "ar" ? "المحرك" : "Engine"}
+   390→              </h4>
+   391→              <ul className="space-y-1 text-[11px] tabular" style={{ color: "var(--text-mid)" }}>
+   392→                <li className="flex justify-between"><span>{locale === "ar" ? "إصدار المحرك" : "Engine"}</span><span style={{ color: "var(--text-hi)" }}>1.0.0</span></li>
+   393→                <li className="flex justify-between"><span>{locale === "ar" ? "إصدار الخريطة" : "Map"}</span><span style={{ color: "var(--text-hi)" }}>1.0.0</span></li>
+   394→                <li className="flex justify-between"><span>{locale === "ar" ? "إصدار السياسات" : "Corpus"}</span><span style={{ color: "var(--text-hi)" }}>2024-Q4</span></li>
+   395→                <li className="flex justify-between"><span>{locale === "ar" ? "حزمة البيانات" : "Data pack"}</span><span style={{ color: "var(--text-hi)" }}>synthetic</span></li>
+   396→              </ul>
+   397→            </div>
+   398→
+   399→            {/* Privacy + RAI */}
+   400→            <div>
+   401→              <h4 className="text-[10px] uppercase tracking-[0.16em] mb-2" style={{ color: "var(--text-lo)" }}>
+   402→                {locale === "ar" ? "الخصوصية" : "Privacy"}
+   403→              </h4>
+   404→              <ul className="space-y-1 text-[11px]" style={{ color: "var(--text-mid)" }}>
+   405→                <li className="flex items-center gap-1.5">
+   406→                  <ShieldCheck className="w-3 h-3" style={{ color: "var(--status-steady)" }} strokeWidth={1.75} />
+   407→                  {locale === "ar" ? "الموافقة بوابة" : "Consent is a gate"}
+   408→                </li>
+   409→                <li className="flex items-center gap-1.5">
+   410→                  <ShieldCheck className="w-3 h-3" style={{ color: "var(--status-steady)" }} strokeWidth={1.75} />
+   411→                  {locale === "ar" ? "ليس للأداء أو التأديب" : "Not for performance use"}
+   412→                </li>
+   413→                <li className="flex items-center gap-1.5">
+   414→                  <ShieldCheck className="w-3 h-3" style={{ color: "var(--status-steady)" }} strokeWidth={1.75} />
+   415→                  {locale === "ar" ? "تصعيد بمسؤول اسمي" : "Named-human escalation"}
+   416→                </li>
+   417→                <li className="flex items-center gap-1.5">
+   418→                  <ShieldCheck className="w-3 h-3" style={{ color: "var(--status-steady)" }} strokeWidth={1.75} />
+   419→                  {locale === "ar" ? "سجل تدقيق متسلسل" : "Hash-chained audit"}
+   420→                </li>
+   421→              </ul>
+   422→            </div>
+   423→
+   424→            {/* Health */}
+   425→            <div>
+   426→              <h4 className="text-[10px] uppercase tracking-[0.16em] mb-2" style={{ color: "var(--text-lo)" }}>
+   427→                {locale === "ar" ? "الصحة" : "Health"}
+   428→              </h4>
+   429→              <div className="space-y-1.5 text-[11px]">
+   430→                <div className="flex items-center justify-between">
+   431→                  <span style={{ color: "var(--text-mid)" }}>{locale === "ar" ? "الحالة" : "Status"}</span>
+   432→                  <span className="inline-flex items-center gap-1.5">
+   433→                    <span className="ast-dot ast-dot-steady" />
+   434→                    <span style={{ color: "var(--status-steady)" }}>{locale === "ar" ? "كل الأنظمة تعمل" : "All systems"}</span>
+   435→                  </span>
+   436→                </div>
+   437→                <div className="flex items-center justify-between tabular">
+   438→                  <span style={{ color: "var(--text-mid)" }}>{locale === "ar" ? "زمن الاستجابة" : "Hot p95"}</span>
+   439→                  <span style={{ color: "var(--text-hi)" }}>28ms</span>
+   440→                </div>
+   441→                <div className="flex items-center justify-between tabular">
+   442→                  <span style={{ color: "var(--text-mid)" }}>{locale === "ar" ? "معدل الامتناع" : "Abstain rate"}</span>
+   443→                  <span style={{ color: "var(--text-hi)" }}>12%</span>
+   444→                </div>
+   445→                <div className="flex items-center justify-between tabular">
+   446→                  <span style={{ color: "var(--text-mid)" }}>{locale === "ar" ? "دقة الاستشهاد" : "Citations"}</span>
+   447→                  <span style={{ color: "var(--status-steady)" }}>100%</span>
+   448→                </div>
+   449→              </div>
+   450→            </div>
+   451→          </div>
+   452→
+   453→          <div
+   454→            className="mt-5 pt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[10px] tabular"
+   455→            style={{ borderTop: "1px solid var(--border-soft)", color: "var(--text-lo)" }}
+   456→          >
+   457→            <span>
+   458→              © 2024 ASTROLABE · {locale === "ar" ? "بيانات تركيبية فقط" : "Synthetic data only"} · {locale === "ar" ? "نموذج أولي" : "Prototype build"}
+   459→            </span>
+   460→            <span className="flex items-center gap-3">
+   461→              <span>v1.0.0</span>
+   462→              <span>·</span>
+   463→              <span>{locale === "ar" ? "آخر تحديث" : "Last refreshed"}: 2s</span>
+   464→              <span>·</span>
+   465→              <span className="inline-flex items-center gap-1">
+   466→                <kbd
+   467→                  className="px-1 py-0.5 rounded font-mono"
+   468→                  style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}
+   469→                >
+   470→                  ⌘K
+   471→                </kbd>
+   472→                {locale === "ar" ? "للأوامر" : "for commands"}
+   473→              </span>
+   474→            </span>
+   475→          </div>
+   476→        </div>
+   477→      </footer>
+   478→
+   479→      {/* ========== COMMAND PALETTE ========== */}
+   480→      <AnimatePresence>
+   481→        {commandPaletteOpen && (
+   482→          <CommandPalette
+   483→            onClose={() => setCommandPalette(false)}
+   484→            onNavigate={(v) => { setView(v); setRole("employee"); setCommandPalette(false); }}
+   485→            onRole={(r) => { setRole(r); setCommandPalette(false); }}
+   486→            onEmployee={(id) => { setEmployee(id); setCommandPalette(false); }}
+   487→            onLocale={() => { setLocale(locale === "en" ? "ar" : "en"); setCommandPalette(false); }}
+   488→          />
+   489→        )}
+   490→      </AnimatePresence>
+   491→    </div>
+   492→  );
+   493→}
+   494→
+   495→/* ============================================================
+   496→   HERO PARALLAX — 3D astrolabe + hero text
+   497→   - Astrolabe canvas shifts max 8px opposite the cursor
+   498→   - Hero text shifts max 4px with the cursor
+   499→   - 60fps via framer-motion useMotionValue + useTransform
+   500→   - Disabled on touch devices and when prefers-reduced-motion
+   501→   ============================================================ */
+   502→
+   503→function usePrefersReducedMotion(): boolean {
+   504→  const [reduce, setReduce] = useState(false);
+   505→  useEffect(() => {
+   506→    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+   507→    const update = () => setReduce(mq.matches);
+   508→    update();
+   509→    mq.addEventListener("change", update);
+   510→    return () => mq.removeEventListener("change", update);
+   511→  }, []);
+   512→  return reduce;
+   513→}
+   514→
+   515→function useFinePointer(): boolean {
+   516→  const [fine, setFine] = useState(false);
+   517→  useEffect(() => {
+   518→    const mq = window.matchMedia("(pointer: fine)");
+   519→    const update = () => setFine(mq.matches);
+   520→    update();
+   521→    mq.addEventListener("change", update);
+   522→    return () => mq.removeEventListener("change", update);
+   523→  }, []);
+   524→  return fine;
+   525→}
+   526→
+   527→function HeroParallax() {
+   528→  const locale = useAppStore((s) => s.locale);
+   529→  const setView = useAppStore((s) => s.setView);
+   530→  const reduce = usePrefersReducedMotion();
+   531→  const fine = useFinePointer();
+   532→  const enabled = !reduce && fine;
+   533→
+   534→  // Normalised cursor offset from the centre of the hero, in [-0.5, 0.5].
+   535→  const mx = useMotionValue(0);
+   536→  const my = useMotionValue(0);
+   537→
+   538→  // Astrolabe: 8px in the opposite direction of the cursor.
+   539→  const astX: MotionValue<number> = useTransform(mx, [-0.5, 0.5], [8, -8]);
+   540→  const astY: MotionValue<number> = useTransform(my, [-0.5, 0.5], [8, -8]);
+   541→  // Hero text: 4px in the same direction as the cursor.
+   542→  const textX: MotionValue<number> = useTransform(mx, [-0.5, 0.5], [-4, 4]);
+   543→  const textY: MotionValue<number> = useTransform(my, [-0.5, 0.5], [-4, 4]);
+   544→
+   545→  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+   546→    if (!enabled) return;
+   547→    const rect = e.currentTarget.getBoundingClientRect();
+   548→    mx.set((e.clientX - rect.left) / rect.width - 0.5);
+   549→    my.set((e.clientY - rect.top) / rect.height - 0.5);
+   550→  };
+   551→
+   552→  const handleMouseLeave = () => {
+   553→    mx.set(0);
+   554→    my.set(0);
+   555→  };
+   556→
+   557→  return (
+   558→    <motion.div
+   559→      initial={{ opacity: 0, height: 0 }}
+   560→      animate={{ opacity: 1, height: "auto" }}
+   561→      exit={{ opacity: 0, height: 0 }}
+   562→      transition={{ duration: 0.32, ease: [0.2, 0.8, 0.2, 1] }}
+   563→      className="relative overflow-hidden"
+   564→      style={{ borderBottom: "1px solid var(--border-soft)" }}
+   565→      onMouseMove={enabled ? handleMouseMove : undefined}
+   566→      onMouseLeave={enabled ? handleMouseLeave : undefined}
+   567→    >
+   568→      {/* Veil gradient backdrop */}
+   569→      <div
+   570→        className="absolute inset-0 pointer-events-none"
+   571→        style={{ background: "var(--g-veil)" }}
+   572→        aria-hidden="true"
+   573→      />
+   574→      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-center">
+   575→        <motion.div
+   576→          style={enabled ? { x: textX, y: textY } : undefined}
+   577→          transition={{ type: "spring", stiffness: 120, damping: 18 }}
+   578→        >
+   579→          <div className="flex items-center gap-2 mb-3">
+   580→            <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--accent-500)" }} strokeWidth={1.75} />
+   581→            <span
+   582→              className="text-[11px] uppercase tracking-[0.18em]"
+   583→              style={{ color: "var(--accent-500)" }}
+   584→            >
+   585→              {locale === "ar" ? "أداة ملاحة، لا أداة مراقبة" : "A navigation instrument, not a surveillance one"}
+   586→            </span>
+   587→          </div>
+   588→          <h1
+   589→            className="text-[28px] sm:text-[36px] lg:text-[44px] font-semibold leading-[1.08] tracking-[-0.02em]"
+   590→            style={{ color: "var(--text-hi)", maxWidth: "640px" }}
+   591→          >
+   592→            {locale === "ar"
+   593→              ? "نحن نعرف بالضبط أين تقف في رحلتك."
+   594→              : "We know exactly where you stand on your journey."}
+   595→          </h1>
+   596→          <p
+   597→            className="mt-3 text-[14px] sm:text-[16px] leading-relaxed max-w-[560px]"
+   598→            style={{ color: "var(--text-mid)" }}
+   599→          >
+   600→            {locale === "ar"
+   601→              ? "المحرك الحتمي يملك كل قرار. النموذج يشرح ويصيغ ويترجم — لا يسجّل، لا يقرر، لا يرى ما لم توافق على مشاركته."
+   602→              : "The deterministic engine owns every verdict, band, and route. The model explains, drafts, and translates — it never scores, never decides, never acts."}
+   603→          </p>
+   604→          <div className="mt-5 flex flex-wrap items-center gap-2">
+   605→            <button
+   606→              onClick={() => setView("ask")}
+   607→              className="ast-focus inline-flex items-center gap-2 h-9 px-4 rounded-full text-[13px] font-medium transition-transform hover:translate-y-[-1px]"
+   608→              style={{
+   609→                background: "var(--accent-500)",
+   610→                color: "var(--surface-0)",
+   611→                boxShadow: "0 6px 18px rgba(201,162,39,0.30)",
+   612→              }}
+   613→            >
+   614→              {locale === "ar" ? "اسأل سياسة" : "Ask a policy question"}
+   615→              <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.75} />
+   616→            </button>
+   617→            <button
+   618→              onClick={() => setView("journey")}
+   619→              className="ast-focus inline-flex items-center gap-2 h-9 px-4 rounded-full text-[13px] font-medium"
+   620→              style={{
+   621→                background: "transparent",
+   622→                color: "var(--text-hi)",
+   623→                border: "1px solid var(--border)",
+   624→              }}
+   625→            >
+   626→              <Map className="w-3.5 h-3.5" strokeWidth={1.75} />
+   627→              {locale === "ar" ? "تصفح رحلتك" : "See your full map"}
+   628→            </button>
+   629→          </div>
+   630→        </motion.div>
+   631→
+   632→        <motion.div
+   633→          className="hidden lg:block relative h-[260px]"
+   634→          style={enabled ? { x: astX, y: astY } : undefined}
+   635→          transition={{ type: "spring", stiffness: 120, damping: 18 }}
+   636→        >
+   637→          <Astrolabe3D size={1.05} spin />
+   638→          <div
+   639→            className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] uppercase tracking-[0.18em] whitespace-nowrap"
+   640→            style={{ color: "var(--text-lo)" }}
+   641→          >
+   642→            {locale === "ar" ? "الأسطرلاب · مكتشف الرحلة" : "Astrolabe · journey instrument"}
+   643→          </div>
+   644→        </motion.div>
+   645→      </div>
+   646→    </motion.div>
+   647→  );
+   648→}
+   649→
+   650→/* ============================================================
+   651→   COMMAND PALETTE — ⌘K
+   652→   ============================================================ */
+   653→function CommandPalette({
+   654→  onClose,
+   655→  onNavigate,
+   656→  onRole,
+   657→  onEmployee,
+   658→  onLocale,
+   659→}: {
+   660→  onClose: () => void;
+   661→  onNavigate: (v: View) => void;
+   662→  onRole: (r: Role) => void;
+   663→  onEmployee: (id: string) => void;
+   664→  onLocale: () => void;
+   665→}) {
+   666→  const [query, setQuery] = useState("");
+   667→  const locale = useAppStore((s) => s.locale);
+   668→
+   669→  const items = [
+   670→    { group: locale === "ar" ? "انتقل" : "Navigate", actions: [
+   671→      { id: "today", label: locale === "ar" ? "اليوم" : "Today", hint: "What now?", run: () => onNavigate("today") },
+   672→      { id: "journey", label: locale === "ar" ? "الرحلة" : "Journey", hint: "Full map", run: () => onNavigate("journey") },
+   673→      { id: "ask", label: locale === "ar" ? "اسأل" : "Ask", hint: "Cited answers", run: () => onNavigate("ask") },
+   674→      { id: "requests", label: locale === "ar" ? "الطلبات" : "Requests", hint: "Intake & status", run: () => onNavigate("requests") },
+   675→      { id: "me", label: locale === "ar" ? "حسابي" : "Me", hint: "Consent & data", run: () => onNavigate("me") },
+   676→    ]},
+   677→    { group: locale === "ar" ? "الوضع" : "Mode", actions: [
+   678→      { id: "employee", label: locale === "ar" ? "موظف" : "Employee", hint: "Journey companion", run: () => onRole("employee") },
+   679→      { id: "hrbp", label: "HRBP", hint: "Early warning queue", run: () => onRole("hrbp") },
+   680→      { id: "manager", label: locale === "ar" ? "مدير" : "Manager", hint: "Aggregate view", run: () => onRole("manager") },
+   681→      { id: "judge", label: locale === "ar" ? "قاضٍ" : "Judge", hint: "Engine trace", run: () => onRole("judge") },
+   682→      { id: "admin", label: locale === "ar" ? "إدارة" : "Admin", hint: "Operability console", run: () => onRole("admin") },
+   683→      { id: "service_owner", label: locale === "ar" ? "مالك الخدمة" : "Service owner", hint: "Intake queue + payload", run: () => onRole("service_owner") },
+   684→    ]},
+   685→    { group: locale === "ar" ? "السيناريو" : "Scenario", actions: EMPLOYEES.map((e) => ({
+   686→      id: e.id, label: `${e.id} · ${e.name}`, hint: e.journey, run: () => onEmployee(e.id),
+   687→    }))},
+   688→    { group: locale === "ar" ? "إجراءات" : "Actions", actions: [
+   689→      { id: "locale", label: locale === "ar" ? "تبديل اللغة" : "Toggle language", hint: "EN ⇄ AR", run: onLocale },
+   690→    ]},
+   691→  ];
+   692→
+   693→  const filtered = items
+   694→    .map((g) => ({
+   695→      ...g,
+   696→      actions: g.actions.filter((a) =>
+   697→        a.label.toLowerCase().includes(query.toLowerCase()) ||
+   698→        a.hint.toLowerCase().includes(query.toLowerCase())
+   699→      ),
+   700→    }))
+   701→    .filter((g) => g.actions.length > 0);
+   702→
+   703→  return (
+   704→    <motion.div
+   705→      initial={{ opacity: 0 }}
+   706→      animate={{ opacity: 1 }}
+   707→      exit={{ opacity: 0 }}
+   708→      transition={{ duration: 0.16 }}
+   709→      className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] px-4"
+   710→      style={{ background: "rgba(11,17,28,0.70)", backdropFilter: "blur(8px)" }}
+   711→      onClick={onClose}
+   712→    >
+   713→      <motion.div
+   714→        initial={{ opacity: 0, scale: 0.98, y: -8 }}
+   715→        animate={{ opacity: 1, scale: 1, y: 0 }}
+   716→        exit={{ opacity: 0, scale: 0.98, y: -8 }}
+   717→        transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
+   718→        onClick={(e) => e.stopPropagation()}
+   719→        className="ast-card-glass w-full max-w-[560px] overflow-hidden"
+   720→        style={{
+   721→          boxShadow: "var(--e3)",
+   722→        }}
+   723→      >
+   724→        {/* Input */}
+   725→        <div
+   726→          className="flex items-center gap-2.5 px-4 h-12 border-b"
+   727→          style={{ borderColor: "var(--border)" }}
+   728→        >
+   729→          <Command className="w-4 h-4" style={{ color: "var(--text-lo)" }} strokeWidth={1.75} />
+   730→          <input
+   731→            autoFocus
+   732→            value={query}
+   733→            onChange={(e) => setQuery(e.target.value)}
+   734→            placeholder={locale === "ar" ? "ابحث عن إجراء، صفحة، سيناريو…" : "Search actions, views, scenarios…"}
+   735→            className="flex-1 bg-transparent outline-none text-[14px] placeholder:opacity-50"
+   736→            style={{ color: "var(--text-hi)" }}
+   737→          />
+   738→          <button
+   739→            onClick={onClose}
+   740→            className="ast-focus inline-flex items-center justify-center w-6 h-6 rounded-md"
+   741→            style={{ background: "var(--surface-2)", color: "var(--text-mid)" }}
+   742→            aria-label="Close"
+   743→          >
+   744→            <X className="w-3.5 h-3.5" strokeWidth={1.75} />
+   745→          </button>
+   746→        </div>
+   747→
+   748→        {/* Results */}
+   749→        <div className="max-h-[420px] overflow-y-auto py-2">
+   750→          {filtered.length === 0 && (
+   751→            <div className="px-4 py-8 text-center text-[12px]" style={{ color: "var(--text-lo)" }}>
+   752→              {locale === "ar" ? "لا نتائج" : "No results"}
+   753→            </div>
+   754→          )}
+   755→          {filtered.map((g) => (
+   756→            <div key={g.group} className="mb-1">
+   757→              <div
+   758→                className="px-4 py-1.5 text-[10px] uppercase tracking-[0.16em]"
+   759→                style={{ color: "var(--text-lo)" }}
+   760→              >
+   761→                {g.group}
+   762→              </div>
+   763→              {g.actions.map((a) => (
+   764→                <button
+   765→                  key={a.id}
+   766→                  onClick={a.run}
+   767→                  className="ast-focus w-full flex items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-[var(--surface-2)]"
+   768→                >
+   769→                  <span className="text-[13px] font-medium" style={{ color: "var(--text-hi)" }}>
+   770→                    {a.label}
+   771→                  </span>
+   772→                  <span className="text-[11px] ml-auto" style={{ color: "var(--text-lo)" }}>
+   773→                    {a.hint}
+   774→                  </span>
+   775→                </button>
+   776→              ))}
+   777→            </div>
+   778→          ))}
+   779→        </div>
+   780→
+   781→        {/* Footer */}
+   782→        <div
+   783→          className="flex items-center justify-between px-4 py-2 text-[10px] tabular border-t"
+   784→          style={{ borderColor: "var(--border)", color: "var(--text-lo)" }}
+   785→        >
+   786→          <span className="flex items-center gap-2">
+   787→            <kbd className="px-1 py-0.5 rounded font-mono" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>↑↓</kbd>
+   788→            {locale === "ar" ? "تنقل" : "navigate"}
+   789→            <kbd className="px-1 py-0.5 rounded font-mono ml-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>↵</kbd>
+   790→            {locale === "ar" ? "اختيار" : "select"}
+   791→          </span>
+   792→          <span>ASTROLABE v1.0.0</span>
+   793→        </div>
+   794→      </motion.div>
+   795→    </motion.div>
+   796→  );
+   797→}
+   798→

@@ -1,0 +1,948 @@
+     1→"use client";
+     2→
+     3→/* ============================================================
+     4→   ASTROLABE — Manager Screen (aggregate-only, PRD §16)
+     5→   CRITICAL PRIVACY BOUNDARY:
+     6→   This view MUST NOT show sentiment, pulse scores, transcripts,
+     7→   friction scores per person, or comments. The schema boundary
+     8→   is enforced server-side — the cohort API returns only
+     9→   {employeeId, employeeName, journeyType, stage, dayInStage,
+    10→   aggregateCompletion, ownedSteps[]}. Nothing else.
+    11→   ============================================================ */
+    12→
+    13→import { useCallback, useEffect, useMemo, useState } from "react";
+    14→import { motion, AnimatePresence } from "framer-motion";
+    15→import { format, formatDistanceStrict } from "date-fns";
+    16→import {
+    17→  ShieldCheck,
+    18→  Users,
+    19→  ClipboardList,
+    20→  AlertTriangle,
+    21→  RotateCcw,
+    22→  CheckCircle2,
+    23→  Clock,
+    24→  Hourglass,
+    25→  ChevronRight,
+    26→  ChevronDown,
+    27→  ChevronUp,
+    28→  Inbox,
+    29→  Lock,
+    30→} from "lucide-react";
+    31→import { useAppStore } from "@/lib/store/app-store";
+    32→import { StatusChip } from "@/components/astrolabe/widgets";
+    33→import { toast } from "sonner";
+    34→import { cn } from "@/lib/utils";
+    35→
+    36→/* ---------- Types ---------- */
+    37→
+    38→type StepStatus =
+    39→  | "not_started"
+    40→  | "in_progress"
+    41→  | "waiting_employee"
+    42→  | "waiting_owner"
+    43→  | "blocked"
+    44→  | "done"
+    45→  | "skipped";
+    46→
+    47→interface OwnedStep {
+    48→  stepKey: string;
+    49→  label: string;
+    50→  status: StepStatus;
+    51→  dueAt?: string;
+    52→}
+    53→
+    54→interface CohortItem {
+    55→  employeeId: string;
+    56→  employeeName: string;
+    57→  journeyType: "onboarding" | "mobility";
+    58→  stage: string;
+    59→  dayInStage: number;
+    60→  aggregateCompletion: number;
+    61→  ownedSteps: OwnedStep[];
+    62→}
+    63→
+    64→interface ApiEnvelope<T> {
+    65→  ok: boolean;
+    66→  data: T | null;
+    67→  meta: { requestId: string; asOf: string; servedFrom: string };
+    68→  error: { code: string; message: string; hint?: string } | null;
+    69→}
+    70→
+    71→/* ---------- Stage labels ---------- */
+    72→const STAGE_LABELS: Record<string, { en: string; ar: string }> = {
+    73→  pre_boarding: { en: "Pre-boarding", ar: "ما قبل الالتحاق" },
+    74→  visa_processing: { en: "Visa Processing", ar: "معالجة التأشيرة" },
+    75→  first_day: { en: "First Day", ar: "اليوم الأول" },
+    76→  first_week: { en: "First Week", ar: "الأسبوع الأول" },
+    77→  first_90: { en: "First 90 Days", ar: "أول 90 يوماً" },
+    78→  transfer_approved: { en: "Transfer Approved", ar: "تمت الموافقة على النقل" },
+    79→  handover: { en: "Handover", ar: "التسليم" },
+    80→  effective_date: { en: "Effective Date", ar: "تاريخ السريان" },
+    81→  settle_new_role: { en: "Settling In", ar: "الاستقرار" },
+    82→};
+    83→
+    84→function stageLabel(key: string, locale: "en" | "ar"): string {
+    85→  const e = STAGE_LABELS[key];
+    86→  if (!e) return key;
+    87→  return locale === "ar" ? e.ar : e.en;
+    88→}
+    89→
+    90→/* ---------- 30-60-90 outline defaults (PRD §11-207) ---------- */
+    91→
+    92→interface Outline3090 {
+    93→  day30: string[];
+    94→  day60: string[];
+    95→  day90: string[];
+    96→  buddy: string;
+    97→}
+    98→
+    99→const DEFAULTS_ONBOARDING: Outline3090 = {
+   100→  day30: ["Complete induction", "First buddy catch-up", "Shadow 2 shifts"],
+   101→  day60: ["Solo first shift", "First feedback round", "Training module 2"],
+   102→  day90: ["90-day review", "Confirm probation", "Set Q1 goals"],
+   103→  buddy: "",
+   104→};
+   105→
+   106→const DEFAULTS_MOBILITY: Outline3090 = {
+   107→  day30: ["New role induction", "Releasing manager handover", "Stakeholder intros"],
+   108→  day60: ["First project delivery", "New team 1:1s", "Skills gap assessment"],
+   109→  day90: ["90-day review", "Confirm new role fit", "Set next-quarter goals"],
+   110→  buddy: "",
+   111→};
+   112→
+   113→/** Build a fresh outline (deep copy of defaults) based on journey type. */
+   114→function defaultOutline(journeyType: "onboarding" | "mobility"): Outline3090 {
+   115→  const src = journeyType === "onboarding" ? DEFAULTS_ONBOARDING : DEFAULTS_MOBILITY;
+   116→  return {
+   117→    day30: [...src.day30],
+   118→    day60: [...src.day60],
+   119→    day90: [...src.day90],
+   120→    buddy: "",
+   121→  };
+   122→}
+   123→
+   124→/* ---------- Skeleton ---------- */
+   125→function ManagerSkeleton() {
+   126→  return (
+   127→    <div className="space-y-4" aria-hidden="true">
+   128→      <div className="ast-card h-24 ast-shimmer rounded-[14px]" />
+   129→      <div className="ast-card p-6 h-72 ast-shimmer rounded-[14px]" />
+   130→      <div className="ast-card p-6 h-72 ast-shimmer rounded-[14px]" />
+   131→    </div>
+   132→  );
+   133→}
+   134→
+   135→function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+   136→  return (
+   137→    <div
+   138→      className="ast-card p-5 flex flex-col sm:flex-row sm:items-center gap-4"
+   139→      role="alert"
+   140→      style={{ borderColor: "rgba(220,38,38,0.4)" }}
+   141→    >
+   142→      <div
+   143→        className="flex items-center justify-center w-11 h-11 rounded-full shrink-0"
+   144→        style={{ background: "rgba(220,38,38,0.12)", color: "var(--status-friction)" }}
+   145→      >
+   146→        <AlertTriangle className="w-5 h-5" strokeWidth={1.75} />
+   147→      </div>
+   148→      <div className="flex-1 min-w-0">
+   149→        <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+   150→          We can&apos;t reach your cohort right now.
+   151→        </p>
+   152→        <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>{message}</p>
+   153→      </div>
+   154→      <button
+   155→        onClick={onRetry}
+   156→        className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium shrink-0"
+   157→        style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+   158→      >
+   159→        <RotateCcw className="w-4 h-4" strokeWidth={1.75} />
+   160→        Retry
+   161→      </button>
+   162→    </div>
+   163→  );
+   164→}
+   165→
+   166→/* ---------- Privacy banner ---------- */
+   167→function PrivacyBanner({ locale }: { locale: "en" | "ar" }) {
+   168→  return (
+   169→    <motion.section
+   170→      initial={false}
+   171→      animate={{ opacity: 1 }}
+   172→      className="ast-card p-4 sm:p-5 mb-5 flex items-start gap-3"
+   173→      style={{ borderColor: "rgba(22,154,165,0.28)", background: "rgba(22,154,165,0.04)" }}
+   174→    >
+   175→      <div
+   176→        className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
+   177→        style={{ background: "rgba(22,154,165,0.12)", color: "var(--brand-400)" }}
+   178→      >
+   179→        <ShieldCheck className="w-5 h-5" strokeWidth={1.75} />
+   180→      </div>
+   181→      <div>
+   182→        <p className="text-[14px] font-medium" style={{ color: "var(--text-hi)" }}>
+   183→          {locale === "ar"
+   184→            ? "هذه ليست أداة مراقبة."
+   185→            : "This is not a monitoring tool."}
+   186→        </p>
+   187→        <p className="text-[12px] mt-1 leading-relaxed" style={{ color: "var(--text-mid)" }}>
+   188→          {locale === "ar"
+   189→            ? "ترى فقط التزاماتك ونسبة الإنجاز الكلية. لا نُظهر نبضات أو درجات احتكاك أو تعليقات لأي فرد."
+   190→            : "You see only your own obligations and aggregate completion. We do not show sentiment, pulse scores, transcripts, friction scores per person, or comments for anyone."}
+   191→        </p>
+   192→      </div>
+   193→    </motion.section>
+   194→  );
+   195→}
+   196→
+   197→/* ---------- Sub-view tabs ---------- */
+   198→function ManagerTabs() {
+   199→  const locale = useAppStore((s) => s.locale);
+   200→  const view = useAppStore((s) => s.managerView);
+   201→  const setView = useAppStore((s) => s.setManagerView);
+   202→  const TABS: { id: typeof view; label: string; labelAr: string; Icon: typeof Users }[] = [
+   203→    { id: "cohort", label: "My joiners", labelAr: "من الانضمام", Icon: Users },
+   204→    { id: "my_steps", label: "My obligations", labelAr: "التزاماتي", Icon: ClipboardList },
+   205→  ];
+   206→  return (
+   207→    <div
+   208→      className="inline-flex items-center gap-1 p-1 rounded-full"
+   209→      style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
+   210→      role="tablist"
+   211→    >
+   212→      {TABS.map((t) => {
+   213→        const Icon = t.Icon;
+   214→        const isActive = view === t.id;
+   215→        return (
+   216→          <button
+   217→            key={t.id}
+   218→            onClick={() => setView(t.id)}
+   219→            aria-selected={isActive}
+   220→            role="tab"
+   221→            className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 sm:px-4 rounded-full text-[12px] font-medium transition-colors"
+   222→            style={{
+   223→              background: isActive ? "var(--brand-500)" : "transparent",
+   224→              color: isActive ? "var(--surface-0)" : "var(--text-mid)",
+   225→            }}
+   226→          >
+   227→            <Icon className="w-3.5 h-3.5" strokeWidth={1.75} />
+   228→            <span className="hidden sm:inline">{locale === "ar" ? t.labelAr : t.label}</span>
+   229→          </button>
+   230→        );
+   231→      })}
+   232→    </div>
+   233→  );
+   234→}
+   235→
+   236→/* ============================================================
+   237→   Component
+   238→   ============================================================ */
+   239→export function ManagerScreen() {
+   240→  const locale = useAppStore((s) => s.locale);
+   241→  const view = useAppStore((s) => s.managerView);
+   242→  const dir = locale === "ar" ? "rtl" : "ltr";
+   243→
+   244→  const [items, setItems] = useState<CohortItem[] | null>(null);
+   245→  const [err, setErr] = useState<string | null>(null);
+   246→  const [loading, setLoading] = useState(true);
+   247→
+   248→  const fetchCohort = useCallback(async () => {
+   249→    setLoading(true);
+   250→    setErr(null);
+   251→    try {
+   252→      const res = await fetch("/api/v1/manager/cohort?managerId=MGR-1", { cache: "no-store" });
+   253→      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+   254→      const json: ApiEnvelope<{ managerId: string; items: CohortItem[] }> = await res.json();
+   255→      if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
+   256→      setItems(json.data.items);
+   257→    } catch (e) {
+   258→      setErr(e instanceof Error ? e.message : "Network error");
+   259→    } finally {
+   260→      setLoading(false);
+   261→    }
+   262→  }, []);
+   263→
+   264→  useEffect(() => { fetchCohort(); }, [fetchCohort]);
+   265→
+   266→  // Aggregate metrics
+   267→  const stats = useMemo(() => {
+   268→    if (!items) return { joiners: 0, waitingOnMe: 0, avgCompletion: 0 };
+   269→    const joiners = items.length;
+   270→    let waiting = 0;
+   271→    let sumCompletion = 0;
+   272→    for (const it of items) {
+   273→      sumCompletion += it.aggregateCompletion;
+   274→      for (const s of it.ownedSteps) {
+   275→        if (s.status === "waiting_owner") waiting += 1;
+   276→      }
+   277→    }
+   278→    return {
+   279→      joiners,
+   280→      waitingOnMe: waiting,
+   281→      avgCompletion: joiners > 0 ? Math.round(sumCompletion / joiners) : 0,
+   282→    };
+   283→  }, [items]);
+   284→
+   285→  // Flatten owned steps across cohort (for "my obligations")
+   286→  const allObligations = useMemo(() => {
+   287→    if (!items) return [] as { employee: CohortItem; step: OwnedStep }[];
+   288→    const out: { employee: CohortItem; step: OwnedStep }[] = [];
+   289→    for (const it of items) {
+   290→      for (const s of it.ownedSteps) {
+   291→        out.push({ employee: it, step: s });
+   292→      }
+   293→    }
+   294→    // Sort: waiting_owner first, then by dueAt asc
+   295→    out.sort((a, b) => {
+   296→      const aWait = a.step.status === "waiting_owner" ? 0 : 1;
+   297→      const bWait = b.step.status === "waiting_owner" ? 0 : 1;
+   298→      if (aWait !== bWait) return aWait - bWait;
+   299→      const aDue = a.step.dueAt ? new Date(a.step.dueAt).getTime() : Number.MAX_SAFE_INTEGER;
+   300→      const bDue = b.step.dueAt ? new Date(b.step.dueAt).getTime() : Number.MAX_SAFE_INTEGER;
+   301→      return aDue - bDue;
+   302→    });
+   303→    return out;
+   304→  }, [items]);
+   305→
+   306→  return (
+   307→    <div
+   308→      dir={dir}
+   309→      className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10"
+   310→    >
+   311→      <header className="flex items-center justify-between mb-6 flex-wrap gap-3">
+   312→        <div>
+   313→          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--brand-400)" }}>
+   314→            <Users className="w-3.5 h-3.5" strokeWidth={1.75} />
+   315→            <span>{locale === "ar" ? "وحدة المدير" : "Manager console"}</span>
+   316→          </div>
+   317→          <h1 className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight" style={{ color: "var(--text-hi)" }}>
+   318→            {locale === "ar" ? "التزاماتك تجاه فريقك" : "Your obligations to your team"}
+   319→          </h1>
+   320→        </div>
+   321→        <ManagerTabs />
+   322→      </header>
+   323→
+   324→      <PrivacyBanner locale={locale} />
+   325→
+   326→      {loading ? (
+   327→        <ManagerSkeleton />
+   328→      ) : err ? (
+   329→        <ErrorBanner message={err} onRetry={fetchCohort} />
+   330→      ) : !items ? null : items.length === 0 ? (
+   331→        <div className="ast-card p-10 flex flex-col items-center text-center">
+   332→          <div
+   333→            className="flex items-center justify-center w-14 h-14 rounded-full mb-4"
+   334→            style={{ background: "var(--surface-2)", color: "var(--text-mid)" }}
+   335→          >
+   336→            <Inbox className="w-6 h-6" strokeWidth={1.75} />
+   337→          </div>
+   338→          <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+   339→            {locale === "ar" ? "لا شيء بانتظارك." : "Nothing waiting on you."}
+   340→          </p>
+   341→          <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+   342→            {locale === "ar"
+   343→              ? "عندما يصل موظف جديد أو ينتقل أحد، ستظهر التزاماتك هنا."
+   344→              : "When a joiner or mover lands on your team, your obligations will appear here."}
+   345→          </p>
+   346→        </div>
+   347→      ) : (
+   348→        <>
+   349→          {/* Hero numbers */}
+   350→          <section className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+   351→            {/* Waiting on me — sand-gold (primary) */}
+   352→            <div
+   353→              className="ast-card p-5 relative overflow-hidden"
+   354→              style={{
+   355→                borderColor: "rgba(201,162,39,0.40)",
+   356→                background: "linear-gradient(135deg, rgba(201,162,39,0.10) 0%, var(--surface-1) 60%)",
+   357→              }}
+   358→            >
+   359→              <div
+   360→                className="absolute top-0 left-0 right-0 h-[3px]"
+   361→                style={{ background: "var(--accent-500)" }}
+   362→              />
+   363→              <p className="text-[11px] uppercase tracking-[0.14em] font-medium" style={{ color: "var(--accent-500)" }}>
+   364→                {locale === "ar" ? "بانتظارك" : "Waiting on you"}
+   365→              </p>
+   366→              <p className="text-[44px] leading-none font-semibold mt-2 tabular ast-brass">
+   367→                {stats.waitingOnMe}
+   368→              </p>
+   369→              <p className="text-[12px] mt-2" style={{ color: "var(--text-mid)" }}>
+   370→                {locale === "ar"
+   371→                  ? `خطوة تنتظر إكمالك عبر ${stats.joiners} موظف`
+   372→                  : `step${stats.waitingOnMe === 1 ? "" : "s"} you own across ${stats.joiners} joiner${stats.joiners === 1 ? "" : "s"}`}
+   373→              </p>
+   374→            </div>
+   375→
+   376→            {/* Joiners count */}
+   377→            <div className="ast-card p-5">
+   378→              <p className="text-[11px] uppercase tracking-[0.14em] font-medium" style={{ color: "var(--text-lo)" }}>
+   379→                {locale === "ar" ? "المنضمّون" : "Joiners"}
+   380→              </p>
+   381→              <p className="text-[44px] leading-none font-semibold mt-2 tabular" style={{ color: "var(--text-hi)" }}>
+   382→                {stats.joiners}
+   383→              </p>
+   384→              <p className="text-[12px] mt-2" style={{ color: "var(--text-mid)" }}>
+   385→                {locale === "ar" ? "في رحلتك الحالية" : "in your current cohort"}
+   386→              </p>
+   387→            </div>
+   388→
+   389→            {/* Aggregate completion */}
+   390→            <div className="ast-card p-5">
+   391→              <p className="text-[11px] uppercase tracking-[0.14em] font-medium" style={{ color: "var(--text-lo)" }}>
+   392→                {locale === "ar" ? "نسبة الإنجاز" : "Avg completion"}
+   393→              </p>
+   394→              <p className="text-[44px] leading-none font-semibold mt-2 tabular" style={{ color: "var(--text-hi)" }}>
+   395→                {stats.avgCompletion}<span className="text-[24px] font-normal" style={{ color: "var(--text-mid)" }}>%</span>
+   396→              </p>
+   397→              <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--surface-3)" }}>
+   398→                <motion.div
+   399→                  initial={false}
+   400→                  animate={{ width: `${stats.avgCompletion}%` }}
+   401→                  transition={{ duration: 0.4 }}
+   402→                  className="h-full rounded-full"
+   403→                  style={{ background: "var(--brand-500)" }}
+   404→                />
+   405→              </div>
+   406→            </div>
+   407→          </section>
+   408→
+   409→          {/* Cohort / Joiners view */}
+   410→          {view === "cohort" && (
+   411→            <section>
+   412→              <div className="flex items-center gap-2 mb-4">
+   413→                <Users className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+   414→                <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
+   415→                  {locale === "ar" ? "المنضمّون لديك" : "My joiners"}
+   416→                </h2>
+   417→              </div>
+   418→              <ul className="space-y-3">
+   419→                {items.map((item) => {
+   420→                  const waitingCount = item.ownedSteps.filter((s) => s.status === "waiting_owner").length;
+   421→                  return (
+   422→                    <motion.li
+   423→                      key={item.employeeId}
+   424→                      initial={false}
+   425→                      className="ast-card p-4 sm:p-5"
+   426→                    >
+   427→                      <div className="flex items-start gap-4 flex-wrap">
+   428→                        <div className="flex-1 min-w-0">
+   429→                          <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+   430→                            {item.employeeName}
+   431→                          </p>
+   432→                          <p className="text-[12px] mt-0.5" style={{ color: "var(--text-mid)" }}>
+   433→                            {item.journeyType === "onboarding" ? (locale === "ar" ? "التحاق" : "Onboarding") : (locale === "ar" ? "تنقل" : "Mobility")}
+   434→                            <span className="mx-1.5">·</span>
+   435→                            {stageLabel(item.stage, locale)}
+   436→                            <span className="mx-1.5">·</span>
+   437→                            <span className="tabular">
+   438→                              {locale === "ar" ? `يوم ${item.dayInStage}` : `Day ${item.dayInStage}`}
+   439→                            </span>
+   440→                          </p>
+   441→
+   442→                          {/* Aggregate completion bar */}
+   443→                          <div className="mt-3 flex items-center gap-3">
+   444→                            <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "var(--surface-3)" }}>
+   445→                              <motion.div
+   446→                                initial={false}
+   447→                                animate={{ width: `${item.aggregateCompletion}%` }}
+   448→                                transition={{ duration: 0.4 }}
+   449→                                className="h-full rounded-full"
+   450→                                style={{
+   451→                                  background: item.aggregateCompletion >= 80
+   452→                                    ? "var(--status-steady)"
+   453→                                    : item.aggregateCompletion >= 40
+   454→                                    ? "var(--brand-500)"
+   455→                                    : "var(--status-watch)",
+   456→                                }}
+   457→                              />
+   458→                            </div>
+   459→                            <span className="text-[12px] tabular font-medium shrink-0" style={{ color: "var(--text-hi)" }}>
+   460→                              {item.aggregateCompletion}%
+   461→                            </span>
+   462→                          </div>
+   463→                        </div>
+   464→
+   465→                        {/* Waiting-on-me badge */}
+   466→                        <div className="shrink-0 ml-auto text-right">
+   467→                          <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+   468→                            {locale === "ar" ? "بانتظارك" : "Waiting on you"}
+   469→                          </p>
+   470→                          <p
+   471→                            className="text-[24px] font-semibold tabular mt-0.5"
+   472→                            style={{
+   473→                              color: waitingCount > 0 ? "var(--accent-500)" : "var(--text-lo)",
+   474→                            }}
+   475→                          >
+   476→                            {waitingCount}
+   477→                          </p>
+   478→                        </div>
+   479→                      </div>
+   480→                    </motion.li>
+   481→                  );
+   482→                })}
+   483→              </ul>
+   484→            </section>
+   485→          )}
+   486→
+   487→          {/* My obligations view */}
+   488→          {view === "my_steps" && (
+   489→            <section>
+   490→              <div className="flex items-center gap-2 mb-4">
+   491→                <ClipboardList className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+   492→                <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
+   493→                  {locale === "ar" ? "التزاماتي" : "My obligations"}
+   494→                </h2>
+   495→                <span className="text-[12px] tabular" style={{ color: "var(--text-mid)" }}>
+   496→                  {locale === "ar" ? `${allObligations.length} خطوة` : `${allObligations.length} step${allObligations.length === 1 ? "" : "s"}`}
+   497→                </span>
+   498→              </div>
+   499→
+   500→              {allObligations.length === 0 ? (
+   501→                <div className="ast-card p-10 flex flex-col items-center text-center">
+   502→                  <div
+   503→                    className="flex items-center justify-center w-14 h-14 rounded-full mb-4"
+   504→                    style={{ background: "rgba(14,159,110,0.10)", color: "var(--status-steady)" }}
+   505→                  >
+   506→                    <CheckCircle2 className="w-6 h-6" strokeWidth={1.75} />
+   507→                  </div>
+   508→                  <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+   509→                    {locale === "ar" ? "لا شيء بانتظارك." : "Nothing waiting on you."}
+   510→                  </p>
+   511→                </div>
+   512→              ) : (
+   513→                <ul className="space-y-2">
+   514→                  {allObligations.map(({ employee, step }) => (
+   515→                    <ObligationRow
+   516→                      key={`${employee.employeeId}-${step.stepKey}`}
+   517→                      employee={employee}
+   518→                      step={step}
+   519→                    />
+   520→                  ))}
+   521→                </ul>
+   522→              )}
+   523→            </section>
+   524→          )}
+   525→
+   526→          {/* 30-60-90 outline (PRD §11-207) — below "My obligations".
+   527→              For each joiner in the cohort, a collapsible card with three
+   528→              editable goal columns (30 / 60 / 90 days) + buddy assignment +
+   529→              Save button. State is local only — no backend writes. */}
+   530→          {view === "my_steps" && items && items.length > 0 && (
+   531→            <section className="mt-6">
+   532→              <div className="flex items-center gap-2 mb-4">
+   533→                <ClipboardList className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+   534→                <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
+   535→                  {locale === "ar" ? "مخطط 30-60-90" : "30-60-90 outline"}
+   536→                </h2>
+   537→                <span className="text-[12px] tabular" style={{ color: "var(--text-mid)" }}>
+   538→                  {locale === "ar"
+   539→                    ? `${items.length} موظف`
+   540→                    : `${items.length} joiner${items.length === 1 ? "" : "s"}`}
+   541→                </span>
+   542→              </div>
+   543→              <p className="text-[12px] mb-3" style={{ color: "var(--text-lo)" }}>
+   544→                {locale === "ar"
+   545→                  ? "خطط لأول 90 يوماً لكل منضمّ. خصّص الأهداف وعيّن الرفيق — يُحفظ محلياً للنموذج الأولي."
+   546→                  : "Plan each joiner's first 90 days. Personalize the goals and assign a buddy — saved locally for the prototype."}
+   547→              </p>
+   548→              <ul className="space-y-3">
+   549→                {items.map((item) => (
+   550→                  <Outline3090Card key={item.employeeId} item={item} locale={locale} />
+   551→                ))}
+   552→              </ul>
+   553→            </section>
+   554→          )}
+   555→
+   556→          {/* Schema-boundary footer */}
+   557→          <p className="mt-6 text-[11px] flex items-center justify-center gap-1.5" style={{ color: "var(--text-lo)" }}>
+   558→            <Lock className="w-3 h-3" strokeWidth={1.75} />
+   559→            {locale === "ar"
+   560→              ? "هذا العرض مقيّد بنمط البيانات. لا تُرسل النبضات أو التعليقات لأي موظف."
+   561→              : "Schema-bound view: pulse, comments, friction scores, and transcripts are never returned to this surface."}
+   562→          </p>
+   563→        </>
+   564→      )}
+   565→    </div>
+   566→  );
+   567→}
+   568→
+   569→/* ---------- Obligation row ---------- */
+   570→function ObligationRow({
+   571→  employee,
+   572→  step,
+   573→}: {
+   574→  employee: CohortItem;
+   575→  step: OwnedStep;
+   576→}) {
+   577→  const locale = useAppStore((s) => s.locale);
+   578→  const [completing, setCompleting] = useState(false);
+   579→  const [completed, setCompleted] = useState(false);
+   580→
+   581→  const isWaitingOwner = step.status === "waiting_owner";
+   582→  const due = step.dueAt ? new Date(step.dueAt) : null;
+   583→  const dueDistance = due ? formatDistanceStrict(due, new Date("2024-10-19T10:00:00Z"), { addSuffix: false }) : null;
+   584→  const overdue = due ? due.getTime() < Date.now() : false;
+   585→
+   586→  const handleComplete = useCallback(async () => {
+   587→    setCompleting(true);
+   588→    // No related request ref is returned by the cohort API (privacy boundary),
+   589→    // so for the prototype we simulate completion with a success toast.
+   590→    await new Promise((r) => setTimeout(r, 380));
+   591→    setCompleting(false);
+   592→    setCompleted(true);
+   593→    toast.success("Step complete", {
+   594→      description: `${step.label} · ${employee.employeeName}`,
+   595→    });
+   596→  }, [employee.employeeName, step.label]);
+   597→
+   598→  return (
+   599→    <motion.li
+   600→      initial={false}
+   601→      className={cn("ast-card p-4 flex items-center gap-3 flex-wrap", completed && "opacity-70")}
+   602→      style={{
+   603→        borderColor: isWaitingOwner && !completed ? "rgba(201,162,39,0.32)" : "var(--border)",
+   604→      }}
+   605→    >
+   606→      {/* Status glyph */}
+   607→      <div
+   608→        className="flex items-center justify-center w-9 h-9 rounded-full shrink-0"
+   609→        style={{
+   610→          background: completed
+   611→            ? "rgba(14,159,110,0.12)"
+   612→            : isWaitingOwner
+   613→            ? "rgba(201,162,39,0.12)"
+   614→            : "var(--surface-2)",
+   615→          color: completed
+   616→            ? "var(--status-steady)"
+   617→            : isWaitingOwner
+   618→            ? "var(--accent-500)"
+   619→            : "var(--text-mid)",
+   620→        }}
+   621→      >
+   622→        {completed ? (
+   623→          <CheckCircle2 className="w-4 h-4" strokeWidth={1.75} />
+   624→        ) : isWaitingOwner ? (
+   625→          <Hourglass className="w-4 h-4" strokeWidth={1.75} />
+   626→        ) : (
+   627→          <Clock className="w-4 h-4" strokeWidth={1.75} />
+   628→        )}
+   629→      </div>
+   630→
+   631→      {/* Step + employee */}
+   632→      <div className="flex-1 min-w-0">
+   633→        <p className="text-[14px] font-medium" style={{ color: "var(--text-hi)" }}>
+   634→          {step.label}
+   635→          {completed && (
+   636→            <span className="ml-2 text-[11px] font-medium" style={{ color: "var(--status-steady)" }}>
+   637→              {locale === "ar" ? "تم" : "done"}
+   638→            </span>
+   639→          )}
+   640→        </p>
+   641→        <p className="text-[12px] mt-0.5" style={{ color: "var(--text-mid)" }}>
+   642→          {locale === "ar" ? "لـ" : "for"} <span className="font-medium" style={{ color: "var(--text-hi)" }}>{employee.employeeName}</span>
+   643→          {due && !completed && (
+   644→            <>
+   645→              <span className="mx-1.5">·</span>
+   646→              <span
+   647→                className="tabular inline-flex items-center gap-1"
+   648→                style={{ color: overdue ? "var(--status-friction)" : "var(--text-lo)" }}
+   649→              >
+   650→                <Clock className="w-3 h-3" strokeWidth={1.75} />
+   651→                {format(due, "d MMM")}
+   652→                <span style={{ color: "var(--text-lo)" }}>·</span>
+   653→                {overdue
+   654→                  ? (locale === "ar" ? `متأخر ${dueDistance}` : `${dueDistance} overdue`)
+   655→                  : (locale === "ar" ? `بعد ${dueDistance}` : `in ${dueDistance}`)}
+   656→              </span>
+   657→            </>
+   658→          )}
+   659→        </p>
+   660→      </div>
+   661→
+   662→      {/* Status chip + action */}
+   663→      <div className="flex items-center gap-2 shrink-0 ml-auto">
+   664→        <StatusChip status={completed ? "done" : step.status} locale={locale} />
+   665→        {isWaitingOwner && !completed && (
+   666→          <button
+   667→            onClick={handleComplete}
+   668→            disabled={completing}
+   669→            className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium transition-colors disabled:opacity-50"
+   670→            style={{
+   671→              background: "var(--accent-500)",
+   672→              color: "var(--surface-0)",
+   673→              border: "1px solid var(--accent-500)",
+   674→            }}
+   675→          >
+   676→            <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+   677→            {completing
+   678→              ? (locale === "ar" ? "..." : "Marking…")
+   679→              : (locale === "ar" ? "أكمل الخطوة" : "Complete")}
+   680→          </button>
+   681→        )}
+   682→      </div>
+   683→    </motion.li>
+   684→  );
+   685→}
+   686→
+   687→/* ============================================================
+   688→   30-60-90 outline card (PRD §11-207)
+   689→   - Collapsible per-joiner card titled "30-60-90: {name}"
+   690→   - Three columns: 30 / 60 / 90 days — each with editable goals
+   691→   - Buddy assignment text input
+   692→   - Save button → success toast (local state only, no backend)
+   693→   ============================================================ */
+   694→
+   695→type OutlinePhase = "day30" | "day60" | "day90";
+   696→
+   697→function Outline3090Card({
+   698→  item,
+   699→  locale,
+   700→}: {
+   701→  item: CohortItem;
+   702→  locale: "en" | "ar";
+   703→}) {
+   704→  const [open, setOpen] = useState(false);
+   705→  const [outline, setOutline] = useState<Outline3090>(() =>
+   706→    defaultOutline(item.journeyType),
+   707→  );
+   708→  const [saving, setSaving] = useState(false);
+   709→  const [saved, setSaved] = useState(false);
+   710→
+   711→  const updateGoal = (phase: OutlinePhase, idx: number, value: string) => {
+   712→    setOutline((prev) => {
+   713→      const next: Outline3090 = { ...prev, [phase]: [...prev[phase]] };
+   714→      next[phase][idx] = value;
+   715→      return next;
+   716→    });
+   717→    // Mark as unsaved the moment any field is edited after a save.
+   718→    if (saved) setSaved(false);
+   719→  };
+   720→
+   721→  const updateBuddy = (value: string) => {
+   722→    setOutline((prev) => ({ ...prev, buddy: value }));
+   723→    if (saved) setSaved(false);
+   724→  };
+   725→
+   726→  const handleSave = () => {
+   727→    setSaving(true);
+   728→    // Simulate a save round-trip — local state only (no backend).
+   729→    setTimeout(() => {
+   730→      setSaving(false);
+   731→      setSaved(true);
+   732→      toast.success(
+   733→        locale === "ar" ? "تم حفظ المخطط" : "Outline saved",
+   734→        {
+   735→          description:
+   736→            locale === "ar"
+   737→              ? `مخطط 30-60-90 لـ ${item.employeeName}`
+   738→              : `30-60-90 outline for ${item.employeeName}`,
+   739→        },
+   740→      );
+   741→    }, 420);
+   742→  };
+   743→
+   744→  const journeyLabel =
+   745→    item.journeyType === "onboarding"
+   746→      ? locale === "ar"
+   747→        ? "التحاق"
+   748→        : "Onboarding"
+   749→      : locale === "ar"
+   750→        ? "تنقل"
+   751→        : "Mobility";
+   752→
+   753→  return (
+   754→    <li className="ast-card overflow-hidden">
+   755→      {/* Header — click to collapse / expand */}
+   756→      <button
+   757→        type="button"
+   758→        onClick={() => setOpen((v) => !v)}
+   759→        aria-expanded={open}
+   760→        className="ast-focus w-full flex items-center gap-3 p-4 sm:p-5 text-left"
+   761→      >
+   762→        <div
+   763→          className="flex items-center justify-center w-9 h-9 rounded-full shrink-0"
+   764→          style={{
+   765→            background: "rgba(22,154,165,0.10)",
+   766→            color: "var(--brand-400)",
+   767→          }}
+   768→          aria-hidden="true"
+   769→        >
+   770→          <ClipboardList className="w-4 h-4" strokeWidth={1.75} />
+   771→        </div>
+   772→        <div className="flex-1 min-w-0">
+   773→          <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+   774→            {locale === "ar" ? "مخطط 30-60-90: " : "30-60-90: "}
+   775→            {item.employeeName}
+   776→          </p>
+   777→          <p className="text-[12px] mt-0.5" style={{ color: "var(--text-mid)" }}>
+   778→            {journeyLabel}
+   779→            <span className="mx-1.5">·</span>
+   780→            {stageLabel(item.stage, locale)}
+   781→            <span className="mx-1.5">·</span>
+   782→            <span className="tabular">
+   783→              {locale === "ar" ? `يوم ${item.dayInStage}` : `Day ${item.dayInStage}`}
+   784→            </span>
+   785→          </p>
+   786→        </div>
+   787→        {saved && (
+   788→          <span
+   789→            className="ast-chip shrink-0"
+   790→            style={{
+   791→              color: "var(--status-steady)",
+   792→              background: "rgba(14,159,110,0.10)",
+   793→              borderColor: "rgba(14,159,110,0.30)",
+   794→            }}
+   795→          >
+   796→            <CheckCircle2 className="w-3 h-3" strokeWidth={1.75} />
+   797→            {locale === "ar" ? "محفوظ" : "Saved"}
+   798→          </span>
+   799→        )}
+   800→        {open ? (
+   801→          <ChevronUp className="w-4 h-4 shrink-0" strokeWidth={1.75} style={{ color: "var(--text-lo)" }} />
+   802→        ) : (
+   803→          <ChevronDown className="w-4 h-4 shrink-0" strokeWidth={1.75} style={{ color: "var(--text-lo)" }} />
+   804→        )}
+   805→      </button>
+   806→
+   807→      {/* Body — three columns + buddy + save */}
+   808→      <AnimatePresence initial={false}>
+   809→        {open && (
+   810→          <motion.div
+   811→            initial={{ height: 0, opacity: 0 }}
+   812→            animate={{ height: "auto", opacity: 1 }}
+   813→            exit={{ height: 0, opacity: 0 }}
+   814→            transition={{ duration: 0.2 }}
+   815→            className="overflow-hidden"
+   816→          >
+   817→            <div className="p-4 sm:p-5 pt-0 space-y-4">
+   818→              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+   819→                <OutlineColumn
+   820→                  title={locale === "ar" ? "30 يوماً" : "30 days"}
+   821→                  accent="var(--brand-400)"
+   822→                  goals={outline.day30}
+   823→                  onChange={(idx, v) => updateGoal("day30", idx, v)}
+   824→                  locale={locale}
+   825→                />
+   826→                <OutlineColumn
+   827→                  title={locale === "ar" ? "60 يوماً" : "60 days"}
+   828→                  accent="var(--brand-400)"
+   829→                  goals={outline.day60}
+   830→                  onChange={(idx, v) => updateGoal("day60", idx, v)}
+   831→                  locale={locale}
+   832→                />
+   833→                <OutlineColumn
+   834→                  title={locale === "ar" ? "90 يوماً" : "90 days"}
+   835→                  accent="var(--accent-500)"
+   836→                  goals={outline.day90}
+   837→                  onChange={(idx, v) => updateGoal("day90", idx, v)}
+   838→                  locale={locale}
+   839→                />
+   840→              </div>
+   841→
+   842→              {/* Buddy assignment — named person selector (text input for prototype) */}
+   843→              <div>
+   844→                <label
+   845→                  htmlFor={`buddy-${item.employeeId}`}
+   846→                  className="text-[11px] font-semibold uppercase tracking-[0.12em]"
+   847→                  style={{ color: "var(--text-lo)" }}
+   848→                >
+   849→                  {locale === "ar" ? "تكليف الرفيق" : "Buddy assignment"}
+   850→                </label>
+   851→                <input
+   852→                  id={`buddy-${item.employeeId}`}
+   853→                  type="text"
+   854→                  value={outline.buddy}
+   855→                  onChange={(e) => updateBuddy(e.target.value)}
+   856→                  placeholder={
+   857→                    locale === "ar"
+   858→                      ? "اسم الشخص المكلف كرفيق"
+   859→                      : "Named person assigned as buddy"
+   860→                  }
+   861→                  className="ast-focus mt-1.5 w-full h-11 px-3 rounded-[10px] text-[14px] outline-none"
+   862→                  style={{
+   863→                    background: "var(--surface-2)",
+   864→                    color: "var(--text-hi)",
+   865→                    border: "1px solid var(--border)",
+   866→                  }}
+   867→                />
+   868→              </div>
+   869→
+   870→              {/* Save button */}
+   871→              <div className="flex items-center justify-end gap-2 pt-1">
+   872→                <button
+   873→                  type="button"
+   874→                  onClick={handleSave}
+   875→                  disabled={saving}
+   876→                  className="ast-focus inline-flex items-center justify-center gap-2 h-11 px-5 rounded-[10px] text-[13px] font-semibold transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
+   877→                  style={{
+   878→                    background: "var(--brand-500)",
+   879→                    color: "var(--surface-0)",
+   880→                    boxShadow: "0 4px 14px rgba(22,154,165,0.22)",
+   881→                  }}
+   882→                >
+   883→                  <CheckCircle2 className="w-4 h-4" strokeWidth={1.75} />
+   884→                  {saving
+   885→                    ? (locale === "ar" ? "جارٍ الحفظ..." : "Saving…")
+   886→                    : (locale === "ar" ? "حفظ المخطط" : "Save outline")}
+   887→                </button>
+   888→              </div>
+   889→            </div>
+   890→          </motion.div>
+   891→        )}
+   892→      </AnimatePresence>
+   893→    </li>
+   894→  );
+   895→}
+   896→
+   897→/* ---------- Single 30/60/90 column with editable goals ---------- */
+   898→
+   899→function OutlineColumn({
+   900→  title,
+   901→  accent,
+   902→  goals,
+   903→  onChange,
+   904→  locale,
+   905→}: {
+   906→  title: string;
+   907→  accent: string;
+   908→  goals: string[];
+   909→  onChange: (idx: number, value: string) => void;
+   910→  locale: "en" | "ar";
+   911→}) {
+   912→  return (
+   913→    <div className="ast-card-2 p-3.5">
+   914→      <p
+   915→        className="text-[12px] font-semibold uppercase tracking-[0.12em] mb-3"
+   916→        style={{ color: accent }}
+   917→      >
+   918→        {title}
+   919→      </p>
+   920→      <div className="space-y-2.5">
+   921→        {goals.map((g, idx) => (
+   922→          <div key={idx}>
+   923→            <label
+   924→              htmlFor={`${title}-${idx}`}
+   925→              className="text-[10px] uppercase tracking-[0.10em]"
+   926→              style={{ color: "var(--text-lo)" }}
+   927→            >
+   928→              {locale === "ar" ? `هدف ${idx + 1}` : `Goal ${idx + 1}`}
+   929→            </label>
+   930→            <input
+   931→              id={`${title}-${idx}`}
+   932→              type="text"
+   933→              value={g}
+   934→              onChange={(e) => onChange(idx, e.target.value)}
+   935→              className="ast-focus mt-0.5 w-full h-9 px-2.5 rounded-md text-[13px] outline-none"
+   936→              style={{
+   937→                background: "var(--surface-2)",
+   938→                color: "var(--text-hi)",
+   939→                border: "1px solid var(--border)",
+   940→              }}
+   941→            />
+   942→          </div>
+   943→        ))}
+   944→      </div>
+   945→    </div>
+   946→  );
+   947→}
+   948→

@@ -1,0 +1,642 @@
+     1→/**
+     2→ * ASTROLABE Synthetic Data Pack
+     3→ * ------------------------------
+     4→ * Versioned, hash-stable seed data for the deterministic engine.
+     5→ * Mirrors the PRD §9 domain model and §4 scope (two journeys only:
+     6→ * onboarding + internal mobility).
+     7→ *
+     8→ * All timestamps are ISO UTC. Employee timezone retained on the employee row.
+     9→ */
+    10→
+    11→export const PACK_VERSION = "synthetic-2024-q4-v1";
+    12→export const ENGINE_VERSION = "engine-1.0.0";
+    13→export const CORPUS_VERSION = "policies-2024-q4-v1";
+    14→
+    15→export type JourneyType = "onboarding" | "mobility";
+    16→export type Locale = "en" | "ar";
+    17→export type Location = "DXB" | "AUH" | "REMOTE";
+    18→
+    19→export interface Employee {
+    20→  id: string;
+    21→  ref: string;
+    22→  displayName: string;
+    23→  displayNameAr?: string;
+    24→  journeyType: JourneyType;
+    25→  stage: string;
+    26→  startDate: string;
+    27→  effectiveDate?: string;
+    28→  location: Location;
+    29→  timezone: string;
+    30→  managerId: string;
+    31→  hrbpId: string;
+    32→  locale: Locale;
+    33→  role: string;
+    34→  roleAr?: string;
+    35→  team: string;
+    36→  nationality: string;
+    37→}
+    38→
+    39→export interface Owner {
+    40→  id: string;
+    41→  name: string;
+    42→  nameAr?: string;
+    43→  role: string;
+    44→  group: "HR" | "IT" | "Learning" | "Facilities" | "Mobility" | "Payroll" | "Immigration";
+    45→  email: string;
+    46→}
+    47→
+    48→export interface JourneyStep {
+    49→  key: string;
+    50→  label: string;
+    51→  labelAr: string;
+    52→  stage: string;
+    53→  ownerGroup: Owner["group"];
+    54→  targetHours: number;
+    55→  dependsOn: string[];
+    56→  policyRefs: string[];
+    57→  actor: "employee" | "owner" | "system";
+    58→  journeyType: JourneyType;
+    59→  requestType?: RequestType;
+    60→}
+    61→
+    62→export type RequestType =
+    63→  | "it_kit"
+    64→  | "system_access"
+    65→  | "visa"
+    66→  | "relocation"
+    67→  | "payroll"
+    68→  | "training"
+    69→  | "facilities"
+    70→  | "manager_handover";
+    71→
+    72→export interface JourneyStage {
+    73→  key: string;
+    74→  label: string;
+    75→  labelAr: string;
+    76→  order: number;
+    77→  journeyType: JourneyType;
+    78→}
+    79→
+    80→export interface JourneyEvent {
+    81→  id: string;
+    82→  employeeId: string;
+    83→  stepKey: string;
+    84→  type:
+    85→    | "started"
+    86→    | "completed"
+    87→    | "blocked"
+    88→    | "unblocked"
+    89→    | "waiting_employee"
+    90→    | "waiting_owner"
+    91→    | "skipped"
+    92→    | "note";
+    93→  occurredAt: string;
+    94→  recordedAt: string;
+    95→  source: string;
+    96→  payloadHash: string;
+    97→}
+    98→
+    99→export interface ServiceRequest {
+   100→  id: string;
+   101→  ref: string;
+   102→  employeeId: string;
+   103→  type: RequestType;
+   104→  ownerGroup: Owner["group"];
+   105→  assignee: string;
+   106→  status:
+   107→    | "draft"
+   108→    | "validated"
+   109→    | "submitted"
+   110→    | "acknowledged"
+   111→    | "in_progress"
+   112→    | "waiting_employee"
+   113→    | "resolved"
+   114→    | "closed"
+   115→    | "returned"
+   116→    | "reassigned"
+   117→    | "cancelled";
+   118→  openedAt: string;
+   119→  slaHours: number;
+   120→  reassignCount: number;
+   121→  returnCount: number;
+   122→  parentId?: string;
+   123→  idempotencyKey: string;
+   124→}
+   125→
+   126→export interface PolicyChunk {
+   127→  id: string;
+   128→  docSlug: string;
+   129→  title: string;
+   130→  titleAr: string;
+   131→  section: string;
+   132→  effectiveDate: string;
+   133→  reviewDate: string;
+   134→  lang: Locale;
+   135→  text: string;
+   136→  pairId: string;
+   137→}
+   138→
+   139→export interface PulseResponse {
+   140→  id: string;
+   141→  employeeId: string;
+   142→  stage: string;
+   143→  score: number;
+   144→  commentRef?: string;
+   145→  commentText?: string;
+   146→  consentId: string;
+   147→  createdAt: string;
+   148→}
+   149→
+   150→export const owners: Owner[] = [
+   151→  { id: "O-IT-1", name: "Ahmed Al-Rashid", nameAr: "أحمد الراشد", role: "IT Provisioning Lead", group: "IT", email: "it-prov@astrolabe.internal" },
+   152→  { id: "O-IT-2", name: "Priya Nair", nameAr: "بريا ناير", role: "IT Access Lead", group: "IT", email: "it-access@astrolabe.internal" },
+   153→  { id: "O-HR-1", name: "Fatima Al-Mansouri", nameAr: "فاطمة المنصوري", role: "HR Business Partner", group: "HR", email: "fatima.hrbp@astrolabe.internal" },
+   154→  { id: "O-HR-2", name: "Rania Hassan", nameAr: "رانيا حسن", role: "Mobility Specialist", group: "Mobility", email: "mobility@astrolabe.internal" },
+   155→  { id: "O-IMM-1", name: "Saeed Al-Marri", nameAr: "سعيد المري", role: "Immigration Officer", group: "Immigration", email: "immigration@astrolabe.internal" },
+   156→  { id: "O-LEARN-1", name: "Lina Khoury", nameAr: "لينا خوري", role: "Learning Coordinator", group: "Learning", email: "learning@astrolabe.internal" },
+   157→  { id: "O-FAC-1", name: "Omar Farouk", nameAr: "عمر فاروق", role: "Facilities Supervisor", group: "Facilities", email: "facilities@astrolabe.internal" },
+   158→  { id: "O-PAY-1", name: "Mona Said", nameAr: "منى سعيد", role: "Payroll Specialist", group: "Payroll", email: "payroll@astrolabe.internal" },
+   159→];
+   160→
+   161→export const managers: Owner[] = [
+   162→  { id: "MGR-1", name: "Ahmed Al-Rashid", role: "Line Manager — Cabin Crew DXB", group: "HR", email: "ahmed.mgr@astrolabe.internal" },
+   163→  { id: "MGR-2", name: "Yusuf Demir", role: "Line Manager — Warehouse AUH", group: "HR", email: "yusuf.mgr@astrolabe.internal" },
+   164→];
+   165→
+   166→export const hrbps: Owner[] = [
+   167→  { id: "HRBP-1", name: "Fatima Al-Mansouri", nameAr: "فاطمة المنصوري", role: "HRBP — Cabin Crew", group: "HR", email: "fatima.hrbp@astrolabe.internal" },
+   168→  { id: "HRBP-2", name: "Khalid Idris", nameAr: "خالد إدريس", role: "HRBP — Ground Ops", group: "HR", email: "khalid.hrbp@astrolabe.internal" },
+   169→];
+   170→
+   171→export const stages: JourneyStage[] = [
+   172→  { key: "pre_boarding", label: "Pre-boarding", labelAr: "ما قبل الالتحاق", order: 1, journeyType: "onboarding" },
+   173→  { key: "visa_processing", label: "Visa Processing", labelAr: "معالجة التأشيرة", order: 2, journeyType: "onboarding" },
+   174→  { key: "first_day", label: "First Day", labelAr: "اليوم الأول", order: 3, journeyType: "onboarding" },
+   175→  { key: "first_week", label: "First Week", labelAr: "الأسبوع الأول", order: 4, journeyType: "onboarding" },
+   176→  { key: "first_90", label: "First 90 Days", labelAr: "أول 90 يوماً", order: 5, journeyType: "onboarding" },
+   177→  { key: "transfer_approved", label: "Transfer Approved", labelAr: "تمت الموافقة على النقل", order: 1, journeyType: "mobility" },
+   178→  { key: "handover", label: "Handover", labelAr: "التسليم", order: 2, journeyType: "mobility" },
+   179→  { key: "effective_date", label: "Effective Date", labelAr: "تاريخ السريان", order: 3, journeyType: "mobility" },
+   180→  { key: "settle_new_role", label: "Settling In", labelAr: "الاستقرار", order: 4, journeyType: "mobility" },
+   181→];
+   182→
+   183→export const steps: JourneyStep[] = [
+   184→  { key: "ob_offer_signed", label: "Offer signed", labelAr: "توقيع العرض", stage: "pre_boarding", ownerGroup: "HR", targetHours: 24, dependsOn: [], policyRefs: ["onboarding-policy#offer"], actor: "employee", journeyType: "onboarding" },
+   185→  { key: "ob_passport_upload", label: "Passport scan uploaded", labelAr: "تحميل مسح جواز السفر", stage: "pre_boarding", ownerGroup: "Immigration", targetHours: 48, dependsOn: ["ob_offer_signed"], policyRefs: ["immigration-policy#documents"], actor: "employee", journeyType: "onboarding" },
+   186→  { key: "ob_relocation_allowance", label: "Relocation allowance confirmed", labelAr: "تأكيد بدل الانتقال", stage: "pre_boarding", ownerGroup: "Mobility", targetHours: 72, dependsOn: ["ob_offer_signed"], policyRefs: ["relocation-policy#allowance"], actor: "owner", journeyType: "onboarding", requestType: "relocation" },
+   187→  { key: "ob_visa_application", label: "Visa application submitted", labelAr: "تقديم طلب التأشيرة", stage: "visa_processing", ownerGroup: "Immigration", targetHours: 168, dependsOn: ["ob_passport_upload"], policyRefs: ["immigration-policy#visa"], actor: "owner", journeyType: "onboarding", requestType: "visa" },
+   188→  { key: "ob_visa_approval", label: "Visa approved", labelAr: "الموافقة على التأشيرة", stage: "visa_processing", ownerGroup: "Immigration", targetHours: 240, dependsOn: ["ob_visa_application"], policyRefs: ["immigration-policy#timeline"], actor: "owner", journeyType: "onboarding" },
+   189→  { key: "ob_flight_booked", label: "Flight to UAE booked", labelAr: "حجز رحلة إلى الإمارات", stage: "visa_processing", ownerGroup: "Mobility", targetHours: 48, dependsOn: ["ob_visa_approval"], policyRefs: ["relocation-policy#travel"], actor: "owner", journeyType: "onboarding" },
+   190→  { key: "ob_housing_arranged", label: "Temporary housing arranged", labelAr: "ترتيب السكن المؤقت", stage: "visa_processing", ownerGroup: "Mobility", targetHours: 96, dependsOn: ["ob_visa_approval"], policyRefs: ["relocation-policy#housing"], actor: "owner", journeyType: "onboarding" },
+   191→  { key: "ob_kit_issued", label: "Laptop and phone issued", labelAr: "إصدار الكمبيوتر والهاتف", stage: "first_day", ownerGroup: "IT", targetHours: 24, dependsOn: ["ob_visa_approval"], policyRefs: ["it-policy#kit"], actor: "owner", journeyType: "onboarding", requestType: "it_kit" },
+   192→  { key: "ob_access_provisioned", label: "Systems access provisioned", labelAr: "توفير الوصول للأنظمة", stage: "first_day", ownerGroup: "IT", targetHours: 48, dependsOn: ["ob_kit_issued"], policyRefs: ["it-policy#access"], actor: "owner", journeyType: "onboarding", requestType: "system_access" },
+   193→  { key: "ob_badge_issued", label: "ID badge issued", labelAr: "إصدار بطاقة الهوية", stage: "first_day", ownerGroup: "Facilities", targetHours: 24, dependsOn: ["ob_visa_approval"], policyRefs: ["facilities-policy#badge"], actor: "owner", journeyType: "onboarding", requestType: "facilities" },
+   194→  { key: "ob_induction_complete", label: "Induction completed", labelAr: "إكمال التعريف", stage: "first_week", ownerGroup: "HR", targetHours: 48, dependsOn: ["ob_badge_issued"], policyRefs: ["onboarding-policy#induction"], actor: "employee", journeyType: "onboarding" },
+   195→  { key: "ob_training_booked", label: "Mandatory training booked", labelAr: "حجز التدريب الإلزامي", stage: "first_week", ownerGroup: "Learning", targetHours: 72, dependsOn: ["ob_access_provisioned"], policyRefs: ["learning-policy#mandatory"], actor: "owner", journeyType: "onboarding", requestType: "training" },
+   196→  { key: "ob_buddy_assigned", label: "Buddy assigned", labelAr: "تعيين المرافق", stage: "first_week", ownerGroup: "HR", targetHours: 24, dependsOn: ["ob_induction_complete"], policyRefs: ["onboarding-policy#buddy"], actor: "owner", journeyType: "onboarding" },
+   197→  { key: "ob_30day_checkin", label: "30-day check-in", labelAr: "مراجعة 30 يوماً", stage: "first_90", ownerGroup: "HR", targetHours: 720, dependsOn: ["ob_buddy_assigned"], policyRefs: ["onboarding-policy#checkins"], actor: "owner", journeyType: "onboarding" },
+   198→  { key: "ob_90day_review", label: "90-day review", labelAr: "مراجعة 90 يوماً", stage: "first_90", ownerGroup: "HR", targetHours: 2160, dependsOn: ["ob_30day_checkin"], policyRefs: ["onboarding-policy#checkins"], actor: "owner", journeyType: "onboarding" },
+   199→  { key: "mb_transfer_signed", label: "Transfer approval signed", labelAr: "توقيع موافقة النقل", stage: "transfer_approved", ownerGroup: "HR", targetHours: 24, dependsOn: [], policyRefs: ["mobility-policy#transfer"], actor: "owner", journeyType: "mobility" },
+   200→  { key: "mb_release_handover", label: "Releasing manager handover", labelAr: "تسليم المدير السابق", stage: "handover", ownerGroup: "HR", targetHours: 120, dependsOn: ["mb_transfer_signed"], policyRefs: ["mobility-policy#handover"], actor: "owner", journeyType: "mobility", requestType: "manager_handover" },
+   201→  { key: "mb_asset_return", label: "Previous team assets returned", labelAr: "إرجاع أصول الفريق السابق", stage: "handover", ownerGroup: "Facilities", targetHours: 240, dependsOn: ["mb_transfer_signed"], policyRefs: ["facilities-policy#assets"], actor: "employee", journeyType: "mobility" },
+   202→  { key: "mb_role_access", label: "New role access profile", labelAr: "ملف الوصول للدور الجديد", stage: "effective_date", ownerGroup: "IT", targetHours: 72, dependsOn: ["mb_transfer_signed"], policyRefs: ["it-policy#access"], actor: "owner", journeyType: "mobility", requestType: "system_access" },
+   203→  { key: "mb_payroll_change", label: "Payroll change confirmed", labelAr: "تأكيد تغيير الرواتب", stage: "effective_date", ownerGroup: "Payroll", targetHours: 48, dependsOn: ["mb_transfer_signed"], policyRefs: ["payroll-policy#transfer"], actor: "owner", journeyType: "mobility", requestType: "payroll" },
+   204→  { key: "mb_training_booked", label: "New role training booked", labelAr: "حجز تدريب الدور الجديد", stage: "settle_new_role", ownerGroup: "Learning", targetHours: 120, dependsOn: ["mb_role_access"], policyRefs: ["learning-policy#role"], actor: "owner", journeyType: "mobility", requestType: "training" },
+   205→  { key: "mb_dual_reporting", label: "Dual reporting resolved", labelAr: "حل التقارير المزدوج", stage: "settle_new_role", ownerGroup: "HR", targetHours: 168, dependsOn: ["mb_transfer_signed"], policyRefs: ["mobility-policy#reporting"], actor: "owner", journeyType: "mobility" },
+   206→];
+   207→
+   208→export const employees: Employee[] = [
+   209→  {
+   210→    id: "E-1042",
+   211→    ref: "E-1042",
+   212→    displayName: "Maria Santos",
+   213→    displayNameAr: "ماريا سانتوس",
+   214→    journeyType: "onboarding",
+   215→    stage: "first_week",
+   216→    startDate: "2024-10-14T08:00:00Z",
+   217→    location: "DXB",
+   218→    timezone: "Asia/Dubai",
+   219→    managerId: "MGR-1",
+   220→    hrbpId: "HRBP-1",
+   221→    locale: "en",
+   222→    role: "Cabin Crew Trainee",
+   223→    roleAr: "متدربة طاقم المقصورة",
+   224→    team: "Cabin Crew DXB",
+   225→    nationality: "Filipino",
+   226→  },
+   227→  {
+   228→    id: "E-1043",
+   229→    ref: "E-1043",
+   230→    displayName: "Daniel Okonkwo",
+   231→    displayNameAr: "دانيال أوكونكو",
+   232→    journeyType: "onboarding",
+   233→    stage: "visa_processing",
+   234→    startDate: "2024-11-04T08:00:00Z",
+   235→    location: "DXB",
+   236→    timezone: "Africa/Lagos",
+   237→    managerId: "MGR-1",
+   238→    hrbpId: "HRBP-1",
+   239→    locale: "en",
+   240→    role: "Cabin Crew Trainee",
+   241→    roleAr: "متدرب طاقم المقصورة",
+   242→    team: "Cabin Crew DXB",
+   243→    nationality: "Nigerian",
+   244→  },
+   245→  {
+   246→    id: "E-1044",
+   247→    ref: "E-1044",
+   248→    displayName: "Aisha Rahman",
+   249→    displayNameAr: "عائشة الرحمن",
+   250→    journeyType: "mobility",
+   251→    stage: "effective_date",
+   252→    startDate: "2024-10-01T08:00:00Z",
+   253→    effectiveDate: "2024-10-15T08:00:00Z",
+   254→    location: "AUH",
+   255→    timezone: "Asia/Dubai",
+   256→    managerId: "MGR-2",
+   257→    hrbpId: "HRBP-2",
+   258→    locale: "ar",
+   259→    role: "Warehouse Supervisor",
+   260→    roleAr: "مشرف المستودع",
+   261→    team: "Ground Ops AUH",
+   262→    nationality: "Emirati",
+   263→  },
+   264→  {
+   265→    id: "E-1045",
+   266→    ref: "E-1045",
+   267→    displayName: "James Park",
+   268→    displayNameAr: "جيمس بارك",
+   269→    journeyType: "onboarding",
+   270→    stage: "first_day",
+   271→    startDate: "2024-10-18T08:00:00Z",
+   272→    location: "DXB",
+   273→    timezone: "Asia/Seoul",
+   274→    managerId: "MGR-1",
+   275→    hrbpId: "HRBP-1",
+   276→    locale: "en",
+   277→    role: "Cabin Crew Trainee",
+   278→    roleAr: "متدرب طاقم المقصورة",
+   279→    team: "Cabin Crew DXB",
+   280→    nationality: "Korean",
+   281→  },
+   282→  {
+   283→    id: "E-1046",
+   284→    ref: "E-1046",
+   285→    displayName: "Sara Kovač",
+   286→    displayNameAr: "سارة كوفاتش",
+   287→    journeyType: "mobility",
+   288→    stage: "handover",
+   289→    startDate: "2024-09-15T08:00:00Z",
+   290→    effectiveDate: "2024-10-29T08:00:00Z",
+   291→    location: "DXB",
+   292→    timezone: "Europe/Zagreb",
+   293→    managerId: "MGR-1",
+   294→    hrbpId: "HRBP-2",
+   295→    locale: "en",
+   296→    role: "Senior Cabin Crew",
+   297→    roleAr: "كابينة كبيرة",
+   298→    team: "Cabin Crew DXB",
+   299→    nationality: "Croatian",
+   300→  },
+   301→];
+   302→
+   303→export const NOW = new Date("2024-10-19T10:00:00Z");
+   304→
+   305→function hoursAgo(h: number): string {
+   306→  return new Date(NOW.getTime() - h * 3600 * 1000).toISOString();
+   307→}
+   308→function hoursAhead(h: number): string {
+   309→  return new Date(NOW.getTime() + h * 3600 * 1000).toISOString();
+   310→}
+   311→
+   312→export const events: JourneyEvent[] = [
+   313→  // E-1042 Maria Santos (onboarding, day 5, first_week)
+   314→  { id: "EV-001", employeeId: "E-1042", stepKey: "ob_offer_signed", type: "completed", occurredAt: hoursAgo(24 * 12), recordedAt: hoursAgo(24 * 12), source: "hr-system", payloadHash: "h-001" },
+   315→  { id: "EV-002", employeeId: "E-1042", stepKey: "ob_passport_upload", type: "completed", occurredAt: hoursAgo(24 * 11), recordedAt: hoursAgo(24 * 11), source: "immigration-portal", payloadHash: "h-002" },
+   316→  { id: "EV-003", employeeId: "E-1042", stepKey: "ob_relocation_allowance", type: "completed", occurredAt: hoursAgo(24 * 10), recordedAt: hoursAgo(24 * 10), source: "mobility-system", payloadHash: "h-003" },
+   317→  { id: "EV-004", employeeId: "E-1042", stepKey: "ob_visa_application", type: "completed", occurredAt: hoursAgo(24 * 9), recordedAt: hoursAgo(24 * 9), source: "immigration-portal", payloadHash: "h-004" },
+   318→  { id: "EV-005", employeeId: "E-1042", stepKey: "ob_visa_approval", type: "completed", occurredAt: hoursAgo(24 * 6), recordedAt: hoursAgo(24 * 6), source: "immigration-portal", payloadHash: "h-005" },
+   319→  { id: "EV-006", employeeId: "E-1042", stepKey: "ob_flight_booked", type: "completed", occurredAt: hoursAgo(24 * 5), recordedAt: hoursAgo(24 * 5), source: "mobility-system", payloadHash: "h-006" },
+   320→  { id: "EV-007", employeeId: "E-1042", stepKey: "ob_housing_arranged", type: "completed", occurredAt: hoursAgo(24 * 5), recordedAt: hoursAgo(24 * 5), source: "mobility-system", payloadHash: "h-007" },
+   321→  { id: "EV-008", employeeId: "E-1042", stepKey: "ob_kit_issued", type: "started", occurredAt: hoursAgo(24 * 3), recordedAt: hoursAgo(24 * 3), source: "it-system", payloadHash: "h-008" },
+   322→  { id: "EV-009", employeeId: "E-1042", stepKey: "ob_badge_issued", type: "completed", occurredAt: hoursAgo(24 * 2), recordedAt: hoursAgo(24 * 2), source: "facilities-system", payloadHash: "h-009" },
+   323→  { id: "EV-010", employeeId: "E-1042", stepKey: "ob_induction_complete", type: "completed", occurredAt: hoursAgo(24), recordedAt: hoursAgo(24), source: "hr-system", payloadHash: "h-010" },
+   324→
+   325→  // E-1043 Daniel Okonkwo (onboarding, visa_processing, start in 16 days)
+   326→  { id: "EV-101", employeeId: "E-1043", stepKey: "ob_offer_signed", type: "completed", occurredAt: hoursAgo(24 * 8), recordedAt: hoursAgo(24 * 8), source: "hr-system", payloadHash: "h-101" },
+   327→  { id: "EV-102", employeeId: "E-1043", stepKey: "ob_passport_upload", type: "completed", occurredAt: hoursAgo(24 * 7), recordedAt: hoursAgo(24 * 7), source: "immigration-portal", payloadHash: "h-102" },
+   328→  { id: "EV-103", employeeId: "E-1043", stepKey: "ob_visa_application", type: "started", occurredAt: hoursAgo(24 * 7), recordedAt: hoursAgo(24 * 7), source: "immigration-portal", payloadHash: "h-103" },
+   329→
+   330→  // E-1044 Aisha Rahman (mobility, effective_date, 4 days past)
+   331→  { id: "EV-201", employeeId: "E-1044", stepKey: "mb_transfer_signed", type: "completed", occurredAt: hoursAgo(24 * 20), recordedAt: hoursAgo(24 * 20), source: "hr-system", payloadHash: "h-201" },
+   332→  { id: "EV-202", employeeId: "E-1044", stepKey: "mb_release_handover", type: "completed", occurredAt: hoursAgo(24 * 12), recordedAt: hoursAgo(24 * 12), source: "hr-system", payloadHash: "h-202" },
+   333→  { id: "EV-203", employeeId: "E-1044", stepKey: "mb_asset_return", type: "completed", occurredAt: hoursAgo(24 * 10), recordedAt: hoursAgo(24 * 10), source: "facilities-system", payloadHash: "h-203" },
+   334→  { id: "EV-204", employeeId: "E-1044", stepKey: "mb_role_access", type: "started", occurredAt: hoursAgo(24 * 4), recordedAt: hoursAgo(24 * 4), source: "it-system", payloadHash: "h-204" },
+   335→  { id: "EV-205", employeeId: "E-1044", stepKey: "mb_payroll_change", type: "started", occurredAt: hoursAgo(24 * 4), recordedAt: hoursAgo(24 * 4), source: "payroll-system", payloadHash: "h-205" },
+   336→  { id: "EV-206", employeeId: "E-1044", stepKey: "mb_dual_reporting", type: "waiting_owner", occurredAt: hoursAgo(24 * 4), recordedAt: hoursAgo(24 * 4), source: "hr-system", payloadHash: "h-206" },
+   337→
+   338→  // E-1045 James Park (onboarding, first_day, yesterday)
+   339→  { id: "EV-301", employeeId: "E-1045", stepKey: "ob_offer_signed", type: "completed", occurredAt: hoursAgo(24 * 18), recordedAt: hoursAgo(24 * 18), source: "hr-system", payloadHash: "h-301" },
+   340→  { id: "EV-302", employeeId: "E-1045", stepKey: "ob_passport_upload", type: "completed", occurredAt: hoursAgo(24 * 16), recordedAt: hoursAgo(24 * 16), source: "immigration-portal", payloadHash: "h-302" },
+   341→  { id: "EV-303", employeeId: "E-1045", stepKey: "ob_visa_application", type: "completed", occurredAt: hoursAgo(24 * 14), recordedAt: hoursAgo(24 * 14), source: "immigration-portal", payloadHash: "h-303" },
+   342→  { id: "EV-304", employeeId: "E-1045", stepKey: "ob_visa_approval", type: "completed", occurredAt: hoursAgo(24 * 9), recordedAt: hoursAgo(24 * 9), source: "immigration-portal", payloadHash: "h-304" },
+   343→  { id: "EV-305", employeeId: "E-1045", stepKey: "ob_flight_booked", type: "completed", occurredAt: hoursAgo(24 * 8), recordedAt: hoursAgo(24 * 8), source: "mobility-system", payloadHash: "h-305" },
+   344→  { id: "EV-306", employeeId: "E-1045", stepKey: "ob_housing_arranged", type: "completed", occurredAt: hoursAgo(24 * 8), recordedAt: hoursAgo(24 * 8), source: "mobility-system", payloadHash: "h-306" },
+   345→  { id: "EV-307", employeeId: "E-1045", stepKey: "ob_kit_issued", type: "completed", occurredAt: hoursAgo(24 * 2), recordedAt: hoursAgo(24 * 2), source: "it-system", payloadHash: "h-307" },
+   346→  { id: "EV-308", employeeId: "E-1045", stepKey: "ob_access_provisioned", type: "started", occurredAt: hoursAgo(24 * 2), recordedAt: hoursAgo(24 * 2), source: "it-system", payloadHash: "h-308" },
+   347→  { id: "EV-309", employeeId: "E-1045", stepKey: "ob_badge_issued", type: "completed", occurredAt: hoursAgo(24), recordedAt: hoursAgo(24), source: "facilities-system", payloadHash: "h-309" },
+   348→
+   349→  // E-1046 Sara Kovač (mobility, handover, effective in 10 days)
+   350→  { id: "EV-401", employeeId: "E-1046", stepKey: "mb_transfer_signed", type: "completed", occurredAt: hoursAgo(24 * 30), recordedAt: hoursAgo(24 * 30), source: "hr-system", payloadHash: "h-401" },
+   351→  { id: "EV-402", employeeId: "E-1046", stepKey: "mb_release_handover", type: "started", occurredAt: hoursAgo(24 * 6), recordedAt: hoursAgo(24 * 6), source: "hr-system", payloadHash: "h-402" },
+   352→];
+   353→
+   354→export const serviceRequests: ServiceRequest[] = [
+   355→  {
+   356→    id: "SR-2024-091",
+   357→    ref: "SR-2024-091",
+   358→    employeeId: "E-1042",
+   359→    type: "it_kit",
+   360→    ownerGroup: "IT",
+   361→    assignee: "O-IT-1",
+   362→    status: "in_progress",
+   363→    openedAt: hoursAgo(24 * 3),
+   364→    slaHours: 24,
+   365→    reassignCount: 1,
+   366→    returnCount: 0,
+   367→    idempotencyKey: "idm-E1042-it_kit-20241016",
+   368→  },
+   369→  {
+   370→    id: "SR-2024-094",
+   371→    ref: "SR-2024-094",
+   372→    employeeId: "E-1043",
+   373→    type: "visa",
+   374→    ownerGroup: "Immigration",
+   375→    assignee: "O-IMM-1",
+   376→    status: "in_progress",
+   377→    openedAt: hoursAgo(24 * 7),
+   378→    slaHours: 72,
+   379→    reassignCount: 0,
+   380→    returnCount: 0,
+   381→    idempotencyKey: "idm-E1043-visa-20241012",
+   382→  },
+   383→  {
+   384→    id: "SR-2024-098",
+   385→    ref: "SR-2024-098",
+   386→    employeeId: "E-1044",
+   387→    type: "payroll",
+   388→    ownerGroup: "Payroll",
+   389→    assignee: "O-PAY-1",
+   390→    status: "in_progress",
+   391→    openedAt: hoursAgo(24 * 4),
+   392→    slaHours: 48,
+   393→    reassignCount: 0,
+   394→    returnCount: 1,
+   395→    idempotencyKey: "idm-E1044-payroll-20241015",
+   396→  },
+   397→  {
+   398→    // A fresh IT request in `submitted` state — lets the service owner
+   399→    // demonstrate the Acknowledge → Start work flow on a real request.
+   400→    id: "SR-2024-099",
+   401→    ref: "SR-2024-099",
+   402→    employeeId: "E-1045",
+   403→    type: "it_kit",
+   404→    ownerGroup: "IT",
+   405→    assignee: "O-IT-1",
+   406→    status: "submitted",
+   407→    openedAt: hoursAgo(6),
+   408→    slaHours: 24,
+   409→    reassignCount: 0,
+   410→    returnCount: 0,
+   411→    idempotencyKey: "idm-E1045-it_kit-20241019",
+   412→  },
+   413→];
+   414→
+   415→export const pulseResponses: PulseResponse[] = [
+   416→  {
+   417→    id: "PS-001",
+   418→    employeeId: "E-1042",
+   419→    stage: "first_week",
+   420→    score: 2,
+   421→    commentRef: "PC-001",
+   422→    commentText: "Nobody told me my laptop was delayed. I found out by asking.",
+   423→    consentId: "CN-001",
+   424→    createdAt: hoursAgo(20),
+   425→  },
+   426→  {
+   427→    id: "PS-002",
+   428→    employeeId: "E-1045",
+   429→    stage: "first_day",
+   430→    score: 4,
+   431→    consentId: "CN-002",
+   432→    createdAt: hoursAgo(6),
+   433→  },
+   434→];
+   435→
+   436→export const policies: PolicyChunk[] = [
+   437→  {
+   438→    id: "POL-RELOC-EN-1", docSlug: "relocation-policy", title: "Relocation Policy", titleAr: "سياسة الانتقال",
+   439→    section: "allowance", effectiveDate: "2024-01-01", reviewDate: "2025-12-31", lang: "en", pairId: "POL-RELOC-PAIR-1",
+   440→    text: "New joiners relocating to the UAE receive a relocation allowance of AED 14,000 for single employees and AED 22,000 for employees with dependants. The allowance is paid in two instalments: 50% within 14 days of arrival, and 50% upon completion of the 90-day check-in. Allowance is forfeited if the employee resigns within 12 months.",
+   441→  },
+   442→  {
+   443→    id: "POL-RELOC-AR-1", docSlug: "relocation-policy", title: "Relocation Policy", titleAr: "سياسة الانتقال",
+   444→    section: "allowance", effectiveDate: "2024-01-01", reviewDate: "2025-12-31", lang: "ar", pairId: "POL-RELOC-PAIR-1",
+   445→    text: "يحصل الموظفون الجدد الذين ينتقلون إلى الإمارات على بدل انتقال بقيمة 14,000 درهم إماراتي للموظفين العزاب و22,000 درهم إماراتي للموظفين ذوي المعالين. يُدفع البدل على دفعتين: 50% خلال 14 يوماً من الوصول، و50% عند إكمال مراجعة 90 يوماً. يُلغى البدل إذا استقال الموظف خلال 12 شهراً.",
+   446→  },
+   447→  {
+   448→    id: "POL-RELOC-EN-2", docSlug: "relocation-policy", title: "Relocation Policy", titleAr: "سياسة الانتقال",
+   449→    section: "housing", effectiveDate: "2024-01-01", reviewDate: "2025-12-31", lang: "en", pairId: "POL-RELOC-PAIR-2",
+   450→    text: "Temporary housing is provided for up to 30 days from arrival, free of charge. Permanent housing must be secured by the employee within this window. Extensions beyond 30 days require HRBP approval and incur a daily charge of AED 350 deducted from the relocation allowance.",
+   451→  },
+   452→  {
+   453→    id: "POL-RELOC-AR-2", docSlug: "relocation-policy", title: "Relocation Policy", titleAr: "سياسة الانتقال",
+   454→    section: "housing", effectiveDate: "2024-01-01", reviewDate: "2025-12-31", lang: "ar", pairId: "POL-RELOC-PAIR-2",
+   455→    text: "يُوفَّر سكن مؤقت لمدة تصل إلى 30 يوماً من تاريخ الوصول، مجاناً. يجب على الموظف تأمين سكن دائم خلال هذه الفترة. التمديد بعد 30 يوماً يتطلب موافقة شريك الموارد البشرية وتترتب عليه رسوم يومية قدرها 350 درهم تُخصم من بدل الانتقال.",
+   456→  },
+   457→  {
+   458→    id: "POL-RELOC-EN-3", docSlug: "relocation-policy", title: "Relocation Policy", titleAr: "سياسة الانتقال",
+   459→    section: "travel", effectiveDate: "2024-01-01", reviewDate: "2025-12-31", lang: "en", pairId: "POL-RELOC-PAIR-3",
+   460→    text: "The company books and pays for one economy-class flight to the UAE for the employee and each accompanying dependant listed on the visa application. Flight booking is initiated within 48 hours of visa approval. Changes to flight dates within 72 hours of departure incur a personal charge.",
+   461→  },
+   462→  {
+   463→    id: "POL-RELOC-AR-3", docSlug: "relocation-policy", title: "Relocation Policy", titleAr: "سياسة الانتقال",
+   464→    section: "travel", effectiveDate: "2024-01-01", reviewDate: "2025-12-31", lang: "ar", pairId: "POL-RELOC-PAIR-3",
+   465→    text: "تقوم الشركة بحجز ودفع تكلفة رحلة جوية واحدة من الدرجة الاقتصادية إلى الإمارات للموظف ولكل معالٍ مرافق مُدرَج في طلب التأشيرة. يُباشَر الحجز خلال 48 ساعة من الموافقة على التأشيرة. أي تعديل على موعد الرحلة خلال 72 ساعة من وقت الإقلاع يتحمّل الموظف تكلفتَه.",
+   466→  },
+   467→  {
+   468→    id: "POL-IMM-EN-1", docSlug: "immigration-policy", title: "Immigration Policy", titleAr: "سياسة الهجرة",
+   469→    section: "documents", effectiveDate: "2024-03-01", reviewDate: "2025-03-31", lang: "en", pairId: "POL-IMM-PAIR-1",
+   470→    text: "Employees must upload a clear scan of their passport (biographical page), passport-sized photograph (white background), and educational certificates attested by the UAE embassy in the issuing country. Dependants' visas require marriage and birth certificates, also attested. Incomplete document uploads delay visa application by up to 5 working days.",
+   471→  },
+   472→  {
+   473→    id: "POL-IMM-AR-1", docSlug: "immigration-policy", title: "Immigration Policy", titleAr: "سياسة الهجرة",
+   474→    section: "documents", effectiveDate: "2024-03-01", reviewDate: "2025-03-31", lang: "ar", pairId: "POL-IMM-PAIR-1",
+   475→    text: "على الموظفين رفع نسخة واضحة من جواز السفر (الصفحة البيوغرافية)، وصورة شخصية بحجم جواز السفر (بخلفية بيضاء)، وشهاداتهم الأكاديمية مُصدّقة من سفارة الإمارات في بلد الإصدار. أما تأشيرات المعالين فتتطلب شهادات زواج وشهادات ميلاد مُصدّقة أيضاً. أي رفعٍ ناقص للوثائق يؤخّر معاملة التأشيرة بما يصل إلى 5 أيام عمل.",
+   476→  },
+   477→  {
+   478→    id: "POL-IMM-EN-2", docSlug: "immigration-policy", title: "Immigration Policy", titleAr: "سياسة الهجرة",
+   479→    section: "visa", effectiveDate: "2024-03-01", reviewDate: "2025-03-31", lang: "en", pairId: "POL-IMM-PAIR-2",
+   480→    text: "Visa application is submitted by the Immigration team within 5 working days of complete document upload. Standard processing time is 7-10 working days for residency employment visas. Expediting is available only for roles marked business-critical and requires HRBP approval.",
+   481→  },
+   482→  {
+   483→    id: "POL-IMM-AR-2", docSlug: "immigration-policy", title: "Immigration Policy", titleAr: "سياسة الهجرة",
+   484→    section: "visa", effectiveDate: "2024-03-01", reviewDate: "2025-03-31", lang: "ar", pairId: "POL-IMM-PAIR-2",
+   485→    text: "يُقدَّم طلب التأشيرة من قِبَل فريق الهجرة خلال 5 أيام عمل من تاريخ اكتمال رفع الوثائق. مدة المعالجة القياسية لتأشيرات الإقامة للعمل تتراوح بين 7 و10 أيام عمل. لا تتاح المعالجة المستعجلة إلا للوظائف المُصنّفة حرجة للأعمال، وتتطلب موافقة شريك الموارد البشرية.",
+   486→  },
+   487→  {
+   488→    id: "POL-IMM-EN-3", docSlug: "immigration-policy", title: "Immigration Policy", titleAr: "سياسة الهجرة",
+   489→    section: "timeline", effectiveDate: "2024-03-01", reviewDate: "2025-03-31", lang: "en", pairId: "POL-IMM-PAIR-3",
+   490→    text: "Visa approval must be received before flight booking, housing arrangement, ID badge issuance, and IT kit issuance. The Immigration team is the single owner of visa status. Employees should not book personal travel until visa approval is confirmed in writing. Visa rejections are appealable within 14 days.",
+   491→  },
+   492→  {
+   493→    id: "POL-IMM-AR-3", docSlug: "immigration-policy", title: "Immigration Policy", titleAr: "سياسة الهجرة",
+   494→    section: "timeline", effectiveDate: "2024-03-01", reviewDate: "2025-03-31", lang: "ar", pairId: "POL-IMM-PAIR-3",
+   495→    text: "يجب استلام موافقة التأشيرة قبل حجز الرحلة وتأمين السكن وإصدار بطاقة الهوية وإصدار عُدّة تكنولوجيا المعلومات. فريق الهجرة هو المرجع الوحيد لحالة التأشيرة. لا يُسمح للموظفين بحجز سفرٍ شخصي قبل التأكُّد من الموافقة على التأشيرة كتابةً. تُقبل الطعون على رفض التأشيرة خلال 14 يوماً.",
+   496→  },
+   497→  {
+   498→    id: "POL-IT-EN-1", docSlug: "it-policy", title: "IT Provisioning Policy", titleAr: "سياسة توفير تقنية المعلومات",
+   499→    section: "kit", effectiveDate: "2024-02-01", reviewDate: "2025-02-28", lang: "en", pairId: "POL-IT-PAIR-1",
+   500→    text: "New joiners receive a standard IT kit on day 1: a Dell Latitude laptop, iPhone 13 (corporate line), and USB-C dock. Cabin Crew receive an iPad mini in addition. Kit is issued at the DXB or AUH IT counter between 08:00 and 16:00. Delays beyond 24 hours from scheduled start time must be reported to the IT Provisioning Lead.",
+   501→  },
+   502→  {
+   503→    id: "POL-IT-AR-1", docSlug: "it-policy", title: "IT Provisioning Policy", titleAr: "سياسة توفير تقنية المعلومات",
+   504→    section: "kit", effectiveDate: "2024-02-01", reviewDate: "2025-02-28", lang: "ar", pairId: "POL-IT-PAIR-1",
+   505→    text: "يستلم الموظفون الجدد عُدّة تكنولوجيا معلومات قياسية في اليوم الأول: حاسوب محمول Dell Latitude، وهاتف iPhone 13 (بخط الشركة)، ومحطة وصل USB-C. ويستلم طاقم المقصورة جهاز iPad mini إضافياً. تُسلَّم العُدّة في مكتب تقنية المعلومات بدبي أو أبوظبي بين الساعة 08:00 و16:00. يجب إبلاغ مسؤول توفير تقنية المعلومات بأي تأخير يتجاوز 24 ساعة من وقت البدء المجدول.",
+   506→  },
+   507→  {
+   508→    id: "POL-IT-EN-2", docSlug: "it-policy", title: "IT Provisioning Policy", titleAr: "سياسة توفير تقنية المعلومات",
+   509→    section: "access", effectiveDate: "2024-02-01", reviewDate: "2025-02-28", lang: "en", pairId: "POL-IT-PAIR-2",
+   510→    text: "Systems access is provisioned within 48 hours of kit issuance, based on the role profile defined by HR. Standard access includes email, HR self-service, the cabin crew rostering system, and the learning portal. Elevated access (finance, safety reporting) requires manager approval and is provisioned separately.",
+   511→  },
+   512→  {
+   513→    id: "POL-IT-AR-2", docSlug: "it-policy", title: "IT Provisioning Policy", titleAr: "سياسة توفير تقنية المعلومات",
+   514→    section: "access", effectiveDate: "2024-02-01", reviewDate: "2025-02-28", lang: "ar", pairId: "POL-IT-PAIR-2",
+   515→    text: "يُتاح الوصول إلى الأنظمة خلال 48 ساعة من تسليم العُدّة، استناداً إلى الملف الوظيفي الذي تحدّده الموارد البشرية. يشمل الوصول القياسي البريد الإلكتروني، والخدمة الذاتية للموارد البشرية، ونظام جداول طاقم المقصورة، ومنصة التعلم. أما الوصول الموسّع (المالية، تقارير السلامة) فيتطلب موافقة المدير ويُتاح بشكل منفصل.",
+   516→  },
+   517→  {
+   518→    id: "POL-OB-EN-1", docSlug: "onboarding-policy", title: "Onboarding Policy", titleAr: "سياسة الالتحاق",
+   519→    section: "induction", effectiveDate: "2024-01-15", reviewDate: "2025-06-30", lang: "en", pairId: "POL-OB-PAIR-1",
+   520→    text: "All new joiners complete a 2-day induction within their first week. Induction covers company values, code of conduct, safety basics, and an introduction to the buddy programme. Induction is scheduled by HR after the ID badge is issued and must be completed before the first operational shift.",
+   521→  },
+   522→  {
+   523→    id: "POL-OB-AR-1", docSlug: "onboarding-policy", title: "Onboarding Policy", titleAr: "سياسة الالتحاق",
+   524→    section: "induction", effectiveDate: "2024-01-15", reviewDate: "2025-06-30", lang: "ar", pairId: "POL-OB-PAIR-1",
+   525→    text: "يُكمل جميع الموظفين الجدد برنامج تعريف مدّته يومان خلال أسبوعهم الأول. يغطّي البرنامج قيم الشركة، وميثاق السلوك، وأساسيات السلامة، وتعريفاً ببرنامج المرافق. يُجدول قسم الموارد البشرية البرنامجَ بعد إصدار بطاقة الهوية، ويجب إكماله قبل أول وردية تشغيلية.",
+   526→  },
+   527→  {
+   528→    id: "POL-OB-EN-2", docSlug: "onboarding-policy", title: "Onboarding Policy", titleAr: "سياسة الالتحاق",
+   529→    section: "checkins", effectiveDate: "2024-01-15", reviewDate: "2025-06-30", lang: "en", pairId: "POL-OB-PAIR-2",
+   530→    text: "Formal check-ins occur at 30, 60, and 90 days. The 30-day check-in is a 30-minute conversation with the assigned HRBP and covers settling-in, role clarity, and any blockers. The 90-day review is with the line manager and HRBP and confirms successful completion of the probation period.",
+   531→  },
+   532→  {
+   533→    id: "POL-OB-AR-2", docSlug: "onboarding-policy", title: "Onboarding Policy", titleAr: "سياسة الالتحاق",
+   534→    section: "checkins", effectiveDate: "2024-01-15", reviewDate: "2025-06-30", lang: "ar", pairId: "POL-OB-PAIR-2",
+   535→    text: "تجري اللقاءات الرسمية في الأيام 30 و60 و90. لقاء اليوم الثلاثين محادثة مدّتها 30 دقيقة مع شريك الموارد البشرية المُعَيَّن، وتتناول الاستقرار ووضوح الدور وأي عوائق. أما مراجعة اليوم التسعين فتكون مع المدير المباشر وشريك الموارد البشرية وتُؤكد الإكمال الناجح لفترة الاختبار.",
+   536→  },
+   537→  {
+   538→    id: "POL-LRN-EN-1", docSlug: "learning-policy", title: "Learning Policy", titleAr: "سياسة التعلم",
+   539→    section: "mandatory", effectiveDate: "2024-04-01", reviewDate: "2025-04-30", lang: "en", pairId: "POL-LRN-PAIR-1",
+   540→    text: "Mandatory training must be booked within the first week and completed within 30 days of joining. Mandatory modules for Cabin Crew: Aviation Safety (GCAA-approved), Customer Service Excellence, Emergency Procedures, and Cultural Awareness. Each module is 4-8 hours and delivered in a classroom or simulator setting.",
+   541→  },
+   542→  {
+   543→    id: "POL-LRN-AR-1", docSlug: "learning-policy", title: "Learning Policy", titleAr: "سياسة التعلم",
+   544→    section: "mandatory", effectiveDate: "2024-04-01", reviewDate: "2025-04-30", lang: "ar", pairId: "POL-LRN-PAIR-1",
+   545→    text: "يجب حجز التدريب الإلزامي خلال الأسبوع الأول وإكماله خلال 30 يوماً من الالتحاق. الوحدات الإلزامية لطاقم المقصورة: السلامة Aviation Safety (معتمدة من الهيئة العامة للطيران المدني)، وتميّز خدمة العملاء، وإجراءات الطوارئ، والوعي الثقافي. مدة كل وحدة من 4 إلى 8 ساعات وتُقدَّم في قاعة دراسية أو محاكاة.",
+   546→  },
+   547→  {
+   548→    id: "POL-MOB-EN-1", docSlug: "mobility-policy", title: "Internal Mobility Policy", titleAr: "سياسة التنقل الداخلي",
+   549→    section: "transfer", effectiveDate: "2024-05-01", reviewDate: "2025-05-31", lang: "en", pairId: "POL-MOB-PAIR-1",
+   550→    text: "Internal transfers require signed approval from both the releasing and receiving managers, plus HRBP concurrence. The transfer is effective on the first day of the next payroll cycle. Employees retain their tenure, leave balance, and benefits. Probation in the new role is 60 days for lateral moves and 90 days for promotions.",
+   551→  },
+   552→  {
+   553→    id: "POL-MOB-AR-1", docSlug: "mobility-policy", title: "Internal Mobility Policy", titleAr: "سياسة التنقل الداخلي",
+   554→    section: "transfer", effectiveDate: "2024-05-01", reviewDate: "2025-05-31", lang: "ar", pairId: "POL-MOB-PAIR-1",
+   555→    text: "تتطلب التنقلات الداخلية موافقة موقّعة من المدير المُخلّي والمدير المُستقبِل، إضافةً إلى موافقة شريك الموارد البشرية. يسري التنقل في اليوم الأول من دورة الرواتب التالية. يحتفظ الموظفون بأقدميتهم ورصيد إجازاتهم ومزاياتهم. فترة الاختبار في الدور الجديد هي 60 يوماً للتنقلات الأفقية و90 يوماً للترقيات.",
+   556→  },
+   557→  {
+   558→    id: "POL-MOB-EN-2", docSlug: "mobility-policy", title: "Internal Mobility Policy", titleAr: "سياسة التنقل الداخلي",
+   559→    section: "handover", effectiveDate: "2024-05-01", reviewDate: "2025-05-31", lang: "en", pairId: "POL-MOB-PAIR-2",
+   560→    text: "The releasing manager must complete a structured handover within 5 working days of transfer approval. The handover includes ongoing projects, key contacts, pending approvals, and team performance notes. Handover is documented in the mobility system and acknowledged by the receiving manager.",
+   561→  },
+   562→  {
+   563→    id: "POL-MOB-AR-2", docSlug: "mobility-policy", title: "Internal Mobility Policy", titleAr: "سياسة التنقل الداخلي",
+   564→    section: "handover", effectiveDate: "2024-05-01", reviewDate: "2025-05-31", lang: "ar", pairId: "POL-MOB-PAIR-2",
+   565→    text: "يجب على المدير المُخلّي إكمال تسليم منظَّم خلال 5 أيام عمل من تاريخ الموافقة على التنقل. يشمل التسليم المشاريع الجارية، وأبرز جهات الاتصال، والموافقات المعلّقة، وملاحظات أداء الفريق. يُوثَّق التسليم في نظام التنقل ويُقرّ به المدير المُستقبِل.",
+   566→  },
+   567→  {
+   568→    id: "POL-PAY-EN-1", docSlug: "payroll-policy", title: "Payroll Policy", titleAr: "سياسة الرواتب",
+   569→    section: "transfer", effectiveDate: "2024-01-01", reviewDate: "2025-12-31", lang: "en", pairId: "POL-PAY-PAIR-1",
+   570→    text: "Payroll changes for internal transfers must be confirmed at least 7 calendar days before the payroll cycle cutoff (25th of each month). Changes received after the cutoff apply to the following cycle. Allowance adjustments, banking details, and tax code updates all follow this rule. Payroll cutoffs are non-negotiable.",
+   571→  },
+   572→  {
+   573→    id: "POL-PAY-AR-1", docSlug: "payroll-policy", title: "Payroll Policy", titleAr: "سياسة الرواتب",
+   574→    section: "transfer", effectiveDate: "2024-01-01", reviewDate: "2025-12-31", lang: "ar", pairId: "POL-PAY-PAIR-1",
+   575→    text: "يجب تأكيد تعديلات الرواتب الخاصة بالتنقلات الداخلية قبل 7 أيام تقويمية على الأقل من موعد قطع دورة الرواتب (اليوم 25 من كل شهر). تُطبَّق التعديلات المُستلَمة بعد موعد القطع على الدورة التالية. تخضع تعديلات البدلات والبيانات المصرفية وتحديثات الرمز الضريبي جميعها لهذه القاعدة. مواعيد قطع الرواتب غير قابلة للتفاوض.",
+   576→  },
+   577→  {
+   578→    id: "POL-FAC-EN-1", docSlug: "facilities-policy", title: "Facilities Policy", titleAr: "سياسة المرافق",
+   579→    section: "badge", effectiveDate: "2024-02-01", reviewDate: "2025-02-28", lang: "en", pairId: "POL-FAC-PAIR-1",
+   580→    text: "ID badges are issued at the DXB or AUH facilities counter on day 1, between 07:00 and 18:00. Badges require visa approval and a passport-sized photograph. Lost badges incur a AED 50 replacement charge. Badges must be returned on the last working day for leavers and movers.",
+   581→  },
+   582→  {
+   583→    id: "POL-FAC-AR-1", docSlug: "facilities-policy", title: "Facilities Policy", titleAr: "سياسة المرافق",
+   584→    section: "badge", effectiveDate: "2024-02-01", reviewDate: "2025-02-28", lang: "ar", pairId: "POL-FAC-PAIR-1",
+   585→    text: "تُصدَر بطاقات الهوية في مكتب المرافق بدبي أو أبوظبي في اليوم الأول، بين الساعة 07:00 و18:00. تتطلب البطاقات موافقة التأشيرة وصورة شخصية بحجم جواز السفر. تترتّب على فقدان البطاقة رسوم استبدال قدرها 50 درهماً. يجب إعادة البطاقات في آخر يوم عمل للمغادرين والمتنقلين.",
+   586→  },
+   587→];
+   588→
+   589→export interface ConsentRecord {
+   590→  id: string;
+   591→  employeeId: string;
+   592→  purpose: "journey_assistance" | "pulse_capture" | "share_pulse_summary" | "comment_retention" | "aggregate_analytics" | "manager_visibility";
+   593→  granted: boolean;
+   594→  grantedAt: string;
+   595→  revokedAt?: string;
+   596→  version: string;
+   597→  textHash: string;
+   598→}
+   599→
+   600→export const consentRecords: ConsentRecord[] = [
+   601→  { id: "CN-000-E1042", employeeId: "E-1042", purpose: "journey_assistance", granted: true, grantedAt: hoursAgo(24 * 12), version: "v1", textHash: "th-j" },
+   602→  { id: "CN-001", employeeId: "E-1042", purpose: "pulse_capture", granted: true, grantedAt: hoursAgo(20), version: "v1", textHash: "th-p" },
+   603→  { id: "CN-001-E1042-share", employeeId: "E-1042", purpose: "share_pulse_summary", granted: false, grantedAt: hoursAgo(20), version: "v1", textHash: "th-s" },
+   604→  { id: "CN-001-E1042-comm", employeeId: "E-1042", purpose: "comment_retention", granted: true, grantedAt: hoursAgo(20), version: "v1", textHash: "th-c" },
+   605→  { id: "CN-000-E1045", employeeId: "E-1045", purpose: "journey_assistance", granted: true, grantedAt: hoursAgo(24 * 18), version: "v1", textHash: "th-j" },
+   606→  { id: "CN-002", employeeId: "E-1045", purpose: "pulse_capture", granted: true, grantedAt: hoursAgo(6), version: "v1", textHash: "th-p" },
+   607→];
+   608→
+   609→export interface AuditEvent {
+   610→  id: string;
+   611→  actor: string;
+   612→  action: string;
+   613→  subject: string;
+   614→  lawfulBasis: string;
+   615→  requestId: string;
+   616→  prevHash: string;
+   617→  hash: string;
+   618→  createdAt: string;
+   619→}
+   620→
+   621→export const auditEvents: AuditEvent[] = [];
+   622→
+   623→export function getConsent(employeeId: string, purpose: ConsentRecord["purpose"]): boolean {
+   624→  const records = consentRecords
+   625→    .filter((r) => r.employeeId === employeeId && r.purpose === purpose)
+   626→    .sort((a, b) => b.grantedAt.localeCompare(a.grantedAt));
+   627→  if (records.length === 0) {
+   628→    if (purpose === "journey_assistance") return true;
+   629→    if (purpose === "manager_visibility") return true;
+   630→    if (purpose === "aggregate_analytics") return true;
+   631→    return false;
+   632→  }
+   633→  const latest = records[0];
+   634→  return latest.granted && !latest.revokedAt;
+   635→}
+   636→
+   637→export function getOwner(id: string): Owner | undefined {
+   638→  return [...owners, ...managers, ...hrbps].find((o) => o.id === id);
+   639→}
+   640→
+   641→export { hoursAgo, hoursAhead };
+   642→

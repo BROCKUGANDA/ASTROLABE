@@ -27,6 +27,8 @@ import {
   ChevronUp,
   Inbox,
   Lock,
+  ArrowLeftRight,
+  BarChart3,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
 import { StatusChip } from "@/components/astrolabe/widgets";
@@ -202,6 +204,7 @@ function ManagerTabs() {
   const TABS: { id: typeof view; label: string; labelAr: string; Icon: typeof Users }[] = [
     { id: "cohort", label: "My joiners", labelAr: "من الانضمام", Icon: Users },
     { id: "my_steps", label: "My obligations", labelAr: "التزاماتي", Icon: ClipboardList },
+    { id: "compare", label: "Compare", labelAr: "قارن", Icon: ArrowLeftRight },
   ];
   return (
     <div
@@ -523,6 +526,14 @@ export function ManagerScreen() {
             </section>
           )}
 
+          {/* Compare view (PRD §16) — side-by-side columns of every joiner.
+              Privacy boundary: same schema as the cohort API — aggregate
+              completion + owned steps only. NO sentiment, pulse, or friction
+              per person. */}
+          {view === "compare" && (
+            <CompareView items={items} locale={locale} />
+          )}
+
           {/* 30-60-90 outline (PRD §11-207) — below "My obligations".
               For each joiner in the cohort, a collapsible card with three
               editable goal columns (30 / 60 / 90 days) + buddy assignment +
@@ -681,6 +692,446 @@ function ObligationRow({
         )}
       </div>
     </motion.li>
+  );
+}
+
+/* ============================================================
+   Compare view (PRD §16) — side-by-side comparison of every joiner
+   in the manager's cohort. Each joiner is a column (min-width 220px,
+   horizontally scrollable on mobile). Shows: name + journey type,
+   stage + day-in-stage, aggregate completion %, mini stage rail,
+   "waiting on me" count, top 3 owned steps. Privacy boundary: only
+   the cohort API schema — no sentiment, pulse, or friction per person.
+   ============================================================ */
+
+type CompareSort = "completion" | "dayInStage" | "waitingOnMe";
+
+function CompareView({
+  items,
+  locale,
+}: {
+  items: CohortItem[] | null;
+  locale: "en" | "ar";
+}) {
+  const [sortBy, setSortBy] = useState<CompareSort>("completion");
+
+  // Empty state — no joiners in the cohort yet.
+  if (!items || items.length === 0) {
+    return (
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <ArrowLeftRight className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+          <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
+            {locale === "ar" ? "قارن" : "Compare"}
+          </h2>
+        </div>
+        <div className="ast-card p-10 flex flex-col items-center text-center">
+          <div
+            className="flex items-center justify-center w-14 h-14 rounded-full mb-4"
+            style={{ background: "var(--surface-2)", color: "var(--text-mid)" }}
+          >
+            <ArrowLeftRight className="w-6 h-6" strokeWidth={1.75} />
+          </div>
+          <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+            {locale === "ar" ? "لا منضمّين للمقارنة بعد." : "No joiners to compare yet."}
+          </p>
+          <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+            {locale === "ar"
+              ? "عندما يصل موظف جديد أو ينتقل أحد إلى فريقك، ستظهر المقارنة هنا."
+              : "When a joiner or mover lands on your team, the comparison will appear here."}
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  // Cohort aggregates for the summary row.
+  const totalJoiners = items.length;
+  const avgCompletion = Math.round(
+    items.reduce((a, b) => a + b.aggregateCompletion, 0) / Math.max(1, totalJoiners),
+  );
+  const totalWaitingOnMe = items.reduce(
+    (a, it) => a + it.ownedSteps.filter((s) => s.status === "waiting_owner").length,
+    0,
+  );
+
+  // Sort a copy of items — never mutate the source.
+  const sorted = [...items].sort((a, b) => {
+    if (sortBy === "completion") return b.aggregateCompletion - a.aggregateCompletion;
+    if (sortBy === "dayInStage") return b.dayInStage - a.dayInStage;
+    const aw = a.ownedSteps.filter((s) => s.status === "waiting_owner").length;
+    const bw = b.ownedSteps.filter((s) => s.status === "waiting_owner").length;
+    return bw - aw;
+  });
+
+  const sortOptions: { id: CompareSort; label: string; labelAr: string }[] = [
+    { id: "completion", label: "Completion %", labelAr: "نسبة الإنجاز" },
+    { id: "dayInStage", label: "Day in stage", labelAr: "اليوم في المرحلة" },
+    { id: "waitingOnMe", label: "Waiting on me", labelAr: "بانتظاري" },
+  ];
+
+  return (
+    <section>
+      <div className="flex items-center gap-2 mb-4">
+        <ArrowLeftRight className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+        <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
+          {locale === "ar" ? "قارن" : "Compare"}
+        </h2>
+        <span className="text-[12px] tabular" style={{ color: "var(--text-mid)" }}>
+          {locale === "ar" ? `${totalJoiners} موظف` : `${totalJoiners} joiner${totalJoiners === 1 ? "" : "s"}`}
+        </span>
+      </div>
+
+      {/* Summary row — cohort avg + total waiting + mini bar chart */}
+      <div className="ast-card p-4 sm:p-5 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <p
+              className="text-[10px] uppercase tracking-[0.14em] font-medium"
+              style={{ color: "var(--text-lo)" }}
+            >
+              {locale === "ar" ? "متوسط الإنجاز" : "Cohort avg completion"}
+            </p>
+            <p
+              className="text-[34px] leading-none font-semibold tabular mt-1.5"
+              style={{ color: "var(--text-hi)" }}
+              dir="ltr"
+            >
+              {avgCompletion}
+              <span className="text-[18px] font-normal" style={{ color: "var(--text-mid)" }}>%</span>
+            </p>
+          </div>
+          <div>
+            <p
+              className="text-[10px] uppercase tracking-[0.14em] font-medium"
+              style={{ color: "var(--accent-500)" }}
+            >
+              {locale === "ar" ? "إجمالي بانتظاري" : "Total waiting on me"}
+            </p>
+            <p
+              className="text-[34px] leading-none font-semibold tabular mt-1.5 ast-brass"
+              dir="ltr"
+            >
+              {totalWaitingOnMe}
+            </p>
+          </div>
+          <div>
+            <p
+              className="text-[10px] uppercase tracking-[0.14em] font-medium"
+              style={{ color: "var(--text-lo)" }}
+            >
+              {locale === "ar" ? "المنضمّون" : "Joiners"}
+            </p>
+            <p
+              className="text-[34px] leading-none font-semibold tabular mt-1.5"
+              style={{ color: "var(--text-hi)" }}
+              dir="ltr"
+            >
+              {totalJoiners}
+            </p>
+          </div>
+        </div>
+
+        {/* Mini bar chart — completion per joiner */}
+        <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--border-soft)" }}>
+          <div className="flex items-center gap-2 mb-2">
+            <BarChart3 className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+            <span
+              className="text-[10px] uppercase tracking-[0.14em] font-medium"
+              style={{ color: "var(--text-lo)" }}
+            >
+              {locale === "ar" ? "إنجاز كل منضمّ" : "Per-joiner completion"}
+            </span>
+          </div>
+          <div className="flex items-end gap-2 h-20">
+            {sorted.map((it) => {
+              const height = Math.max(6, it.aggregateCompletion);
+              const waiting = it.ownedSteps.filter((s) => s.status === "waiting_owner").length;
+              return (
+                <div
+                  key={it.employeeId}
+                  className="flex-1 min-w-0 group flex flex-col items-center gap-1"
+                  title={`${it.employeeName} — ${it.aggregateCompletion}%`}
+                >
+                  <span
+                    className="text-[10px] tabular"
+                    style={{ color: "var(--text-lo)" }}
+                    dir="ltr"
+                  >
+                    {it.aggregateCompletion}%
+                  </span>
+                  <div
+                    className="w-full rounded-t-md transition-all"
+                    style={{
+                      height: `${height}%`,
+                      minHeight: 6,
+                      background:
+                        waiting > 0
+                          ? "linear-gradient(180deg, var(--accent-500) 0%, var(--accent-500) 30%, var(--brand-500) 100%)"
+                          : "linear-gradient(180deg, var(--brand-400) 0%, var(--brand-500) 100%)",
+                      opacity: 0.85,
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Sort options */}
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
+        <span
+          className="text-[11px] uppercase tracking-[0.14em] mr-1"
+          style={{ color: "var(--text-lo)" }}
+        >
+          {locale === "ar" ? "ترتيب حسب" : "Sort by"}
+        </span>
+        <div
+          className="inline-flex items-center gap-1 p-1 rounded-full"
+          style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
+        >
+          {sortOptions.map((opt) => {
+            const active = sortBy === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setSortBy(opt.id)}
+                aria-pressed={active}
+                className="ast-focus inline-flex items-center h-7 px-3 rounded-full text-[11px] font-medium transition-colors"
+                style={{
+                  background: active ? "var(--brand-500)" : "transparent",
+                  color: active ? "var(--surface-0)" : "var(--text-mid)",
+                }}
+              >
+                {locale === "ar" ? opt.labelAr : opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Side-by-side columns — horizontally scrollable on mobile */}
+      <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0 pb-2">
+        <div
+          className="flex gap-3"
+          style={{ minWidth: "min-content" }}
+        >
+          {sorted.map((it, i) => (
+            <CompareColumn
+              key={it.employeeId}
+              item={it}
+              locale={locale}
+              index={i}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Privacy reminder */}
+      <p
+        className="mt-4 text-[11px] flex items-center gap-1.5"
+        style={{ color: "var(--text-lo)" }}
+      >
+        <Lock className="w-3 h-3" strokeWidth={1.75} />
+        {locale === "ar"
+          ? "هذه المقارنة مقيّدة بنمط بيانات المجموعة — لا نبضات أو احتكاك لكل فرد."
+          : "This comparison is schema-bound — no pulse, friction, or sentiment per person."}
+      </p>
+    </section>
+  );
+}
+
+/* ---------- Single compare column ---------- */
+
+function CompareColumn({
+  item,
+  locale,
+  index,
+}: {
+  item: CohortItem;
+  locale: "en" | "ar";
+  index: number;
+}) {
+  const waitingCount = item.ownedSteps.filter((s) => s.status === "waiting_owner").length;
+  const hasBlocked = item.ownedSteps.some((s) => s.status === "blocked");
+
+  // Build the 5-segment stage rail. Onboarding has 5 stages, mobility 4 —
+  // we always render 5 segments and pad with a "—" placeholder for mobility.
+  const journeyStages: string[] =
+    item.journeyType === "onboarding"
+      ? ["pre_boarding", "visa_processing", "first_day", "first_week", "first_90"]
+      : ["transfer_approved", "handover", "effective_date", "settle_new_role", "—"];
+  const currentIdx = Math.max(0, journeyStages.indexOf(item.stage));
+
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18, delay: Math.min(index * 0.05, 0.25) }}
+      className="ast-card p-4 shrink-0 flex flex-col"
+      style={{ width: 220, minWidth: 220 }}
+    >
+      {/* Name */}
+      <p
+        className="text-[14px] font-semibold leading-snug truncate"
+        style={{ color: "var(--text-hi)" }}
+      >
+        {item.employeeName}
+      </p>
+
+      {/* Journey type badge */}
+      <div className="mt-1.5">
+        <span
+          className="ast-chip"
+          style={{
+            color: item.journeyType === "onboarding" ? "var(--brand-400)" : "var(--accent-500)",
+            background:
+              item.journeyType === "onboarding"
+                ? "rgba(22,154,165,0.08)"
+                : "rgba(201,162,39,0.08)",
+            borderColor:
+              item.journeyType === "onboarding"
+                ? "rgba(22,154,165,0.25)"
+                : "rgba(201,162,39,0.30)",
+            height: 22,
+            fontSize: 10,
+          }}
+        >
+          {item.journeyType === "onboarding"
+            ? (locale === "ar" ? "التحاق" : "Onboarding")
+            : (locale === "ar" ? "تنقل" : "Mobility")}
+        </span>
+      </div>
+
+      {/* Stage + day-in-stage */}
+      <p
+        className="text-[11px] mt-2 leading-snug"
+        style={{ color: "var(--text-mid)" }}
+      >
+        {stageLabel(item.stage, locale)}
+        <span className="mx-1">·</span>
+        <span className="tabular" dir="ltr">
+          {locale === "ar" ? `يوم ${item.dayInStage}` : `Day ${item.dayInStage}`}
+        </span>
+      </p>
+
+      {/* Aggregate completion % — large, tabular */}
+      <div className="mt-3">
+        <p
+          className="text-[10px] uppercase tracking-[0.12em] font-medium"
+          style={{ color: "var(--text-lo)" }}
+        >
+          {locale === "ar" ? "الإنجاز" : "Completion"}
+        </p>
+        <p
+          className="text-[30px] leading-none font-semibold tabular mt-0.5"
+          style={{
+            color:
+              item.aggregateCompletion >= 80
+                ? "var(--status-steady)"
+                : item.aggregateCompletion >= 40
+                  ? "var(--brand-400)"
+                  : "var(--status-watch)",
+          }}
+          dir="ltr"
+        >
+          {item.aggregateCompletion}
+          <span className="text-[16px] font-normal" style={{ color: "var(--text-mid)" }}>%</span>
+        </p>
+      </div>
+
+      {/* Mini stage rail — 5 segments */}
+      <div className="mt-3">
+        <div className="flex gap-1">
+          {journeyStages.map((s, i) => {
+            const isDone = i < currentIdx;
+            const isActive = i === currentIdx;
+            const isBlocked = isActive && hasBlocked;
+            const state = isBlocked
+              ? "blocked"
+              : isDone
+                ? "done"
+                : isActive
+                  ? "active"
+                  : "pending";
+            const bg = isBlocked
+              ? "var(--status-blocked)"
+              : isDone
+                ? "var(--brand-500)"
+                : isActive
+                  ? "linear-gradient(90deg, var(--brand-500), var(--accent-500))"
+                  : "var(--surface-3)";
+            return (
+              <div
+                key={s + String(i)}
+                className="flex-1 h-1.5 rounded-full transition-all"
+                style={{
+                  background: bg,
+                  boxShadow: isActive && !isBlocked ? "0 0 6px rgba(22,154,165,0.4)" : undefined,
+                }}
+                title={s === "—" ? "" : stageLabel(s, locale)}
+                aria-label={s === "—" ? undefined : stageLabel(s, locale)}
+                data-state={state}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Waiting on me count — sand-gold, large */}
+      <div className="mt-3 pt-3 flex items-center justify-between" style={{ borderTop: "1px solid var(--border-soft)" }}>
+        <span
+          className="text-[10px] uppercase tracking-[0.12em] font-medium"
+          style={{ color: "var(--text-lo)" }}
+        >
+          {locale === "ar" ? "بانتظارك" : "Waiting on you"}
+        </span>
+        <span
+          className="text-[22px] leading-none font-semibold tabular"
+          style={{
+            color: waitingCount > 0 ? "var(--accent-500)" : "var(--text-lo)",
+          }}
+          dir="ltr"
+        >
+          {waitingCount}
+        </span>
+      </div>
+
+      {/* Top 3 owned steps with status chips */}
+      <div className="mt-3">
+        <p
+          className="text-[10px] uppercase tracking-[0.12em] font-medium mb-1.5"
+          style={{ color: "var(--text-lo)" }}
+        >
+          {locale === "ar" ? "خطواتك" : "Your steps"}
+        </p>
+        {item.ownedSteps.length === 0 ? (
+          <p className="text-[11px]" style={{ color: "var(--text-lo)" }}>
+            {locale === "ar" ? "لا خطوات مملوكة." : "No owned steps."}
+          </p>
+        ) : (
+          <ul className="space-y-1.5">
+            {item.ownedSteps.slice(0, 3).map((s) => (
+              <li
+                key={s.stepKey}
+                className="flex items-center justify-between gap-2 min-w-0"
+              >
+                <span
+                  className="text-[11px] truncate"
+                  style={{ color: "var(--text-mid)" }}
+                  title={s.label}
+                >
+                  {s.label}
+                </span>
+                <StatusChip status={s.status} locale={locale} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </motion.article>
   );
 }
 
