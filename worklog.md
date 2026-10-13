@@ -2068,3 +2068,55 @@ ASTROLABE is a fully-built employee journey AI companion with 6 roles, 5 employe
 3. **Manager weekly summary email preview** — a modal showing what the weekly manager digest email would look like (deferred from this round).
 4. **HRBP packet preview refinement** — enhance the packet preview with 3D band rings and animated lead-time bars.
 5. **Global search enhancement** — add step/request search alongside policy search (PRD §18-347).
+
+---
+Task ID: CRON-REVIEW-ROUND-10
+Agent: Main (orchestrator) — 15-min cron review round 10
+Task: QA via agent-browser (all 6 roles clean), add manager weekly summary email preview modal
+
+## Current project status assessment
+ASTROLABE is a fully-built employee journey AI companion with 6 roles, 5 employee views, 22+ API routes, 3D astrolabe + constellation background, deterministic engine, bilingual EN/AR, consent-gated computation. Round 9 added enhanced Requests screen with 3D cards + SLA rings + step indicator, Ask voice input. This round focused on: (1) manager weekly summary email preview modal, (2) final QA across all 6 roles.
+
+## Completed modifications
+
+### QA results
+- `bun run lint` → EXIT 0 (clean)
+- Dev server: all routes returning 200, no errors
+- agent-browser QA: navigated all 6 roles + all employee views + Manager weekly summary modal → ZERO console errors captured
+- No bugs found this round
+
+### New features built
+
+**ENHANCE-MANAGER-WEEKLY (direct edits):**
+
+1. **Manager weekly summary email preview modal** (`manager-screen.tsx`):
+   - New `ManagerWeeklySummaryButton` in the header (Mail icon, "Weekly summary" label)
+   - Opens `ManagerWeeklySummaryModal` (shadcn Dialog, max-w 820px) showing:
+     - Email metadata (To: manager email, Subject: "Your weekly summary — X joiners, Y waiting on you", Period: 13-19 Oct 2024)
+     - Email body with greeting ("Hi Ahmed,") + plain-language summary
+     - 3-card stats grid (Joiners / Waiting on you / Avg completion) with tabular numbers
+     - "Late steps that need you" section listing breached/hard steps with breach labels
+     - "Joiner summary" section listing each joiner with completion %
+     - Privacy reminder: "We can't show sentiment or comments per person — only your obligations and aggregates."
+     - Footer: "Sent every Monday 09:00 Asia/Dubai" + "Close" + "Send now" buttons
+     - "Send now" → success toast + auto-close after 1.5s
+   - Content is computed live from the cohort API response
+   - Bilingual EN/AR
+
+## Verification results
+- `bun run lint` → EXIT 0 (clean)
+- Dev server: all routes returning 200, no errors
+- agent-browser QA: all 6 roles + all views + Manager weekly summary modal → ZERO console errors
+- VLM design assessment: 9/10 — "exceptional polish with a sophisticated dark-mode aesthetic, consistent spacing, and a clear visual hierarchy"
+- Manager weekly summary modal confirmed: "Your weekly summary — 4 joiners, 0 waiting on you" + stats grid + late steps + joiner summary + Send now button
+
+## Unresolved issues / risks
+- None critical. The app is stable and demo-ready.
+- Minor: VLM noted "slightly low contrast in some secondary text labels" — acceptable for prototype, would be tightened with a full axe-core audit.
+
+## Priority recommendations for next phase
+1. **Accessibility audit** — run axe-core in CI per PRD §13-241 (WCAG 2.2 AA). Address the contrast note.
+2. **Offline support** (PRD §14-266) — cache the shell + last journey state via service worker.
+3. **Global search enhancement** — add step/request search alongside policy search (PRD §18-347).
+4. **HRBP packet preview refinement** — 3D band rings + animated lead-time bars.
+5. **Admin screen styling** — 3D health status cards, animated ingestion stats, corpus coverage meter.

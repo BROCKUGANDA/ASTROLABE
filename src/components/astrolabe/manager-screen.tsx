@@ -40,6 +40,8 @@ import {
   TrendingDown,
   Minus,
   Zap,
+  Mail,
+  Calendar,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
 import { StatusChip } from "@/components/astrolabe/widgets";
@@ -64,6 +66,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { NOW as PACK_NOW } from "@/lib/data/pack";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 /* ---------- Types ---------- */
@@ -454,7 +462,10 @@ export function ManagerScreen() {
             {locale === "ar" ? "التزاماتك تجاه فريقك" : "Your obligations to your team"}
           </h1>
         </div>
-        <ManagerTabs />
+        <div className="flex items-center gap-2">
+          <ManagerWeeklySummaryButton items={items} locale={locale} />
+          <ManagerTabs />
+        </div>
       </header>
 
       <PrivacyBanner locale={locale} />
@@ -2421,6 +2432,171 @@ function OutlineColumn({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/* ---------- Manager Weekly Summary Email Preview ---------- */
+
+function ManagerWeeklySummaryButton({ items, locale }: { items: CohortItem[] | null; locale: "en" | "ar" }) {
+  const [open, setOpen] = useState(false);
+  const ar = locale === "ar";
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium transition-colors"
+        style={{
+          background: "var(--surface-2)",
+          border: "1px solid var(--border)",
+          color: "var(--text-hi)",
+        }}
+        aria-label={ar ? "ملخص أسبوعي" : "Weekly summary"}
+      >
+        <Mail className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+        <span className="hidden sm:inline">{ar ? "ملخص أسبوعي" : "Weekly summary"}</span>
+      </button>
+      {open && <ManagerWeeklySummaryModal items={items} locale={locale} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function ManagerWeeklySummaryModal({ items, locale, onClose }: { items: CohortItem[] | null; locale: "en" | "ar"; onClose: () => void }) {
+  const ar = locale === "ar";
+  const dir = ar ? "rtl" : "ltr";
+  const [sent, setSent] = useState(false);
+
+  // Build email content from cohort data
+  const joiners = items ?? [];
+  const totalJoiners = joiners.length;
+  const waitingOnMe = joiners.reduce((sum, j) => sum + j.ownedSteps.filter(s => s.status === "waiting_owner").length, 0);
+  const avgCompletion = totalJoiners > 0 ? Math.round(joiners.reduce((sum, j) => sum + j.aggregateCompletion, 0) / totalJoiners) : 0;
+  const lateSteps = joiners.flatMap(j => j.ownedSteps.filter(s => s.breachLevel === "breached" || s.breachLevel === "hard"));
+
+  const emailSubject = ar ? `ملخصك الأسبوعي — ${totalJoiners} موظف، ${waitingOnMe} بانتظارك` : `Your weekly summary — ${totalJoiners} joiners, ${waitingOnMe} waiting on you`;
+  const dateRange = "13–19 Oct 2024";
+
+  return (
+    <Dialog open={true} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-[820px] p-0 overflow-hidden" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+        <DialogHeader className="p-5 border-b" style={{ borderColor: "var(--border)" }}>
+          <div className="flex items-center gap-2">
+            <Mail className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+            <DialogTitle className="text-[18px] font-semibold" style={{ color: "var(--text-hi)" }}>
+              {ar ? "معاينة الملخص الأسبوعي" : "Weekly summary email preview"}
+            </DialogTitle>
+          </div>
+          <p className="text-[12px] mt-1" style={{ color: "var(--text-mid)" }}>
+            {ar ? "هذا ما سيستلمه مديرو آخرون كل صباح إثنين." : "This is what you'll receive every Monday morning."}
+          </p>
+        </DialogHeader>
+
+        <div className="p-5 space-y-4" dir={dir} style={{ maxHeight: "60vh", overflowY: "auto" }}>
+          {/* Email metadata */}
+          <div className="ast-card-2 p-3 space-y-1.5 text-[12px]" style={{ color: "var(--text-mid)" }}>
+            <div className="flex justify-between">
+              <span>{ar ? "إلى" : "To"}</span>
+              <span className="tabular" style={{ color: "var(--text-hi)" }}>ahmed.mgr@astrolabe.internal</span>
+            </div>
+            <div className="flex justify-between">
+              <span>{ar ? "الموضوع" : "Subject"}</span>
+              <span style={{ color: "var(--text-hi)" }}>{emailSubject}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>{ar ? "الفترة" : "Period"}</span>
+              <span className="tabular" style={{ color: "var(--text-hi)" }}>{dateRange}</span>
+            </div>
+          </div>
+
+          {/* Email body */}
+          <div className="space-y-4">
+            <p className="text-[14px]" style={{ color: "var(--text-hi)" }}>
+              {ar ? "مرحباً أحمد،" : "Hi Ahmed,"}
+            </p>
+            <p className="text-[13px] leading-relaxed" style={{ color: "var(--text-mid)" }}>
+              {ar
+                ? `إليك ملخص هذا الأسبوع لفريقك من الانضمام. لديك ${totalJoiners} موظف، ${waitingOnMe} خطوة بانتظارك، ومتوسط الإنجاز ${avgCompletion}%.`
+                : `Here's your weekly summary for your onboarding cohort. You have ${totalJoiners} joiners, ${waitingOnMe} steps waiting on you, and average completion is at ${avgCompletion}%.`}
+            </p>
+
+            {/* Stats grid */}
+            <div className="grid grid-cols-3 gap-3">
+              <EmailStatCard label={ar ? "الموظفون" : "Joiners"} value={totalJoiners} color="var(--brand-400)" />
+              <EmailStatCard label={ar ? "بانتظارك" : "Waiting on you"} value={waitingOnMe} color="var(--accent-500)" />
+              <EmailStatCard label={ar ? "متوسط الإنجاز" : "Avg completion"} value={`${avgCompletion}%`} color="var(--brand-400)" />
+            </div>
+
+            {/* Late steps */}
+            {lateSteps.length > 0 && (
+              <div>
+                <h4 className="text-[12px] font-semibold uppercase tracking-[0.12em] mb-2" style={{ color: "var(--text-lo)" }}>
+                  {ar ? "خطوات متأخرة تحتاج إليك" : "Late steps that need you"}
+                </h4>
+                <div className="space-y-1.5">
+                  {lateSteps.slice(0, 5).map((s, i) => (
+                    <div key={i} className="flex items-center justify-between ast-card-2 px-3 py-2 text-[12px]">
+                      <span style={{ color: "var(--text-hi)" }}>{s.label}</span>
+                      <span className="tabular" style={{ color: "var(--status-friction)" }}>{s.breachLevel === "hard" ? "Hard breach" : "Breached"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Joiners summary */}
+            <div>
+              <h4 className="text-[12px] font-semibold uppercase tracking-[0.12em] mb-2" style={{ color: "var(--text-lo)" }}>
+                {ar ? "ملخص الموظفين" : "Joiner summary"}
+              </h4>
+              <div className="space-y-1.5">
+                {joiners.slice(0, 5).map((j) => (
+                  <div key={j.employeeId} className="flex items-center justify-between ast-card-2 px-3 py-2 text-[12px]">
+                    <span style={{ color: "var(--text-hi)" }}>{j.employeeName}</span>
+                    <span className="tabular" style={{ color: "var(--brand-400)" }}>{j.aggregateCompletion}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <p className="text-[12px] leading-relaxed" style={{ color: "var(--text-mid)" }}>
+              {ar
+                ? "افتح ASTROLABE لاتخاذ إجراء. لا يمكننا عرض المشاعر أو التعليقات لكل شخص — فقط التزاماتك والإجماليات."
+                : "Open ASTROLABE to take action. We can't show sentiment or comments per person — only your obligations and aggregates."}
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t flex items-center justify-between gap-3" style={{ borderColor: "var(--border)" }}>
+          <span className="text-[11px]" style={{ color: "var(--text-lo)" }}>
+            {ar ? "يُرسل كل إثنين 09:00 Asia/Dubai" : "Sent every Monday 09:00 Asia/Dubai"}
+          </span>
+          <div className="flex items-center gap-2">
+            <button onClick={onClose} className="ast-focus h-9 px-4 rounded-full text-[12px] font-medium" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}>
+              {ar ? "إغلاق" : "Close"}
+            </button>
+            <button
+              onClick={() => { setSent(true); toast.success(ar ? "أُرسل الملخص" : "Summary sent"); setTimeout(onClose, 1500); }}
+              disabled={sent}
+              className="ast-focus inline-flex items-center gap-2 h-9 px-4 rounded-full text-[12px] font-semibold transition-transform hover:-translate-y-0.5 disabled:opacity-50"
+              style={{ background: "var(--brand-500)", color: "var(--surface-0)" }}
+            >
+              {sent ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Mail className="w-3.5 h-3.5" />}
+              {sent ? (ar ? "أُرسل" : "Sent") : (ar ? "أرسل الآن" : "Send now")}
+            </button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EmailStatCard({ label, value, color }: { label: string; value: string | number; color: string }) {
+  return (
+    <div className="ast-card-2 p-3 text-center">
+      <p className="text-[10px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>{label}</p>
+      <p className="text-[20px] font-bold tabular mt-1" style={{ color }}>{value}</p>
     </div>
   );
 }
