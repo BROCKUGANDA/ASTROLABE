@@ -250,3 +250,37 @@ Work Log:
 
 Stage Summary:
 - Four production-grade console screens delivered. The Me screen turns the consent model into six tactile toggles with receipts + a SAR-style expandable data table + view log + JSON/PDF export + revoke-all modal. The HRBP screen routes through queue/packet/stalls sub-views — the packet builder writes a real EscalationPacket via the API, the consent statement is rendered verbatim, and the stalls heatmap respects k≥5 suppression. The Manager screen enforces the schema boundary visually — no pulse, no score, no comments anywhere; the sand-gold "Waiting on you" hero number is the primary metric. The Judge screen surfaces the engine's full reasoning path (stage inference, signals fired/suppressed, fusion band with hard trips, next best step, servedFrom/degraded) next to a 3D BandSphere3D and a read-only employee Today view, with an as-of clock slider that recomputes live and a 5-level degraded simulator that injects banners + disables write actions at L4. All four screens route from the top-nav role switcher and lint/type-check clean against the running dev server. Previewable in the Preview Panel by clicking the "Open in New Tab" button above the preview, then switching role in the top bar (Employee → use the Me tab; HRBP/Manager/Judge → screens render directly).
+
+---
+Task ID: FINAL-VERIFICATION
+Agent: Main (orchestrator)
+Task: Final QA pass — fix grounding validator, footnote stripping, date NOW, duplicate keys; verify all 4 roles; set up cron job
+
+Work Log:
+- Fixed grounding validator bug: footnote lines (starting with [^) were being counted as normative claims, causing all answers to abstain. Now footnote lines are skipped, and inline [^n] markers are attached to their claim sentences.
+- Fixed extractive composer: now picks top 1-2 most relevant sentences across top 3 chunks (deduplicated by chunk), with normative-content boost. Inserts [^n] immediately after final punctuation so sentence-splitter keeps marker attached.
+- Fixed staleness check to use synthetic NOW (2024-10-19) instead of real time, so policies with reviewDate 2025-12-31 are not falsely flagged stale.
+- Fixed stripCitations in ask-screen: footnote definition lines are now stripped BEFORE inline [^n] markers (order mattered — stripping inline first broke the footnote-line regex).
+- Fixed date display across all screens: replaced formatDistanceToNow with formatDistance(d, PACK_NOW) so "in 3 days" copy uses the synthetic 2024-10-19 clock, not real 2026. Applied to today, hrbp, me, manager screens.
+- Fixed duplicate React key warnings: signal codes like TL-01/TL-02 can fire on multiple steps, so changed key={s.code} to key={`${s.code}-${i}`} in hrbp-screen and judge-screen.
+- Verified all 4 roles render correctly via agent-browser:
+  - Employee/Today: 3D astrolabe hero, "YOUR NEXT MOVE" sand-gold card with Start button, "RUNNING LATE" section with red status indicators, stage progress rail
+  - HRBP console: ranked queue by band severity (Blocked > Friction > Watch), top-3 signals per row, claim/open-packet buttons
+  - Manager view: confirms privacy boundary ("This is not a monitoring tool"), API schema enforces absence of sentiment/pulse/friction fields
+  - Judge mode: 5 scenarios (S1-S5) with descriptions, as-of clock slider, engine trace panel with signals/suppression/band, degraded simulator L0-L4
+- Verified Ask endpoint: "How many days of relocation allowance do I get?" now returns kind=answer with 2 citations (Relocation Policy §housing + §allowance), groundingScore 1.0
+- Set up 15-minute cron job (ID 457171, kind=webDevReview) for ongoing review and feature expansion
+- VLM design assessment: 9/10 — "sophisticated high-contrast dark mode, vibrant teal for data viz, luxurious sand-gold for 3D assets and CTAs, premium command-center aesthetic, excellent metallic textures and realistic lighting on the astrolabe"
+
+Stage Summary:
+- Lint: clean (eslint . passes with no errors)
+- Dev server: running on port 3000, all routes returning 200
+- All 15 API routes verified working
+- All 4 roles (Employee/HRBP/Manager/Judge) verified via agent-browser
+- All 5 employee views (Today/Journey/Ask/Requests/Me) built and rendering
+- 3D brass astrolabe instrument rendering with metallic textures, teal inner dial, sand-gold pointer
+- Bilingual EN/AR with RTL support
+- Deterministic engine: 42 signals, 7 families, fusion bands, hard trips, consent suppression
+- Privacy boundary enforced at API schema level (manager cohort has no sentiment fields)
+- Cron job scheduled for continuous improvement every 15 minutes
+- Ready for demo
