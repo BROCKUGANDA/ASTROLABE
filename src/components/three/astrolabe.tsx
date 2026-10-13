@@ -317,14 +317,14 @@ function OrbitConnector({ from, to, active }: { from: number; to: number; active
   );
 }
 
-export function JourneyOrbit3D({ steps: journeySteps }: { steps: OrbitStep[] }) {
+function OrbitScene({ journeySteps }: { journeySteps: OrbitStep[] }) {
   const groupRef = useRef<THREE.Group>(null);
   useFrame((_, delta) => {
     if (groupRef.current) groupRef.current.rotation.z += delta * 0.04;
   });
 
   return (
-    <Canvas camera={{ position: [0, 0, 6], fov: 40 }} dpr={[1, 2]} gl={{ alpha: true, antialias: true }} style={{ background: "transparent" }}>
+    <>
       <ambientLight intensity={0.4} />
       <pointLight position={[0, 0, 3]} intensity={1.2} color="#169AA5" />
       <pointLight position={[3, 3, 2]} intensity={0.6} color="#C9A227" />
@@ -352,6 +352,14 @@ export function JourneyOrbit3D({ steps: journeySteps }: { steps: OrbitStep[] }) 
       </group>
 
       <Sparkles count={40} scale={7} size={1.5} speed={0.2} color="#C9A227" opacity={0.4} />
+    </>
+  );
+}
+
+export function JourneyOrbit3D({ steps: journeySteps }: { steps: OrbitStep[] }) {
+  return (
+    <Canvas camera={{ position: [0, 0, 6], fov: 40 }} dpr={[1, 2]} gl={{ alpha: true, antialias: true }} style={{ background: "transparent" }}>
+      <OrbitScene journeySteps={journeySteps} />
     </Canvas>
   );
 }
@@ -360,7 +368,7 @@ export function JourneyOrbit3D({ steps: journeySteps }: { steps: OrbitStep[] }) 
    BAND SPHERE — for the verdict card
    ============================================================ */
 
-export function BandSphere3D({ band }: { band: "steady" | "watch" | "friction" | "blocked" }) {
+function BandSphereScene({ band }: { band: "steady" | "watch" | "friction" | "blocked" }) {
   const ref = useRef<THREE.Mesh>(null);
   useFrame((state, delta) => {
     if (ref.current) {
@@ -376,7 +384,7 @@ export function BandSphere3D({ band }: { band: "steady" | "watch" | "friction" |
   };
   const m = colorMap[band];
   return (
-    <Canvas camera={{ position: [0, 0, 3], fov: 40 }} dpr={[1, 2]} gl={{ alpha: true, antialias: true }} style={{ background: "transparent" }}>
+    <>
       <ambientLight intensity={0.3} />
       <pointLight position={[3, 3, 3]} intensity={1} color="#F6ECC9" />
       <pointLight position={[-3, -2, 2]} intensity={0.6} color={m.c} />
@@ -392,6 +400,14 @@ export function BandSphere3D({ band }: { band: "steady" | "watch" | "friction" |
         />
       </mesh>
       <Sparkles count={30} scale={3} size={2} speed={0.4} color={m.c} opacity={0.7} />
+    </>
+  );
+}
+
+export function BandSphere3D({ band }: { band: "steady" | "watch" | "friction" | "blocked" }) {
+  return (
+    <Canvas camera={{ position: [0, 0, 3], fov: 40 }} dpr={[1, 2]} gl={{ alpha: true, antialias: true }} style={{ background: "transparent" }}>
+      <BandSphereScene band={band} />
     </Canvas>
   );
 }

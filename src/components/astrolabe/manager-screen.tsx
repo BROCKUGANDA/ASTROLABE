@@ -23,6 +23,8 @@ import {
   Clock,
   Hourglass,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Inbox,
   Lock,
 } from "lucide-react";
@@ -83,6 +85,40 @@ function stageLabel(key: string, locale: "en" | "ar"): string {
   const e = STAGE_LABELS[key];
   if (!e) return key;
   return locale === "ar" ? e.ar : e.en;
+}
+
+/* ---------- 30-60-90 outline defaults (PRD §11-207) ---------- */
+
+interface Outline3090 {
+  day30: string[];
+  day60: string[];
+  day90: string[];
+  buddy: string;
+}
+
+const DEFAULTS_ONBOARDING: Outline3090 = {
+  day30: ["Complete induction", "First buddy catch-up", "Shadow 2 shifts"],
+  day60: ["Solo first shift", "First feedback round", "Training module 2"],
+  day90: ["90-day review", "Confirm probation", "Set Q1 goals"],
+  buddy: "",
+};
+
+const DEFAULTS_MOBILITY: Outline3090 = {
+  day30: ["New role induction", "Releasing manager handover", "Stakeholder intros"],
+  day60: ["First project delivery", "New team 1:1s", "Skills gap assessment"],
+  day90: ["90-day review", "Confirm new role fit", "Set next-quarter goals"],
+  buddy: "",
+};
+
+/** Build a fresh outline (deep copy of defaults) based on journey type. */
+function defaultOutline(journeyType: "onboarding" | "mobility"): Outline3090 {
+  const src = journeyType === "onboarding" ? DEFAULTS_ONBOARDING : DEFAULTS_MOBILITY;
+  return {
+    day30: [...src.day30],
+    day60: [...src.day60],
+    day90: [...src.day90],
+    buddy: "",
+  };
 }
 
 /* ---------- Skeleton ---------- */
@@ -487,6 +523,36 @@ export function ManagerScreen() {
             </section>
           )}
 
+          {/* 30-60-90 outline (PRD §11-207) — below "My obligations".
+              For each joiner in the cohort, a collapsible card with three
+              editable goal columns (30 / 60 / 90 days) + buddy assignment +
+              Save button. State is local only — no backend writes. */}
+          {view === "my_steps" && items && items.length > 0 && (
+            <section className="mt-6">
+              <div className="flex items-center gap-2 mb-4">
+                <ClipboardList className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+                <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
+                  {locale === "ar" ? "مخطط 30-60-90" : "30-60-90 outline"}
+                </h2>
+                <span className="text-[12px] tabular" style={{ color: "var(--text-mid)" }}>
+                  {locale === "ar"
+                    ? `${items.length} موظف`
+                    : `${items.length} joiner${items.length === 1 ? "" : "s"}`}
+                </span>
+              </div>
+              <p className="text-[12px] mb-3" style={{ color: "var(--text-lo)" }}>
+                {locale === "ar"
+                  ? "خطط لأول 90 يوماً لكل منضمّ. خصّص الأهداف وعيّن الرفيق — يُحفظ محلياً للنموذج الأولي."
+                  : "Plan each joiner's first 90 days. Personalize the goals and assign a buddy — saved locally for the prototype."}
+              </p>
+              <ul className="space-y-3">
+                {items.map((item) => (
+                  <Outline3090Card key={item.employeeId} item={item} locale={locale} />
+                ))}
+              </ul>
+            </section>
+          )}
+
           {/* Schema-boundary footer */}
           <p className="mt-6 text-[11px] flex items-center justify-center gap-1.5" style={{ color: "var(--text-lo)" }}>
             <Lock className="w-3 h-3" strokeWidth={1.75} />
@@ -615,5 +681,267 @@ function ObligationRow({
         )}
       </div>
     </motion.li>
+  );
+}
+
+/* ============================================================
+   30-60-90 outline card (PRD §11-207)
+   - Collapsible per-joiner card titled "30-60-90: {name}"
+   - Three columns: 30 / 60 / 90 days — each with editable goals
+   - Buddy assignment text input
+   - Save button → success toast (local state only, no backend)
+   ============================================================ */
+
+type OutlinePhase = "day30" | "day60" | "day90";
+
+function Outline3090Card({
+  item,
+  locale,
+}: {
+  item: CohortItem;
+  locale: "en" | "ar";
+}) {
+  const [open, setOpen] = useState(false);
+  const [outline, setOutline] = useState<Outline3090>(() =>
+    defaultOutline(item.journeyType),
+  );
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const updateGoal = (phase: OutlinePhase, idx: number, value: string) => {
+    setOutline((prev) => {
+      const next: Outline3090 = { ...prev, [phase]: [...prev[phase]] };
+      next[phase][idx] = value;
+      return next;
+    });
+    // Mark as unsaved the moment any field is edited after a save.
+    if (saved) setSaved(false);
+  };
+
+  const updateBuddy = (value: string) => {
+    setOutline((prev) => ({ ...prev, buddy: value }));
+    if (saved) setSaved(false);
+  };
+
+  const handleSave = () => {
+    setSaving(true);
+    // Simulate a save round-trip — local state only (no backend).
+    setTimeout(() => {
+      setSaving(false);
+      setSaved(true);
+      toast.success(
+        locale === "ar" ? "تم حفظ المخطط" : "Outline saved",
+        {
+          description:
+            locale === "ar"
+              ? `مخطط 30-60-90 لـ ${item.employeeName}`
+              : `30-60-90 outline for ${item.employeeName}`,
+        },
+      );
+    }, 420);
+  };
+
+  const journeyLabel =
+    item.journeyType === "onboarding"
+      ? locale === "ar"
+        ? "التحاق"
+        : "Onboarding"
+      : locale === "ar"
+        ? "تنقل"
+        : "Mobility";
+
+  return (
+    <li className="ast-card overflow-hidden">
+      {/* Header — click to collapse / expand */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="ast-focus w-full flex items-center gap-3 p-4 sm:p-5 text-left"
+      >
+        <div
+          className="flex items-center justify-center w-9 h-9 rounded-full shrink-0"
+          style={{
+            background: "rgba(22,154,165,0.10)",
+            color: "var(--brand-400)",
+          }}
+          aria-hidden="true"
+        >
+          <ClipboardList className="w-4 h-4" strokeWidth={1.75} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+            {locale === "ar" ? "مخطط 30-60-90: " : "30-60-90: "}
+            {item.employeeName}
+          </p>
+          <p className="text-[12px] mt-0.5" style={{ color: "var(--text-mid)" }}>
+            {journeyLabel}
+            <span className="mx-1.5">·</span>
+            {stageLabel(item.stage, locale)}
+            <span className="mx-1.5">·</span>
+            <span className="tabular">
+              {locale === "ar" ? `يوم ${item.dayInStage}` : `Day ${item.dayInStage}`}
+            </span>
+          </p>
+        </div>
+        {saved && (
+          <span
+            className="ast-chip shrink-0"
+            style={{
+              color: "var(--status-steady)",
+              background: "rgba(14,159,110,0.10)",
+              borderColor: "rgba(14,159,110,0.30)",
+            }}
+          >
+            <CheckCircle2 className="w-3 h-3" strokeWidth={1.75} />
+            {locale === "ar" ? "محفوظ" : "Saved"}
+          </span>
+        )}
+        {open ? (
+          <ChevronUp className="w-4 h-4 shrink-0" strokeWidth={1.75} style={{ color: "var(--text-lo)" }} />
+        ) : (
+          <ChevronDown className="w-4 h-4 shrink-0" strokeWidth={1.75} style={{ color: "var(--text-lo)" }} />
+        )}
+      </button>
+
+      {/* Body — three columns + buddy + save */}
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="p-4 sm:p-5 pt-0 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <OutlineColumn
+                  title={locale === "ar" ? "30 يوماً" : "30 days"}
+                  accent="var(--brand-400)"
+                  goals={outline.day30}
+                  onChange={(idx, v) => updateGoal("day30", idx, v)}
+                  locale={locale}
+                />
+                <OutlineColumn
+                  title={locale === "ar" ? "60 يوماً" : "60 days"}
+                  accent="var(--brand-400)"
+                  goals={outline.day60}
+                  onChange={(idx, v) => updateGoal("day60", idx, v)}
+                  locale={locale}
+                />
+                <OutlineColumn
+                  title={locale === "ar" ? "90 يوماً" : "90 days"}
+                  accent="var(--accent-500)"
+                  goals={outline.day90}
+                  onChange={(idx, v) => updateGoal("day90", idx, v)}
+                  locale={locale}
+                />
+              </div>
+
+              {/* Buddy assignment — named person selector (text input for prototype) */}
+              <div>
+                <label
+                  htmlFor={`buddy-${item.employeeId}`}
+                  className="text-[11px] font-semibold uppercase tracking-[0.12em]"
+                  style={{ color: "var(--text-lo)" }}
+                >
+                  {locale === "ar" ? "تكليف الرفيق" : "Buddy assignment"}
+                </label>
+                <input
+                  id={`buddy-${item.employeeId}`}
+                  type="text"
+                  value={outline.buddy}
+                  onChange={(e) => updateBuddy(e.target.value)}
+                  placeholder={
+                    locale === "ar"
+                      ? "اسم الشخص المكلف كرفيق"
+                      : "Named person assigned as buddy"
+                  }
+                  className="ast-focus mt-1.5 w-full h-11 px-3 rounded-[10px] text-[14px] outline-none"
+                  style={{
+                    background: "var(--surface-2)",
+                    color: "var(--text-hi)",
+                    border: "1px solid var(--border)",
+                  }}
+                />
+              </div>
+
+              {/* Save button */}
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="ast-focus inline-flex items-center justify-center gap-2 h-11 px-5 rounded-[10px] text-[13px] font-semibold transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
+                  style={{
+                    background: "var(--brand-500)",
+                    color: "var(--surface-0)",
+                    boxShadow: "0 4px 14px rgba(22,154,165,0.22)",
+                  }}
+                >
+                  <CheckCircle2 className="w-4 h-4" strokeWidth={1.75} />
+                  {saving
+                    ? (locale === "ar" ? "جارٍ الحفظ..." : "Saving…")
+                    : (locale === "ar" ? "حفظ المخطط" : "Save outline")}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </li>
+  );
+}
+
+/* ---------- Single 30/60/90 column with editable goals ---------- */
+
+function OutlineColumn({
+  title,
+  accent,
+  goals,
+  onChange,
+  locale,
+}: {
+  title: string;
+  accent: string;
+  goals: string[];
+  onChange: (idx: number, value: string) => void;
+  locale: "en" | "ar";
+}) {
+  return (
+    <div className="ast-card-2 p-3.5">
+      <p
+        className="text-[12px] font-semibold uppercase tracking-[0.12em] mb-3"
+        style={{ color: accent }}
+      >
+        {title}
+      </p>
+      <div className="space-y-2.5">
+        {goals.map((g, idx) => (
+          <div key={idx}>
+            <label
+              htmlFor={`${title}-${idx}`}
+              className="text-[10px] uppercase tracking-[0.10em]"
+              style={{ color: "var(--text-lo)" }}
+            >
+              {locale === "ar" ? `هدف ${idx + 1}` : `Goal ${idx + 1}`}
+            </label>
+            <input
+              id={`${title}-${idx}`}
+              type="text"
+              value={g}
+              onChange={(e) => onChange(idx, e.target.value)}
+              className="ast-focus mt-0.5 w-full h-9 px-2.5 rounded-md text-[13px] outline-none"
+              style={{
+                background: "var(--surface-2)",
+                color: "var(--text-hi)",
+                border: "1px solid var(--border)",
+              }}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

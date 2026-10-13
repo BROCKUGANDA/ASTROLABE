@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
+import { NOW as PACK_NOW } from "@/lib/data/pack";
 import ReactMarkdown from "react-markdown";
 import {
   Send,
@@ -34,6 +35,10 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
 import { CitationChip } from "@/components/astrolabe/widgets";
+import {
+  CitationHover,
+  NumberTicker,
+} from "@/components/astrolabe/micro-interactions";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -127,6 +132,29 @@ function stripCitations(md: string): string {
     .replace(/\[\^\d+\]/g, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+/**
+ * Extract the first "decisive" sentence from a markdown answer.
+ * Used by the "Say it simply" toggle (PRD §01-016) so an employee can
+ * collapse a long answer to just the headline + citations.
+ *
+ * Strategy: walk the text looking for the first sentence-ending
+ * punctuation (`.`, `!`, `?`) that is followed by whitespace or end of
+ * string. If none found, return the whole text. Markdown emphasis
+ * markers (`*`, `_`, `**`) are preserved so ReactMarkdown still renders
+ * them — we only slice on punctuation.
+ */
+function firstSentence(md: string): string {
+  const text = md.trim();
+  if (!text) return "";
+  // Match up to and including the first . ! or ? that is followed by
+  // whitespace, end-of-string, or a newline.
+  const match = text.match(/^[^.!?\n]*[.!?](?=\s|$)/);
+  if (match) return match[0].trim();
+  // Fallback: first line, no terminal punctuation.
+  const firstLine = text.split(/\n/)[0];
+  return firstLine.trim();
 }
 
 function fmtMs(ms: number): string {
@@ -704,11 +732,17 @@ function AnswerCard({
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [wrongReported, setWrongReported] = useState(false);
+  // "Say it simply" preference — per-question (local state, no persistence
+  // needed beyond the life of this card which is keyed by turn.id).
+  const [simple, setSimple] = useState(false);
 
   const cleanMd = useMemo(
     () => (answer.answerMarkdown ? stripCitations(answer.answerMarkdown) : ""),
     [answer.answerMarkdown],
   );
+
+  // Pre-compute the "simple" form once: just the first decisive sentence.
+  const simpleMd = useMemo(() => firstSentence(cleanMd), [cleanMd]);
 
   // Derived: streaming is done once revealed covers the full markdown.
   const done = revealed >= cleanMd.length;
@@ -732,6 +766,10 @@ function AnswerCard({
   }, [cleanMd]);
 
   const streamed = cleanMd.slice(0, revealed);
+
+  // When simple mode is on, show the pre-computed first sentence in full
+  // (no streaming animation — it should feel instant).
+  const displayMd = simple ? simpleMd : streamed;
 
   const handleCopyAnswer = async () => {
     try {
@@ -809,12 +847,49 @@ function AnswerCard({
         </div>
       )}
 
-      {/* Answer body (streamed) */}
+      {/* "Say it simply" toggle (PRD §01-016) — pill button + Simple badge */}
+      <div className="flex items-center gap-2 mb-3">
+        <button
+          type="button"
+          onClick={() => setSimple((v) => !v)}
+          aria-pressed={simple}
+          aria-label={locale === "ar" ? "ببساطة" : "Say it simply"}
+          className="ast-focus inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium transition-colors"
+          style={{
+            background: simple ? "rgba(22,154,165,0.12)" : "var(--surface-2)",
+            border: `1px solid ${simple ? "rgba(22,154,165,0.40)" : "var(--border)"}`,
+            color: simple ? "var(--brand-400)" : "var(--text-mid)",
+          }}
+        >
+          <Sparkles className="w-3.5 h-3.5" strokeWidth={1.75} />
+          {locale === "ar" ? "ببساطة" : "Say it simply"}
+        </button>
+        <AnimatePresence initial={false}>
+          {simple && (
+            <motion.span
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.92 }}
+              transition={{ duration: 0.14 }}
+              className="ast-chip"
+              style={{
+                color: "var(--brand-400)",
+                background: "rgba(22,154,165,0.06)",
+                borderColor: "rgba(22,154,165,0.30)",
+              }}
+            >
+              {locale === "ar" ? "مبسّط" : "Simple"}
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Answer body (streamed, or first-sentence-only when simple is on) */}
       <div
         className="text-[15px] leading-relaxed"
         style={{ color: "var(--text-hi)" }}
       >
-        {streamed ? (
+        {displayMd ? (
           <ReactMarkdown
             components={{
               p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
@@ -826,12 +901,12 @@ function AnswerCard({
               ),
             }}
           >
-            {streamed}
+            {displayMd}
           </ReactMarkdown>
         ) : (
           <span style={{ color: "var(--text-lo)" }}>…</span>
         )}
-        {!done && (
+        {!done && !simple && (
           <span
             aria-hidden="true"
             className="inline-block w-[2px] h-4 ml-0.5 align-middle ast-pulse-ring"
@@ -863,7 +938,9 @@ function AnswerCard({
           {!sourcesOpen && (
             <div className="mt-2 flex flex-wrap gap-2">
               {answer.citations.map((c) => (
-                <CitationChip key={c.chunkId} citation={c} locale={locale} />
+                <CitationHover key={c.chunkId}>
+                  <CitationChip citation={c} locale={locale} />
+                </CitationHover>
               ))}
             </div>
           )}
@@ -884,7 +961,9 @@ function AnswerCard({
                     className="ast-card-2 p-3"
                   >
                     <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <CitationChip citation={c} locale={locale} />
+                      <CitationHover>
+                        <CitationChip citation={c} locale={locale} />
+                      </CitationHover>
                       <span
                         className="text-[10px] tabular font-mono shrink-0"
                         style={{ color: "var(--text-lo)" }}
@@ -933,7 +1012,22 @@ function AnswerCard({
         >
           <Clock className="w-3 h-3" strokeWidth={1.75} />
           {locale === "ar" ? "آخر فحص" : "Last checked"}{" "}
-          {format(new Date(), "d MMM yyyy HH:mm")}
+          {format(PACK_NOW, "d MMM yyyy HH:mm")}
+        </span>
+        {/* Grounding score — animated ticker */}
+        <span
+          className="inline-flex items-center gap-1.5 text-[10px] tabular shrink-0"
+          style={{ color: "var(--text-lo)" }}
+          title={locale === "ar" ? "درجة التحقق من المصدر" : "How well the answer is backed by cited sources"}
+        >
+          <ShieldAlert className="w-3 h-3" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+          {locale === "ar" ? "تثبيت" : "Grounding"}{" "}
+          <span style={{ color: "var(--brand-400)" }}>
+            <NumberTicker
+              value={Math.round(answer.groundingScore * 100)}
+              suffix="%"
+            />
+          </span>
         </span>
 
         <div className="sm:ml-auto flex items-center gap-1.5 flex-wrap">

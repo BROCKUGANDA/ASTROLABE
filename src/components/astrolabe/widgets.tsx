@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import { CheckCircle2, Clock, AlertTriangle, Ban, CircleDot } from "lucide-react";
 import { LucideIcon } from "lucide-react";
+import { NumberTicker } from "@/components/astrolabe/micro-interactions";
 
 export type Band = "steady" | "watch" | "friction" | "blocked";
 
@@ -30,7 +31,11 @@ export function BandChip({ band, score, locale = "en", size = "md" }: { band: Ba
     >
       <span className={cn("ast-dot", cfg.dotClass)} aria-hidden="true" />
       <span>{label}</span>
-      {score !== undefined && <span className="opacity-70">· {score}</span>}
+      {score !== undefined && (
+        <span className="opacity-70">
+          · <NumberTicker value={score} />
+        </span>
+      )}
     </span>
   );
 }

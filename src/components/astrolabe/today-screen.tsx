@@ -21,6 +21,8 @@ import {
   HelpCircle,
   RotateCcw,
   Calendar,
+  CalendarPlus,
+  Printer,
   Lock,
   Send,
   AlertTriangle,
@@ -32,8 +34,14 @@ import {
   CitationChip,
   type Band as BandT,
 } from "@/components/astrolabe/widgets";
+import {
+  PressScale,
+  RevealOnScroll,
+  Tilt3D,
+} from "@/components/astrolabe/micro-interactions";
 import { Astrolabe3D } from "@/components/three/astrolabe";
 import { stages as ALL_STAGES, owners as ALL_OWNERS, NOW as PACK_NOW } from "@/lib/data/pack";
+import { generateIcs, type IcsEvent } from "@/lib/utils/ics";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -369,7 +377,7 @@ function NextBestStepCard({ data, onStart }: { data: JourneyMeData; onStart: (st
   if (!nbs) {
     return (
       <section
-        className="ast-card ast-glow p-6 lg:col-span-7 flex items-center gap-4"
+        className="ast-card ast-glow p-6 flex items-center gap-4"
         aria-label="Next best step"
       >
         <CheckCircle2 className="w-6 h-6 shrink-0" strokeWidth={1.75} style={{ color: "var(--status-steady)" }} />
@@ -411,7 +419,7 @@ function NextBestStepCard({ data, onStart }: { data: JourneyMeData; onStart: (st
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 220, damping: 26, duration: 0.32 }}
-      className="ast-card ast-glow p-5 sm:p-6 lg:col-span-7 relative overflow-hidden"
+      className="ast-card ast-glow p-5 sm:p-6 relative overflow-hidden"
       aria-label="Your next move"
     >
       {/* Sand-gold inner accent — reserved for "your next move" */}
@@ -460,18 +468,20 @@ function NextBestStepCard({ data, onStart }: { data: JourneyMeData; onStart: (st
       </p>
 
       <div className="mt-5 flex flex-col sm:flex-row sm:items-center gap-3">
-        <button
-          onClick={() => onStart(nbs)}
-          className="ast-focus inline-flex items-center justify-center gap-2 h-11 px-5 rounded-[10px] text-[14px] font-semibold transition-transform hover:-translate-y-0.5"
-          style={{
-            background: "var(--accent-500)",
-            color: "var(--surface-0)",
-            boxShadow: "0 4px 14px rgba(201,162,39,0.28)",
-          }}
-        >
-          {locale === "ar" ? "ابدأ هذه الخطوة" : "Start this step"}
-          <ArrowRight className="w-4 h-4" strokeWidth={2} />
-        </button>
+        <PressScale>
+          <button
+            onClick={() => onStart(nbs)}
+            className="ast-focus inline-flex items-center justify-center gap-2 h-11 px-5 rounded-[10px] text-[14px] font-semibold transition-transform hover:-translate-y-0.5"
+            style={{
+              background: "var(--accent-500)",
+              color: "var(--surface-0)",
+              boxShadow: "0 4px 14px rgba(201,162,39,0.28)",
+            }}
+          >
+            {locale === "ar" ? "ابدأ هذه الخطوة" : "Start this step"}
+            <ArrowRight className="w-4 h-4" strokeWidth={2} />
+          </button>
+        </PressScale>
         {citation && <CitationChip citation={citation} locale={locale} />}
       </div>
 
@@ -696,6 +706,7 @@ function StageRail({ data }: { data: JourneyMeData }) {
 
 function ComingUp({ data }: { data: JourneyMeData }) {
   const { locale } = useAppStore();
+  const employeeId = useAppStore((s) => s.currentEmployeeId);
   const upcoming = useMemo(() => {
     return data.steps
       .filter((s) => s.status === "not_started" || s.status === "waiting_employee")
@@ -703,17 +714,163 @@ function ComingUp({ data }: { data: JourneyMeData }) {
       .slice(0, 3);
   }, [data.steps]);
 
+  // Late items — also surfaced in the LateItemsPanel, but we re-derive
+  // them here so the printable checklist can include both buckets.
+  const late = useMemo(() => {
+    return data.steps.filter(
+      (s) =>
+        s.status === "blocked" ||
+        s.breachLevel === "breached" ||
+        s.breachLevel === "hard"
+    );
+  }, [data.steps]);
+
+  // ICS events for the "Add to calendar" button — every upcoming dated
+  // step (not just the top 3 shown on screen), so the whole journey lands
+  // in the employee's calendar at once.
+  const icsEvents = useMemo<IcsEvent[]>(() => {
+    return data.steps
+      .filter(
+        (s) => s.status === "not_started" || s.status === "waiting_employee",
+      )
+      .filter((s) => s.status !== "blocked" && s.blockedBy.length === 0)
+      .filter((s) => Boolean(s.dueAt))
+      .map((s) => {
+        const label = locale === "ar" ? s.labelAr : s.label;
+        const owner = namedOwnerForGroup(s.ownerGroup);
+        const ownerText = owner
+          ? locale === "ar" && owner.nameAr
+            ? owner.nameAr
+            : owner.name
+          : s.ownerGroup;
+        const policyRef =
+          s.policyRefs.length > 0 ? s.policyRefs.join(", ") : "";
+        const desc =
+          locale === "ar"
+            ? `المالك: ${ownerText}${policyRef ? ` | مراجع: ${policyRef}` : ""}`
+            : `Owner: ${ownerText}${policyRef ? ` | Refs: ${policyRef}` : ""}`;
+        return {
+          summary: label,
+          dtStart: s.dueAt as string,
+          description: desc,
+        };
+      });
+  }, [data.steps, locale]);
+
+  const handlePrint = useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.print();
+    }
+  }, []);
+
+  const handleAddToCalendar = useCallback(() => {
+    if (icsEvents.length === 0) {
+      toast.info(
+        locale === "ar"
+          ? "لا توجد خطوات قادمة مؤرخة لإضافتها إلى التقويم"
+          : "No upcoming dated steps to add to your calendar",
+      );
+      return;
+    }
+    const ics = generateIcs(icsEvents);
+    const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `astrolabe-journey-${employeeId}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(
+      locale === "ar"
+        ? `تم تنزيل التقويم (${icsEvents.length} حدث)`
+        : `Calendar downloaded (${icsEvents.length} event${icsEvents.length === 1 ? "" : "s"})`,
+      {
+        description:
+          locale === "ar"
+            ? "استورد الملف في Outlook أو Google Calendar."
+            : "Import the file into Outlook or Google Calendar.",
+      },
+    );
+  }, [icsEvents, employeeId, locale]);
+
   if (upcoming.length === 0) return null;
+
+  /* Printable checklist content (PRD §03-053) -------------------- */
+  const empName =
+    locale === "ar" && data.employee.displayNameAr
+      ? data.employee.displayNameAr
+      : data.employee.displayName;
+  const journeyLabel =
+    data.employee.journeyType === "onboarding"
+      ? locale === "ar"
+        ? "الالتحاق"
+        : "onboarding"
+      : locale === "ar"
+        ? "التنقل"
+        : "mobility";
+  const stageText = stageLabel(data.stage, data.employee.journeyType, locale);
+
+  const checklistItems: {
+    label: string;
+    due?: string;
+    isLate: boolean;
+  }[] = [
+    ...late.map((s) => ({
+      label: locale === "ar" ? s.labelAr : s.label,
+      due: s.dueAt,
+      isLate: true,
+    })),
+    ...upcoming.map((s) => ({
+      label: locale === "ar" ? s.labelAr : s.label,
+      due: s.dueAt,
+      isLate: false,
+    })),
+  ];
 
   return (
     <section className="ast-card p-5 sm:p-6" aria-label="Coming up">
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-4 flex-wrap no-print">
         <ChevronRight className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
         <h3 className="text-[14px] font-semibold uppercase tracking-[0.12em]" style={{ color: "var(--text-hi)" }}>
           {locale === "ar" ? "القادم" : "Coming up"}
         </h3>
+        {/* Action buttons — Print checklist + Add to calendar */}
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={handlePrint}
+            aria-label={locale === "ar" ? "طباعة القائمة" : "Print checklist"}
+            className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium transition-colors hover:border-[var(--brand-500)]"
+            style={{
+              background: "var(--surface-2)",
+              color: "var(--text-mid)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <Printer className="w-3.5 h-3.5" strokeWidth={1.75} />
+            <span className="hidden sm:inline">
+              {locale === "ar" ? "طباعة القائمة" : "Print checklist"}
+            </span>
+          </button>
+          <button
+            onClick={handleAddToCalendar}
+            aria-label={locale === "ar" ? "أضف إلى التقويم" : "Add to calendar"}
+            className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium transition-colors hover:border-[var(--brand-500)]"
+            style={{
+              background: "var(--surface-2)",
+              color: "var(--text-mid)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <CalendarPlus className="w-3.5 h-3.5" strokeWidth={1.75} />
+            <span className="hidden sm:inline">
+              {locale === "ar" ? "أضف للتقويم" : "Add to calendar"}
+            </span>
+          </button>
+        </div>
       </div>
-      <ul className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <ul className="grid grid-cols-1 sm:grid-cols-3 gap-3 no-print">
         {upcoming.map((step, i) => {
           const label = locale === "ar" ? step.labelAr : step.label;
           const owner = namedOwnerForGroup(step.ownerGroup);
@@ -723,11 +880,10 @@ function ComingUp({ data }: { data: JourneyMeData }) {
               : owner.name
             : step.ownerGroup;
           return (
-            <motion.li
+            <RevealOnScroll
               key={step.stepKey}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.18, delay: i * 0.04 }}
+              as="li"
+              index={i}
               className="ast-card-2 p-4 flex flex-col gap-2"
             >
               <div className="flex items-center gap-2">
@@ -753,10 +909,59 @@ function ComingUp({ data }: { data: JourneyMeData }) {
                   {upcomingTargetCopy(step, locale)}
                 </span>
               </div>
-            </motion.li>
+            </RevealOnScroll>
           );
         })}
       </ul>
+
+      {/* Printable checklist — hidden on screen, visible only when printing.
+          Plain-language copy: "{Name}'s checklist — Day N of onboarding". */}
+      <div
+        className="print-checklist hidden print:block"
+        aria-hidden="true"
+        style={{ color: "#000", background: "#fff", padding: "24px 16px" }}
+      >
+        <h1 style={{ fontSize: "20px", fontWeight: 700, margin: "0 0 6px" }}>
+          {empName}
+          {locale === "ar" ? " — قائمة " : "'s checklist — "}
+          {locale === "ar"
+            ? `اليوم ${data.dayInStage} من ${journeyLabel}`
+            : `Day ${data.dayInStage} of ${journeyLabel}`}
+        </h1>
+        <p style={{ fontSize: "13px", margin: "0 0 18px", color: "#333" }}>
+          {locale === "ar" ? `المرحلة: ${stageText}` : `Stage: ${stageText}`}
+          {late.length > 0 && (
+            <>
+              {" · "}
+              {locale === "ar"
+                ? `${late.length} عنصر متأخر`
+                : `${late.length} late item${late.length === 1 ? "" : "s"}`}
+            </>
+          )}
+        </p>
+        <ul style={{ listStyle: "none", padding: 0, margin: 0, fontSize: "13px", lineHeight: 1.7 }}>
+          {checklistItems.map((item, i) => (
+            <li key={i} style={{ marginBottom: "8px" }}>
+              <span style={{ display: "inline-block", width: "20px" }}>
+                {item.isLate ? "☒" : "☐"}
+              </span>
+              <span style={{ fontWeight: item.isLate ? 600 : 400 }}>
+                {item.label}
+              </span>
+              {item.isLate && (
+                <span style={{ marginLeft: "8px", color: "#B91C1C", fontSize: "11px", fontWeight: 600 }}>
+                  {locale === "ar" ? "متأخر" : "LATE"}
+                </span>
+              )}
+              {item.due && (
+                <span style={{ marginLeft: "12px", color: "#555" }} className="tabular">
+                  — {format(new Date(item.due), "d MMM yyyy")}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
     </section>
   );
 }
@@ -1116,7 +1321,9 @@ export function TodayScreen() {
             <HeroStrip data={data} />
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-              <NextBestStepCard data={data} onStart={handleStartStep} />
+              <Tilt3D maxDeg={3} className="lg:col-span-7">
+                <NextBestStepCard data={data} onStart={handleStartStep} />
+              </Tilt3D>
               <LateItemsPanel data={data} />
             </div>
 

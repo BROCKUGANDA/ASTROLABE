@@ -198,7 +198,9 @@
    COMPONENT UTILITIES
    ============================================================ */
 @layer components {
-  /* Glass card — the primary surface */
+  /* Glass card — the primary surface
+     Enhanced with inner top highlight + hover glow + teal-shifting hairline.
+     Existing usage is untouched; we only layer on subtle depth. */
   .ast-card {
     background: var(--surface-1);
     border: 1px solid var(--border);
@@ -206,6 +208,9 @@
     box-shadow: var(--e2);
     position: relative;
     overflow: hidden;
+    transition:
+      box-shadow var(--dur-md) var(--ease-standard),
+      border-color var(--dur-md) var(--ease-standard);
   }
   .ast-card::before {
     content: "";
@@ -213,6 +218,54 @@
     inset: 0;
     background: var(--g-card);
     pointer-events: none;
+  }
+  /* Inner top highlight — 1px hairline of light along the top edge */
+  .ast-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 1px);
+    pointer-events: none;
+    border-radius: inherit;
+  }
+  /* On hover: outer teal glow + hairline shifts slightly teal */
+  .ast-card:hover {
+    border-color: rgba(22, 154, 165, 0.35);
+    box-shadow:
+      0 0 0 1px rgba(22, 154, 165, 0.10),
+      0 6px 18px rgba(0, 0, 0, 0.22),
+      0 0 24px rgba(22, 154, 165, 0.06);
+  }
+
+  /* Frosted-glass variant — use over imagery or behind other surfaces.
+     Combines backdrop blur with a translucent navy fill. */
+  .ast-card-glass {
+    background: rgba(16, 24, 39, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(22, 154, 165, 0.18);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--e2);
+    position: relative;
+    overflow: hidden;
+    transition:
+      box-shadow var(--dur-md) var(--ease-standard),
+      border-color var(--dur-md) var(--ease-standard);
+  }
+  .ast-card-glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 1px);
+    pointer-events: none;
+    border-radius: inherit;
+  }
+  .ast-card-glass:hover {
+    border-color: rgba(22, 154, 165, 0.40);
+    box-shadow:
+      0 0 0 1px rgba(22, 154, 165, 0.12),
+      0 6px 18px rgba(0, 0, 0, 0.22),
+      0 0 28px rgba(22, 154, 165, 0.08);
   }
   .ast-card-2 {
     background: var(--surface-2);
@@ -361,4 +414,41 @@
   background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
   background-size: 200% 100%;
   animation: ast-shimmer 1.6s infinite linear;
+}
+
+/* ============================================================
+   PRINT — printable checklist (PRD §03-053)
+   When the employee clicks "Print checklist" on Today, only the
+   .print-checklist block (and its descendants) is visible on paper.
+   Everything else is hidden via `visibility: hidden` so the page
+   collapses to a single, clean checklist with checkboxes + due dates.
+   The `.no-print` helper marks interactive controls (buttons, etc.)
+   that should never appear on paper.
+   ============================================================ */
+@media print {
+  /* Hide all body content but keep it in flow (visibility, not display,
+     so absolute-positioned children can still be revealed). */
+  body * { visibility: hidden; }
+
+  /* Reveal only the printable checklist and its descendants. */
+  .print-checklist,
+  .print-checklist * { visibility: visible; }
+
+  /* Pin the checklist to the top-left of the page so it prints cleanly. */
+  .print-checklist {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  /* Hard-hide any element marked `.no-print` — buttons, toggles, etc. */
+  .no-print { display: none !important; }
+
+  /* Use the system paper background for the checklist so it reads on
+     white paper. The inline style on the .print-checklist div sets
+     `background: #fff` + `color: #000` already. */
+  html, body {
+    background: #fff !important;
+  }
 }

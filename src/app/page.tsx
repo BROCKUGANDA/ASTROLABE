@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import {
+  motion,
+  AnimatePresence,
+  useMotionValue,
+  useTransform,
+  type MotionValue,
+} from "framer-motion";
 import {
   Compass, Map, MessageSquare, Inbox, User, Users, ClipboardList, Microscope,
   Search, Command, ShieldCheck, Languages, Monitor, Sparkles, X, ArrowRight,
@@ -16,6 +22,8 @@ import { HrbpScreen } from "@/components/astrolabe/hrbp-screen";
 import { ManagerScreen } from "@/components/astrolabe/manager-screen";
 import { JudgeScreen } from "@/components/astrolabe/judge-screen";
 import { Astrolabe3D } from "@/components/three/astrolabe";
+import { NotificationsBell } from "@/components/astrolabe/notifications-bell";
+import { ConstellationBg } from "@/components/astrolabe/constellation-bg";
 
 type View = "today" | "journey" | "ask" | "requests" | "me";
 type Role = "employee" | "hrbp" | "manager" | "judge";
@@ -86,8 +94,11 @@ export default function Home() {
     <div
       dir={dir}
       className={`flex min-h-screen flex-col ${projectorMode ? "projector" : ""}`}
-      style={{ background: "var(--surface-0)", color: "var(--text-hi)" }}
+      style={{ color: "var(--text-hi)" }}
     >
+      {/* ========== CONSTELLATION BACKGROUND (fixed, behind everything) ========== */}
+      <ConstellationBg />
+
       {/* ========== HEADER ========== */}
       <header
         className="sticky top-0 z-40 backdrop-blur-xl transition-all"
@@ -194,6 +205,9 @@ export default function Home() {
               ⌘K
             </kbd>
           </button>
+
+          {/* Notifications bell */}
+          <NotificationsBell />
 
           {/* Projector toggle */}
           <button
@@ -311,87 +325,7 @@ export default function Home() {
 
       {/* ========== 3D ASTROLABE HERO (Today only, when not scrolled) ========== */}
       <AnimatePresence>
-        {showHero && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.32, ease: [0.2, 0.8, 0.2, 1] }}
-            className="relative overflow-hidden"
-            style={{ borderBottom: "1px solid var(--border-soft)" }}
-          >
-            {/* Veil gradient backdrop */}
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{ background: "var(--g-veil)" }}
-              aria-hidden="true"
-            />
-            <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-center">
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--accent-500)" }} strokeWidth={1.75} />
-                  <span
-                    className="text-[11px] uppercase tracking-[0.18em]"
-                    style={{ color: "var(--accent-500)" }}
-                  >
-                    {locale === "ar" ? "أداة ملاحة، لا أداة مراقبة" : "A navigation instrument, not a surveillance one"}
-                  </span>
-                </div>
-                <h1
-                  className="text-[28px] sm:text-[36px] lg:text-[44px] font-semibold leading-[1.08] tracking-[-0.02em]"
-                  style={{ color: "var(--text-hi)", maxWidth: "640px" }}
-                >
-                  {locale === "ar"
-                    ? "نحن نعرف بالضبط أين تقف في رحلتك."
-                    : "We know exactly where you stand on your journey."}
-                </h1>
-                <p
-                  className="mt-3 text-[14px] sm:text-[16px] leading-relaxed max-w-[560px]"
-                  style={{ color: "var(--text-mid)" }}
-                >
-                  {locale === "ar"
-                    ? "المحرك الحتمي يملك كل قرار. النموذج يشرح ويصيغ ويترجم — لا يسجّل، لا يقرر، لا يرى ما لم توافق على مشاركته."
-                    : "The deterministic engine owns every verdict, band, and route. The model explains, drafts, and translates — it never scores, never decides, never acts."}
-                </p>
-                <div className="mt-5 flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={() => setView("ask")}
-                    className="ast-focus inline-flex items-center gap-2 h-9 px-4 rounded-full text-[13px] font-medium transition-transform hover:translate-y-[-1px]"
-                    style={{
-                      background: "var(--accent-500)",
-                      color: "var(--surface-0)",
-                      boxShadow: "0 6px 18px rgba(201,162,39,0.30)",
-                    }}
-                  >
-                    {locale === "ar" ? "اسأل سياسة" : "Ask a policy question"}
-                    <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.75} />
-                  </button>
-                  <button
-                    onClick={() => setView("journey")}
-                    className="ast-focus inline-flex items-center gap-2 h-9 px-4 rounded-full text-[13px] font-medium"
-                    style={{
-                      background: "transparent",
-                      color: "var(--text-hi)",
-                      border: "1px solid var(--border)",
-                    }}
-                  >
-                    <Map className="w-3.5 h-3.5" strokeWidth={1.75} />
-                    {locale === "ar" ? "تصفح رحلتك" : "See your full map"}
-                  </button>
-                </div>
-              </div>
-              <div className="hidden lg:block relative h-[260px]">
-                <Astrolabe3D size={1.05} spin />
-                <div
-                  className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] uppercase tracking-[0.18em] whitespace-nowrap"
-                  style={{ color: "var(--text-lo)" }}
-                >
-                  {locale === "ar" ? "الأسطرلاب · مكتشف الرحلة" : "Astrolabe · journey instrument"}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
+        {showHero && <HeroParallax key="hero" />}
       </AnimatePresence>
 
       {/* ========== MAIN ========== */}
@@ -549,6 +483,161 @@ export default function Home() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+/* ============================================================
+   HERO PARALLAX — 3D astrolabe + hero text
+   - Astrolabe canvas shifts max 8px opposite the cursor
+   - Hero text shifts max 4px with the cursor
+   - 60fps via framer-motion useMotionValue + useTransform
+   - Disabled on touch devices and when prefers-reduced-motion
+   ============================================================ */
+
+function usePrefersReducedMotion(): boolean {
+  const [reduce, setReduce] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReduce(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return reduce;
+}
+
+function useFinePointer(): boolean {
+  const [fine, setFine] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(pointer: fine)");
+    const update = () => setFine(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return fine;
+}
+
+function HeroParallax() {
+  const locale = useAppStore((s) => s.locale);
+  const setView = useAppStore((s) => s.setView);
+  const reduce = usePrefersReducedMotion();
+  const fine = useFinePointer();
+  const enabled = !reduce && fine;
+
+  // Normalised cursor offset from the centre of the hero, in [-0.5, 0.5].
+  const mx = useMotionValue(0);
+  const my = useMotionValue(0);
+
+  // Astrolabe: 8px in the opposite direction of the cursor.
+  const astX: MotionValue<number> = useTransform(mx, [-0.5, 0.5], [8, -8]);
+  const astY: MotionValue<number> = useTransform(my, [-0.5, 0.5], [8, -8]);
+  // Hero text: 4px in the same direction as the cursor.
+  const textX: MotionValue<number> = useTransform(mx, [-0.5, 0.5], [-4, 4]);
+  const textY: MotionValue<number> = useTransform(my, [-0.5, 0.5], [-4, 4]);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!enabled) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    mx.set((e.clientX - rect.left) / rect.width - 0.5);
+    my.set((e.clientY - rect.top) / rect.height - 0.5);
+  };
+
+  const handleMouseLeave = () => {
+    mx.set(0);
+    my.set(0);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: "auto" }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.32, ease: [0.2, 0.8, 0.2, 1] }}
+      className="relative overflow-hidden"
+      style={{ borderBottom: "1px solid var(--border-soft)" }}
+      onMouseMove={enabled ? handleMouseMove : undefined}
+      onMouseLeave={enabled ? handleMouseLeave : undefined}
+    >
+      {/* Veil gradient backdrop */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{ background: "var(--g-veil)" }}
+        aria-hidden="true"
+      />
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-center">
+        <motion.div
+          style={enabled ? { x: textX, y: textY } : undefined}
+          transition={{ type: "spring", stiffness: 120, damping: 18 }}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--accent-500)" }} strokeWidth={1.75} />
+            <span
+              className="text-[11px] uppercase tracking-[0.18em]"
+              style={{ color: "var(--accent-500)" }}
+            >
+              {locale === "ar" ? "أداة ملاحة، لا أداة مراقبة" : "A navigation instrument, not a surveillance one"}
+            </span>
+          </div>
+          <h1
+            className="text-[28px] sm:text-[36px] lg:text-[44px] font-semibold leading-[1.08] tracking-[-0.02em]"
+            style={{ color: "var(--text-hi)", maxWidth: "640px" }}
+          >
+            {locale === "ar"
+              ? "نحن نعرف بالضبط أين تقف في رحلتك."
+              : "We know exactly where you stand on your journey."}
+          </h1>
+          <p
+            className="mt-3 text-[14px] sm:text-[16px] leading-relaxed max-w-[560px]"
+            style={{ color: "var(--text-mid)" }}
+          >
+            {locale === "ar"
+              ? "المحرك الحتمي يملك كل قرار. النموذج يشرح ويصيغ ويترجم — لا يسجّل، لا يقرر، لا يرى ما لم توافق على مشاركته."
+              : "The deterministic engine owns every verdict, band, and route. The model explains, drafts, and translates — it never scores, never decides, never acts."}
+          </p>
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setView("ask")}
+              className="ast-focus inline-flex items-center gap-2 h-9 px-4 rounded-full text-[13px] font-medium transition-transform hover:translate-y-[-1px]"
+              style={{
+                background: "var(--accent-500)",
+                color: "var(--surface-0)",
+                boxShadow: "0 6px 18px rgba(201,162,39,0.30)",
+              }}
+            >
+              {locale === "ar" ? "اسأل سياسة" : "Ask a policy question"}
+              <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.75} />
+            </button>
+            <button
+              onClick={() => setView("journey")}
+              className="ast-focus inline-flex items-center gap-2 h-9 px-4 rounded-full text-[13px] font-medium"
+              style={{
+                background: "transparent",
+                color: "var(--text-hi)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <Map className="w-3.5 h-3.5" strokeWidth={1.75} />
+              {locale === "ar" ? "تصفح رحلتك" : "See your full map"}
+            </button>
+          </div>
+        </motion.div>
+
+        <motion.div
+          className="hidden lg:block relative h-[260px]"
+          style={enabled ? { x: astX, y: astY } : undefined}
+          transition={{ type: "spring", stiffness: 120, damping: 18 }}
+        >
+          <Astrolabe3D size={1.05} spin />
+          <div
+            className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] uppercase tracking-[0.18em] whitespace-nowrap"
+            style={{ color: "var(--text-lo)" }}
+          >
+            {locale === "ar" ? "الأسطرلاب · مكتشف الرحلة" : "Astrolabe · journey instrument"}
+          </div>
+        </motion.div>
+      </div>
+    </motion.div>
   );
 }
 

@@ -38,6 +38,7 @@ import {
   type Band as BandT,
 } from "@/components/astrolabe/widgets";
 import { JourneyOrbit3D } from "@/components/three/astrolabe";
+import { RevealOnScroll } from "@/components/astrolabe/micro-interactions";
 import { stages as ALL_STAGES, owners as ALL_OWNERS, steps as ALL_STEPS, NOW as PACK_NOW } from "@/lib/data/pack";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -667,11 +668,20 @@ function StepRow({
   const showBlockedGraph = step.status === "blocked" && step.blockedBy.length > 0;
 
   return (
-    <li className="ast-card-2 overflow-hidden">
-      <button
+    <div className="ast-card-2 overflow-hidden">
+      {/* Outer clickable area uses role=button on a div to avoid nested interactive elements */}
+      <div
         onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+        role="button"
+        tabIndex={0}
         aria-expanded={isExpanded}
-        className="ast-focus w-full text-left flex items-center gap-3 p-3.5 min-h-[56px] hover:bg-[var(--surface-3)] transition-colors"
+        className="ast-focus w-full text-left flex items-center gap-3 p-3.5 min-h-[56px] hover:bg-[var(--surface-3)] transition-colors cursor-pointer"
       >
         {/* Left: status icon + label */}
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -736,7 +746,7 @@ function StepRow({
             aria-hidden="true"
           />
         </div>
-      </button>
+      </div>
 
       {/* Mobile meta line */}
       <div className="md:hidden flex items-center gap-2 px-3.5 pb-2 -mt-1 flex-wrap text-[11px]" style={{ color: "var(--text-mid)" }}>
@@ -830,7 +840,7 @@ function StepRow({
           </motion.div>
         )}
       </AnimatePresence>
-    </li>
+    </div>
   );
 }
 
@@ -916,18 +926,23 @@ function StepList({
               <div className="flex-1 h-px" style={{ background: "var(--border-soft)" }} />
             </div>
             <ol className="space-y-2 mt-1">
-              {stepsInStage.map((step) => (
-                <StepRow
+              {stepsInStage.map((step, i) => (
+                <RevealOnScroll
                   key={step.stepKey}
-                  step={step}
-                  allSteps={data.steps}
-                  events={events}
-                  locale={locale}
-                  isExpanded={expandedKey === step.stepKey}
-                  onToggle={() =>
-                    setUserOverride((prev) => (prev === step.stepKey ? null : step.stepKey))
-                  }
-                />
+                  as="li"
+                  index={i}
+                >
+                  <StepRow
+                    step={step}
+                    allSteps={data.steps}
+                    events={events}
+                    locale={locale}
+                    isExpanded={expandedKey === step.stepKey}
+                    onToggle={() =>
+                      setUserOverride((prev) => (prev === step.stepKey ? null : step.stepKey))
+                    }
+                  />
+                </RevealOnScroll>
               ))}
             </ol>
           </section>

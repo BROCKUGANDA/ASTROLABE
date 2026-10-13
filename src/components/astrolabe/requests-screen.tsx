@@ -632,10 +632,19 @@ function RequestCard({
       transition={{ duration: 0.18, delay: Math.min(index * 0.04, 0.2) }}
       className="ast-card overflow-hidden"
     >
-      <button
+      {/* Outer clickable area uses role=button on a div to avoid nested <button> hydration errors */}
+      <div
         onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+        role="button"
+        tabIndex={0}
         aria-expanded={expanded}
-        className="ast-focus w-full text-left p-4 sm:p-5"
+        className="ast-focus w-full text-left p-4 sm:p-5 cursor-pointer"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0 flex-1">
@@ -658,7 +667,11 @@ function RequestCard({
               </p>
               <div className="mt-1.5 flex items-center flex-wrap gap-2">
                 <button
-                  onClick={handleCopyRef}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCopyRef();
+                  }}
                   className="ast-focus inline-flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-mono tabular transition-colors hover:bg-[var(--surface-2)]"
                   style={{ color: "var(--text-lo)" }}
                   title={locale === "ar" ? "نسخ المرجع" : "Copy reference"}
@@ -745,7 +758,7 @@ function RequestCard({
             />
           </span>
         </div>
-      </button>
+      </div>
 
       {/* Expandable detail */}
       <AnimatePresence initial={false}>

@@ -1,0 +1,1151 @@
+     1→"use client";
+     2→
+     3→/* ============================================================
+     4→   ASTROLABE — Today Screen ("What now?")
+     5→   The primary surface. Above the fold answers the employee's
+     6→   main question: what should I do next, and what's late.
+     7→   ============================================================ */
+     8→
+     9→import { useCallback, useEffect, useMemo, useState } from "react";
+    10→import { motion, AnimatePresence } from "framer-motion";
+    11→import { format, formatDistance } from "date-fns";
+    12→import {
+    13→  Compass,
+    14→  ArrowRight,
+    15→  ShieldCheck,
+    16→  ChevronRight,
+    17→  Hourglass,
+    18→  Ban,
+    19→  CheckCircle2,
+    20→  Star,
+    21→  HelpCircle,
+    22→  RotateCcw,
+    23→  Calendar,
+    24→  Lock,
+    25→  Send,
+    26→  AlertTriangle,
+    27→} from "lucide-react";
+    28→import { useAppStore } from "@/lib/store/app-store";
+    29→import {
+    30→  BandChip,
+    31→  SlaChip,
+    32→  CitationChip,
+    33→  type Band as BandT,
+    34→} from "@/components/astrolabe/widgets";
+    35→import { Astrolabe3D } from "@/components/three/astrolabe";
+    36→import { stages as ALL_STAGES, owners as ALL_OWNERS, NOW as PACK_NOW } from "@/lib/data/pack";
+    37→import { cn } from "@/lib/utils";
+    38→import { toast } from "sonner";
+    39→
+    40→/* ---------- Types (mirror the API envelope) ---------- */
+    41→
+    42→interface Employee {
+    43→  id: string;
+    44→  ref: string;
+    45→  displayName: string;
+    46→  displayNameAr?: string;
+    47→  role: string;
+    48→  roleAr?: string;
+    49→  team: string;
+    50→  location: "DXB" | "AUH" | "REMOTE";
+    51→  locale: "en" | "ar";
+    52→  journeyType: "onboarding" | "mobility";
+    53→  startDate: string;
+    54→  effectiveDate?: string;
+    55→  manager: { id: string; name: string; role: string } | null;
+    56→  hrbp: { id: string; name: string; role: string } | null;
+    57→}
+    58→
+    59→interface NextBestStep {
+    60→  stepKey: string;
+    61→  label: string;
+    62→  labelAr: string;
+    63→  ownerGroup: string;
+    64→  dueAt?: string;
+    65→  policyRefs: string[];
+    66→  actor: "employee" | "owner" | "system";
+    67→  reason: string;
+    68→  reasonAr: string;
+    69→  requestType?: string;
+    70→  primary: boolean;
+    71→}
+    72→
+    73→type StepStatus =
+    74→  | "not_started"
+    75→  | "in_progress"
+    76→  | "waiting_employee"
+    77→  | "waiting_owner"
+    78→  | "blocked"
+    79→  | "done"
+    80→  | "skipped";
+    81→type BreachLevel = "none" | "due_soon" | "breached" | "hard";
+    82→
+    83→interface Step {
+    84→  stepKey: string;
+    85→  label: string;
+    86→  labelAr: string;
+    87→  stage: string;
+    88→  status: StepStatus;
+    89→  ownerGroup: string;
+    90→  actor: "employee" | "owner" | "system";
+    91→  startedAt?: string;
+    92→  dueAt?: string;
+    93→  completedAt?: string;
+    94→  blockedBy: string[];
+    95→  breachLevel: BreachLevel;
+    96→  targetHours: number;
+    97→  elapsedHours: number;
+    98→  remainingHours: number;
+    99→  downstreamAtRisk: number;
+   100→  policyRefs: string[];
+   101→  requestType?: string;
+   102→  journeyType: "onboarding" | "mobility";
+   103→}
+   104→
+   105→interface JourneyMeData {
+   106→  employee: Employee;
+   107→  stage: string;
+   108→  dayInStage: number;
+   109→  band: BandT;
+   110→  score: number;
+   111→  signals: unknown[];
+   112→  suppressedFamilies: string[];
+   113→  nextBestStep: NextBestStep | null;
+   114→  steps: Step[];
+   115→  engineVersion: string;
+   116→  mapVersion: string;
+   117→  corpusVersion: string;
+   118→}
+   119→
+   120→interface MeData {
+   121→  employee: { id: string };
+   122→  pulseConsentGranted: boolean;
+   123→  consentRecords: { id: string; purpose: string; granted: boolean }[];
+   124→}
+   125→
+   126→interface ApiEnvelope<T> {
+   127→  ok: boolean;
+   128→  data: T | null;
+   129→  meta: { requestId: string; asOf: string; servedFrom: string };
+   130→  error: { code: string; message: string; hint?: string; retryable?: boolean } | null;
+   131→}
+   132→
+   133→/* ---------- Display helpers ---------- */
+   134→
+   135→const OWNER_GROUP_LABEL: Record<string, { en: string; ar: string }> = {
+   136→  HR: { en: "the HR team", ar: "فريق الموارد البشرية" },
+   137→  IT: { en: "the IT team", ar: "فريق تقنية المعلومات" },
+   138→  Learning: { en: "the Learning team", ar: "فريق التعلم" },
+   139→  Facilities: { en: "the Facilities team", ar: "فريق المرافق" },
+   140→  Mobility: { en: "the Mobility team", ar: "فريق التنقل" },
+   141→  Payroll: { en: "the Payroll team", ar: "فريق الرواتب" },
+   142→  Immigration: { en: "the Immigration team", ar: "فريق الهجرة" },
+   143→};
+   144→
+   145→function namedOwnerForGroup(group: string): { name: string; nameAr?: string; role: string; group: string } | null {
+   146→  const o = ALL_OWNERS.find((x) => x.group === group);
+   147→  if (!o) return null;
+   148→  return { name: o.name, nameAr: o.nameAr, role: o.role, group };
+   149→}
+   150→
+   151→function stageLabel(stageKey: string, journeyType: string, locale: "en" | "ar"): string {
+   152→  const st = ALL_STAGES.find((s) => s.key === stageKey && s.journeyType === journeyType);
+   153→  if (!st) return stageKey;
+   154→  return locale === "ar" ? st.labelAr : st.label;
+   155→}
+   156→
+   157→function stageShort(stageKey: string, journeyType: string, locale: "en" | "ar"): string {
+   158→  const full = stageLabel(stageKey, journeyType, locale);
+   159→  // Compact rail labels: take first 1–2 words
+   160→  if (locale === "ar") return full;
+   161→  const parts = full.split(" ");
+   162→  return parts.length > 2 ? parts.slice(0, 2).join(" ") : full;
+   163→}
+   164→
+   165→function fmtDateAndDistance(iso: string | undefined, locale: "en" | "ar"): string {
+   166→  if (!iso) return locale === "ar" ? "في أي وقت" : "any time";
+   167→  const d = new Date(iso);
+   168→  const datePart = format(d, "EEEE d MMM");
+   169→  // Use synthetic NOW from pack for deterministic "in 3 days" copy
+   170→  const distance = formatDistance(d, PACK_NOW, { addSuffix: false });
+   171→  return locale === "ar" ? `${datePart} · ${distance}` : `${datePart} · ${distance}`;
+   172→}
+   173→
+   174→function lateCopy(step: Step, locale: "en" | "ar"): string {
+   175→  if (step.breachLevel === "hard") {
+   176→    const days = Math.max(1, Math.floor((step.elapsedHours - step.targetHours) / 24));
+   177→    return locale === "ar"
+   178→      ? `متأخر بـ ${days} أيام — خرق جوهري`
+   179→      : `${days} day${days === 1 ? "" : "s"} late — hard breach`;
+   180→  }
+   181→  if (step.breachLevel === "breached") {
+   182→    const days = Math.max(1, Math.floor((step.elapsedHours - step.targetHours) / 24));
+   183→    return locale === "ar" ? `متأخر بـ ${days} أيام` : `${days} day${days === 1 ? "" : "s"} late`;
+   184→  }
+   185→  if (step.status === "blocked") {
+   186→    return locale === "ar"
+   187→      ? "محظور بانتظار خطوات أخرى"
+   188→      : "Held up — waiting on another step";
+   189→  }
+   190→  return "";
+   191→}
+   192→
+   193→function ownerLine(step: Step, locale: "en" | "ar"): string {
+   194→  const grp = OWNER_GROUP_LABEL[step.ownerGroup];
+   195→  const named = namedOwnerForGroup(step.ownerGroup);
+   196→  if (!grp) return step.ownerGroup;
+   197→  if (named) {
+   198→    return locale === "ar" && named.nameAr
+   199→      ? `مع ${named.nameAr} في ${grp.ar}`
+   200→      : `with ${named.name} in ${grp.en}`;
+   201→  }
+   202→  return locale === "ar" ? `مع ${grp.ar}` : `with ${grp.en}`;
+   203→}
+   204→
+   205→function upcomingTargetCopy(step: Step, locale: "en" | "ar"): string {
+   206→  // No startedAt yet — estimate based on stage order: "in about N days"
+   207→  const days = Math.max(1, Math.round(step.targetHours / 24));
+   208→  return locale === "ar"
+   209→    ? `يُتوقع خلال نحو ${days} يوم`
+   210→    : `about ${days} day${days === 1 ? "" : "s"} from start`;
+   211→}
+   212→
+   213→/* Band → status shape icon (steady ○ watch ◔ friction ◆ blocked ■) */
+   214→// (defined for parity with journey-screen; not used directly here yet)
+   215→
+   216→
+   217→/* ---------- Skeleton ---------- */
+   218→
+   219→function TodaySkeleton() {
+   220→  return (
+   221→    <div className="space-y-6" aria-hidden="true">
+   222→      <div className="ast-card p-6 h-32 ast-shimmer rounded-[14px]" />
+   223→      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+   224→        <div className="lg:col-span-7 ast-card p-6 h-72 ast-shimmer rounded-[14px]" />
+   225→        <div className="lg:col-span-5 ast-card p-6 h-72 ast-shimmer rounded-[14px]" />
+   226→      </div>
+   227→      <div className="ast-card p-6 h-16 ast-shimmer rounded-[14px]" />
+   228→      <div className="ast-card p-6 h-40 ast-shimmer rounded-[14px]" />
+   229→    </div>
+   230→  );
+   231→}
+   232→
+   233→/* ---------- Error banner ---------- */
+   234→
+   235→function ErrorBanner({ message, requestId, onRetry }: { message: string; requestId?: string; onRetry: () => void }) {
+   236→  return (
+   237→    <div
+   238→      className="ast-card p-6 flex flex-col sm:flex-row sm:items-center gap-4"
+   239→      role="alert"
+   240→      style={{ borderColor: "rgba(220,38,38,0.4)" }}
+   241→    >
+   242→      <div
+   243→        className="flex items-center justify-center w-11 h-11 rounded-full shrink-0"
+   244→        style={{ background: "rgba(220,38,38,0.12)", color: "var(--status-friction)" }}
+   245→      >
+   246→        <AlertTriangle className="w-5 h-5" strokeWidth={1.75} />
+   247→      </div>
+   248→      <div className="flex-1 min-w-0">
+   249→        <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+   250→          The instrument can&apos;t reach your journey right now.
+   251→        </p>
+   252→        <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+   253→          {message}
+   254→          {requestId && (
+   255→            <span className="ml-2 font-mono text-[11px]" style={{ color: "var(--text-lo)" }}>
+   256→              · {requestId}
+   257→            </span>
+   258→          )}
+   259→        </p>
+   260→      </div>
+   261→      <button
+   262→        onClick={onRetry}
+   263→        className="ast-focus inline-flex items-center justify-center gap-2 h-11 px-4 rounded-[10px] text-[13px] font-medium shrink-0"
+   264→        style={{ background: "var(--surface-2)", color: "var(--text-hi)", border: "1px solid var(--border)" }}
+   265→      >
+   266→        <RotateCcw className="w-4 h-4" strokeWidth={1.75} />
+   267→        Retry
+   268→      </button>
+   269→    </div>
+   270→  );
+   271→}
+   272→
+   273→/* ---------- Hero strip ---------- */
+   274→
+   275→function HeroStrip({ data }: { data: JourneyMeData }) {
+   276→  const { locale } = useAppStore();
+   277→  const emp = data.employee;
+   278→  const name = locale === "ar" && emp.displayNameAr ? emp.displayNameAr : emp.displayName;
+   279→  const role = locale === "ar" && emp.roleAr ? emp.roleAr : emp.role;
+   280→  const stageLbl = stageLabel(data.stage, emp.journeyType, locale);
+   281→
+   282→  return (
+   283→    <section
+   284→      className="ast-card relative overflow-hidden"
+   285→      aria-label="Employee hero"
+   286→    >
+   287→      {/* Right-edge vertical brass-band gradient accent strip */}
+   288→      <div
+   289→        aria-hidden="true"
+   290→        className="hidden sm:block absolute top-0 right-0 h-full w-[6px]"
+   291→        style={{ background: "var(--g-horizon)" }}
+   292→      />
+   293→      <div
+   294→        aria-hidden="true"
+   295→        className="block sm:hidden absolute top-0 left-0 right-0 h-[3px]"
+   296→        style={{ background: "var(--g-horizon)" }}
+   297→      />
+   298→
+   299→      <div className="relative grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-4 p-5 sm:p-6">
+   300→        <div className="flex flex-col gap-4 min-w-0">
+   301→          {/* Sticky stage chip + day */}
+   302→          <div className="flex items-start flex-wrap gap-2">
+   303→            <span
+   304→              className="inline-flex items-center gap-2 h-8 px-3 rounded-full text-[12px] font-medium tabular shrink-0"
+   305→              style={{
+   306→                background: "var(--surface-2)",
+   307→                border: "1px solid var(--border)",
+   308→                color: "var(--text-hi)",
+   309→              }}
+   310→            >
+   311→              <Calendar className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+   312→              <span>
+   313→                {locale === "ar" ? `اليوم ${data.dayInStage} · ${stageLbl}` : `Day ${data.dayInStage} of ${stageLbl}`}
+   314→              </span>
+   315→            </span>
+   316→            <BandChip band={data.band} score={data.score} locale={locale} size="md" />
+   317→            <span
+   318→              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] tabular"
+   319→              style={{
+   320→                background: "rgba(22,154,165,0.08)",
+   321→                border: "1px solid rgba(22,154,165,0.25)",
+   322→                color: "var(--brand-400)",
+   323→              }}
+   324→            >
+   325→              <Compass className="w-3.5 h-3.5" strokeWidth={1.75} />
+   326→              {emp.journeyType === "onboarding"
+   327→                ? locale === "ar" ? "رحلة الالتحاق" : "Onboarding journey"
+   328→                : locale === "ar" ? "رحلة تنقل" : "Mobility journey"}
+   329→            </span>
+   330→          </div>
+   331→
+   332→          {/* Employee name + role + location */}
+   333→          <div className="min-w-0">
+   334→            <h1
+   335→              className="text-[24px] sm:text-[28px] leading-tight font-semibold tracking-tight truncate"
+   336→              style={{ color: "var(--text-hi)" }}
+   337→            >
+   338→              {name}
+   339→            </h1>
+   340→            <p className="text-[14px] mt-1 truncate" style={{ color: "var(--text-mid)" }}>
+   341→              {role}
+   342→              <span className="mx-2 opacity-50">·</span>
+   343→              {emp.team}
+   344→              <span className="mx-2 opacity-50">·</span>
+   345→              <span className="tabular">{emp.location}</span>
+   346→            </p>
+   347→          </div>
+   348→        </div>
+   349→
+   350→        {/* 3D mini-astrolabe — desktop only */}
+   351→        <div
+   352→          className="hidden lg:block relative h-[200px] w-[200px] place-self-end"
+   353→          aria-hidden="true"
+   354→        >
+   355→          <Astrolabe3D size={0.7} spin />
+   356→        </div>
+   357→      </div>
+   358→    </section>
+   359→  );
+   360→}
+   361→
+   362→/* ---------- Next Best Step card ---------- */
+   363→
+   364→function NextBestStepCard({ data, onStart }: { data: JourneyMeData; onStart: (step: NextBestStep) => void }) {
+   365→  const { locale } = useAppStore();
+   366→  const nbs = data.nextBestStep;
+   367→  const emp = data.employee;
+   368→
+   369→  if (!nbs) {
+   370→    return (
+   371→      <section
+   372→        className="ast-card ast-glow p-6 lg:col-span-7 flex items-center gap-4"
+   373→        aria-label="Next best step"
+   374→      >
+   375→        <CheckCircle2 className="w-6 h-6 shrink-0" strokeWidth={1.75} style={{ color: "var(--status-steady)" }} />
+   376→        <div>
+   377→          <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+   378→            {locale === "ar" ? "لا يوجد شيء معلّق عليك الآن." : "Nothing is pending on you right now."}
+   379→          </p>
+   380→          <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+   381→            {locale === "ar"
+   382→              ? "كل خطواتك الحالية مكتملة أو بانتظار فريق آخر."
+   383→              : "Your current steps are complete or with another team."}
+   384→          </p>
+   385→        </div>
+   386→      </section>
+   387→    );
+   388→  }
+   389→
+   390→  const label = locale === "ar" ? nbs.labelAr : nbs.label;
+   391→  const reason = locale === "ar" ? nbs.reasonAr : nbs.reason;
+   392→  const owner = namedOwnerForGroup(nbs.ownerGroup);
+   393→  const ownerText = owner
+   394→    ? locale === "ar" && owner.nameAr
+   395→      ? `مع ${owner.nameAr}`
+   396→      : `with ${owner.name}`
+   397→    : nbs.ownerGroup;
+   398→  const dueText = fmtDateAndDistance(nbs.dueAt, locale);
+   399→  const citation = nbs.policyRefs[0]
+   400→    ? parsePolicyRef(nbs.policyRefs[0])
+   401→    : null;
+   402→  const actorText =
+   403→    nbs.actor === "employee"
+   404→      ? locale === "ar" ? "خطوتك للقيام بها" : "Yours to do"
+   405→      : nbs.actor === "owner"
+   406→        ? locale === "ar" ? "بانتظار الفريق" : "With the team"
+   407→        : locale === "ar" ? "تلقائي" : "System";
+   408→
+   409→  return (
+   410→    <motion.section
+   411→      initial={{ opacity: 0, y: 16 }}
+   412→      animate={{ opacity: 1, y: 0 }}
+   413→      transition={{ type: "spring", stiffness: 220, damping: 26, duration: 0.32 }}
+   414→      className="ast-card ast-glow p-5 sm:p-6 lg:col-span-7 relative overflow-hidden"
+   415→      aria-label="Your next move"
+   416→    >
+   417→      {/* Sand-gold inner accent — reserved for "your next move" */}
+   418→      <div
+   419→        aria-hidden="true"
+   420→        className="absolute top-0 left-0 h-[3px] w-full"
+   421→        style={{ background: "linear-gradient(90deg, var(--accent-500), transparent 60%)" }}
+   422→      />
+   423→
+   424→      <div className="flex items-start justify-between gap-3 mb-3">
+   425→        <div className="flex items-center gap-2">
+   426→          <Star className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--accent-500)" }} />
+   427→          <span
+   428→            className="text-[11px] font-semibold uppercase tracking-[0.14em]"
+   429→            style={{ color: "var(--accent-500)" }}
+   430→          >
+   431→            {locale === "ar" ? "خطوتك التالية" : "Your next move"}
+   432→          </span>
+   433→        </div>
+   434→        <span
+   435→          className="ast-chip tabular"
+   436→          style={{ color: "var(--accent-500)", background: "rgba(201,162,39,0.08)", borderColor: "rgba(201,162,39,0.30)" }}
+   437→        >
+   438→          {actorText}
+   439→        </span>
+   440→      </div>
+   441→
+   442→      <h2 className="text-[20px] sm:text-[22px] font-semibold leading-snug" style={{ color: "var(--text-hi)" }}>
+   443→        {label}
+   444→      </h2>
+   445→
+   446→      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px]" style={{ color: "var(--text-mid)" }}>
+   447→        <span className="inline-flex items-center gap-1.5">
+   448→          <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+   449→          {ownerText}
+   450→        </span>
+   451→        <span aria-hidden="true" className="opacity-40">·</span>
+   452→        <span className="inline-flex items-center gap-1.5 tabular">
+   453→          <Hourglass className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--accent-400)" }} />
+   454→          {dueText}
+   455→        </span>
+   456→      </div>
+   457→
+   458→      <p className="text-[14px] leading-relaxed mt-4" style={{ color: "var(--text-mid)" }}>
+   459→        {reason}
+   460→      </p>
+   461→
+   462→      <div className="mt-5 flex flex-col sm:flex-row sm:items-center gap-3">
+   463→        <button
+   464→          onClick={() => onStart(nbs)}
+   465→          className="ast-focus inline-flex items-center justify-center gap-2 h-11 px-5 rounded-[10px] text-[14px] font-semibold transition-transform hover:-translate-y-0.5"
+   466→          style={{
+   467→            background: "var(--accent-500)",
+   468→            color: "var(--surface-0)",
+   469→            boxShadow: "0 4px 14px rgba(201,162,39,0.28)",
+   470→          }}
+   471→        >
+   472→          {locale === "ar" ? "ابدأ هذه الخطوة" : "Start this step"}
+   473→          <ArrowRight className="w-4 h-4" strokeWidth={2} />
+   474→        </button>
+   475→        {citation && <CitationChip citation={citation} locale={locale} />}
+   476→      </div>
+   477→
+   478→      <p
+   479→        className="text-[11px] mt-4 font-mono tabular"
+   480→        style={{ color: "var(--text-lo)" }}
+   481→        aria-label="engine version"
+   482→      >
+   483→        {emp.journeyType === "onboarding" ? (locale === "ar" ? "رحلة الالتحاق" : "Onboarding") : (locale === "ar" ? "رحلة تنقل" : "Mobility")}
+   484→        {" · "}{data.engineVersion}
+   485→      </p>
+   486→    </motion.section>
+   487→  );
+   488→}
+   489→
+   490→/* Parse "docSlug#section" → CitationChip shape */
+   491→function parsePolicyRef(ref: string): { docSlug: string; title: string; section: string; effectiveDate: string } {
+   492→  const [docSlug, section] = ref.split("#");
+   493→  const titleMap: Record<string, string> = {
+   494→    "relocation-policy": "Relocation Policy",
+   495→    "immigration-policy": "Immigration Policy",
+   496→    "it-policy": "IT Provisioning Policy",
+   497→    "onboarding-policy": "Onboarding Policy",
+   498→    "learning-policy": "Learning Policy",
+   499→    "mobility-policy": "Internal Mobility Policy",
+   500→    "payroll-policy": "Payroll Policy",
+   501→    "facilities-policy": "Facilities Policy",
+   502→  };
+   503→  return {
+   504→    docSlug,
+   505→    title: titleMap[docSlug] ?? docSlug,
+   506→    section: section ?? "—",
+   507→    effectiveDate: "2024-01-01",
+   508→  };
+   509→}
+   510→
+   511→/* ---------- Late items panel ---------- */
+   512→
+   513→function LateItemsPanel({ data }: { data: JourneyMeData }) {
+   514→  const { locale } = useAppStore();
+   515→  const late = useMemo(() => {
+   516→    return data.steps.filter(
+   517→      (s) =>
+   518→        s.status === "blocked" ||
+   519→        s.breachLevel === "breached" ||
+   520→        s.breachLevel === "hard"
+   521→    );
+   522→  }, [data.steps]);
+   523→
+   524→  const nbs = data.nextBestStep;
+   525→
+   526→  return (
+   527→    <section className="ast-card p-5 sm:p-6 lg:col-span-5" aria-label="Late items">
+   528→      <div className="flex items-center gap-2 mb-4">
+   529→        <Ban className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--status-friction)" }} />
+   530→        <h3 className="text-[14px] font-semibold uppercase tracking-[0.12em]" style={{ color: "var(--text-hi)" }}>
+   531→          {locale === "ar" ? "العناصر المتأخرة" : "Running late"}
+   532→        </h3>
+   533→        {late.length > 0 && (
+   534→          <span
+   535→            className="ml-auto inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full text-[11px] font-semibold tabular"
+   536→            style={{ background: "rgba(220,38,38,0.12)", color: "var(--status-friction)" }}
+   537→          >
+   538→            {late.length}
+   539→          </span>
+   540→        )}
+   541→      </div>
+   542→
+   543→      {late.length === 0 ? (
+   544→        <EmptyLateState nbsLabel={nbs ? (locale === "ar" ? nbs.labelAr : nbs.label) : null} dueAt={nbs?.dueAt} locale={locale} />
+   545→      ) : (
+   546→        <ul className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
+   547→          <AnimatePresence initial={false}>
+   548→            {late.map((step) => {
+   549→              const label = locale === "ar" ? step.labelAr : step.label;
+   550→              const owner = namedOwnerForGroup(step.ownerGroup);
+   551→              const ownerText = owner
+   552→                ? locale === "ar" && owner.nameAr
+   553→                  ? owner.nameAr
+   554→                  : owner.name
+   555→                : step.ownerGroup;
+   556→              return (
+   557→                <motion.li
+   558→                  key={step.stepKey}
+   559→                  initial={{ opacity: 0, x: 8 }}
+   560→                  animate={{ opacity: 1, x: 0 }}
+   561→                  exit={{ opacity: 0, x: -8 }}
+   562→                  transition={{ duration: 0.18 }}
+   563→                  className="ast-card-2 p-3.5"
+   564→                >
+   565→                  <div className="flex items-start justify-between gap-2">
+   566→                    <p className="text-[14px] font-medium leading-snug pr-2" style={{ color: "var(--text-hi)" }}>
+   567→                      {label}
+   568→                    </p>
+   569→                    <SlaChip
+   570→                      elapsedHours={step.elapsedHours}
+   571→                      targetHours={step.targetHours}
+   572→                      breachLevel={step.breachLevel}
+   573→                      locale={locale}
+   574→                    />
+   575→                  </div>
+   576→                  <div className="mt-2 flex items-center justify-between gap-2 text-[12px]">
+   577→                    <span style={{ color: "var(--text-mid)" }}>{ownerText}</span>
+   578→                    <span className="tabular font-medium" style={{ color: "var(--status-friction)" }}>
+   579→                      {lateCopy(step, locale)}
+   580→                    </span>
+   581→                  </div>
+   582→                </motion.li>
+   583→              );
+   584→            })}
+   585→          </AnimatePresence>
+   586→        </ul>
+   587→      )}
+   588→    </section>
+   589→  );
+   590→}
+   591→
+   592→function EmptyLateState({
+   593→  nbsLabel,
+   594→  dueAt,
+   595→  locale,
+   596→}: {
+   597→  nbsLabel: string | null;
+   598→  dueAt?: string;
+   599→  locale: "en" | "ar";
+   600→}) {
+   601→  const copy = nbsLabel
+   602→    ? locale === "ar"
+   603→      ? `لا شيء متأخر. التالي: ${nbsLabel}${dueAt ? ` بحلول ${format(new Date(dueAt), "EEEE d MMM")}` : ""}.`
+   604→      : `Nothing is late. Next: ${nbsLabel}${dueAt ? ` by ${format(new Date(dueAt), "EEEE d MMM")}` : ""}.`
+   605→    : locale === "ar"
+   606→      ? "لا شيء متأخر. كل شيء يسير على وقته."
+   607→      : "Nothing is late. Everything is on time.";
+   608→
+   609→  return (
+   610→    <div className="flex flex-col items-start gap-3 py-2">
+   611→      <div
+   612→        className="flex items-center justify-center w-10 h-10 rounded-full"
+   613→        style={{ background: "rgba(14,159,110,0.10)", color: "var(--status-steady)" }}
+   614→      >
+   615→        <CheckCircle2 className="w-5 h-5" strokeWidth={1.75} />
+   616→      </div>
+   617→      <p className="text-[14px] leading-relaxed" style={{ color: "var(--text-mid)" }}>
+   618→        {copy}
+   619→      </p>
+   620→    </div>
+   621→  );
+   622→}
+   623→
+   624→/* ---------- Stage Rail ---------- */
+   625→
+   626→function StageRail({ data }: { data: JourneyMeData }) {
+   627→  const { locale } = useAppStore();
+   628→  const journeyType = data.employee.journeyType;
+   629→  const journeyStages = useMemo(
+   630→    () => ALL_STAGES.filter((s) => s.journeyType === journeyType).sort((a, b) => a.order - b.order),
+   631→    [journeyType]
+   632→  );
+   633→
+   634→  const segState = (stageKey: string): "done" | "active" | "blocked" | "pending" => {
+   635→    const stepsInStage = data.steps.filter((s) => s.stage === stageKey);
+   636→    if (stepsInStage.length === 0) return "pending";
+   637→    const allDone = stepsInStage.every((s) => s.status === "done" || s.status === "skipped");
+   638→    if (allDone) return "done";
+   639→    const anyBlocked = stepsInStage.some(
+   640→      (s) => s.status === "blocked" || s.breachLevel === "hard"
+   641→    );
+   642→    if (anyBlocked) return "blocked";
+   643→    if (stageKey === data.stage) return "active";
+   644→    // Stage before current — if not all done, mark done visually (history)
+   645→    const stageOrder = journeyStages.find((s) => s.key === stageKey)?.order ?? 0;
+   646→    const currentOrder = journeyStages.find((s) => s.key === data.stage)?.order ?? 0;
+   647→    if (stageOrder < currentOrder) return "done";
+   648→    return "pending";
+   649→  };
+   650→
+   651→  return (
+   652→    <section className="ast-card p-5 sm:p-6" aria-label="Stage rail">
+   653→      <div className="flex items-center gap-2 mb-4">
+   654→        <Compass className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+   655→        <h3 className="text-[14px] font-semibold uppercase tracking-[0.12em]" style={{ color: "var(--text-hi)" }}>
+   656→          {locale === "ar" ? "مسار الرحلة" : "Journey rail"}
+   657→        </h3>
+   658→      </div>
+   659→      <ol className="grid gap-2" style={{ gridTemplateColumns: `repeat(${journeyStages.length}, minmax(0, 1fr))` }}>
+   660→        {journeyStages.map((st) => {
+   661→          const state = segState(st.key);
+   662→          const isActive = st.key === data.stage;
+   663→          const label = locale === "ar" ? st.labelAr : st.label;
+   664→          return (
+   665→            <li key={st.key} className="flex flex-col gap-2 min-w-0">
+   666→              <div
+   667→                className="ast-rail-seg"
+   668→                data-state={state === "pending" ? undefined : state}
+   669→                aria-label={`${label}: ${state}`}
+   670→                style={state === "pending" ? { background: "var(--surface-3)" } : undefined}
+   671→              />
+   672→              <div className="min-w-0">
+   673→                <p
+   674→                  className="text-[11px] sm:text-[12px] font-medium leading-tight truncate"
+   675→                  style={{
+   676→                    color: isActive ? "var(--accent-500)" : state === "done" ? "var(--brand-400)" : state === "blocked" ? "var(--status-blocked)" : "var(--text-lo)",
+   677→                  }}
+   678→                >
+   679→                  {stageShort(st.key, journeyType, locale)}
+   680→                </p>
+   681→                {isActive && (
+   682→                  <p className="text-[10px] tabular mt-0.5" style={{ color: "var(--text-lo)" }}>
+   683→                    {locale === "ar" ? `اليوم ${data.dayInStage}` : `Day ${data.dayInStage}`}
+   684→                  </p>
+   685→                )}
+   686→              </div>
+   687→            </li>
+   688→          );
+   689→        })}
+   690→      </ol>
+   691→    </section>
+   692→  );
+   693→}
+   694→
+   695→/* ---------- Coming up ---------- */
+   696→
+   697→function ComingUp({ data }: { data: JourneyMeData }) {
+   698→  const { locale } = useAppStore();
+   699→  const upcoming = useMemo(() => {
+   700→    return data.steps
+   701→      .filter((s) => s.status === "not_started" || s.status === "waiting_employee")
+   702→      .filter((s) => s.status !== "blocked" && s.blockedBy.length === 0)
+   703→      .slice(0, 3);
+   704→  }, [data.steps]);
+   705→
+   706→  if (upcoming.length === 0) return null;
+   707→
+   708→  return (
+   709→    <section className="ast-card p-5 sm:p-6" aria-label="Coming up">
+   710→      <div className="flex items-center gap-2 mb-4">
+   711→        <ChevronRight className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+   712→        <h3 className="text-[14px] font-semibold uppercase tracking-[0.12em]" style={{ color: "var(--text-hi)" }}>
+   713→          {locale === "ar" ? "القادم" : "Coming up"}
+   714→        </h3>
+   715→      </div>
+   716→      <ul className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+   717→        {upcoming.map((step, i) => {
+   718→          const label = locale === "ar" ? step.labelAr : step.label;
+   719→          const owner = namedOwnerForGroup(step.ownerGroup);
+   720→          const ownerText = owner
+   721→            ? locale === "ar" && owner.nameAr
+   722→              ? owner.nameAr
+   723→              : owner.name
+   724→            : step.ownerGroup;
+   725→          return (
+   726→            <motion.li
+   727→              key={step.stepKey}
+   728→              initial={{ opacity: 0, y: 8 }}
+   729→              animate={{ opacity: 1, y: 0 }}
+   730→              transition={{ duration: 0.18, delay: i * 0.04 }}
+   731→              className="ast-card-2 p-4 flex flex-col gap-2"
+   732→            >
+   733→              <div className="flex items-center gap-2">
+   734→                <span
+   735→                  className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-semibold tabular shrink-0"
+   736→                  style={{ background: "var(--surface-3)", color: "var(--text-mid)" }}
+   737→                >
+   738→                  {i + 1}
+   739→                </span>
+   740→                <span
+   741→                  className="text-[10px] font-mono uppercase tracking-[0.12em]"
+   742→                  style={{ color: "var(--text-lo)" }}
+   743→                >
+   744→                  {stageLabel(step.stage, step.journeyType, locale)}
+   745→                </span>
+   746→              </div>
+   747→              <p className="text-[14px] font-medium leading-snug" style={{ color: "var(--text-hi)" }}>
+   748→                {label}
+   749→              </p>
+   750→              <div className="mt-auto pt-2 flex items-center justify-between text-[12px]">
+   751→                <span className="truncate pr-2" style={{ color: "var(--text-mid)" }}>{ownerText}</span>
+   752→                <span className="tabular shrink-0" style={{ color: "var(--brand-400)" }}>
+   753→                  {upcomingTargetCopy(step, locale)}
+   754→                </span>
+   755→              </div>
+   756→            </motion.li>
+   757→          );
+   758→        })}
+   759→      </ul>
+   760→    </section>
+   761→  );
+   762→}
+   763→
+   764→/* ---------- Pulse card (consent-gated) ---------- */
+   765→
+   766→function PulseCard({
+   767→  employeeId,
+   768→  stage,
+   769→  pulseGranted,
+   770→  onGrantConsent,
+   771→  onSubmit,
+   772→  locale,
+   773→}: {
+   774→  employeeId: string;
+   775→  stage: string;
+   776→  pulseGranted: boolean;
+   777→  onGrantConsent: () => Promise<void>;
+   778→  onSubmit: (score: number) => Promise<void>;
+   779→  locale: "en" | "ar";
+   780→}) {
+   781→  const [score, setScore] = useState<number | null>(null);
+   782→  const [submitting, setSubmitting] = useState(false);
+   783→  const [granting, setGranting] = useState(false);
+   784→  const [done, setDone] = useState(false);
+   785→
+   786→  const handleGrant = async () => {
+   787→    setGranting(true);
+   788→    try {
+   789→      await onGrantConsent();
+   790→    } finally {
+   791→      setGranting(false);
+   792→    }
+   793→  };
+   794→
+   795→  const handleSubmit = async () => {
+   796→    if (score === null) return;
+   797→    setSubmitting(true);
+   798→    try {
+   799→      await onSubmit(score);
+   800→      setDone(true);
+   801→      setScore(null);
+   802→    } finally {
+   803→      setSubmitting(false);
+   804→    }
+   805→  };
+   806→
+   807→  return (
+   808→    <motion.section
+   809→      initial={{ opacity: 0, y: 8 }}
+   810→      animate={{ opacity: 1, y: 0 }}
+   811→      transition={{ duration: 0.24 }}
+   812→      className="ast-card p-5 sm:p-6 relative overflow-hidden"
+   813→      aria-label="Pulse check"
+   814→    >
+   815→      <div
+   816→        aria-hidden="true"
+   817→        className="absolute top-0 right-0 w-32 h-32 rounded-full pointer-events-none"
+   818→        style={{ background: "var(--g-veil)", transform: "translate(40%, -40%)" }}
+   819→      />
+   820→      <div className="relative flex items-start gap-3 mb-3">
+   821→        <div
+   822→          className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
+   823→          style={{ background: "rgba(22,154,165,0.10)", color: "var(--brand-400)" }}
+   824→        >
+   825→          <HelpCircle className="w-5 h-5" strokeWidth={1.75} />
+   826→        </div>
+   827→        <div className="min-w-0">
+   828→          <h3 className="text-[14px] font-semibold uppercase tracking-[0.12em]" style={{ color: "var(--text-hi)" }}>
+   829→            {locale === "ar" ? "تقدير حالتك" : "Pulse check"}
+   830→          </h3>
+   831→          <p className="text-[13px] mt-0.5" style={{ color: "var(--text-mid)" }}>
+   832→            {locale === "ar" ? "سؤالان، فقط إن أردت." : "Two questions, only if you want to."}
+   833→          </p>
+   834→        </div>
+   835→      </div>
+   836→
+   837→      {!pulseGranted ? (
+   838→        <div className="relative">
+   839→          <div
+   840→            className="ast-card-2 p-4 flex items-start gap-3"
+   841→            style={{ borderColor: "rgba(22,154,165,0.30)" }}
+   842→          >
+   843→            <Lock className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+   844→            <div className="min-w-0">
+   845→              <p className="text-[13px] leading-relaxed" style={{ color: "var(--text-mid)" }}>
+   846→                {locale === "ar"
+   847→                  ? "مشاركة شعورك اختيارية. يمكنك سحب الموافقة في أي وقت، ولا تُشارك دون إذنك."
+   848→                  : "Sharing how you feel is opt-in. You can revoke consent any time, and it's never shared without your say-so."}
+   849→              </p>
+   850→              <button
+   851→                onClick={handleGrant}
+   852→                disabled={granting}
+   853→                className="ast-focus mt-3 inline-flex items-center gap-2 h-10 px-4 rounded-[10px] text-[13px] font-medium transition-transform hover:-translate-y-0.5 disabled:opacity-60 disabled:hover:translate-y-0"
+   854→                style={{ background: "var(--brand-500)", color: "var(--surface-0)" }}
+   855→              >
+   856→                <ShieldCheck className="w-4 h-4" strokeWidth={1.75} />
+   857→                {granting
+   858→                  ? (locale === "ar" ? "جارٍ التمكين..." : "Enabling…")
+   859→                  : (locale === "ar" ? "تفعيل التقدير" : "Enable pulse capture")}
+   860→              </button>
+   861→            </div>
+   862→          </div>
+   863→        </div>
+   864→      ) : done ? (
+   865→        <div
+   866→          className="ast-card-2 p-4 flex items-center gap-3"
+   867→          style={{ borderColor: "rgba(14,159,110,0.30)" }}
+   868→        >
+   869→          <CheckCircle2 className="w-5 h-5 shrink-0" strokeWidth={1.75} style={{ color: "var(--status-steady)" }} />
+   870→          <p className="text-[13px]" style={{ color: "var(--text-mid)" }}>
+   871→            {locale === "ar" ? "تم الإرسال. شكراً لمشاركتك." : "Sent. Thank you for sharing."}
+   872→          </p>
+   873→          <button
+   874→            onClick={() => setDone(false)}
+   875→            className="ast-focus ml-auto text-[12px] underline tabular"
+   876→            style={{ color: "var(--brand-400)" }}
+   877→          >
+   878→            {locale === "ar" ? "مرة أخرى" : "Again"}
+   879→          </button>
+   880→        </div>
+   881→      ) : (
+   882→        <div className="relative">
+   883→          <p className="text-[13px] mb-3" style={{ color: "var(--text-mid)" }}>
+   884→            {locale === "ar" ? "كيف تسير رحلتك حتى الآن؟" : "How is your journey going so far?"}
+   885→          </p>
+   886→          <div className="flex items-center gap-2 flex-wrap">
+   887→            {[1, 2, 3, 4, 5].map((n) => {
+   888→              const active = score === n;
+   889→              return (
+   890→                <button
+   891→                  key={n}
+   892→                  onClick={() => setScore(n)}
+   893→                  aria-pressed={active}
+   894→                  aria-label={`Score ${n} of 5`}
+   895→                  className={cn(
+   896→                    "ast-focus inline-flex items-center justify-center w-11 h-11 rounded-[10px] text-[14px] font-semibold tabular transition-all",
+   897→                    active ? "scale-105" : "hover:scale-105"
+   898→                  )}
+   899→                  style={{
+   900→                    background: active ? "var(--brand-500)" : "var(--surface-2)",
+   901→                    color: active ? "var(--surface-0)" : "var(--text-mid)",
+   902→                    border: `1px solid ${active ? "var(--brand-500)" : "var(--border)"}`,
+   903→                  }}
+   904→                >
+   905→                  {n}
+   906→                </button>
+   907→              );
+   908→            })}
+   909→            <button
+   910→              onClick={handleSubmit}
+   911→              disabled={score === null || submitting}
+   912→              className="ast-focus ml-auto inline-flex items-center gap-2 h-11 px-4 rounded-[10px] text-[13px] font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-transform hover:-translate-y-0.5 disabled:hover:translate-y-0"
+   913→              style={{ background: "var(--accent-500)", color: "var(--surface-0)" }}
+   914→            >
+   915→              <Send className="w-4 h-4" strokeWidth={1.75} />
+   916→              {submitting ? (locale === "ar" ? "جارٍ الإرسال..." : "Sending…") : (locale === "ar" ? "إرسال" : "Send")}
+   917→            </button>
+   918→          </div>
+   919→          <p className="text-[11px] mt-3 tabular" style={{ color: "var(--text-lo)" }}>
+   920→            {locale === "ar"
+   921→              ? "مرتبط بمرحلتك الحالية. لا يُشارك مع مديرك دون موافقة منفصلة."
+   922→              : `Tied to your current stage (${stageLabel(stage, "onboarding", locale)}). Never shared with your manager without separate consent.`}
+   923→          </p>
+   924→        </div>
+   925→      )}
+   926→    </motion.section>
+   927→  );
+   928→}
+   929→
+   930→/* ============================================================
+   931→   Main Today screen
+   932→   ============================================================ */
+   933→
+   934→export function TodayScreen() {
+   935→  const employeeId = useAppStore((s) => s.currentEmployeeId);
+   936→  const locale = useAppStore((s) => s.locale);
+   937→
+   938→  const [data, setData] = useState<JourneyMeData | null>(null);
+   939→  const [pulseGranted, setPulseGranted] = useState<boolean>(false);
+   940→  const [loading, setLoading] = useState(true);
+   941→  const [error, setError] = useState<{ message: string; requestId?: string } | null>(null);
+   942→
+   943→  const load = useCallback(async () => {
+   944→    setLoading(true);
+   945→    setError(null);
+   946→    try {
+   947→      // Use the pack's deterministic NOW (2024-10-19) so elapsed-hour and
+   948→      // band reads match the seeded events. Real deployments would pass
+   949→      // the live clock here.
+   950→      const asOf = PACK_NOW.toISOString();
+   951→      const [journeyRes, meRes] = await Promise.all([
+   952→        fetch(`/api/v1/journey/me?employeeId=${encodeURIComponent(employeeId)}&asOf=${encodeURIComponent(asOf)}`, {
+   953→          headers: { Accept: "application/json" },
+   954→        }),
+   955→        fetch(`/api/v1/me/data?employeeId=${encodeURIComponent(employeeId)}`, {
+   956→          headers: { Accept: "application/json" },
+   957→        }),
+   958→      ]);
+   959→      const journeyJson: ApiEnvelope<JourneyMeData> = await journeyRes.json();
+   960→      if (!journeyJson.ok || !journeyJson.data) {
+   961→        throw new Error(journeyJson.error?.message ?? "Failed to load journey");
+   962→      }
+   963→      setData(journeyJson.data);
+   964→
+   965→      // Consent check is best-effort — never blocks the screen
+   966→      try {
+   967→        const meJson: ApiEnvelope<MeData> = await meRes.json();
+   968→        if (meJson.ok && meJson.data) {
+   969→          setPulseGranted(!!meJson.data.pulseConsentGranted);
+   970→        }
+   971→      } catch {
+   972→        // leave pulseGranted false → consent prompt shows
+   973→      }
+   974→    } catch (e) {
+   975→      const msg = e instanceof Error ? e.message : "Unknown error";
+   976→      setError({ message: msg });
+   977→    } finally {
+   978→      setLoading(false);
+   979→    }
+   980→  }, [employeeId]);
+   981→
+   982→  useEffect(() => {
+   983→    void load();
+   984→  }, [load]);
+   985→
+   986→  const dir = locale === "ar" ? "rtl" : "ltr";
+   987→
+   988→  /* Actions ---------------------------------------------------- */
+   989→
+   990→  const handleStartStep = useCallback(
+   991→    async (nbs: NextBestStep) => {
+   992→      if (!data) return;
+   993→      const emp = data.employee;
+   994→      const requestType = nbs.requestType;
+   995→      if (!requestType) {
+   996→        toast.success(locale === "ar" ? "تم تسجيل البدء" : "Step started", {
+   997→          description: locale === "ar" ? nbs.labelAr : nbs.label,
+   998→        });
+   999→        return;
+  1000→      }
+  1001→      const idempotencyKey = `idm-${emp.id}-${requestType}-${Date.now().toString(36)}`;
+  1002→      try {
+  1003→        const res = await fetch("/api/v1/requests", {
+  1004→          method: "POST",
+  1005→          headers: { "Content-Type": "application/json" },
+  1006→          body: JSON.stringify({
+  1007→            employeeId: emp.id,
+  1008→            type: requestType,
+  1009→            payload: { stepKey: nbs.stepKey, label: nbs.label },
+  1010→            idempotencyKey,
+  1011→          }),
+  1012→        });
+  1013→        const json: ApiEnvelope<{ ref: string; owner?: { name: string } }> = await res.json();
+  1014→        if (json.ok && json.data) {
+  1015→          const ownerName = json.data.owner?.name ?? "the team";
+  1016→          toast.success(locale === "ar" ? "تم إرسال الطلب" : "Request sent", {
+  1017→            description: locale === "ar"
+  1018→              ? `${nbs.labelAr} — ${ownerName} سيتولى الأمر`
+  1019→              : `${nbs.label} — ${ownerName} will handle it`,
+  1020→          });
+  1021→        } else {
+  1022→          toast.error(locale === "ar" ? "تعذّر الإرسال" : "Couldn't send", {
+  1023→            description: json.error?.message ?? "Please try again.",
+  1024→          });
+  1025→        }
+  1026→      } catch {
+  1027→        toast.error(locale === "ar" ? "خطأ في الشبكة" : "Network error", {
+  1028→          description: locale === "ar" ? "حاول مرة أخرى." : "Please retry.",
+  1029→        });
+  1030→      }
+  1031→    },
+  1032→    [data, locale]
+  1033→  );
+  1034→
+  1035→  const handleGrantConsent = useCallback(async () => {
+  1036→    try {
+  1037→      const res = await fetch("/api/v1/consent", {
+  1038→        method: "POST",
+  1039→        headers: { "Content-Type": "application/json" },
+  1040→        body: JSON.stringify({
+  1041→          employeeId,
+  1042→          purpose: "pulse_capture",
+  1043→          granted: true,
+  1044→          version: "v1",
+  1045→        }),
+  1046→      });
+  1047→      const json: ApiEnvelope<{ receiptId: string }> = await res.json();
+  1048→      if (json.ok) {
+  1049→        setPulseGranted(true);
+  1050→        toast.success(locale === "ar" ? "تم تفعيل التقدير" : "Pulse capture enabled", {
+  1051→          description: locale === "ar"
+  1052→            ? `رقم الإيصال: ${json.data?.receiptId ?? ""}`
+  1053→            : `Receipt: ${json.data?.receiptId ?? ""}`,
+  1054→        });
+  1055→      } else {
+  1056→        toast.error(json.error?.message ?? "Failed");
+  1057→      }
+  1058→    } catch {
+  1059→      toast.error(locale === "ar" ? "خطأ في الشبكة" : "Network error");
+  1060→    }
+  1061→  }, [employeeId, locale]);
+  1062→
+  1063→  const handleSubmitPulse = useCallback(
+  1064→    async (score: number) => {
+  1065→      if (!data) return;
+  1066→      try {
+  1067→        const res = await fetch("/api/v1/pulse", {
+  1068→          method: "POST",
+  1069→          headers: { "Content-Type": "application/json" },
+  1070→          body: JSON.stringify({
+  1071→            employeeId,
+  1072→            stage: data.stage,
+  1073→            score,
+  1074→            consentId: `CN-pulse-${employeeId}`,
+  1075→          }),
+  1076→        });
+  1077→        const json: ApiEnvelope<{ id: string }> = await res.json();
+  1078→        if (json.ok) {
+  1079→          toast.success(locale === "ar" ? "تم الإرسال" : "Pulse recorded", {
+  1080→            description: locale === "ar" ? "شكراً لمشاركتك." : "Thank you for sharing.",
+  1081→          });
+  1082→        } else if (json.error?.code === "E_CONSENT_REQUIRED") {
+  1083→          setPulseGranted(false);
+  1084→          toast.error(locale === "ar" ? "يلزم الموافقة" : "Consent required", {
+  1085→            description: json.error.hint ?? "",
+  1086→          });
+  1087→        } else {
+  1088→          toast.error(json.error?.message ?? "Failed");
+  1089→        }
+  1090→      } catch {
+  1091→        toast.error(locale === "ar" ? "خطأ في الشبكة" : "Network error");
+  1092→      }
+  1093→    },
+  1094→    [data, employeeId, locale]
+  1095→  );
+  1096→
+  1097→  /* Render ---------------------------------------------------- */
+  1098→
+  1099→  return (
+  1100→    <div
+  1101→      dir={dir}
+  1102→      className="min-h-screen flex flex-col"
+  1103→      style={{ background: "var(--surface-0)" }}
+  1104→    >
+  1105→      <main className="flex-1 w-full max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+  1106→        {loading ? (
+  1107→          <TodaySkeleton />
+  1108→        ) : error ? (
+  1109→          <ErrorBanner
+  1110→            message={error.message}
+  1111→            requestId={error.requestId}
+  1112→            onRetry={() => void load()}
+  1113→          />
+  1114→        ) : data ? (
+  1115→          <>
+  1116→            <HeroStrip data={data} />
+  1117→
+  1118→            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+  1119→              <NextBestStepCard data={data} onStart={handleStartStep} />
+  1120→              <LateItemsPanel data={data} />
+  1121→            </div>
+  1122→
+  1123→            <StageRail data={data} />
+  1124→
+  1125→            <ComingUp data={data} />
+  1126→
+  1127→            <PulseCard
+  1128→              employeeId={employeeId}
+  1129→              stage={data.stage}
+  1130→              pulseGranted={pulseGranted}
+  1131→              onGrantConsent={handleGrantConsent}
+  1132→              onSubmit={handleSubmitPulse}
+  1133→              locale={locale}
+  1134→            />
+  1135→
+  1136→            {/* Version footer */}
+  1137→            <p
+  1138→              className="text-[11px] font-mono tabular text-center pt-2 pb-4"
+  1139→              style={{ color: "var(--text-lo)" }}
+  1140→            >
+  1141→              {data.engineVersion} · {data.mapVersion} · {data.corpusVersion}
+  1142→            </p>
+  1143→          </>
+  1144→        ) : null}
+  1145→      </main>
+  1146→    </div>
+  1147→  );
+  1148→}
+  1149→
+  1150→export default TodayScreen;
+  1151→
