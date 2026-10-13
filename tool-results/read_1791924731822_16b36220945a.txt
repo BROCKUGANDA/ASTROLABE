@@ -1,0 +1,1504 @@
+     1→"use client";
+     2→
+     3→/* ============================================================
+     4→   ASTROLABE — HRBP Screen (early-warning console, PRD §10, §14)
+     5→   Three sub-views via `hrbpView`:
+     6→     · queue    — ranked band-severity list with claim + open-packet
+     7→     · employee — escalation packet preview with consent statement
+     8→     · stalls   — stage × owner-group heatmap with k≥5 suppression
+     9→   HRBP queue never shows free-text comments. Pulse summary only
+    10→   shared when employee opted in (server-enforced).
+    11→   ============================================================ */
+    12→
+    13→import { useCallback, useEffect, useMemo, useState } from "react";
+    14→import { motion, AnimatePresence } from "framer-motion";
+    15→import { format } from "date-fns";
+    16→import {
+    17→  ListOrdered,
+    18→  User,
+    19→  Grid3X3,
+    20→  ChevronRight,
+    21→  AlertTriangle,
+    22→  RotateCcw,
+    23→  Clock,
+    24→  Hand,
+    25→  Send,
+    26→  Edit3,
+    27→  UserCog,
+    28→  ShieldCheck,
+    29→  Lock,
+    30→  CheckCircle2,
+    31→  ArrowLeft,
+    32→  Info,
+    33→  Hourglass,
+    34→  Filter,
+    35→  RefreshCw,
+    36→} from "lucide-react";
+    37→import { useAppStore } from "@/lib/store/app-store";
+    38→import {
+    39→  BandChip,
+    40→  SignalBadge,
+    41→  StatusChip,
+    42→  type Band as BandT,
+    43→} from "@/components/astrolabe/widgets";
+    44→import {
+    45→  Tilt3D,
+    46→  NumberTicker,
+    47→} from "@/components/astrolabe/micro-interactions";
+    48→import { SignalWeightBar } from "@/components/astrolabe/signal-weight-bar";
+    49→import { TimelineSparkline } from "@/components/astrolabe/timeline-sparkline";
+    50→import {
+    51→  Select,
+    52→  SelectContent,
+    53→  SelectItem,
+    54→  SelectTrigger,
+    55→  SelectValue,
+    56→} from "@/components/ui/select";
+    57→import {
+    58→  Dialog,
+    59→  DialogContent,
+    60→  DialogDescription,
+    61→  DialogFooter,
+    62→  DialogHeader,
+    63→  DialogTitle,
+    64→  DialogClose,
+    65→} from "@/components/ui/dialog";
+    66→import { Textarea } from "@/components/ui/textarea";
+    67→import { toast } from "sonner";
+    68→import { cn } from "@/lib/utils";
+    69→import { hrbps as ALL_HRBPS } from "@/lib/data/pack";
+    70→
+    71→/* ---------- Types ---------- */
+    72→
+    73→type Purpose = "journey_assistance" | "pulse_capture" | "share_pulse_summary" | "comment_retention" | "aggregate_analytics" | "manager_visibility";
+    74→
+    75→interface QueueItem {
+    76→  employeeId: string;
+    77→  employeeName: string;
+    78→  journeyType: "onboarding" | "mobility";
+    79→  stage: string;
+    80→  band: BandT;
+    81→  score: number;
+    82→  topSignals: { code: string; weight: number; description: string }[];
+    83→  /** Last 10 events for the hover-expand preview sparkline. */
+    84→  recentEvents?: { occurredAt: string; type: string }[];
+    85→  leadTimeHours: number;
+    86→  suggestedOwner: { id: string; name: string; role: string; email: string } | null;
+    87→}
+    88→
+    89→interface Assessment {
+    90→  employeeId: string;
+    91→  asOf: string;
+    92→  band: BandT;
+    93→  score: number;
+    94→  signals: { code: string; family: string; weight: number; description: string; descriptionAr: string; evidenceRefs: string[]; hardTrip?: boolean; forceBlocked?: boolean }[];
+    95→  suppressedFamilies: string[];
+    96→  stage: string;
+    97→  dayInStage: number;
+    98→}
+    99→
+   100→interface EngineTrace {
+   101→  stageInference: { stage: string; reason: string };
+   102→  signalsFired: { code: string; weight: number; family: string; evidence: string[] }[];
+   103→  signalsSuppressed: { family: string; reason: string }[];
+   104→  band: { score: number; band: BandT; hardTrips: string[]; forcedBlocked: boolean };
+   105→  nextBestStep: { stepKey: string; reason: string } | null;
+   106→  servedFrom: string;
+   107→  degraded: string[];
+   108→}
+   109→
+   110→interface EscalationPacket {
+   111→  id: string;
+   112→  employeeId: string;
+   113→  employeeName: string;
+   114→  journeyType: string;
+   115→  stage: string;
+   116→  dayInStage: number;
+   117→  locale: string;
+   118→  band: string;
+   119→  score: number;
+   120→  topSignals: { code: string; weight: number; description: string; evidenceRefs: string[] }[];
+   121→  timeline: { occurredAt: string; stepKey: string; type: string; targetVsActual?: string }[];
+   122→  blockedDownstream: string[];
+   123→  openRequests: { ref: string; type: string; ownerGroup: string; ageHours: number; reassignCount: number }[];
+   124→  decisionRequested: string;
+   125→  namedOwner: { id: string; name: string; role: string; email: string };
+   126→  backupOwner?: { id: string; name: string; role: string; email: string };
+   127→  consentStatement: {
+   128→    sharedWithHrbp: string[];
+   129→    withheld: string[];
+   130→    freeTextExcluded: boolean;
+   131→  };
+   132→  createdAt: string;
+   133→}
+   134→
+   135→interface StallsCell {
+   136→  stage: string;
+   137→  ownerGroup: string;
+   138→  suppressed: boolean;
+   139→  reason?: string;
+   140→  n?: number;
+   141→  employeeCount?: number;
+   142→  medianTimeToCompleteHours?: number;
+   143→  breachRate?: number;
+   144→  reassignmentRate?: number;
+   145→}
+   146→
+   147→interface ApiEnvelope<T> {
+   148→  ok: boolean;
+   149→  data: T | null;
+   150→  meta: { requestId: string; asOf: string; servedFrom: string };
+   151→  error: { code: string; message: string; hint?: string } | null;
+   152→}
+   153→
+   154→/* ---------- Stage labels ---------- */
+   155→const STAGE_LABELS: Record<string, { en: string; ar: string }> = {
+   156→  pre_boarding: { en: "Pre-boarding", ar: "ما قبل الالتحاق" },
+   157→  visa_processing: { en: "Visa Processing", ar: "معالجة التأشيرة" },
+   158→  first_day: { en: "First Day", ar: "اليوم الأول" },
+   159→  first_week: { en: "First Week", ar: "الأسبوع الأول" },
+   160→  first_90: { en: "First 90 Days", ar: "أول 90 يوماً" },
+   161→  transfer_approved: { en: "Transfer Approved", ar: "تمت الموافقة على النقل" },
+   162→  handover: { en: "Handover", ar: "التسليم" },
+   163→  effective_date: { en: "Effective Date", ar: "تاريخ السريان" },
+   164→  settle_new_role: { en: "Settling In", ar: "الاستقرار" },
+   165→};
+   166→
+   167→function stageLabel(key: string, locale: "en" | "ar"): string {
+   168→  const e = STAGE_LABELS[key];
+   169→  if (!e) return key;
+   170→  return locale === "ar" ? e.ar : e.en;
+   171→}
+   172→
+   173→function bandSortIndex(b: BandT): number {
+   174→  return { steady: 0, watch: 1, friction: 2, blocked: 3 }[b];
+   175→}
+   176→
+   177→/* ============================================================
+   178→   Skeleton
+   179→   ============================================================ */
+   180→function QueueSkeleton() {
+   181→  return (
+   182→    <div className="space-y-3" aria-hidden="true">
+   183→      {Array.from({ length: 4 }).map((_, i) => (
+   184→        <div key={i} className="ast-card p-4 h-24 ast-shimmer rounded-[12px]" />
+   185→      ))}
+   186→    </div>
+   187→  );
+   188→}
+   189→
+   190→function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+   191→  return (
+   192→    <div
+   193→      className="ast-card p-5 flex flex-col sm:flex-row sm:items-center gap-4"
+   194→      role="alert"
+   195→      style={{ borderColor: "rgba(220,38,38,0.4)" }}
+   196→    >
+   197→      <div
+   198→        className="flex items-center justify-center w-11 h-11 rounded-full shrink-0"
+   199→        style={{ background: "rgba(220,38,38,0.12)", color: "var(--status-friction)" }}
+   200→      >
+   201→        <AlertTriangle className="w-5 h-5" strokeWidth={1.75} />
+   202→      </div>
+   203→      <div className="flex-1 min-w-0">
+   204→        <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+   205→          The queue can&apos;t be loaded right now.
+   206→        </p>
+   207→        <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>{message}</p>
+   208→      </div>
+   209→      <button
+   210→        onClick={onRetry}
+   211→        className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium shrink-0"
+   212→        style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+   213→      >
+   214→        <RotateCcw className="w-4 h-4" strokeWidth={1.75} />
+   215→        Retry
+   216→      </button>
+   217→    </div>
+   218→  );
+   219→}
+   220→
+   221→/* ============================================================
+   222→   Sub-view tabs
+   223→   ============================================================ */
+   224→function HrbpTabs() {
+   225→  const locale = useAppStore((s) => s.locale);
+   226→  const view = useAppStore((s) => s.hrbpView);
+   227→  const setView = useAppStore((s) => s.setHrbpView);
+   228→  const TABS: { id: typeof view; label: string; labelAr: string; Icon: typeof ListOrdered }[] = [
+   229→    { id: "queue", label: "Queue", labelAr: "القائمة", Icon: ListOrdered },
+   230→    { id: "employee", label: "Packet", labelAr: "الطرد", Icon: User },
+   231→    { id: "stalls", label: "Stalls", labelAr: "الاختناقات", Icon: Grid3X3 },
+   232→  ];
+   233→  return (
+   234→    <div
+   235→      className="inline-flex items-center gap-1 p-1 rounded-full"
+   236→      style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
+   237→      role="tablist"
+   238→    >
+   239→      {TABS.map((t) => {
+   240→        const Icon = t.Icon;
+   241→        const isActive = view === t.id;
+   242→        return (
+   243→          <button
+   244→            key={t.id}
+   245→            onClick={() => setView(t.id)}
+   246→            aria-selected={isActive}
+   247→            role="tab"
+   248→            className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 sm:px-4 rounded-full text-[12px] font-medium transition-colors"
+   249→            style={{
+   250→              background: isActive ? "var(--brand-500)" : "transparent",
+   251→              color: isActive ? "var(--surface-0)" : "var(--text-mid)",
+   252→            }}
+   253→          >
+   254→            <Icon className="w-3.5 h-3.5" strokeWidth={1.75} />
+   255→            <span className="hidden sm:inline">{locale === "ar" ? t.labelAr : t.label}</span>
+   256→          </button>
+   257→        );
+   258→      })}
+   259→    </div>
+   260→  );
+   261→}
+   262→
+   263→/* ============================================================
+   264→   Queue view
+   265→   ============================================================ */
+   266→function QueueView({ onOpenPacket }: { onOpenPacket: (employeeId: string) => void }) {
+   267→  const locale = useAppStore((s) => s.locale);
+   268→  const [items, setItems] = useState<QueueItem[] | null>(null);
+   269→  const [err, setErr] = useState<string | null>(null);
+   270→  const [loading, setLoading] = useState(true);
+   271→  const [claiming, setClaiming] = useState<string | null>(null);
+   272→
+   273→  const fetchQ = useCallback(async () => {
+   274→    setLoading(true);
+   275→    setErr(null);
+   276→    try {
+   277→      const res = await fetch("/api/v1/hrbp/queue", { cache: "no-store" });
+   278→      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+   279→      const json: ApiEnvelope<{ items: QueueItem[] }> = await res.json();
+   280→      if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
+   281→      setItems(json.data.items);
+   282→    } catch (e) {
+   283→      setErr(e instanceof Error ? e.message : "Network error");
+   284→    } finally {
+   285→      setLoading(false);
+   286→    }
+   287→  }, []);
+   288→
+   289→  useEffect(() => { fetchQ(); }, [fetchQ]);
+   290→
+   291→  const handleClaim = useCallback(async (item: QueueItem) => {
+   292→    setClaiming(item.employeeId);
+   293→    // Fake audit-event write — there's no API yet, so we just simulate the receipt.
+   294→    await new Promise((r) => setTimeout(r, 320));
+   295→    toast.success("Case claimed by Fatima — employee notified", {
+   296→      description: `${item.employeeName} · ${item.employeeId}`,
+   297→    });
+   298→    setClaiming(null);
+   299→  }, []);
+   300→
+   301→  if (loading) return <QueueSkeleton />;
+   302→  if (err) return <ErrorBanner message={err} onRetry={fetchQ} />;
+   303→  if (!items) return null;
+   304→
+   305→  const active = items.filter((i) => bandSortIndex(i.band) >= 2); // friction + blocked
+   306→  const rest = items.filter((i) => bandSortIndex(i.band) < 2);
+   307→
+   308→  return (
+   309→    <div>
+   310→      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+   311→        <div>
+   312→          <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
+   313→            {locale === "ar" ? "قائمة أول من يحتاج مساعدة" : "Who needs help first"}
+   314→          </h2>
+   315→          <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+   316→            {locale === "ar"
+   317→              ? `${active.length} موظف في احتكاك أو أعلى اليوم.`
+   318→              : `${active.length} employee${active.length === 1 ? "" : "s"} in Friction or above today.`}
+   319→          </p>
+   320→        </div>
+   321→        <button
+   322→          onClick={fetchQ}
+   323→          className="ast-focus inline-flex items-center gap-2 h-9 px-3 rounded-full text-[12px] font-medium"
+   324→          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}
+   325→        >
+   326→          <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.75} />
+   327→          {locale === "ar" ? "تحديث" : "Refresh"}
+   328→        </button>
+   329→      </div>
+   330→
+   331→      {active.length === 0 ? (
+   332→        <div className="ast-card p-10 flex flex-col items-center text-center">
+   333→          <div
+   334→            className="flex items-center justify-center w-14 h-14 rounded-full mb-4"
+   335→            style={{ background: "rgba(14,159,110,0.10)", color: "var(--status-steady)" }}
+   336→          >
+   337→            <CheckCircle2 className="w-6 h-6" strokeWidth={1.75} />
+   338→          </div>
+   339→          <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+   340→            {locale === "ar" ? "لا أحد في احتكاك أو أعلى اليوم." : "No one in Friction or above today."}
+   341→          </p>
+   342→          <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+   343→            {locale === "ar" ? "تحقق لاحقاً، أو تصفّح بقية القائمة أدناه." : "Check back later, or browse the watch list below."}
+   344→          </p>
+   345→        </div>
+   346→      ) : (
+   347→        <ul className="space-y-3 mb-8">
+   348→          {active.map((item, i) => (
+   349→            <QueueRow
+   350→              key={item.employeeId}
+   351→              item={item}
+   352→              rank={i + 1}
+   353→              index={i}
+   354→              claiming={claiming === item.employeeId}
+   355→              onClaim={() => handleClaim(item)}
+   356→              onOpen={() => onOpenPacket(item.employeeId)}
+   357→            />
+   358→          ))}
+   359→        </ul>
+   360→      )}
+   361→
+   362→      {/* Watch + steady (collapsed by default-ish) */}
+   363→      {rest.length > 0 && (
+   364→        <details className="ast-card p-4" style={{ borderColor: "var(--border-soft)" }}>
+   365→          <summary className="cursor-pointer text-[13px] font-medium flex items-center gap-2" style={{ color: "var(--text-mid)" }}>
+   366→            <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.75} />
+   367→            {locale === "ar"
+   368→              ? `${rest.length} موظف تحت المراقبة أو مستقر`
+   369→              : `${rest.length} on watch or steady`}
+   370→          </summary>
+   371→          <ul className="mt-3 space-y-2">
+   372→            {rest.map((item, i) => (
+   373→              <QueueRow
+   374→                key={item.employeeId}
+   375→                item={item}
+   376→                rank={active.length + i + 1}
+   377→                index={i}
+   378→                claiming={claiming === item.employeeId}
+   379→                onClaim={() => handleClaim(item)}
+   380→                onOpen={() => onOpenPacket(item.employeeId)}
+   381→                compact
+   382→              />
+   383→            ))}
+   384→          </ul>
+   385→        </details>
+   386→      )}
+   387→    </div>
+   388→  );
+   389→}
+   390→
+   391→function QueueRow({
+   392→  item,
+   393→  rank,
+   394→  index,
+   395→  claiming,
+   396→  onClaim,
+   397→  onOpen,
+   398→  compact = false,
+   399→}: {
+   400→  item: QueueItem;
+   401→  rank: number;
+   402→  index: number;
+   403→  claiming: boolean;
+   404→  onClaim: () => void;
+   405→  onOpen: () => void;
+   406→  compact?: boolean;
+   407→}) {
+   408→  const locale = useAppStore((s) => s.locale);
+   409→  const reducedMotion = useAppStore((s) => s.reducedMotion);
+   410→  const leadDays = Math.max(0, Math.round(item.leadTimeHours / 24));
+   411→
+   412→  // Hover-expand state.
+   413→  // Desktop (pointer: fine) → hover reveals preview.
+   414→  // Mobile  (pointer: coarse) → tap chevron toggles preview.
+   415→  const [isHover, setIsHover] = useState(false);
+   416→  const [isTapped, setIsTapped] = useState(false);
+   417→
+   418→  // Band → accent colour (left bar + glow).
+   419→  const bandAccent: Record<BandT, string> = {
+   420→    steady: "var(--status-steady)",
+   421→    watch: "var(--status-watch)",
+   422→    friction: "var(--status-friction)",
+   423→    blocked: "var(--status-blocked)",
+   424→  };
+   425→  const accent = bandAccent[item.band];
+   426→
+   427→  // Spring drop-in stagger (40ms per item, capped at 0.3s = ~8 items).
+   428→  const springDelay = reducedMotion ? 0 : Math.min(index * 0.04, 0.3);
+   429→
+   430→  const isPreviewOpen = isHover || isTapped;
+   431→
+   432→  return (
+   433→    <motion.li
+   434→      initial={reducedMotion ? false : { opacity: 0, y: 12 }}
+   435→      animate={{ opacity: 1, y: 0 }}
+   436→      transition={
+   437→        reducedMotion
+   438→          ? { duration: 0 }
+   439→          : { type: "spring", stiffness: 220, damping: 26, delay: springDelay }
+   440→      }
+   441→    >
+   442→      <Tilt3D maxDeg={2}>
+   443→        <div
+   444→          className={cn(
+   445→            "relative ast-card",
+   446→            compact ? "p-3" : "p-4 sm:p-5",
+   447→          )}
+   448→          style={{
+   449→            // Depth shadow on hover / preview-open (180ms).
+   450→            boxShadow: isPreviewOpen ? "var(--e3)" : "var(--e2)",
+   451→            borderColor: isPreviewOpen ? "rgba(22,154,165,0.35)" : undefined,
+   452→            transition:
+   453→              "box-shadow 180ms var(--ease-standard), border-color 180ms var(--ease-standard)",
+   454→          }}
+   455→          onMouseEnter={() => setIsHover(true)}
+   456→          onMouseLeave={() => {
+   457→            setIsHover(false);
+   458→          }}
+   459→        >
+   460→          {/* Band-coloured left accent bar — at-a-glance scanning */}
+   461→          <div
+   462→            aria-hidden="true"
+   463→            className="absolute left-0 top-0 bottom-0 rounded-l-[14px] pointer-events-none"
+   464→            style={{
+   465→              width: 3,
+   466→              background: accent,
+   467→              boxShadow: `0 0 10px ${accent}55`,
+   468→            }}
+   469→          />
+   470→
+   471→          <div className="flex items-start gap-3 sm:gap-4 flex-wrap pl-1">
+   472→            {/* Rank + band + score */}
+   473→            <div className="flex items-center gap-3 shrink-0">
+   474→              <span
+   475→                className="text-[12px] tabular font-mono"
+   476→                style={{ color: "var(--text-lo)" }}
+   477→              >
+   478→                #{rank}
+   479→              </span>
+   480→              <BandChip
+   481→                band={item.band}
+   482→                score={item.score}
+   483→                locale={locale}
+   484→                size="lg"
+   485→              />
+   486→            </div>
+   487→
+   488→            {/* Name + stage */}
+   489→            <div className="flex-1 min-w-0">
+   490→              <p
+   491→                className="text-[15px] font-medium truncate"
+   492→                style={{ color: "var(--text-hi)" }}
+   493→              >
+   494→                {item.employeeName}
+   495→              </p>
+   496→              <p
+   497→                className="text-[12px] mt-0.5"
+   498→                style={{ color: "var(--text-mid)" }}
+   499→              >
+   500→                {stageLabel(item.stage, locale)}
+   501→                <span className="mx-1.5">·</span>
+   502→                <span className="tabular">
+   503→                  {locale === "ar"
+   504→                    ? `أول إشارة قبل ${leadDays} يوم`
+   505→                    : `first signal ${leadDays} day${leadDays === 1 ? "" : "s"} ago`}
+   506→                </span>
+   507→                <span className="mx-1.5">·</span>
+   508→                <span className="tabular" style={{ color: "var(--text-lo)" }}>
+   509→                  {locale === "ar" ? "النتيجة " : "score "}
+   510→                  <NumberTicker value={item.score} />
+   511→                </span>
+   512→              </p>
+   513→
+   514→              {/* Top signals */}
+   515→              {item.topSignals.length > 0 && (
+   516→                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+   517→                  {item.topSignals.map((s, i) => (
+   518→                    <SignalBadge
+   519→                      key={`${s.code}-${i}`}
+   520→                      code={s.code}
+   521→                      weight={s.weight}
+   522→                      hardTrip={s.code.startsWith("DP") || s.code.startsWith("MB")}
+   523→                    />
+   524→                  ))}
+   525→                </div>
+   526→              )}
+   527→            </div>
+   528→
+   529→            {/* Suggested owner + actions */}
+   530→            <div className="flex items-center gap-2 shrink-0 ml-auto">
+   531→              {item.suggestedOwner && (
+   532→                <div className="hidden md:flex flex-col items-end text-right">
+   533→                  <span
+   534→                    className="text-[11px] uppercase tracking-[0.1em]"
+   535→                    style={{ color: "var(--text-lo)" }}
+   536→                  >
+   537→                    {locale === "ar" ? "المقترح" : "Suggested"}
+   538→                  </span>
+   539→                  <span
+   540→                    className="text-[12px] font-medium"
+   541→                    style={{ color: "var(--text-hi)" }}
+   542→                  >
+   543→                    {item.suggestedOwner.name}
+   544→                  </span>
+   545→                </div>
+   546→              )}
+   547→              {/* Mobile-only tap-to-expand chevron (coarse pointer) */}
+   548→              <button
+   549→                onClick={() => setIsTapped((v) => !v)}
+   550→                aria-expanded={isTapped}
+   551→                aria-label={
+   552→                  isTapped
+   553→                    ? locale === "ar"
+   554→                      ? "إخفاء المعاينة"
+   555→                      : "Hide preview"
+   556→                    : locale === "ar"
+   557→                    ? "إظهار المعاينة"
+   558→                    : "Show preview"
+   559→                }
+   560→                className="ast-focus md:hidden inline-flex items-center justify-center w-9 h-9 rounded-full"
+   561→                style={{
+   562→                  background: "var(--surface-2)",
+   563→                  border: "1px solid var(--border)",
+   564→                  color: "var(--text-mid)",
+   565→                }}
+   566→              >
+   567→                <ChevronRight
+   568→                  className="w-4 h-4 transition-transform"
+   569→                  strokeWidth={1.75}
+   570→                  style={{
+   571→                    transform: isTapped ? "rotate(90deg)" : "rotate(0deg)",
+   572→                  }}
+   573→                />
+   574→              </button>
+   575→              <button
+   576→                onClick={onClaim}
+   577→                disabled={claiming}
+   578→                className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium transition-colors disabled:opacity-50"
+   579→                style={{
+   580→                  background: "var(--surface-2)",
+   581→                  border: "1px solid var(--border)",
+   582→                  color: "var(--text-hi)",
+   583→                }}
+   584→              >
+   585→                <Hand className="w-3.5 h-3.5" strokeWidth={1.75} />
+   586→                {claiming
+   587→                  ? (locale === "ar" ? "..." : "Claiming…")
+   588→                  : (locale === "ar" ? "تولّى" : "Claim")}
+   589→              </button>
+   590→              <button
+   591→                onClick={onOpen}
+   592→                className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium transition-colors"
+   593→                style={{
+   594→                  background: "var(--brand-500)",
+   595→                  color: "var(--surface-0)",
+   596→                  border: "1px solid var(--brand-500)",
+   597→                }}
+   598→              >
+   599→                {locale === "ar" ? "افتح الطرد" : "Open packet"}
+   600→                <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.75} />
+   601→              </button>
+   602→            </div>
+   603→          </div>
+   604→
+   605→          {/* Hover-expand preview panel (desktop hover / mobile tap). */}
+   606→          <AnimatePresence initial={false}>
+   607→            {isPreviewOpen && (
+   608→              <motion.div
+   609→                key="preview"
+   610→                initial={reducedMotion ? false : { height: 0, opacity: 0 }}
+   611→                animate={{ height: "auto", opacity: 1 }}
+   612→                exit={reducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
+   613→                transition={
+   614→                  reducedMotion
+   615→                    ? { duration: 0 }
+   616→                    : {
+   617→                        type: "spring",
+   618→                        stiffness: 240,
+   619→                        damping: 28,
+   620→                        duration: 0.24,
+   621→                      }
+   622→                }
+   623→                className="overflow-hidden"
+   624→              >
+   625→                <div className="ast-card-glass p-4 mt-3 ml-1 space-y-3">
+   626→                  {/* Top 3 signals with weight bars */}
+   627→                  <div>
+   628→                    <h5
+   629→                      className="text-[10px] uppercase tracking-[0.14em] font-medium mb-2"
+   630→                      style={{ color: "var(--text-lo)" }}
+   631→                    >
+   632→                      {locale === "ar" ? "أبرز الإشارات" : "Top signals"}
+   633→                    </h5>
+   634→                    <ul className="space-y-2.5">
+   635→                      {item.topSignals.length === 0 && (
+   636→                        <li
+   637→                          className="text-[12px]"
+   638→                          style={{ color: "var(--text-mid)" }}
+   639→                        >
+   640→                          {locale === "ar" ? "لا إشارات." : "No signals."}
+   641→                        </li>
+   642→                      )}
+   643→                      {item.topSignals.map((s, i) => (
+   644→                        <li key={`${s.code}-${i}`}>
+   645→                          <SignalWeightBar
+   646→                            code={s.code}
+   647→                            weight={s.weight}
+   648→                            family={s.code.split("-")[0]}
+   649→                            hardTrip={
+   650→                              s.code.startsWith("DP") || s.code.startsWith("MB")
+   651→                            }
+   652→                            variant="detailed"
+   653→                            description={s.description}
+   654→                            locale={locale}
+   655→                          />
+   656→                        </li>
+   657→                      ))}
+   658→                    </ul>
+   659→                  </div>
+   660→
+   661→                  {/* Timeline sparkline */}
+   662→                  <div>
+   663→                    <h5
+   664→                      className="text-[10px] uppercase tracking-[0.14em] font-medium mb-2"
+   665→                      style={{ color: "var(--text-lo)" }}
+   666→                    >
+   667→                      {locale === "ar" ? "آخر 10 أحداث" : "Recent activity"}
+   668→                    </h5>
+   669→                    <TimelineSparkline
+   670→                      events={item.recentEvents ?? []}
+   671→                      locale={locale}
+   672→                    />
+   673→                  </div>
+   674→
+   675→                  {/* Open full packet */}
+   676→                  <div className="pt-1">
+   677→                    <button
+   678→                      onClick={onOpen}
+   679→                      className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium transition-colors"
+   680→                      style={{
+   681→                        background: "rgba(22,154,165,0.10)",
+   682→                        color: "var(--brand-400)",
+   683→                        border: "1px solid rgba(22,154,165,0.30)",
+   684→                      }}
+   685→                    >
+   686→                      {locale === "ar" ? "افتح الطرد الكامل" : "Open full packet"}
+   687→                      <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.75} />
+   688→                    </button>
+   689→                  </div>
+   690→                </div>
+   691→              </motion.div>
+   692→            )}
+   693→          </AnimatePresence>
+   694→        </div>
+   695→      </Tilt3D>
+   696→    </motion.li>
+   697→  );
+   698→}
+   699→
+   700→/* ============================================================
+   701→   Employee (escalation packet) view
+   702→   ============================================================ */
+   703→function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () => void }) {
+   704→  const locale = useAppStore((s) => s.locale);
+   705→  const reducedMotion = useAppStore((s) => s.reducedMotion);
+   706→  const [assessment, setAssessment] = useState<Assessment | null>(null);
+   707→  const [trace, setTrace] = useState<EngineTrace | null>(null);
+   708→  const [packet, setPacket] = useState<EscalationPacket | null>(null);
+   709→  const [loading, setLoading] = useState(true);
+   710→  const [err, setErr] = useState<string | null>(null);
+   711→  const [decision, setDecision] = useState("");
+   712→  const [sharePulse, setSharePulse] = useState(false);
+   713→  const [namedOwnerId, setNamedOwnerId] = useState<string>("HRBP-1");
+   714→  const [editMode, setEditMode] = useState(false);
+   715→  const [building, setBuilding] = useState(false);
+   716→  const [sending, setSending] = useState(false);
+   717→  const [sent, setSent] = useState(false);
+   718→  const [confirmOpen, setConfirmOpen] = useState(false);
+   719→
+   720→  const fetchAssessment = useCallback(async () => {
+   721→    setLoading(true);
+   722→    setErr(null);
+   723→    try {
+   724→      const res = await fetch(`/api/v1/journey/${encodeURIComponent(employeeId)}/assessment`, { cache: "no-store" });
+   725→      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+   726→      const json: ApiEnvelope<{ assessment: Assessment; trace: EngineTrace }> = await res.json();
+   727→      if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
+   728→      setAssessment(json.data.assessment);
+   729→      setTrace(json.data.trace);
+   730→      // Default decision text
+   731→      const a = json.data.assessment;
+   732→      const top = a.signals.sort((x, y) => y.weight - x.weight)[0];
+   733→      setDecision(
+   734→        locale === "ar"
+   735→          ? `يرجى مراجعة ${top?.code ?? "الوضع"} لموظف في ${stageLabel(a.stage, "ar")} — التصنيف ${a.band}.`
+   736→          : `Please review ${top?.code ?? "the situation"} for an employee in ${stageLabel(a.stage, "en")} — band ${a.band}.`
+   737→      );
+   738→    } catch (e) {
+   739→      setErr(e instanceof Error ? e.message : "Network error");
+   740→    } finally {
+   741→      setLoading(false);
+   742→    }
+   743→  }, [employeeId, locale]);
+   744→
+   745→  useEffect(() => { fetchAssessment(); }, [fetchAssessment]);
+   746→
+   747→  // Pulse-suppressed banner
+   748→  const pulseSuppressed = useMemo(() => {
+   749→    if (!trace) return false;
+   750→    return trace.signalsSuppressed.some((s) => s.family === "PS");
+   751→  }, [trace]);
+   752→
+   753→  const buildPacket = useCallback(async () => {
+   754→    setBuilding(true);
+   755→    setErr(null);
+   756→    try {
+   757→      const res = await fetch("/api/v1/escalations", {
+   758→        method: "POST",
+   759→        headers: { "Content-Type": "application/json" },
+   760→        body: JSON.stringify({
+   761→          employeeId,
+   762→          decisionRequested: decision,
+   763→          sharePulseSummary: sharePulse,
+   764→          namedOwnerId,
+   765→        }),
+   766→      });
+   767→      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+   768→      const json: ApiEnvelope<EscalationPacket> = await res.json();
+   769→      if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
+   770→      setPacket(json.data);
+   771→      setEditMode(false);
+   772→      toast.success("Packet built", { description: json.data.id });
+   773→    } catch (e) {
+   774→      setErr(e instanceof Error ? e.message : "Network error");
+   775→      toast.error("Could not build packet");
+   776→    } finally {
+   777→      setBuilding(false);
+   778→    }
+   779→  }, [decision, employeeId, namedOwnerId, sharePulse]);
+   780→
+   781→  const handleSend = useCallback(async () => {
+   782→    setSending(true);
+   783→    await new Promise((r) => setTimeout(r, 420));
+   784→    setSending(false);
+   785→    setSent(true);
+   786→    setConfirmOpen(false);
+   787→    toast.success("Packet sent", {
+   788→      description: `Employee notified: "I've asked Fatima in HR to step in. She'll reply today."`,
+   789→    });
+   790→  }, []);
+   791→
+   792→  if (loading) {
+   793→    return (
+   794→      <div className="space-y-4" aria-hidden="true">
+   795→        <div className="h-10 ast-shimmer rounded-full" />
+   796→        <div className="ast-card p-6 h-40 ast-shimmer rounded-[14px]" />
+   797→        <div className="ast-card p-6 h-72 ast-shimmer rounded-[14px]" />
+   798→      </div>
+   799→    );
+   800→  }
+   801→  if (err) return <ErrorBanner message={err} onRetry={fetchAssessment} />;
+   802→
+   803→  return (
+   804→    <div>
+   805→      {/* Back + heading */}
+   806→      <div className="flex items-center gap-3 mb-4">
+   807→        <button
+   808→          onClick={onBack}
+   809→          className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium"
+   810→          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}
+   811→        >
+   812→          <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.75} />
+   813→          {locale === "ar" ? "القائمة" : "Queue"}
+   814→        </button>
+   815→        <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
+   816→          {locale === "ar" ? "طرد التصعيد" : "Escalation packet"}
+   817→        </h2>
+   818→        {assessment && (
+   819→          <BandChip band={assessment.band} score={assessment.score} locale={locale} size="md" />
+   820→        )}
+   821→      </div>
+   822→
+   823→      {/* Consent-limited notice */}
+   824→      {pulseSuppressed && (
+   825→        <div
+   826→          className="ast-card-2 p-3 mb-4 flex items-start gap-3"
+   827→          style={{ borderColor: "rgba(217,119,6,0.32)", background: "rgba(217,119,6,0.06)" }}
+   828→        >
+   829→          <Lock className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--status-watch)" }} />
+   830→          <p className="text-[13px]" style={{ color: "var(--text-mid)" }}>
+   831→            {locale === "ar"
+   832→              ? "نبضة مكتومة — يستخدم هذا العرض بيانات الرحلة والطلبات فقط."
+   833→              : "Pulse signals are suppressed — this view uses journey and request data only."}
+   834→          </p>
+   835→        </div>
+   836→      )}
+   837→
+   838→      {/* Sent success state */}
+   839→      {sent && packet ? (
+   840→        <motion.div
+   841→          initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+   842→          animate={{ opacity: 1, y: 0 }}
+   843→          transition={{ duration: 0.32 }}
+   844→          className="ast-card p-6 mb-4"
+   845→          style={{ borderColor: "rgba(14,159,110,0.32)" }}
+   846→        >
+   847→          <div className="flex items-start gap-4">
+   848→            <div
+   849→              className="flex items-center justify-center w-12 h-12 rounded-full shrink-0"
+   850→              style={{ background: "rgba(14,159,110,0.12)", color: "var(--status-steady)" }}
+   851→            >
+   852→              <CheckCircle2 className="w-6 h-6" strokeWidth={1.75} />
+   853→            </div>
+   854→            <div className="flex-1">
+   855→              <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+   856→                {locale === "ar" ? "تم إرسال الطرد" : "Packet sent"}
+   857→              </p>
+   858→              <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+   859→                {locale === "ar"
+   860→                  ? "تم إشعار الموظف: «طلبتُ من فاطمة في الموارد البشرية التدخّل. ستردّ اليوم.»"
+   861→                  : "Employee notified: \"I've asked Fatima in HR to step in. She'll reply today.\""}
+   862→              </p>
+   863→              <p className="text-[12px] mt-2 font-mono tabular" style={{ color: "var(--text-lo)" }}>
+   864→                {packet.id} · {packet.namedOwner.name}
+   865→              </p>
+   866→            </div>
+   867→          </div>
+   868→        </motion.div>
+   869→      ) : null}
+   870→
+   871→      {/* Decision editor */}
+   872→      <section className="ast-card p-5 sm:p-6 mb-4">
+   873→        <div className="flex items-center gap-2 mb-3">
+   874→          <Edit3 className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+   875→          <h3 className="text-[14px] font-semibold" style={{ color: "var(--text-hi)" }}>
+   876→            {locale === "ar" ? "ما القرار المطلوب" : "Decision requested"}
+   877→          </h3>
+   878→        </div>
+   879→        <Textarea
+   880→          value={decision}
+   881→          onChange={(e) => setDecision(e.target.value)}
+   882→          disabled={!editMode && !!packet}
+   883→          rows={3}
+   884→          className="ast-focus w-full text-[13px] resize-y"
+   885→          style={{
+   886→            background: "var(--surface-2)",
+   887→            border: "1px solid var(--border)",
+   888→            color: "var(--text-hi)",
+   889→          }}
+   890→        />
+   891→
+   892→        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+   893→          {/* Named owner selector */}
+   894→          <div>
+   895→            <label className="text-[11px] uppercase tracking-[0.12em] font-medium" style={{ color: "var(--text-lo)" }}>
+   896→              {locale === "ar" ? "المسؤول المُسمّى" : "Named owner"}
+   897→            </label>
+   898→            <Select value={namedOwnerId} onValueChange={setNamedOwnerId} disabled={!!packet && !editMode}>
+   899→              <SelectTrigger className="ast-focus h-11 mt-1.5" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}>
+   900→                <SelectValue />
+   901→              </SelectTrigger>
+   902→              <SelectContent style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}>
+   903→                {ALL_HRBPS.map((h) => (
+   904→                  <SelectItem key={h.id} value={h.id}>
+   905→                    {h.name} · {h.role}
+   906→                  </SelectItem>
+   907→                ))}
+   908→              </SelectContent>
+   909→            </Select>
+   910→          </div>
+   911→
+   912→          {/* Share pulse toggle */}
+   913→          <div>
+   914→            <label className="text-[11px] uppercase tracking-[0.12em] font-medium" style={{ color: "var(--text-lo)" }}>
+   915→              {locale === "ar" ? "مشاركة ملخص النبضة" : "Share pulse summary"}
+   916→            </label>
+   917→            <button
+   918→              onClick={() => !packet || editMode ? setSharePulse((v) => !v) : null}
+   919→              disabled={(!!packet && !editMode) || pulseSuppressed}
+   920→              className="ast-focus w-full h-11 mt-1.5 px-3 rounded-full text-[13px] font-medium flex items-center justify-between disabled:opacity-60"
+   921→              style={{
+   922→                background: sharePulse ? "rgba(22,154,165,0.10)" : "var(--surface-2)",
+   923→                border: `1px solid ${sharePulse ? "rgba(22,154,165,0.32)" : "var(--border)"}`,
+   924→                color: sharePulse ? "var(--brand-400)" : "var(--text-mid)",
+   925→              }}
+   926→            >
+   927→              <span className="flex items-center gap-2">
+   928→                <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
+   929→                {sharePulse
+   930→                  ? (locale === "ar" ? "يُشارك الملخص (1–5)" : "Share summary (1–5)")
+   931→                  : (locale === "ar" ? "لا تُشارك الملخص" : "Don't share summary")}
+   932→              </span>
+   933→              {pulseSuppressed && (
+   934→                <Lock className="w-3 h-3" strokeWidth={1.75} style={{ color: "var(--text-lo)" }} />
+   935→              )}
+   936→            </button>
+   937→          </div>
+   938→        </div>
+   939→
+   940→        <div className="flex items-center gap-2 mt-4 flex-wrap">
+   941→          {!packet || editMode ? (
+   942→            <button
+   943→              onClick={buildPacket}
+   944→              disabled={building || !decision.trim()}
+   945→              className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium transition-colors disabled:opacity-50"
+   946→              style={{
+   947→                background: "var(--brand-500)",
+   948→                color: "var(--surface-0)",
+   949→                border: "1px solid var(--brand-500)",
+   950→              }}
+   951→            >
+   952→              <UserCog className="w-4 h-4" strokeWidth={1.75} />
+   953→              {building
+   954→                ? (locale === "ar" ? "جارٍ البناء..." : "Building…")
+   955→                : packet
+   956→                ? (locale === "ar" ? "أعد بناء الطرد" : "Rebuild packet")
+   957→                : (locale === "ar" ? "ابنِ الطرد" : "Build packet")}
+   958→            </button>
+   959→          ) : (
+   960→            <>
+   961→              <button
+   962→                onClick={() => setEditMode(true)}
+   963→                className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium"
+   964→                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+   965→              >
+   966→                <Edit3 className="w-4 h-4" strokeWidth={1.75} />
+   967→                {locale === "ar" ? "تحرير الملخص" : "Edit summary"}
+   968→              </button>
+   969→              <button
+   970→                onClick={() => setEditMode(true)}
+   971→                className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium"
+   972→                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+   973→              >
+   974→                <UserCog className="w-4 h-4" strokeWidth={1.75} />
+   975→                {locale === "ar" ? "تعيين لمالك الخدمة" : "Assign to service owner"}
+   976→              </button>
+   977→              <button
+   978→                onClick={() => setConfirmOpen(true)}
+   979→                className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium transition-colors"
+   980→                style={{
+   981→                  background: "var(--accent-500)",
+   982→                  color: "var(--surface-0)",
+   983→                  border: "1px solid var(--accent-500)",
+   984→                }}
+   985→              >
+   986→                <Send className="w-4 h-4" strokeWidth={1.75} />
+   987→                {locale === "ar" ? "أرسل الطرد" : "Send packet"}
+   988→              </button>
+   989→            </>
+   990→          )}
+   991→        </div>
+   992→      </section>
+   993→
+   994→      {/* Packet preview */}
+   995→      <AnimatePresence>
+   996→        {packet && (
+   997→          <motion.section
+   998→            initial={reducedMotion ? false : { opacity: 0, y: 12 }}
+   999→            animate={{ opacity: 1, y: 0 }}
+  1000→            exit={{ opacity: 0 }}
+  1001→            transition={{ duration: 0.28 }}
+  1002→            className="ast-card p-5 sm:p-6 space-y-5"
+  1003→          >
+  1004→            {/* Header */}
+  1005→            <div className="flex items-baseline justify-between gap-4 flex-wrap">
+  1006→              <div>
+  1007→                <p className="text-[11px] uppercase tracking-[0.16em] font-mono" style={{ color: "var(--text-lo)" }}>
+  1008→                  {packet.id}
+  1009→                </p>
+  1010→                <h3 className="text-[18px] font-semibold mt-1" style={{ color: "var(--text-hi)" }}>
+  1011→                  {packet.employeeName}
+  1012→                </h3>
+  1013→                <p className="text-[12px] mt-0.5" style={{ color: "var(--text-mid)" }}>
+  1014→                  {stageLabel(packet.stage, locale)}
+  1015→                  <span className="mx-1.5">·</span>
+  1016→                  <span className="tabular">
+  1017→                    {locale === "ar" ? `يوم ${packet.dayInStage}` : `Day ${packet.dayInStage}`}
+  1018→                  </span>
+  1019→                  <span className="mx-1.5">·</span>
+  1020→                  <span>{packet.journeyType === "onboarding" ? (locale === "ar" ? "التحاق" : "Onboarding") : (locale === "ar" ? "تنقل" : "Mobility")}</span>
+  1021→                </p>
+  1022→              </div>
+  1023→              <BandChip band={packet.band as BandT} score={packet.score} locale={locale} size="lg" />
+  1024→            </div>
+  1025→
+  1026→            {/* Situation */}
+  1027→            <div>
+  1028→              <h4 className="text-[11px] uppercase tracking-[0.12em] font-medium mb-2" style={{ color: "var(--text-lo)" }}>
+  1029→                {locale === "ar" ? "الوضع" : "Situation"}
+  1030→              </h4>
+  1031→              <p className="text-[14px] leading-relaxed" style={{ color: "var(--text-hi)" }}>
+  1032→                {locale === "ar"
+  1033→                  ? `${packet.employeeName} في ${stageLabel(packet.stage, "ar")}، يوم ${packet.dayInStage}. التصنيف ${packet.band} (${packet.score}). أبرز إشارة: ${packet.topSignals[0]?.code ?? "—"}.`
+  1034→                  : `${packet.employeeName} is in ${stageLabel(packet.stage, "en")}, day ${packet.dayInStage}. Band ${packet.band} (score ${packet.score}). Top signal: ${packet.topSignals[0]?.code ?? "—"}.`}
+  1035→              </p>
+  1036→            </div>
+  1037→
+  1038→            {/* Evidence */}
+  1039→            <div>
+  1040→              <h4 className="text-[11px] uppercase tracking-[0.12em] font-medium mb-2" style={{ color: "var(--text-lo)" }}>
+  1041→                {locale === "ar" ? "الأدلة" : "Evidence"}
+  1042→              </h4>
+  1043→              <ul className="space-y-2">
+  1044→                {packet.topSignals.map((s, i) => (
+  1045→                  <li key={`${s.code}-${i}`} className="ast-card-2 p-3 flex items-start gap-3">
+  1046→                    <SignalBadge code={s.code} weight={s.weight} hardTrip={s.code.startsWith("DP") || s.code.startsWith("MB")} />
+  1047→                    <div className="flex-1 min-w-0">
+  1048→                      <p className="text-[12px]" style={{ color: "var(--text-hi)" }}>{s.description}</p>
+  1049→                      {s.evidenceRefs.length > 0 && (
+  1050→                        <p className="text-[11px] font-mono mt-1 tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+  1051→                          {s.evidenceRefs.join(" · ")}
+  1052→                        </p>
+  1053→                      )}
+  1054→                      <div className="mt-2">
+  1055→                        <SignalWeightBar
+  1056→                          code={s.code}
+  1057→                          weight={s.weight}
+  1058→                          family={s.code.split("-")[0]}
+  1059→                          hardTrip={s.code.startsWith("DP") || s.code.startsWith("MB")}
+  1060→                          variant="compact"
+  1061→                          locale={locale}
+  1062→                        />
+  1063→                      </div>
+  1064→                    </div>
+  1065→                  </li>
+  1066→                ))}
+  1067→              </ul>
+  1068→            </div>
+  1069→
+  1070→            {/* Timeline */}
+  1071→            <div>
+  1072→              <h4 className="text-[11px] uppercase tracking-[0.12em] font-medium mb-2" style={{ color: "var(--text-lo)" }}>
+  1073→                {locale === "ar" ? "آخر 10 أحداث" : "Timeline (last 10 events)"}
+  1074→              </h4>
+  1075→              <ol className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+  1076→                {packet.timeline.map((e, i) => (
+  1077→                  <li key={i} className="text-[12px] flex items-center gap-2 tabular" style={{ color: "var(--text-mid)" }}>
+  1078→                    <span className="font-mono text-[11px]" style={{ color: "var(--text-lo)" }} dir="ltr">
+  1079→                      {format(new Date(e.occurredAt), "d MMM HH:mm")}
+  1080→                    </span>
+  1081→                    <span style={{ color: "var(--text-mid)" }}>·</span>
+  1082→                    <span className="font-mono text-[11px]" style={{ color: "var(--brand-400)" }} dir="ltr">{e.stepKey}</span>
+  1083→                    <span style={{ color: "var(--text-mid)" }}>·</span>
+  1084→                    <span>{e.type.replace(/_/g, " ")}</span>
+  1085→                  </li>
+  1086→                ))}
+  1087→              </ol>
+  1088→            </div>
+  1089→
+  1090→            {/* Blocked downstream */}
+  1091→            {packet.blockedDownstream.length > 0 && (
+  1092→              <div>
+  1093→                <h4 className="text-[11px] uppercase tracking-[0.12em] font-medium mb-2" style={{ color: "var(--text-lo)" }}>
+  1094→                  {locale === "ar" ? "محظور في اتجاه التيار" : "Blocked downstream"}
+  1095→                </h4>
+  1096→                <div className="flex flex-wrap gap-1.5">
+  1097→                  {packet.blockedDownstream.map((k) => (
+  1098→                    <span key={k} className="ast-chip font-mono text-[11px]" style={{ color: "var(--status-friction)" }}>
+  1099→                      {k}
+  1100→                    </span>
+  1101→                  ))}
+  1102→                </div>
+  1103→              </div>
+  1104→            )}
+  1105→
+  1106→            {/* Open requests */}
+  1107→            {packet.openRequests.length > 0 && (
+  1108→              <div>
+  1109→                <h4 className="text-[11px] uppercase tracking-[0.12em] font-medium mb-2" style={{ color: "var(--text-lo)" }}>
+  1110→                  {locale === "ar" ? "الطلبات المفتوحة" : "Open requests"}
+  1111→                </h4>
+  1112→                <ul className="space-y-1.5">
+  1113→                  {packet.openRequests.map((r) => {
+  1114→                    const ageDays = Math.max(0, Math.round(r.ageHours / 24));
+  1115→                    return (
+  1116→                      <li key={r.ref} className="ast-card-2 p-3 flex items-center gap-3 flex-wrap">
+  1117→                        <span className="font-mono text-[11px] tabular" style={{ color: "var(--brand-400)" }} dir="ltr">{r.ref}</span>
+  1118→                        <span className="text-[12px]" style={{ color: "var(--text-mid)" }}>{r.type.replace(/_/g, " ")}</span>
+  1119→                        <span className="text-[11px] tabular" style={{ color: "var(--text-lo)" }}>
+  1120→                          {locale === "ar" ? `العمر ${ageDays} يوم` : `age ${ageDays}d`}
+  1121→                        </span>
+  1122→                        {r.reassignCount > 0 && (
+  1123→                          <span className="ast-chip text-[10px]" style={{ color: "var(--status-watch)" }}>
+  1124→                            {locale === "ar" ? `أُعيد تعيينها ${r.reassignCount}×` : `reassigned ${r.reassignCount}×`}
+  1125→                          </span>
+  1126→                        )}
+  1127→                      </li>
+  1128→                    );
+  1129→                  })}
+  1130→                </ul>
+  1131→              </div>
+  1132→            )}
+  1133→
+  1134→            {/* Named owner + backup */}
+  1135→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+  1136→              <div className="ast-card-2 p-3">
+  1137→                <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+  1138→                  {locale === "ar" ? "المسؤول المُسمّى" : "Named owner"}
+  1139→                </p>
+  1140→                <p className="text-[14px] font-medium mt-1" style={{ color: "var(--text-hi)" }}>{packet.namedOwner.name}</p>
+  1141→                <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>{packet.namedOwner.role}</p>
+  1142→                <p className="text-[11px] font-mono mt-1 tabular" style={{ color: "var(--brand-400)" }} dir="ltr">{packet.namedOwner.email}</p>
+  1143→              </div>
+  1144→              {packet.backupOwner && (
+  1145→                <div className="ast-card-2 p-3">
+  1146→                  <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+  1147→                    {locale === "ar" ? "البديل" : "Backup"}
+  1148→                  </p>
+  1149→                  <p className="text-[14px] font-medium mt-1" style={{ color: "var(--text-hi)" }}>{packet.backupOwner.name}</p>
+  1150→                  <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>{packet.backupOwner.role}</p>
+  1151→                  <p className="text-[11px] font-mono mt-1 tabular" style={{ color: "var(--brand-400)" }} dir="ltr">{packet.backupOwner.email}</p>
+  1152→                </div>
+  1153→              )}
+  1154→            </div>
+  1155→
+  1156→            {/* Consent statement */}
+  1157→            <div
+  1158→              className="p-4 rounded-[10px]"
+  1159→              style={{ background: "rgba(22,154,165,0.06)", border: "1px solid rgba(22,154,165,0.22)" }}
+  1160→            >
+  1161→              <div className="flex items-center gap-2 mb-2">
+  1162→                <ShieldCheck className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+  1163→                <p className="text-[12px] font-semibold uppercase tracking-[0.12em]" style={{ color: "var(--brand-400)" }}>
+  1164→                  {locale === "ar" ? "بيان الموافقة" : "Consent statement"}
+  1165→                </p>
+  1166→              </div>
+  1167→              <p className="text-[12px] leading-relaxed" style={{ color: "var(--text-mid)" }}>
+  1168→                <span className="font-medium" style={{ color: "var(--text-hi)" }}>
+  1169→                  {locale === "ar" ? "مُشارك مع شريك الموارد البشرية: " : "Shared with HRBP: "}
+  1170→                </span>
+  1171→                {packet.consentStatement.sharedWithHrbp.join(", ").replace(/_/g, " ")}
+  1172→                <br />
+  1173→                <span className="font-medium" style={{ color: "var(--text-hi)" }}>
+  1174→                  {locale === "ar" ? "مكتوم: " : "Withheld: "}
+  1175→                </span>
+  1176→                {packet.consentStatement.withheld.join(", ").replace(/_/g, " ") || (locale === "ar" ? "—" : "none")}
+  1177→                <br />
+  1178→                <span className="font-medium" style={{ color: "var(--text-hi)" }}>
+  1179→                  {locale === "ar" ? "النص الحر مستثنى افتراضياً." : "Free-text excluded by default."}
+  1180→                </span>
+  1181→              </p>
+  1182→            </div>
+  1183→          </motion.section>
+  1184→        )}
+  1185→      </AnimatePresence>
+  1186→
+  1187→      {/* Send-packet confirmation */}
+  1188→      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+  1189→        <DialogContent
+  1190→          style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+  1191→        >
+  1192→          <DialogHeader>
+  1193→            <DialogTitle style={{ color: "var(--text-hi)" }}>
+  1194→              {locale === "ar" ? "إرسال الطرد؟" : "Send packet?"}
+  1195→            </DialogTitle>
+  1196→            <DialogDescription style={{ color: "var(--text-mid)" }}>
+  1197→              {locale === "ar"
+  1198→                ? "سيُشعَر الموظف باسم المسؤول المُسمّى. سيُقال لهم: «طلبتُ من فاطمة في الموارد البشرية التدخّل. ستردّ اليوم.»"
+  1199→                : "The employee will be notified with the named owner. They'll hear: \"I've asked Fatima in HR to step in. She'll reply today.\""}
+  1200→            </DialogDescription>
+  1201→          </DialogHeader>
+  1202→          <DialogFooter>
+  1203→            <DialogClose asChild>
+  1204→              <button
+  1205→                className="ast-focus inline-flex items-center h-11 px-4 rounded-full text-[13px] font-medium"
+  1206→                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+  1207→              >
+  1208→                {locale === "ar" ? "تراجع" : "Cancel"}
+  1209→              </button>
+  1210→            </DialogClose>
+  1211→            <button
+  1212→              onClick={handleSend}
+  1213→              disabled={sending}
+  1214→              className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium"
+  1215→              style={{ background: "var(--accent-500)", color: "var(--surface-0)", border: "1px solid var(--accent-500)" }}
+  1216→            >
+  1217→              <Send className="w-4 h-4" strokeWidth={1.75} />
+  1218→              {sending ? (locale === "ar" ? "جارٍ الإرسال..." : "Sending…") : (locale === "ar" ? "أرسل" : "Send")}
+  1219→            </button>
+  1220→          </DialogFooter>
+  1221→        </DialogContent>
+  1222→      </Dialog>
+  1223→    </div>
+  1224→  );
+  1225→}
+  1226→
+  1227→/* ============================================================
+  1228→   Stalls view (heatmap)
+  1229→   ============================================================ */
+  1230→function StallsView() {
+  1231→  const locale = useAppStore((s) => s.locale);
+  1232→  const [cells, setCells] = useState<StallsCell[] | null>(null);
+  1233→  const [err, setErr] = useState<string | null>(null);
+  1234→  const [loading, setLoading] = useState(true);
+  1235→
+  1236→  const fetchCells = useCallback(async () => {
+  1237→    setLoading(true);
+  1238→    setErr(null);
+  1239→    try {
+  1240→      const res = await fetch("/api/v1/insights/stalls", { cache: "no-store" });
+  1241→      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  1242→      const json: ApiEnvelope<{ cells: StallsCell[] }> = await res.json();
+  1243→      if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
+  1244→      setCells(json.data.cells);
+  1245→    } catch (e) {
+  1246→      setErr(e instanceof Error ? e.message : "Network error");
+  1247→    } finally {
+  1248→      setLoading(false);
+  1249→    }
+  1250→  }, []);
+  1251→
+  1252→  useEffect(() => { fetchCells(); }, [fetchCells]);
+  1253→
+  1254→  // Build matrix
+  1255→  const matrix = useMemo(() => {
+  1256→    if (!cells) return { stages: [], groups: [], map: new Map<string, StallsCell>() };
+  1257→    const stageSet = new Set<string>();
+  1258→    const groupSet = new Set<string>();
+  1259→    const map = new Map<string, StallsCell>();
+  1260→    for (const c of cells) {
+  1261→      stageSet.add(c.stage);
+  1262→      groupSet.add(c.ownerGroup);
+  1263→      map.set(`${c.stage}|${c.ownerGroup}`, c);
+  1264→    }
+  1265→    // Preserve stage order via STAGE_LABELS insertion
+  1266→    const stageOrder = Object.keys(STAGE_LABELS);
+  1267→    const stages = Array.from(stageSet).sort((a, b) => stageOrder.indexOf(a) - stageOrder.indexOf(b));
+  1268→    const groups = Array.from(groupSet).sort();
+  1269→    return { stages, groups, map };
+  1270→  }, [cells]);
+  1271→
+  1272→  // Color scale: teal → sand-gold → red (by medianDays)
+  1273→  function cellColor(c: StallsCell | undefined): string {
+  1274→    if (!c || c.suppressed) return "var(--surface-2)";
+  1275→    const m = c.medianTimeToCompleteHours ?? 0;
+  1276→    // Map 0h → teal, 48h → sand-gold, 168h+ → red
+  1277→    if (m <= 24) return "rgba(22,154,165,0.18)";
+  1278→    if (m <= 72) return "rgba(201,162,39,0.18)";
+  1279→    if (m <= 168) return "rgba(217,119,6,0.20)";
+  1280→    return "rgba(220,38,38,0.20)";
+  1281→  }
+  1282→  function cellBorder(c: StallsCell | undefined): string {
+  1283→    if (!c || c.suppressed) return "var(--border)";
+  1284→    const m = c.medianTimeToCompleteHours ?? 0;
+  1285→    if (m <= 24) return "rgba(22,154,165,0.36)";
+  1286→    if (m <= 72) return "rgba(201,162,39,0.36)";
+  1287→    if (m <= 168) return "rgba(217,119,6,0.36)";
+  1288→    return "rgba(220,38,38,0.36)";
+  1289→  }
+  1290→
+  1291→  const FILTER_CHIPS = [
+  1292→    { en: "All stages", ar: "كل المراحل" },
+  1293→    { en: "All owners", ar: "كل المالكين" },
+  1294→    { en: "All locations", ar: "كل المواقع" },
+  1295→  ];
+  1296→
+  1297→  if (loading) {
+  1298→    return (
+  1299→      <div className="space-y-3" aria-hidden="true">
+  1300→        <div className="h-10 ast-shimmer rounded-full" />
+  1301→        <div className="ast-card p-6 h-72 ast-shimmer rounded-[14px]" />
+  1302→      </div>
+  1303→    );
+  1304→  }
+  1305→  if (err) return <ErrorBanner message={err} onRetry={fetchCells} />;
+  1306→
+  1307→  return (
+  1308→    <div>
+  1309→      <div className="flex items-baseline justify-between mb-4 flex-wrap gap-3">
+  1310→        <div>
+  1311→          <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
+  1312→            {locale === "ar" ? "خريطة الاختناقات" : "Stall heatmap"}
+  1313→          </h2>
+  1314→          <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+  1315→            {locale === "ar"
+  1316→              ? "الوسيط لكل (مرحلة × مالك). الخلايا أقل من 5 مكتومة."
+  1317→              : "Median days per stage × owner. Cells below k=5 are suppressed."}
+  1318→          </p>
+  1319→        </div>
+  1320→        <div className="flex items-center gap-1.5 flex-wrap">
+  1321→          <Filter className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--text-lo)" }} />
+  1322→          {FILTER_CHIPS.map((f) => (
+  1323→            <button
+  1324→              key={f.en}
+  1325→              className="ast-focus h-8 px-2.5 rounded-full text-[11px] font-medium"
+  1326→              style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}
+  1327→            >
+  1328→              {locale === "ar" ? f.ar : f.en}
+  1329→            </button>
+  1330→          ))}
+  1331→        </div>
+  1332→      </div>
+  1333→
+  1334→      {/* Heatmap */}
+  1335→      <div className="ast-card p-4 sm:p-5 overflow-x-auto">
+  1336→        <table className="w-full border-collapse min-w-[640px]">
+  1337→          <thead>
+  1338→            <tr>
+  1339→              <th className="text-left p-2 text-[11px] uppercase tracking-[0.12em] font-medium" style={{ color: "var(--text-lo)" }}>
+  1340→                {locale === "ar" ? "المرحلة / المالك" : "Stage / Owner"}
+  1341→              </th>
+  1342→              {matrix.groups.map((g) => (
+  1343→                <th key={g} className="p-2 text-center text-[11px] uppercase tracking-[0.08em] font-medium" style={{ color: "var(--text-lo)" }}>
+  1344→                  {g}
+  1345→                </th>
+  1346→              ))}
+  1347→            </tr>
+  1348→          </thead>
+  1349→          <tbody>
+  1350→            {matrix.stages.map((s) => (
+  1351→              <tr key={s}>
+  1352→                <td className="p-2 text-[12px] font-medium" style={{ color: "var(--text-hi)" }}>
+  1353→                  {stageLabel(s, locale)}
+  1354→                </td>
+  1355→                {matrix.groups.map((g) => {
+  1356→                  const c = matrix.map.get(`${s}|${g}`);
+  1357→                  const suppressed = !c || c.suppressed;
+  1358→                  return (
+  1359→                    <td key={g} className="p-1.5 align-top">
+  1360→                      <div
+  1361→                        className="rounded-[8px] p-3 min-h-[88px] flex flex-col justify-between"
+  1362→                        style={{
+  1363→                          background: cellColor(c),
+  1364→                          border: `1px solid ${cellBorder(c)}`,
+  1365→                        }}
+  1366→                        title={suppressed ? "Not enough data to show safely (n<5)" : `n=${c?.n ?? 0}`}
+  1367→                      >
+  1368→                        {suppressed ? (
+  1369→                          <div className="flex flex-col items-center text-center gap-1.5 h-full justify-center">
+  1370→                            <Hourglass className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--text-lo)" }} />
+  1371→                            <p className="text-[10px] leading-tight" style={{ color: "var(--text-lo)" }}>
+  1372→                              {locale === "ar"
+  1373→                                ? "بيانات غير كافية (n<5)"
+  1374→                                : "Not enough data to show safely (n<5)"}
+  1375→                            </p>
+  1376→                          </div>
+  1377→                        ) : (
+  1378→                          <div className="space-y-1">
+  1379→                            <p className="text-[18px] font-semibold tabular" style={{ color: "var(--text-hi)" }}>
+  1380→                              {((c?.medianTimeToCompleteHours ?? 0) / 24).toFixed(1)}
+  1381→                              <span className="text-[11px] font-normal ml-1" style={{ color: "var(--text-mid)" }}>
+  1382→                                {locale === "ar" ? "يوم" : "days"}
+  1383→                              </span>
+  1384→                            </p>
+  1385→                            <p className="text-[10px] tabular" style={{ color: "var(--text-mid)" }}>
+  1386→                              {locale === "ar" ? "خرق " : "breach "}
+  1387→                              <span style={{ color: "var(--status-watch)" }}>
+  1388→                                {Math.round((c?.breachRate ?? 0) * 100)}%
+  1389→                              </span>
+  1390→                            </p>
+  1391→                            <p className="text-[10px] tabular" style={{ color: "var(--text-mid)" }}>
+  1392→                              {locale === "ar" ? "إعادة " : "reassign "}
+  1393→                              <span style={{ color: "var(--status-friction)" }}>
+  1394→                                {Math.round((c?.reassignmentRate ?? 0) * 100)}%
+  1395→                              </span>
+  1396→                            </p>
+  1397→                            <p className="text-[9px] font-mono tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+  1398→                              n={c?.n ?? 0}
+  1399→                            </p>
+  1400→                          </div>
+  1401→                        )}
+  1402→                      </div>
+  1403→                    </td>
+  1404→                  );
+  1405→                })}
+  1406→              </tr>
+  1407→            ))}
+  1408→          </tbody>
+  1409→        </table>
+  1410→      </div>
+  1411→
+  1412→      {/* Legend */}
+  1413→      <div className="flex items-center gap-3 mt-4 flex-wrap text-[11px]" style={{ color: "var(--text-mid)" }}>
+  1414→        <span>{locale === "ar" ? "السرعة:" : "Speed:"}</span>
+  1415→        <span className="inline-flex items-center gap-1.5">
+  1416→          <span className="w-3 h-3 rounded-sm" style={{ background: "rgba(22,154,165,0.36)" }} />
+  1417→          {locale === "ar" ? "≤ يوم" : "≤ 1 day"}
+  1418→        </span>
+  1419→        <span className="inline-flex items-center gap-1.5">
+  1420→          <span className="w-3 h-3 rounded-sm" style={{ background: "rgba(201,162,39,0.36)" }} />
+  1421→          {locale === "ar" ? "1–3 أيام" : "1–3 days"}
+  1422→        </span>
+  1423→        <span className="inline-flex items-center gap-1.5">
+  1424→          <span className="w-3 h-3 rounded-sm" style={{ background: "rgba(217,119,6,0.40)" }} />
+  1425→          {locale === "ar" ? "3–7 أيام" : "3–7 days"}
+  1426→        </span>
+  1427→        <span className="inline-flex items-center gap-1.5">
+  1428→          <span className="w-3 h-3 rounded-sm" style={{ background: "rgba(220,38,38,0.40)" }} />
+  1429→          {locale === "ar" ? "+7 أيام" : "7+ days"}
+  1430→        </span>
+  1431→      </div>
+  1432→    </div>
+  1433→  );
+  1434→}
+  1435→
+  1436→/* ============================================================
+  1437→   Root
+  1438→   ============================================================ */
+  1439→export function HrbpScreen() {
+  1440→  const locale = useAppStore((s) => s.locale);
+  1441→  const view = useAppStore((s) => s.hrbpView);
+  1442→  const setView = useAppStore((s) => s.setHrbpView);
+  1443→  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+  1444→  const dir = locale === "ar" ? "rtl" : "ltr";
+  1445→
+  1446→  const openPacket = useCallback((employeeId: string) => {
+  1447→    setSelectedEmployeeId(employeeId);
+  1448→    setView("employee");
+  1449→  }, [setView]);
+  1450→
+  1451→  const backToQueue = useCallback(() => {
+  1452→    setView("queue");
+  1453→    setSelectedEmployeeId(null);
+  1454→  }, [setView]);
+  1455→
+  1456→  return (
+  1457→    <div
+  1458→      dir={dir}
+  1459→      className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10"
+  1460→    >
+  1461→      <header className="flex items-center justify-between mb-6 flex-wrap gap-3">
+  1462→        <div>
+  1463→          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--brand-400)" }}>
+  1464→            <ListOrdered className="w-3.5 h-3.5" strokeWidth={1.75} />
+  1465→            <span>{locale === "ar" ? "وحدة شريك الموارد البشرية" : "HRBP console"}</span>
+  1466→          </div>
+  1467→          <h1 className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight" style={{ color: "var(--text-hi)" }}>
+  1468→            {locale === "ar" ? "أول من يحتاج مساعدة اليوم" : "Who needs you first today"}
+  1469→          </h1>
+  1470→        </div>
+  1471→        <HrbpTabs />
+  1472→      </header>
+  1473→
+  1474→      {view === "queue" && <QueueView onOpenPacket={openPacket} />}
+  1475→      {view === "employee" && (
+  1476→        selectedEmployeeId
+  1477→          ? <EmployeeView employeeId={selectedEmployeeId} onBack={backToQueue} />
+  1478→          : (
+  1479→            <div className="ast-card p-10 flex flex-col items-center text-center">
+  1480→              <div
+  1481→                className="flex items-center justify-center w-14 h-14 rounded-full mb-4"
+  1482→                style={{ background: "var(--surface-2)", color: "var(--text-mid)" }}
+  1483→              >
+  1484→                <User className="w-6 h-6" strokeWidth={1.75} />
+  1485→              </div>
+  1486→              <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+  1487→                {locale === "ar" ? "اختر موظفاً من القائمة لعرض الطرد." : "Pick someone from the queue to view their packet."}
+  1488→              </p>
+  1489→              <button
+  1490→                onClick={() => setView("queue")}
+  1491→                className="ast-focus mt-4 inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium"
+  1492→                style={{ background: "var(--brand-500)", color: "var(--surface-0)", border: "1px solid var(--brand-500)" }}
+  1493→              >
+  1494→                <ListOrdered className="w-4 h-4" strokeWidth={1.75} />
+  1495→                {locale === "ar" ? "افتح القائمة" : "Open queue"}
+  1496→              </button>
+  1497→            </div>
+  1498→          )
+  1499→      )}
+  1500→      {view === "stalls" && <StallsView />}
+  1501→    </div>
+  1502→  );
+  1503→}
+  1504→

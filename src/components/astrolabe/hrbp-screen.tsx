@@ -33,6 +33,7 @@ import {
   Hourglass,
   Filter,
   RefreshCw,
+  Mail,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
 import {
@@ -41,6 +42,7 @@ import {
   StatusChip,
   type Band as BandT,
 } from "@/components/astrolabe/widgets";
+import { HrbpDigestModal } from "@/components/astrolabe/hrbp-digest-modal";
 import {
   Tilt3D,
   NumberTicker,
@@ -1441,6 +1443,7 @@ export function HrbpScreen() {
   const view = useAppStore((s) => s.hrbpView);
   const setView = useAppStore((s) => s.setHrbpView);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+  const [digestOpen, setDigestOpen] = useState(false);
   const dir = locale === "ar" ? "rtl" : "ltr";
 
   const openPacket = useCallback((employeeId: string) => {
@@ -1468,7 +1471,25 @@ export function HrbpScreen() {
             {locale === "ar" ? "أول من يحتاج مساعدة اليوم" : "Who needs you first today"}
           </h1>
         </div>
-        <HrbpTabs />
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* PRD §10-198 — Weekly digest "where journeys stalled" */}
+          <button
+            type="button"
+            onClick={() => setDigestOpen(true)}
+            className="ast-focus inline-flex items-center gap-2 h-9 px-3 rounded-full text-[12px] font-medium whitespace-nowrap"
+            style={{
+              background: "rgba(201,162,39,0.08)",
+              border: "1px solid rgba(201,162,39,0.32)",
+              color: "var(--accent-500)",
+            }}
+            aria-label={locale === "ar" ? "الملخّص الأسبوعي" : "Weekly digest"}
+          >
+            <Mail className="w-3.5 h-3.5" strokeWidth={1.75} />
+            <span className="hidden sm:inline">{locale === "ar" ? "الملخّص الأسبوعي" : "Weekly digest"}</span>
+            <span className="sm:hidden">{locale === "ar" ? "ملخّص" : "Digest"}</span>
+          </button>
+          <HrbpTabs />
+        </div>
       </header>
 
       {view === "queue" && <QueueView onOpenPacket={openPacket} />}
@@ -1498,6 +1519,9 @@ export function HrbpScreen() {
           )
       )}
       {view === "stalls" && <StallsView />}
+
+      {/* PRD §10-198 — Weekly digest modal */}
+      <HrbpDigestModal open={digestOpen} onOpenChange={setDigestOpen} />
     </div>
   );
 }

@@ -1,0 +1,1319 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→/* ============================================================
+     4→     4→   ASTROLABE — Service Owner Intake Console (PRD §11)
+     5→     5→   6th role. A queue-driven work surface for service owners
+     6→     6→   showing complete payloads, structured "needs more info"
+     7→     7→   returns (NOT free-text email), resolution flow, and a
+     8→     8→   zero-clarification success metric.
+     9→     9→   ============================================================ */
+    10→    10→
+    11→    11→import { useCallback, useEffect, useMemo, useState } from "react";
+    12→    12→import { motion, AnimatePresence } from "framer-motion";
+    13→    13→import { formatDistanceToNow, differenceInHours } from "date-fns";
+    14→    14→import {
+    15→    15→  Inbox,
+    16→    16→  Copy,
+    17→    17→  Check,
+    18→    18→  ChevronDown,
+    19→    19→  Loader2,
+    20→    20→  AlertTriangle,
+    21→    21→  RotateCcw,
+    22→    22→  Send,
+    23→    23→  CheckCircle2,
+    24→    24→  HelpCircle,
+    25→    25→  Play,
+    26→    26→  Eye,
+    27→    27→  FileText,
+    28→    28→  Activity,
+    29→    29→  Clock,
+    30→    30→  Users,
+    31→    31→  Inbox as InboxIcon,
+    32→    32→} from "lucide-react";
+    33→    33→import { useAppStore } from "@/lib/store/app-store";
+    34→    34→import { StatusChip, SlaChip, CitationChip } from "@/components/astrolabe/widgets";
+    35→    35→import { INTAKE_SCHEMAS, type IntakeSchema, type IntakeField } from "@/lib/actions/actions";
+    36→    36→import type { RequestType, Employee } from "@/lib/data/pack";
+    37→    37→import {
+    38→    38→  employees as ALL_EMPLOYEES,
+    39→    39→  serviceRequests as SEED_REQUESTS,
+    40→    40→  owners as ALL_OWNERS,
+    41→    41→  NOW as PACK_NOW,
+    42→    42→} from "@/lib/data/pack";
+    43→    43→import {
+    44→    44→  Select,
+    45→    45→  SelectContent,
+    46→    46→  SelectItem,
+    47→    47→  SelectTrigger,
+    48→    48→  SelectValue,
+    49→    49→} from "@/components/ui/select";
+    50→    50→import {
+    51→    51→  Dialog,
+    52→    52→  DialogContent,
+    53→    53→  DialogHeader,
+    54→    54→  DialogTitle,
+    55→    55→  DialogDescription,
+    56→    56→  DialogFooter,
+    57→    57→} from "@/components/ui/dialog";
+    58→    58→import { Textarea } from "@/components/ui/textarea";
+    59→    59→import { Label } from "@/components/ui/label";
+    60→    60→import { toast } from "sonner";
+    61→    61→import { cn } from "@/lib/utils";
+    62→    62→
+    63→    63→/* ---------- Types ---------- */
+    64→    64→
+    65→    65→interface ServiceRequest {
+    66→    66→  id: string;
+    67→    67→  ref: string;
+    68→    68→  employeeId: string;
+    69→    69→  type: RequestType;
+    70→    70→  ownerGroup: string;
+    71→    71→  assignee: string;
+    72→    72→  status: string;
+    73→    73→  openedAt: string;
+    74→    74→  slaHours: number;
+    75→    75→  reassignCount: number;
+    76→    76→  returnCount: number;
+    77→    77→  idempotencyKey: string;
+    78→    78→  /** PRD §11-212 — structured "needs more info" question, present when status === "returned". */
+    79→    79→  returnQuestion?: {
+    80→    80→    question: string;
+    81→    81→    additionalDetail?: string;
+    82→    82→    returnedBy: string;
+    83→    83→    returnedAt: string;
+    84→    84→    answer?: string;
+    85→    85→  };
+    86→    86→}
+    87→    87→
+    88→    88→interface ApiEnvelope<T> {
+    89→    89→  ok: boolean;
+    90→    90→  data: T | null;
+    91→    91→  meta: { requestId: string; asOf: string; servedFrom: string };
+    92→    92→  error: { code: string; message: string; hint?: string } | null;
+    93→    93→}
+    94→    94→
+    95→    95→/* ---------- Owner groups ---------- */
+    96→    96→
+    97→    97→type OwnerGroup = "IT" | "HR" | "Immigration" | "Learning" | "Facilities" | "Mobility" | "Payroll";
+    98→    98→
+    99→    99→const OWNER_GROUPS: { id: OwnerGroup; label: string; labelAr: string }[] = [
+   100→   100→  { id: "IT", label: "IT", labelAr: "تقنية المعلومات" },
+   101→   101→  { id: "HR", label: "HR", labelAr: "الموارد البشرية" },
+   102→   102→  { id: "Immigration", label: "Immigration", labelAr: "الهجرة" },
+   103→   103→  { id: "Learning", label: "Learning", labelAr: "التعلم" },
+   104→   104→  { id: "Facilities", label: "Facilities", labelAr: "المرافق" },
+   105→   105→  { id: "Mobility", label: "Mobility", labelAr: "التنقل" },
+   106→   106→  { id: "Payroll", label: "Payroll", labelAr: "الرواتب" },
+   107→   107→];
+   108→   108→
+   109→   109→/* ---------- Standard "needs more info" questions per request type ---------- */
+   110→   110→
+   111→   111→const STANDARD_QUESTIONS: Record<RequestType, { en: string; ar: string }[]> = {
+   112→   112→  it_kit: [
+   113→   113→    { en: "Which campus — Dubai (DXB) or Abu Dhabi (AUH)?", ar: "أي موقع — دبي (DXB) أم أبوظبي (AUH)؟" },
+   114→   114→    { en: "Is this a replacement for lost/damaged kit?", ar: "هل هذا بديل عن عُدّة مفقودة أو تالفة؟" },
+   115→   115→    { en: "What is the urgent date you need the kit by?", ar: "ما التاريخ العاجل الذي تحتاج العُدّة بحلوله؟" },
+   116→   116→    { en: "Which kit type — standard laptop, cabin crew, or replacement?", ar: "ما نوع العُدّة — حاسوب قياسي، طاقم المقصورة، أم بديل؟" },
+   117→   117→  ],
+   118→   118→  system_access: [
+   119→   119→    { en: "Which system — email, roster, learning, or finance?", ar: "أي نظام — البريد، الجداول، التعلم، أم المالية؟" },
+   120→   120→    { en: "Who is the manager approver for elevated access?", ar: "من هو المدير المعتمد للوصول الموسّع؟" },
+   121→   121→    { en: "What is the effective date?", ar: "ما تاريخ السريان؟" },
+   122→   122→  ],
+   123→   123→  visa: [
+   124→   124→    { en: "Has your passport scan been uploaded?", ar: "هل تم رفع مسح جواز السفر؟" },
+   125→   125→    { en: "Are there any dependants on this visa?", ar: "هل هناك معالون على هذه التأشيرة؟" },
+   126→   126→    { en: "Is this role marked business-critical for expediting?", ar: "هل هذه الوظيفة مُصنّفة حرجة للأعمال للتسريع؟" },
+   127→   127→  ],
+   128→   128→  relocation: [
+   129→   129→    { en: "What is your family size?", ar: "ما حجم أسرتك؟" },
+   130→   130→    { en: "What is your arrival date?", ar: "ما تاريخ وصولك؟" },
+   131→   131→    { en: "Do you need temporary housing?", ar: "هل تحتاج سكناً مؤقتاً؟" },
+   132→   132→  ],
+   133→   133→  payroll: [
+   134→   134→    { en: "What is the change type — bank, allowance, or transfer?", ar: "ما نوع التغيير — بنك، بدل، أم نقل؟" },
+   135→   135→    { en: "Have bank details been confirmed?", ar: "هل تم تأكيد البيانات البنكية؟" },
+   136→   136→    { en: "What is the effective date before the 25th cutoff?", ar: "ما تاريخ السريان قبل موعد القطع في 25؟" },
+   137→   137→  ],
+   138→   138→  training: [
+   139→   139→    { en: "Which course code do you need?", ar: "ما رمز الدورة التي تحتاجها؟" },
+   140→   140→    { en: "Is your prerequisite access present?", ar: "هل الوصول المسبق متوفر؟" },
+   141→   141→    { en: "Morning or afternoon preferred window?", ar: "الفترة المفضلة صباحاً أم مساءً؟" },
+   142→   142→  ],
+   143→   143→  facilities: [
+   144→   144→    { en: "Which site — DXB or AUH?", ar: "أي موقع — DXB أم AUH؟" },
+   145→   145→    { en: "What floor and access group?", ar: "ما الطابق ومجموعة الوصول؟" },
+   146→   146→    { en: "Is this a mobility case (transfer)?", ar: "هل هذه حالة تنقل (نقل)؟" },
+   147→   147→  ],
+   148→   148→  manager_handover: [
+   149→   149→    { en: "Who is the releasing manager?", ar: "من هو المدير المُخلّي؟" },
+   150→   150→    { en: "Who is the receiving manager?", ar: "من هو المدير المُستقبِل؟" },
+   151→   151→    { en: "What handover items are pending?", ar: "ما عناصر التسليم المعلّقة؟" },
+   152→   152→  ],
+   153→   153→};
+   154→   154→
+   155→   155→/* ---------- Helpers ---------- */
+   156→   156→
+   157→   157→function computeBreach(
+   158→   158→  elapsedHours: number,
+   159→   159→  targetHours: number,
+   160→   160→): "none" | "due_soon" | "breached" | "hard" {
+   161→   161→  if (elapsedHours >= targetHours * 2) return "hard";
+   162→   162→  if (elapsedHours >= targetHours) return "breached";
+   163→   163→  if (targetHours > 0 && elapsedHours / targetHours >= 0.75) return "due_soon";
+   164→   164→  return "none";
+   165→   165→}
+   166→   166→
+   167→   167→function findEmployee(id: string): Employee | undefined {
+   168→   168→  return ALL_EMPLOYEES.find((e) => e.id === id);
+   169→   169→}
+   170→   170→
+   171→   171→function findAssignee(assigneeId: string): { name: string; role: string; email: string; group: string } | null {
+   172→   172→  const o = ALL_OWNERS.find((x) => x.id === assigneeId);
+   173→   173→  if (!o) return null;
+   174→   174→  return { name: o.name, role: o.role, email: o.email, group: o.group };
+   175→   175→}
+   176→   176→
+   177→   177→function parsePolicyRef(ref: string): { docSlug: string; title: string; section: string; effectiveDate: string } {
+   178→   178→  const [docSlug, section] = ref.split("#");
+   179→   179→  const titleMap: Record<string, string> = {
+   180→   180→    "relocation-policy": "Relocation Policy",
+   181→   181→    "immigration-policy": "Immigration Policy",
+   182→   182→    "it-policy": "IT Provisioning Policy",
+   183→   183→    "onboarding-policy": "Onboarding Policy",
+   184→   184→    "learning-policy": "Learning Policy",
+   185→   185→    "mobility-policy": "Internal Mobility Policy",
+   186→   186→    "payroll-policy": "Payroll Policy",
+   187→   187→    "facilities-policy": "Facilities Policy",
+   188→   188→  };
+   189→   189→  return {
+   190→   190→    docSlug,
+   191→   191→    title: titleMap[docSlug] ?? docSlug,
+   192→   192→    section: section ?? "—",
+   193→   193→    effectiveDate: "2024-01-01",
+   194→   194→  };
+   195→   195→}
+   196→   196→
+   197→   197→/**
+   198→   198→ * Build a synthetic payload view from the schema + employee.
+   199→   199→ * In production this would come from the request row itself; here we
+   200→   200→ * synthesise a plausible payload using prefillFrom hints so the
+   201→   201→ * service owner sees the same shape of data they would in production.
+   202→   202→ */
+   203→   203→function buildPayloadView(schema: IntakeSchema, employee: Employee): Record<string, { label: string; labelAr: string; value: string; prefilled: boolean }> {
+   204→   204→  const out: Record<string, { label: string; labelAr: string; value: string; prefilled: boolean }> = {};
+   205→   205→  for (const field of schema.fields) {
+   206→   206→    let value = "";
+   207→   207→    let prefilled = false;
+   208→   208→    if (field.prefillFrom === "employee.location") {
+   209→   209→      value = employee.location;
+   210→   210→      prefilled = true;
+   211→   211→    } else if (field.prefillFrom === "employee.stage") {
+   212→   212→      value = employee.stage;
+   213→   213→      prefilled = true;
+   214→   214→    } else if (field.prefillFrom === "employee.startDate") {
+   215→   215→      value = employee.startDate.slice(0, 10);
+   216→   216→      prefilled = true;
+   217→   217→    } else if (field.prefillFrom === "employee.role") {
+   218→   218→      value = employee.role;
+   219→   219→      prefilled = true;
+   220→   220→    } else if (field.prefillFrom === "step.key") {
+   221→   221→      value = "—";
+   222→   222→      prefilled = true;
+   223→   223→    } else if (field.prefillFrom === "step.dueAt") {
+   224→   224→      value = "—";
+   225→   225→      prefilled = true;
+   226→   226→    } else {
+   227→   227→      // Synthesise plausible free-text values
+   228→   228→      if (field.type === "checkbox") {
+   229→   229→        value = field.required ? "Yes" : "—";
+   230→   230→      } else if (field.type === "select" && field.options && field.options.length > 0) {
+   231→   231→        value = field.options[0].label;
+   232→   232→      } else if (field.type === "number") {
+   233→   233→        value = "1";
+   234→   234→      } else if (field.type === "textarea") {
+   235→   235→        value = "—";
+   236→   236→      } else if (field.type === "date") {
+   237→   237→        value = "2024-10-15";
+   238→   238→      } else {
+   239→   239→        value = "—";
+   240→   240→      }
+   241→   241→    }
+   242→   242→    out[field.key] = { label: field.label, labelAr: field.labelAr, value, prefilled };
+   243→   243→  }
+   244→   244→  return out;
+   245→   245→}
+   246→   246→
+   247→   247→function fieldTypeDef(t: IntakeField["type"]): string {
+   248→   248→  switch (t) {
+   249→   249→    case "select": return "select";
+   250→   250→    case "date": return "date";
+   251→   251→    case "checkbox": return "checkbox";
+   252→   252→    case "textarea": return "textarea";
+   253→   253→    case "number": return "number";
+   254→   254→    default: return "text";
+   255→   255→  }
+   256→   256→}
+   257→   257→
+   258→   258→/* ---------- Skeleton ---------- */
+   259→   259→
+   260→   260→function CardSkeleton() {
+   261→   261→  return <div className="ast-card p-6 h-32 ast-shimmer rounded-[14px]" aria-hidden="true" />;
+   262→   262→}
+   263→   263→
+   264→   264→/* ---------- Error banner ---------- */
+   265→   265→
+   266→   266→function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+   267→   267→  return (
+   268→   268→    <div
+   269→   269→      className="ast-card p-5 flex flex-col sm:flex-row sm:items-center gap-4"
+   270→   270→      role="alert"
+   271→   271→      style={{ borderColor: "rgba(220,38,38,0.4)" }}
+   272→   272→    >
+   273→   273→      <div
+   274→   274→        className="flex items-center justify-center w-11 h-11 rounded-full shrink-0"
+   275→   275→        style={{ background: "rgba(220,38,38,0.12)", color: "var(--status-friction)" }}
+   276→   276→      >
+   277→   277→        <AlertTriangle className="w-5 h-5" strokeWidth={1.75} />
+   278→   278→      </div>
+   279→   279→      <div className="flex-1 min-w-0">
+   280→   280→        <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+   281→   281→          We can&apos;t reach your queue right now.
+   282→   282→        </p>
+   283→   283→        <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>{message}</p>
+   284→   284→      </div>
+   285→   285→      <button
+   286→   286→        onClick={onRetry}
+   287→   287→        className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium shrink-0"
+   288→   288→        style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+   289→   289→      >
+   290→   290→        <RotateCcw className="w-4 h-4" strokeWidth={1.75} />
+   291→   291→        Retry
+   292→   292→      </button>
+   293→   293→    </div>
+   294→   294→  );
+   295→   295→}
+   296→   296→
+   297→   297→/* ============================================================
+   298→   298→   Payload viewer (expandable)
+   299→   299→   ============================================================ */
+   300→   300→function PayloadView({ request, locale }: { request: ServiceRequest; locale: "en" | "ar" }) {
+   301→   301→  const schema = INTAKE_SCHEMAS[request.type];
+   302→   302→  const employee = findEmployee(request.employeeId);
+   303→   303→  const payload = employee ? buildPayloadView(schema, employee) : {};
+   304→   304→  const citation = parsePolicyRef(schema.policyRef);
+   305→   305→  const assignee = findAssignee(request.assignee);
+   306→   306→
+   307→   307→  return (
+   308→   308→    <div className="mt-3 space-y-3">
+   309→   309→      {/* Payload fields */}
+   310→   310→      <div className="rounded-[10px] overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+   311→   311→        <div
+   312→   312→          className="px-3 py-2 text-[10px] uppercase tracking-[0.14em] flex items-center gap-2"
+   313→   313→          style={{ background: "var(--surface-2)", color: "var(--text-lo)", borderBottom: "1px solid var(--border)" }}
+   314→   314→        >
+   315→   315→          <FileText className="w-3 h-3" strokeWidth={1.75} />
+   316→   316→          {locale === "ar" ? "حمولة الطلب الكاملة" : "Full intake payload"}
+   317→   317→        </div>
+   318→   318→        <div className="divide-y" style={{ borderColor: "var(--border-soft)" }}>
+   319→   319→          {schema.fields.map((field) => {
+   320→   320→            const v = payload[field.key];
+   321→   321→            return (
+   322→   322→              <div
+   323→   323→                key={field.key}
+   324→   324→                className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-1 sm:gap-3 px-3 py-2.5"
+   325→   325→                style={{ borderColor: "var(--border-soft)" }}
+   326→   326→              >
+   327→   327→                <div className="flex items-center gap-2 min-w-0">
+   328→   328→                  <span className="text-[11px] font-mono tabular shrink-0" style={{ color: "var(--text-lo)" }} dir="ltr">
+   329→   329→                    {field.key}
+   330→   330→                  </span>
+   331→   331→                  <span className="text-[12px] truncate" style={{ color: "var(--text-mid)" }}>
+   332→   332→                    {locale === "ar" ? field.labelAr : field.label}
+   333→   333→                  </span>
+   334→   334→                  {v?.prefilled && (
+   335→   335→                    <span
+   336→   336→                      className="ast-chip text-[10px] shrink-0"
+   337→   337→                      style={{
+   338→   338→                        color: "var(--brand-400)",
+   339→   339→                        background: "rgba(22,154,165,0.08)",
+   340→   340→                        borderColor: "rgba(22,154,165,0.25)",
+   341→   341→                        height: 18,
+   342→   342→                        padding: "0 6px",
+   343→   343→                      }}
+   344→   344→                    >
+   345→   345→                      {locale === "ar" ? "مُعبّأ مسبقاً" : "prefilled"}
+   346→   346→                    </span>
+   347→   347→                  )}
+   348→   348→                </div>
+   349→   349→                <div className="flex items-center gap-2 min-w-0">
+   350→   350→                  <span className="text-[13px] font-medium truncate" style={{ color: "var(--text-hi)" }} dir="ltr">
+   351→   351→                    {v?.value || "—"}
+   352→   352→                  </span>
+   353→   353→                  <span
+   354→   354→                    className="text-[10px] uppercase tracking-[0.1em] shrink-0"
+   355→   355→                    style={{ color: "var(--text-lo)" }}
+   356→   356→                  >
+   357→   357→                    {fieldTypeDef(field.type)}
+   358→   358→                  </span>
+   359→   359→                  {field.required && (
+   360→   360→                    <span
+   361→   361→                      className="ast-chip text-[10px] shrink-0"
+   362→   362→                      style={{
+   363→   363→                        color: "var(--accent-500)",
+   364→   364→                        background: "rgba(201,162,39,0.08)",
+   365→   365→                        borderColor: "rgba(201,162,39,0.32)",
+   366→   366→                        height: 18,
+   367→   367→                        padding: "0 6px",
+   368→   368→                      }}
+   369→   369→                    >
+   370→   370→                      {locale === "ar" ? "ضروري" : "required"}
+   371→   371→                    </span>
+   372→   372→                  )}
+   373→   373→                </div>
+   374→   374→              </div>
+   375→   375→            );
+   376→   376→          })}
+   377→   377→        </div>
+   378→   378→      </div>
+   379→   379→
+   380→   380→      {/* Auto-attached context */}
+   381→   381→      <div className="flex flex-wrap items-center gap-2">
+   382→   382→        <span className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+   383→   383→          {locale === "ar" ? "سياق مُرفق تلقائياً" : "Auto-attached context"}:
+   384→   384→        </span>
+   385→   385→        {schema.autoAttachedContext.map((ctx) => (
+   386→   386→          <span
+   387→   387→            key={ctx}
+   388→   388→            className="ast-chip text-[11px]"
+   389→   389→            style={{
+   390→   390→              color: "var(--text-mid)",
+   391→   391→              background: "var(--surface-2)",
+   392→   392→              borderColor: "var(--border)",
+   393→   393→            }}
+   394→   394→          >
+   395→   395→            {ctx}
+   396→   396→          </span>
+   397→   397→        ))}
+   398→   398→      </div>
+   399→   399→
+   400→   400→      {/* Policy ref + assignee */}
+   401→   401→      <div className="flex flex-wrap items-center gap-2">
+   402→   402→        <span className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+   403→   403→          {locale === "ar" ? "المرجع" : "Policy ref"}:
+   404→   404→        </span>
+   405→   405→        <CitationChip citation={citation} locale={locale} />
+   406→   406→        {assignee && (
+   407→   407→          <>
+   408→   408→            <span className="text-[11px] uppercase tracking-[0.12em] ml-2" style={{ color: "var(--text-lo)" }}>
+   409→   409→              {locale === "ar" ? "المسؤول" : "Assignee"}:
+   410→   410→            </span>
+   411→   411→            <span
+   412→   412→              className="ast-chip text-[11px] tabular"
+   413→   413→              style={{ color: "var(--text-hi)", background: "var(--surface-2)", borderColor: "var(--border)" }}
+   414→   414→            >
+   415→   415→              {assignee.name} · {assignee.role}
+   416→   416→            </span>
+   417→   417→          </>
+   418→   418→        )}
+   419→   419→      </div>
+   420→   420→    </div>
+   421→   421→  );
+   422→   422→}
+   423→   423→
+   424→   424→/* ============================================================
+   425→   425→   Needs-more-info form (remounts each open via parent conditional)
+   426→   426→   ============================================================ */
+   427→   427→function NeedsMoreInfoForm({
+   428→   428→  request,
+   429→   429→  onSend,
+   430→   430→  sending,
+   431→   431→  locale,
+   432→   432→  onCancel,
+   433→   433→}: {
+   434→   434→  request: ServiceRequest;
+   435→   435→  onSend: (questionEn: string, additionalDetail: string) => void;
+   436→   436→  sending: boolean;
+   437→   437→  locale: "en" | "ar";
+   438→   438→  onCancel: () => void;
+   439→   439→}) {
+   440→   440→  const [question, setQuestion] = useState<string>("");
+   441→   441→  const [detail, setDetail] = useState<string>("");
+   442→   442→  const questions = STANDARD_QUESTIONS[request.type] ?? [];
+   443→   443→
+   444→   444→  const handleSend = () => {
+   445→   445→    if (!question) {
+   446→   446→      toast.error(locale === "ar" ? "اختر سؤالاً من القائمة" : "Pick a question from the list");
+   447→   447→      return;
+   448→   448→    }
+   449→   449→    onSend(question, detail);
+   450→   450→  };
+   451→   451→
+   452→   452→  return (
+   453→   453→    <>
+   454→   454→      <DialogHeader>
+   455→   455→        <DialogTitle className="flex items-center gap-2" style={{ color: "var(--text-hi)" }}>
+   456→   456→          <HelpCircle className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+   457→   457→          {locale === "ar" ? "نحتاج تفصيلاً إضافياً" : "We need one more detail"}
+   458→   458→        </DialogTitle>
+   459→   459→        <DialogDescription style={{ color: "var(--text-mid)" }}>
+   460→   460→          {locale === "ar"
+   461→   461→            ? `الطلب ${request.ref} — اختر سؤالاً قياسياً بدلاً من بريد حر.`
+   462→   462→            : `Request ${request.ref} — pick a standard question, not a free-text email.`}
+   463→   463→        </DialogDescription>
+   464→   464→      </DialogHeader>
+   465→   465→
+   466→   466→      <div className="space-y-4">
+   467→   467→        {/* Standard question dropdown */}
+   468→   468→        <div className="space-y-2">
+   469→   469→          <Label htmlFor="std-q" className="text-[12px] font-medium" style={{ color: "var(--text-mid)" }}>
+   470→   470→            {locale === "ar" ? "سؤال قياسي" : "Standard question"}
+   471→   471→          </Label>
+   472→   472→          <Select value={question} onValueChange={setQuestion}>
+   473→   473→            <SelectTrigger
+   474→   474→              id="std-q"
+   475→   475→              className="w-full h-11 text-[13px] ast-focus"
+   476→   476→              style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-hi)" }}
+   477→   477→            >
+   478→   478→              <SelectValue placeholder={locale === "ar" ? "اختر سؤالاً…" : "Pick a question…"} />
+   479→   479→            </SelectTrigger>
+   480→   480→            <SelectContent style={{ background: "var(--surface-1)", borderColor: "var(--border)", color: "var(--text-hi)" }}>
+   481→   481→              {questions.map((q) => (
+   482→   482→                <SelectItem key={q.en} value={q.en} className="text-[13px]">
+   483→   483→                  {locale === "ar" ? q.ar : q.en}
+   484→   484→                </SelectItem>
+   485→   485→              ))}
+   486→   486→            </SelectContent>
+   487→   487→          </Select>
+   488→   488→          <p className="text-[11px]" style={{ color: "var(--text-lo)" }}>
+   489→   489→            {locale === "ar"
+   490→   490→              ? "الأسئلة القياسية تحافظ على وضوح الطلب وتقلل رحلات الذهاب والإياب."
+   491→   491→              : "Standard questions keep the request crisp and reduce round-trips."}
+   492→   492→          </p>
+   493→   493→        </div>
+   494→   494→
+   495→   495→        {/* Free-text additional detail — the ONLY free-text part */}
+   496→   496→        <div className="space-y-2">
+   497→   497→          <Label htmlFor="detail" className="text-[12px] font-medium" style={{ color: "var(--text-mid)" }}>
+   498→   498→            {locale === "ar" ? "تفاصيل إضافية (الجزء الحر الوحيد)" : "Additional detail (only free-text part)"}
+   499→   499→          </Label>
+   500→   500→          <Textarea
+   501→   501→            id="detail"
+   502→   502→            value={detail}
+   503→   503→            onChange={(e) => setDetail(e.target.value)}
+   504→   504→            rows={3}
+   505→   505→            placeholder={locale === "ar" ? "اختياري — سياق إضافي بسيط" : "Optional — brief extra context"}
+   506→   506→            className="ast-focus text-[13px]"
+   507→   507→            style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-hi)" }}
+   508→   508→          />
+   509→   509→        </div>
+   510→   510→      </div>
+   511→   511→
+   512→   512→      <DialogFooter>
+   513→   513→        <button
+   514→   514→          onClick={onCancel}
+   515→   515→          className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium"
+   516→   516→          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+   517→   517→        >
+   518→   518→          {locale === "ar" ? "تراجع" : "Cancel"}
+   519→   519→        </button>
+   520→   520→        <button
+   521→   521→          onClick={handleSend}
+   522→   522→          disabled={sending}
+   523→   523→          className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium disabled:opacity-60"
+   524→   524→          style={{ background: "var(--brand-500)", color: "var(--surface-0)", border: "1px solid var(--brand-500)" }}
+   525→   525→        >
+   526→   526→          {sending ? (
+   527→   527→            <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.75} />
+   528→   528→          ) : (
+   529→   529→            <Send className="w-3.5 h-3.5" strokeWidth={1.75} />
+   530→   530→          )}
+   531→   531→          {locale === "ar" ? "أرسل سؤالاً للموظف" : "Send structured question"}
+   532→   532→        </button>
+   533→   533→      </DialogFooter>
+   534→   534→    </>
+   535→   535→  );
+   536→   536→}
+   537→   537→
+   538→   538→/* ============================================================
+   539→   539→   Needs-more-info dialog (structured, not free-text email)
+   540→   540→   ============================================================ */
+   541→   541→function NeedsMoreInfoDialog({
+   542→   542→  open,
+   543→   543→  onOpenChange,
+   544→   544→  request,
+   545→   545→  onSend,
+   546→   546→  sending,
+   547→   547→  locale,
+   548→   548→}: {
+   549→   549→  open: boolean;
+   550→   550→  onOpenChange: (v: boolean) => void;
+   551→   551→  request: ServiceRequest | null;
+   552→   552→  onSend: (questionEn: string, additionalDetail: string) => void;
+   553→   553→  sending: boolean;
+   554→   554→  locale: "en" | "ar";
+   555→   555→}) {
+   556→   556→  return (
+   557→   557→    <Dialog open={open} onOpenChange={onOpenChange}>
+   558→   558→      <DialogContent
+   559→   559→        className="sm:max-w-[560px]"
+   560→   560→        style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+   561→   561→      >
+   562→   562→        {open && request && (
+   563→   563→          <NeedsMoreInfoForm
+   564→   564→            request={request}
+   565→   565→            onSend={onSend}
+   566→   566→            sending={sending}
+   567→   567→            locale={locale}
+   568→   568→            onCancel={() => onOpenChange(false)}
+   569→   569→          />
+   570→   570→        )}
+   571→   571→      </DialogContent>
+   572→   572→    </Dialog>
+   573→   573→  );
+   574→   574→}
+   575→   575→
+   576→   576→/* ============================================================
+   577→   577→   Resolve form (remounts each open via parent conditional)
+   578→   578→   ============================================================ */
+   579→   579→function ResolveForm({
+   580→   580→  request,
+   581→   581→  onResolve,
+   582→   582→  resolving,
+   583→   583→  locale,
+   584→   584→  onCancel,
+   585→   585→}: {
+   586→   586→  request: ServiceRequest;
+   587→   587→  onResolve: (note: string) => void;
+   588→   588→  resolving: boolean;
+   589→   589→  locale: "en" | "ar";
+   590→   590→  onCancel: () => void;
+   591→   591→}) {
+   592→   592→  const [note, setNote] = useState<string>("");
+   593→   593→
+   594→   594→  const handleResolve = () => {
+   595→   595→    if (note.trim().length < 5) {
+   596→   596→      toast.error(locale === "ar" ? "اكتب ملاحظة الحل (1-2 جمل)" : "Write a resolution note (1-2 sentences)");
+   597→   597→      return;
+   598→   598→    }
+   599→   599→    onResolve(note);
+   600→   600→  };
+   601→   601→
+   602→   602→  return (
+   603→   603→    <>
+   604→   604→      <DialogHeader>
+   605→   605→        <DialogTitle className="flex items-center gap-2" style={{ color: "var(--text-hi)" }}>
+   606→   606→          <CheckCircle2 className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--status-steady)" }} />
+   607→   607→          {locale === "ar" ? "حل الطلب" : "Resolve request"}
+   608→   608→        </DialogTitle>
+   609→   609→        <DialogDescription style={{ color: "var(--text-mid)" }}>
+   610→   610→          {locale === "ar"
+   611→   611→            ? `الطلب ${request.ref} — اكتب ما الذي تغيّر (1-2 جمل).`
+   612→   612→            : `Request ${request.ref} — write what changed (1-2 sentences).`}
+   613→   613→        </DialogDescription>
+   614→   614→      </DialogHeader>
+   615→   615→
+   616→   616→      <div className="space-y-2">
+   617→   617→        <Label htmlFor="note" className="text-[12px] font-medium" style={{ color: "var(--text-mid)" }}>
+   618→   618→          {locale === "ar" ? "ملاحظة الحل" : "Resolution note"}
+   619→   619→        </Label>
+   620→   620→        <Textarea
+   621→   621→          id="note"
+   622→   622→          value={note}
+   623→   623→          onChange={(e) => setNote(e.target.value)}
+   624→   624→          rows={3}
+   625→   625→          placeholder={locale === "ar" ? "مثال: صدر حاسوب Dell Latitude لماريا في مكتب IT بدبي." : "e.g. Issued Dell Latitude to Maria at the DXB IT counter."}
+   626→   626→          className="ast-focus text-[13px]"
+   627→   627→          style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-hi)" }}
+   628→   628→        />
+   629→   629→        <p className="text-[11px]" style={{ color: "var(--text-lo)" }}>
+   630→   630→          {locale === "ar"
+   631→   631→            ? "يُرسل هذا كإشعار للموظف: \"تم حل طلبك — إليك ما تغيّر\"."
+   632→   632→            : "Sent to the employee as: \"Your request is resolved — here's what changed\"."}
+   633→   633→        </p>
+   634→   634→      </div>
+   635→   635→
+   636→   636→      <DialogFooter>
+   637→   637→        <button
+   638→   638→          onClick={onCancel}
+   639→   639→          className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium"
+   640→   640→          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+   641→   641→        >
+   642→   642→          {locale === "ar" ? "تراجع" : "Cancel"}
+   643→   643→        </button>
+   644→   644→        <button
+   645→   645→          onClick={handleResolve}
+   646→   646→          disabled={resolving}
+   647→   647→          className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium disabled:opacity-60"
+   648→   648→          style={{ background: "var(--status-steady)", color: "white", border: "1px solid var(--status-steady)" }}
+   649→   649→        >
+   650→   650→          {resolving ? (
+   651→   651→            <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.75} />
+   652→   652→          ) : (
+   653→   653→            <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+   654→   654→          )}
+   655→   655→          {locale === "ar" ? "حلّ" : "Resolve"}
+   656→   656→        </button>
+   657→   657→      </DialogFooter>
+   658→   658→    </>
+   659→   659→  );
+   660→   660→}
+   661→   661→
+   662→   662→/* ============================================================
+   663→   663→   Resolve dialog (requires resolution note)
+   664→   664→   ============================================================ */
+   665→   665→function ResolveDialog({
+   666→   666→  open,
+   667→   667→  onOpenChange,
+   668→   668→  request,
+   669→   669→  onResolve,
+   670→   670→  resolving,
+   671→   671→  locale,
+   672→   672→}: {
+   673→   673→  open: boolean;
+   674→   674→  onOpenChange: (v: boolean) => void;
+   675→   675→  request: ServiceRequest | null;
+   676→   676→  onResolve: (note: string) => void;
+   677→   677→  resolving: boolean;
+   678→   678→  locale: "en" | "ar";
+   679→   679→}) {
+   680→   680→  return (
+   681→   681→    <Dialog open={open} onOpenChange={onOpenChange}>
+   682→   682→      <DialogContent
+   683→   683→        className="sm:max-w-[520px]"
+   684→   684→        style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+   685→   685→      >
+   686→   686→        {open && request && (
+   687→   687→          <ResolveForm
+   688→   688→            request={request}
+   689→   689→            onResolve={onResolve}
+   690→   690→            resolving={resolving}
+   691→   691→            locale={locale}
+   692→   692→            onCancel={() => onOpenChange(false)}
+   693→   693→          />
+   694→   694→        )}
+   695→   695→      </DialogContent>
+   696→   696→    </Dialog>
+   697→   697→  );
+   698→   698→}
+   699→   699→
+   700→   700→/* ============================================================
+   701→   701→   Request card
+   702→   702→   ============================================================ */
+   703→   703→function RequestCard({
+   704→   704→  request,
+   705→   705→  onAction,
+   706→   706→  locale,
+   707→   707→}: {
+   708→   708→  request: ServiceRequest;
+   709→   709→  onAction: (id: string, to: string, opts?: { note?: string; question?: string; detail?: string }) => Promise<void>;
+   710→   710→  locale: "en" | "ar";
+   711→   711→}) {
+   712→   712→  const [expanded, setExpanded] = useState(false);
+   713→   713→  const [copied, setCopied] = useState(false);
+   714→   714→  const [pending, setPending] = useState<string | null>(null);
+   715→   715→  const [needsOpen, setNeedsOpen] = useState(false);
+   716→   716→  const [resolveOpen, setResolveOpen] = useState(false);
+   717→   717→
+   718→   718→  const schema = INTAKE_SCHEMAS[request.type];
+   719→   719→  const employee = findEmployee(request.employeeId);
+   720→   720→  const elapsedHours = differenceInHours(PACK_NOW, new Date(request.openedAt));
+   721→   721→  const breach = computeBreach(elapsedHours, request.slaHours);
+   722→   722→
+   723→   723→  const handleCopy = async () => {
+   724→   724→    try {
+   725→   725→      await navigator.clipboard.writeText(request.ref);
+   726→   726→      setCopied(true);
+   727→   727→      setTimeout(() => setCopied(false), 1400);
+   728→   728→    } catch {
+   729→   729→      // clipboard may be unavailable — fail silently
+   730→   730→    }
+   731→   731→  };
+   732→   732→
+   733→   733→  const wrapAction = async (to: string, opts?: { note?: string; question?: string; detail?: string }) => {
+   734→   734→    setPending(to);
+   735→   735→    try {
+   736→   736→      await onAction(request.id, to, opts);
+   737→   737→    } finally {
+   738→   738→      setPending(null);
+   739→   739→    }
+   740→   740→  };
+   741→   741→
+   742→   742→  const canAcknowledge = request.status === "submitted";
+   743→   743→  const canStart = request.status === "acknowledged";
+   744→   744→  const canNeedsInfo = request.status === "in_progress" || request.status === "acknowledged";
+   745→   745→  const canResolve = request.status === "in_progress" || request.status === "acknowledged" || request.status === "waiting_employee";
+   746→   746→
+   747→   747→  return (
+   748→   748→    <motion.article
+   749→   749→      layout
+   750→   750→      initial={{ opacity: 0, y: 6 }}
+   751→   751→      animate={{ opacity: 1, y: 0 }}
+   752→   752→      transition={{ duration: 0.18 }}
+   753→   753→      className="ast-card p-4 sm:p-5"
+   754→   754→    >
+   755→   755→      {/* Top row */}
+   756→   756→      <div className="flex items-start gap-3 flex-wrap">
+   757→   757→        {/* Ref + type */}
+   758→   758→        <div className="flex-1 min-w-0">
+   759→   759→          <div className="flex items-center gap-2 flex-wrap">
+   760→   760→            <button
+   761→   761→              onClick={handleCopy}
+   762→   762→              className="ast-focus inline-flex items-center gap-1.5 font-mono text-[12px] tabular px-2 py-0.5 rounded-md transition-colors"
+   763→   763→              style={{
+   764→   764→                background: "var(--surface-2)",
+   765→   765→                border: "1px solid var(--border)",
+   766→   766→                color: "var(--brand-400)",
+   767→   767→              }}
+   768→   768→              title={locale === "ar" ? "نسخ المرجع" : "Copy ref"}
+   769→   769→              aria-label={`Copy ${request.ref}`}
+   770→   770→            >
+   771→   771→              {request.ref}
+   772→   772→              {copied ? (
+   773→   773→                <Check className="w-3 h-3" strokeWidth={2} style={{ color: "var(--status-steady)" }} />
+   774→   774→              ) : (
+   775→   775→                <Copy className="w-3 h-3" strokeWidth={1.75} />
+   776→   776→              )}
+   777→   777→            </button>
+   778→   778→            <span className="text-[13px] font-medium" style={{ color: "var(--text-hi)" }}>
+   779→   779→              {locale === "ar" ? schema.labelAr : schema.label}
+   780→   780→            </span>
+   781→   781→          </div>
+   782→   782→          {/* Employee + age + counts */}
+   783→   783→          <div className="flex items-center gap-2 flex-wrap mt-1.5">
+   784→   784→            <span className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: "var(--text-mid)" }}>
+   785→   785→              <Users className="w-3 h-3" strokeWidth={1.75} />
+   786→   786→              <span style={{ color: "var(--text-hi)" }}>
+   787→   787→                {employee ? (locale === "ar" && employee.displayNameAr ? employee.displayNameAr : employee.displayName) : request.employeeId}
+   788→   788→              </span>
+   789→   789→              <span className="font-mono tabular" style={{ color: "var(--text-lo)" }}>· {request.employeeId}</span>
+   790→   790→            </span>
+   791→   791→            <span className="text-[12px] inline-flex items-center gap-1.5" style={{ color: "var(--text-lo)" }}>
+   792→   792→              <Clock className="w-3 h-3" strokeWidth={1.75} />
+   793→   793→              <span className="tabular">
+   794→   794→                {locale === "ar" ? `فُتح ${formatDistanceToNow(new Date(request.openedAt), { addSuffix: false, locale: undefined as never })}` : `opened ${formatDistanceToNow(new Date(request.openedAt), { addSuffix: false })} ago`}
+   795→   795→              </span>
+   796→   796→            </span>
+   797→   797→            <span className="text-[11px] inline-flex items-center gap-1 tabular" style={{ color: request.reassignCount > 0 ? "var(--status-watch)" : "var(--text-lo)" }}>
+   798→   798→              {locale === "ar" ? `إعادة ${request.reassignCount}` : `reassigns ${request.reassignCount}`}
+   799→   799→            </span>
+   800→   800→            <span className="text-[11px] inline-flex items-center gap-1 tabular" style={{ color: request.returnCount > 0 ? "var(--status-friction)" : "var(--text-lo)" }}>
+   801→   801→              {locale === "ar" ? `إرجاع ${request.returnCount}` : `returns ${request.returnCount}`}
+   802→   802→            </span>
+   803→   803→          </div>
+   804→   804→        </div>
+   805→   805→
+   806→   806→        {/* Status + SLA */}
+   807→   807→        <div className="flex items-center gap-2 flex-wrap">
+   808→   808→          <StatusChip status={request.status} locale={locale} />
+   809→   809→          <SlaChip elapsedHours={elapsedHours} targetHours={request.slaHours} breachLevel={breach} locale={locale} />
+   810→   810→        </div>
+   811→   811→      </div>
+   812→   812→
+   813→   813→      {/* Action row */}
+   814→   814→      <div className="flex items-center gap-2 flex-wrap mt-3">
+   815→   815→        <button
+   816→   816→          onClick={() => setExpanded((v) => !v)}
+   817→   817→          className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium"
+   818→   818→          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+   819→   819→        >
+   820→   820→          <Eye className="w-3.5 h-3.5" strokeWidth={1.75} />
+   821→   821→          {locale === "ar" ? "عرض الحمولة" : "View payload"}
+   822→   822→          <ChevronDown className={cn("w-3 h-3 transition-transform", expanded && "rotate-180")} strokeWidth={1.75} />
+   823→   823→        </button>
+   824→   824→
+   825→   825→        {canAcknowledge && (
+   826→   826→          <button
+   827→   827→            onClick={() => wrapAction("acknowledged")}
+   828→   828→            disabled={pending !== null}
+   829→   829→            className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium disabled:opacity-60"
+   830→   830→            style={{ background: "var(--surface-2)", border: "1px solid rgba(22,154,165,0.32)", color: "var(--brand-400)" }}
+   831→   831→          >
+   832→   832→            {pending === "acknowledged" ? (
+   833→   833→              <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.75} />
+   834→   834→            ) : (
+   835→   835→              <Check className="w-3.5 h-3.5" strokeWidth={1.75} />
+   836→   836→            )}
+   837→   837→            {locale === "ar" ? "استلام" : "Acknowledge"}
+   838→   838→          </button>
+   839→   839→        )}
+   840→   840→
+   841→   841→        {canStart && (
+   842→   842→          <button
+   843→   843→            onClick={() => wrapAction("in_progress")}
+   844→   844→            disabled={pending !== null}
+   845→   845→            className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium disabled:opacity-60"
+   846→   846→            style={{ background: "var(--brand-500)", border: "1px solid var(--brand-500)", color: "var(--surface-0)" }}
+   847→   847→          >
+   848→   848→            {pending === "in_progress" ? (
+   849→   849→              <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.75} />
+   850→   850→            ) : (
+   851→   851→              <Play className="w-3.5 h-3.5" strokeWidth={1.75} />
+   852→   852→            )}
+   853→   853→            {locale === "ar" ? "ابدأ العمل" : "Start work"}
+   854→   854→          </button>
+   855→   855→        )}
+   856→   856→
+   857→   857→        {canNeedsInfo && (
+   858→   858→          <button
+   859→   859→            onClick={() => setNeedsOpen(true)}
+   860→   860→            disabled={pending !== null}
+   861→   861→            className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium disabled:opacity-60"
+   862→   862→            style={{ background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.32)", color: "var(--status-watch)" }}
+   863→   863→          >
+   864→   864→            <HelpCircle className="w-3.5 h-3.5" strokeWidth={1.75} />
+   865→   865→            {locale === "ar" ? "نحتاج تفصيلاً" : "Needs more info"}
+   866→   866→          </button>
+   867→   867→        )}
+   868→   868→
+   869→   869→        {canResolve && (
+   870→   870→          <button
+   871→   871→            onClick={() => setResolveOpen(true)}
+   872→   872→            disabled={pending !== null}
+   873→   873→            className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium disabled:opacity-60"
+   874→   874→            style={{ background: "rgba(14,159,110,0.08)", border: "1px solid rgba(14,159,110,0.32)", color: "var(--status-steady)" }}
+   875→   875→          >
+   876→   876→            {pending === "resolved" ? (
+   877→   877→              <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.75} />
+   878→   878→            ) : (
+   879→   879→              <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+   880→   880→            )}
+   881→   881→            {locale === "ar" ? "حلّ" : "Resolve"}
+   882→   882→          </button>
+   883→   883→        )}
+   884→   884→      </div>
+   885→   885→
+   886→   886→      {/* Expanded payload */}
+   887→   887→      <AnimatePresence initial={false}>
+   888→   888→        {expanded && (
+   889→   889→          <motion.div
+   890→   890→            initial={{ opacity: 0, height: 0 }}
+   891→   891→            animate={{ opacity: 1, height: "auto" }}
+   892→   892→            exit={{ opacity: 0, height: 0 }}
+   893→   893→            transition={{ duration: 0.18 }}
+   894→   894→            className="overflow-hidden"
+   895→   895→          >
+   896→   896→            <PayloadView request={request} locale={locale} />
+   897→   897→          </motion.div>
+   898→   898→        )}
+   899→   899→      </AnimatePresence>
+   900→   900→
+   901→   901→      {/* Dialogs */}
+   902→   902→      <NeedsMoreInfoDialog
+   903→   903→        open={needsOpen}
+   904→   904→        onOpenChange={setNeedsOpen}
+   905→   905→        request={request}
+   906→   906→        sending={pending === "returned"}
+   907→   907→        onSend={(q, d) => wrapAction("returned", { question: q, detail: d }).then(() => setNeedsOpen(false))}
+   908→   908→        locale={locale}
+   909→   909→      />
+   910→   910→      <ResolveDialog
+   911→   911→        open={resolveOpen}
+   912→   912→        onOpenChange={setResolveOpen}
+   913→   913→        request={request}
+   914→   914→        resolving={pending === "resolved"}
+   915→   915→        onResolve={(note) => wrapAction("resolved", { note }).then(() => setResolveOpen(false))}
+   916→   916→        locale={locale}
+   917→   917→      />
+   918→   918→    </motion.article>
+   919→   919→  );
+   920→   920→}
+   921→   921→
+   922→   922→/* ============================================================
+   923→   923→   SLA dashboard
+   924→   924→   ============================================================ */
+   925→   925→function SlaDashboard({ items, locale }: { items: ServiceRequest[]; locale: "en" | "ar" }) {
+   926→   926→  const breachCount = items.filter((r) => {
+   927→   927→    const elapsed = differenceInHours(PACK_NOW, new Date(r.openedAt));
+   928→   928→    return elapsed >= r.slaHours;
+   929→   929→  }).length;
+   930→   930→  const breachRate = items.length > 0 ? (breachCount / items.length) * 100 : 0;
+   931→   931→
+   932→   932→  // Synthetic median time-to-acknowledge and time-to-resolve
+   933→   933→  // (in production these would come from event timestamps)
+   934→   934→  const medianAck = items.length > 0 ? 1.2 : 0; // hours
+   935→   935→  const medianResolve = items.length > 0 ? 18.5 : 0; // hours
+   936→   936→
+   937→   937→  const stats = [
+   938→   938→    {
+   939→   939→      label: locale === "ar" ? "نسبة الخرق" : "Breach rate",
+   940→   940→      value: `${breachRate.toFixed(0)}%`,
+   941→   941→      sub: `${breachCount}/${items.length}`,
+   942→   942→      color: breachRate > 0 ? "var(--status-friction)" : "var(--status-steady)",
+   943→   943→    },
+   944→   944→    {
+   945→   945→      label: locale === "ar" ? "وسيط وقت الاستلام" : "Median time-to-acknowledge",
+   946→   946→      value: `${medianAck.toFixed(1)}h`,
+   947→   947→      sub: locale === "ar" ? "من الفتح للاستلام" : "opened → acknowledged",
+   948→   948→      color: "var(--brand-400)",
+   949→   949→    },
+   950→   950→    {
+   951→   951→      label: locale === "ar" ? "وسيط وقت الحل" : "Median time-to-resolve",
+   952→   952→      value: `${medianResolve.toFixed(1)}h`,
+   953→   953→      sub: locale === "ar" ? "من الفتح للحل" : "opened → resolved",
+   954→   954→      color: "var(--accent-500)",
+   955→   955→    },
+   956→   956→  ];
+   957→   957→
+   958→   958→  return (
+   959→   959→    <section className="ast-card p-5 sm:p-6 ast-fade-rise">
+   960→   960→      <div className="flex items-center gap-2.5 mb-4">
+   961→   961→        <div
+   962→   962→          className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
+   963→   963→          style={{ background: "rgba(22,154,165,0.10)", color: "var(--brand-400)" }}
+   964→   964→        >
+   965→   965→          <Activity className="w-4.5 h-4.5" strokeWidth={1.75} />
+   966→   966→        </div>
+   967→   967→        <div>
+   968→   968→          <h2 className="text-[16px] font-semibold" style={{ color: "var(--text-hi)" }}>
+   969→   969→            {locale === "ar" ? "لوحة SLA" : "SLA dashboard"}
+   970→   970→          </h2>
+   971→   971→          <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+   972→   972→            {locale === "ar" ? "مقاييس الزمن الحقيقي لمجموعة المالكين هذه" : "Live metrics for this owner group"}
+   973→   973→          </p>
+   974→   974→        </div>
+   975→   975→      </div>
+   976→   976→      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+   977→   977→        {stats.map((s) => (
+   978→   978→          <div key={s.label} className="ast-card-2 p-4">
+   979→   979→            <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+   980→   980→              {s.label}
+   981→   981→            </p>
+   982→   982→            <p className="text-[26px] font-semibold tabular mt-1.5" style={{ color: s.color }} dir="ltr">
+   983→   983→              {s.value}
+   984→   984→            </p>
+   985→   985→            <p className="text-[11px] tabular mt-1" style={{ color: "var(--text-lo)" }}>
+   986→   986→              {s.sub}
+   987→   987→            </p>
+   988→   988→          </div>
+   989→   989→        ))}
+   990→   990→      </div>
+   991→   991→    </section>
+   992→   992→  );
+   993→   993→}
+   994→   994→
+   995→   995→/* ============================================================
+   996→   996→   Empty state
+   997→   997→   ============================================================ */
+   998→   998→function EmptyState({ group, locale }: { group: OwnerGroup; locale: "en" | "ar" }) {
+   999→   999→  // Find the most common request types for this group
+  1000→  1000→  const groupSchemas = Object.values(INTAKE_SCHEMAS).filter((s) => s.ownerGroup === group);
+  1001→  1001→
+  1002→  1002→  return (
+  1003→  1003→    <section className="ast-card p-8 sm:p-10 text-center ast-fade-rise">
+  1004→  1004→      <div
+  1005→  1005→        className="inline-flex items-center justify-center w-14 h-14 rounded-full mx-auto mb-4"
+  1006→  1006→        style={{ background: "rgba(22,154,165,0.10)", color: "var(--brand-400)" }}
+  1007→  1007→      >
+  1008→  1008→        <InboxIcon className="w-6 h-6" strokeWidth={1.75} />
+  1009→  1009→      </div>
+  1010→  1010→      <h3 className="text-[18px] font-semibold" style={{ color: "var(--text-hi)" }}>
+  1011→  1011→        {locale === "ar" ? "لا تذاكر في قائمتك" : "No tickets in your queue"}
+  1012→  1012→      </h3>
+  1013→  1013→      <p className="text-[13px] mt-2 max-w-[440px] mx-auto" style={{ color: "var(--text-mid)" }}>
+  1014→  1014→        {locale === "ar"
+  1015→  1015→          ? "إليك ما يحتاجه الناس عادةً من هذه المجموعة."
+  1016→  1016→          : "Here's what people usually need from this group."}
+  1017→  1017→      </p>
+  1018→  1018→
+  1019→  1019→      {groupSchemas.length > 0 && (
+  1020→  1020→        <div className="flex flex-wrap items-center justify-center gap-2 mt-5">
+  1021→  1021→          {groupSchemas.map((s) => (
+  1022→  1022→            <span
+  1023→  1023→              key={s.type}
+  1024→  1024→              className="ast-chip text-[12px]"
+  1025→  1025→              style={{ color: "var(--text-mid)", background: "var(--surface-2)", borderColor: "var(--border)" }}
+  1026→  1026→            >
+  1027→  1027→              {locale === "ar" ? s.labelAr : s.label}
+  1028→  1028→            </span>
+  1029→  1029→          ))}
+  1030→  1030→        </div>
+  1031→  1031→      )}
+  1032→  1032→    </section>
+  1033→  1033→  );
+  1034→  1034→}
+  1035→  1035→
+  1036→  1036→/* ============================================================
+  1037→  1037→   Root
+  1038→  1038→   ============================================================ */
+  1039→  1039→export function ServiceOwnerScreen() {
+  1040→  1040→  const locale = useAppStore((s) => s.locale);
+  1041→  1041→  const dir = locale === "ar" ? "rtl" : "ltr";
+  1042→  1042→
+  1043→  1043→  const [group, setGroup] = useState<OwnerGroup>("IT");
+  1044→  1044→  const [items, setItems] = useState<ServiceRequest[]>([]);
+  1045→  1045→  const [loading, setLoading] = useState(true);
+  1046→  1046→  const [err, setErr] = useState<string | null>(null);
+  1047→  1047→
+  1048→  1048→  const fetchQueue = useCallback(async () => {
+  1049→  1049→    setLoading(true);
+  1050→  1050→    setErr(null);
+  1051→  1051→    try {
+  1052→  1052→      const res = await fetch(`/api/v1/requests`, { cache: "no-store" });
+  1053→  1053→      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  1054→  1054→      const json: ApiEnvelope<{ items: ServiceRequest[]; nextCursor: string | null }> = await res.json();
+  1055→  1055→      if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
+  1056→  1056→      // Merge with any locally-mutated seeds (so transitions persist in-session)
+  1057→  1057→      // by combining server items with SEED_REQUESTS that may have been mutated.
+  1058→  1058→      // The server returns the in-memory array which IS mutated; so we just use it.
+  1059→  1059→      setItems(json.data.items);
+  1060→  1060→    } catch (e) {
+  1061→  1061→      setErr(e instanceof Error ? e.message : "Network error");
+  1062→  1062→    } finally {
+  1063→  1063→      setLoading(false);
+  1064→  1064→    }
+  1065→  1065→  }, []);
+  1066→  1066→
+  1067→  1067→  useEffect(() => {
+  1068→  1068→    fetchQueue();
+  1069→  1069→  }, [fetchQueue]);
+  1070→  1070→
+  1071→  1071→  const filtered = useMemo(() => {
+  1072→  1072→    return items.filter((r) => r.ownerGroup === group);
+  1073→  1073→  }, [items, group]);
+  1074→  1074→
+  1075→  1075→  // Zero-clarification rate = items with returnCount === 0 / total items
+  1076→  1076→  const zeroClarificationCount = filtered.filter((r) => r.returnCount === 0).length;
+  1077→  1077→  const totalFiltered = filtered.length;
+  1078→  1078→  const zeroClarificationRate = totalFiltered > 0 ? (zeroClarificationCount / totalFiltered) * 100 : 100;
+  1079→  1079→
+  1080→  1080→  const handleAction = useCallback(
+  1081→  1081→    async (id: string, to: string, opts?: { note?: string; question?: string; detail?: string }) => {
+  1082→  1082→      try {
+  1083→  1083→        // PRD §11-212 — when returning with "needs more info", persist the
+  1084→  1084→        // structured question on the request via the transition endpoint's
+  1085→  1085→        // optional `returnQuestion` payload. The named owner (returnedBy) is
+  1086→  1086→        // resolved from the request's assignee.
+  1087→  1087→        const body: Record<string, unknown> = {
+  1088→  1088→          to,
+  1089→  1089→          idempotencyKey: `${id}-${to}-${Date.now()}`,
+  1090→  1090→        };
+  1091→  1091→        if (to === "returned" && opts?.question) {
+  1092→  1092→          const target = items.find((r) => r.id === id);
+  1093→  1093→          const asker = target ? findAssignee(target.assignee) : null;
+  1094→  1094→          body.returnQuestion = {
+  1095→  1095→            question: opts.question,
+  1096→  1096→            additionalDetail: opts.detail ?? "",
+  1097→  1097→            returnedBy: asker?.name ?? target?.assignee ?? "Service owner",
+  1098→  1098→          };
+  1099→  1099→        }
+  1100→  1100→
+  1101→  1101→        const res = await fetch(`/api/v1/requests/${id}/transition`, {
+  1102→  1102→          method: "POST",
+  1103→  1103→          headers: { "Content-Type": "application/json" },
+  1104→  1104→          body: JSON.stringify(body),
+  1105→  1105→        });
+  1106→  1106→        if (!res.ok) {
+  1107→  1107→          const json = await res.json().catch(() => null);
+  1108→  1108→          throw new Error(json?.error?.message ?? `HTTP ${res.status}`);
+  1109→  1109→        }
+  1110→  1110→        const json: ApiEnvelope<ServiceRequest> = await res.json();
+  1111→  1111→        if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
+  1112→  1112→
+  1113→  1113→        // Optimistically update local state — including the structured
+  1114→  1114→        // returnQuestion payload so the queue card shows the active question
+  1115→  1115→        // until the page is re-fetched.
+  1116→  1116→        const askerName =
+  1117→  1117→          (body.returnQuestion as { returnedBy?: string } | undefined)?.returnedBy ?? null;
+  1118→  1118→        setItems((prev) =>
+  1119→  1119→          prev.map((r) =>
+  1120→  1120→            r.id === id
+  1121→  1121→              ? {
+  1122→  1122→                  ...r,
+  1123→  1123→                  status: to,
+  1124→  1124→                  returnQuestion:
+  1125→  1125→                    to === "returned" && opts?.question && askerName
+  1126→  1126→                      ? {
+  1127→  1127→                          question: opts.question,
+  1128→  1128→                          additionalDetail: opts.detail || undefined,
+  1129→  1129→                          returnedBy: askerName,
+  1130→  1130→                          returnedAt: new Date().toISOString(),
+  1131→  1131→                        }
+  1132→  1132→                      : r.returnQuestion,
+  1133→  1133→                }
+  1134→  1134→              : r,
+  1135→  1135→          ),
+  1136→  1136→        );
+  1137→  1137→
+  1138→  1138→        if (to === "returned") {
+  1139→  1139→          // Also bump the return count locally
+  1140→  1140→          setItems((prev) => prev.map((r) => (r.id === id ? { ...r, returnCount: r.returnCount + 1 } : r)));
+  1141→  1141→          toast.success(
+  1142→  1142→            locale === "ar"
+  1143→  1143→              ? "تم إشعار الموظف: نحتاج تفصيلاً إضافياً — تحقق من تبويب الطلبات"
+  1144→  1144→              : "Employee notified: We need one more detail — check your Requests tab",
+  1145→  1145→            { description: opts?.question }
+  1146→  1146→          );
+  1147→  1147→        } else if (to === "resolved") {
+  1148→  1148→          toast.success(
+  1149→  1149→            locale === "ar"
+  1150→  1150→              ? "تم إشعار الموظف: تم حل طلبك — إليك ما تغيّر"
+  1151→  1151→              : "Employee notified: Your request is resolved — here's what changed",
+  1152→  1152→            { description: opts?.note }
+  1153→  1153→          );
+  1154→  1154→        } else if (to === "acknowledged") {
+  1155→  1155→          toast.success(locale === "ar" ? "تم الاستلام" : "Acknowledged", { description: id });
+  1156→  1156→        } else if (to === "in_progress") {
+  1157→  1157→          toast.success(locale === "ar" ? "بدأ العمل" : "Started work", { description: id });
+  1158→  1158→        }
+  1159→  1159→      } catch (e) {
+  1160→  1160→        toast.error(locale === "ar" ? "تعذّر الإجراء" : "Action failed", {
+  1161→  1161→          description: e instanceof Error ? e.message : "Network error",
+  1162→  1162→        });
+  1163→  1163→      }
+  1164→  1164→    },
+  1165→  1165→    [items, locale]
+  1166→  1166→  );
+  1167→  1167→
+  1168→  1168→  return (
+  1169→  1169→    <div dir={dir} className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10">
+  1170→  1170→      {/* Header */}
+  1171→  1171→      <header className="mb-6">
+  1172→  1172→        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--brand-400)" }}>
+  1173→  1173→          <Inbox className="w-3.5 h-3.5" strokeWidth={1.75} />
+  1174→  1174→          <span>{locale === "ar" ? "وحدة مالك الخدمة" : "Service owner console"}</span>
+  1175→  1175→        </div>
+  1176→  1176→        <h1 className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight" style={{ color: "var(--text-hi)" }}>
+  1177→  1177→          {locale === "ar" ? "قائمة الانتظار" : "Your queue"}
+  1178→  1178→        </h1>
+  1179→  1179→        <p className="mt-1 text-[13px]" style={{ color: "var(--text-mid)" }}>
+  1180→  1180→          {locale === "ar"
+  1181→  1181→            ? "حمولات كاملة، أسئلة قياسية، حلول منظّمة. أقل رحلات ذهاب وإياب."
+  1182→  1182→            : "Complete payloads, standard questions, structured resolutions. Fewer round-trips."}
+  1183→  1183→        </p>
+  1184→  1184→      </header>
+  1185→  1185→
+  1186→  1186→      {/* Group filter + count */}
+  1187→  1187→      <div className="ast-card p-4 sm:p-5 mb-6">
+  1188→  1188→        <div className="flex items-center justify-between gap-3 flex-wrap">
+  1189→  1189→          <div className="flex items-center gap-2 flex-wrap">
+  1190→  1190→            <span className="text-[11px] uppercase tracking-[0.14em] mr-1" style={{ color: "var(--text-lo)" }}>
+  1191→  1191→              {locale === "ar" ? "المجموعة" : "Group"}
+  1192→  1192→            </span>
+  1193→  1193→            <div
+  1194→  1194→              className="flex items-center gap-1 p-1 rounded-full overflow-x-auto max-w-full"
+  1195→  1195→              style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
+  1196→  1196→            >
+  1197→  1197→              {OWNER_GROUPS.map((g) => {
+  1198→  1198→                const isActive = group === g.id;
+  1199→  1199→                const count = items.filter((r) => r.ownerGroup === g.id).length;
+  1200→  1200→                return (
+  1201→  1201→                  <button
+  1202→  1202→                    key={g.id}
+  1203→  1203→                    onClick={() => setGroup(g.id)}
+  1204→  1204→                    aria-pressed={isActive}
+  1205→  1205→                    className="ast-focus relative inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium whitespace-nowrap transition-colors"
+  1206→  1206→                    style={{ color: isActive ? "var(--surface-0)" : "var(--text-mid)" }}
+  1207→  1207→                  >
+  1208→  1208→                    {isActive && (
+  1209→  1209→                      <motion.span
+  1210→  1210→                        layoutId="active-group-pill"
+  1211→  1211→                        className="absolute inset-0 rounded-full"
+  1212→  1212→                        style={{ background: "var(--brand-500)" }}
+  1213→  1213→                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
+  1214→  1214→                      />
+  1215→  1215→                    )}
+  1216→  1216→                    <span className="relative z-10">{locale === "ar" ? g.labelAr : g.label}</span>
+  1217→  1217→                    <span className="relative z-10 tabular text-[10px] opacity-80">{count}</span>
+  1218→  1218→                  </button>
+  1219→  1219→                );
+  1220→  1220→              })}
+  1221→  1221→            </div>
+  1222→  1222→          </div>
+  1223→  1223→          <div className="flex items-center gap-2">
+  1224→  1224→            <span className="text-[11px] uppercase tracking-[0.14em]" style={{ color: "var(--text-lo)" }}>
+  1225→  1225→              {locale === "ar" ? "في القائمة" : "In queue"}
+  1226→  1226→            </span>
+  1227→  1227→            <span
+  1228→  1228→              className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[12px] font-semibold tabular"
+  1229→  1229→              style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+  1230→  1230→            >
+  1231→  1231→              {totalFiltered}
+  1232→  1232→            </span>
+  1233→  1233→          </div>
+  1234→  1234→        </div>
+  1235→  1235→
+  1236→  1236→        {/* Zero-clarification rate metric */}
+  1237→  1237→        <div
+  1238→  1238→          className="mt-4 pt-4 flex items-center justify-between gap-3 flex-wrap"
+  1239→  1239→          style={{ borderTop: "1px solid var(--border-soft)" }}
+  1240→  1240→        >
+  1241→  1241→          <div className="flex items-center gap-3">
+  1242→  1242→            <div
+  1243→  1243→              className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
+  1244→  1244→              style={{
+  1245→  1245→                background: zeroClarificationRate === 100 ? "rgba(14,159,110,0.10)" : "rgba(201,162,39,0.08)",
+  1246→  1246→                color: zeroClarificationRate === 100 ? "var(--status-steady)" : "var(--accent-500)",
+  1247→  1247→              }}
+  1248→  1248→            >
+  1249→  1249→              <CheckCircle2 className="w-4.5 h-4.5" strokeWidth={1.75} />
+  1250→  1250→            </div>
+  1251→  1251→            <div>
+  1252→  1252→              <p className="text-[13px] font-medium" style={{ color: "var(--text-hi)" }}>
+  1253→  1253→                <span className="tabular">{zeroClarificationCount}</span>
+  1254→  1254→                <span style={{ color: "var(--text-mid)" }}> / </span>
+  1255→  1255→                <span className="tabular">{totalFiltered}</span>
+  1256→  1256→                <span style={{ color: "var(--text-mid)" }}>
+  1257→  1257→                  {" "}{locale === "ar" ? "تذكرة احتاجت جولة توضيح" : "tickets needed a clarification round-trip"}
+  1258→  1258→                </span>
+  1259→  1259→              </p>
+  1260→  1260→              <p className="text-[11px] mt-0.5" style={{ color: "var(--text-lo)" }}>
+  1261→  1261→                {locale === "ar"
+  1262→  1262→                  ? "مقياس النجاح الرئيسي — PRD §11. كلما ارتفع، قلّت رحلات الذهاب والإياب."
+  1263→  1263→                  : "The key success metric — PRD §11. Higher is better; fewer round-trips."}
+  1264→  1264→              </p>
+  1265→  1265→            </div>
+  1266→  1266→          </div>
+  1267→  1267→          <div className="text-right">
+  1268→  1268→            <p className="text-[10px] uppercase tracking-[0.14em]" style={{ color: "var(--text-lo)" }}>
+  1269→  1269→              {locale === "ar" ? "نسبة الصفر-توضيح" : "Zero-clarification rate"}
+  1270→  1270→            </p>
+  1271→  1271→            <p
+  1272→  1272→              className="text-[24px] font-semibold tabular"
+  1273→  1273→              style={{ color: zeroClarificationRate === 100 ? "var(--status-steady)" : "var(--accent-500)" }}
+  1274→  1274→              dir="ltr"
+  1275→  1275→            >
+  1276→  1276→              {zeroClarificationRate.toFixed(0)}%
+  1277→  1277→            </p>
+  1278→  1278→          </div>
+  1279→  1279→        </div>
+  1280→  1280→      </div>
+  1281→  1281→
+  1282→  1282→      {/* Queue list */}
+  1283→  1283→      {loading ? (
+  1284→  1284→        <div className="space-y-3">
+  1285→  1285→          <CardSkeleton />
+  1286→  1286→          <CardSkeleton />
+  1287→  1287→          <CardSkeleton />
+  1288→  1288→        </div>
+  1289→  1289→      ) : err ? (
+  1290→  1290→        <ErrorBanner message={err} onRetry={fetchQueue} />
+  1291→  1291→      ) : filtered.length === 0 ? (
+  1292→  1292→        <EmptyState group={group} locale={locale} />
+  1293→  1293→      ) : (
+  1294→  1294→        <div className="space-y-3">
+  1295→  1295→          <AnimatePresence initial={false}>
+  1296→  1296→            {filtered.map((r) => (
+  1297→  1297→              <RequestCard key={r.id} request={r} onAction={handleAction} locale={locale} />
+  1298→  1298→            ))}
+  1299→  1299→          </AnimatePresence>
+  1300→  1300→        </div>
+  1301→  1301→      )}
+  1302→  1302→
+  1303→  1303→      {/* SLA dashboard */}
+  1304→  1304→      {!loading && !err && filtered.length > 0 && (
+  1305→  1305→        <div className="mt-6">
+  1306→  1306→          <SlaDashboard items={filtered} locale={locale} />
+  1307→  1307→        </div>
+  1308→  1308→      )}
+  1309→  1309→
+  1310→  1310→      {/* Footer note */}
+  1311→  1311→      <p className="mt-6 text-[11px] text-center tabular" style={{ color: "var(--text-lo)" }}>
+  1312→  1312→        {locale === "ar"
+  1313→  1313→          ? `قائمة ${group} · ${filtered.length} طلبًا · ${zeroClarificationCount} بدون توضيح`
+  1314→  1314→          : `Queue ${group} · ${filtered.length} requests · ${zeroClarificationCount} without clarification`}
+  1315→  1315→      </p>
+  1316→  1316→    </div>
+  1317→  1317→  );
+  1318→  1318→}
+  1319→  1319→

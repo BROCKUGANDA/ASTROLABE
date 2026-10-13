@@ -8,7 +8,7 @@
    virtualised timeline of events with sticky week headers.
    ============================================================ */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence, useScroll, useSpring, useTransform } from "framer-motion";
 import { format, startOfWeek } from "date-fns";
 import {
@@ -582,51 +582,108 @@ function BlockedByGraph({ step, allSteps, locale }: { step: Step; allSteps: Step
   }
   if (chain.length === 0) return null;
 
+  const chainDepth = chain.length;
+  const downstreamCount = step.downstreamAtRisk;
+
   return (
     <div className="ast-card-2 p-3 overflow-x-auto">
+      {/* Chain depth header */}
+      <div className="flex items-center gap-2 mb-2 text-[11px]" style={{ color: "var(--text-lo)" }}>
+        <ListTree className="w-3 h-3" strokeWidth={1.75} />
+        <span className="tabular">
+          {locale === "ar"
+            ? `${chainDepth} خطوات عميقة · يحجب ${downstreamCount} خطوة لاحقة`
+            : `${chainDepth} step${chainDepth === 1 ? "" : "s"} deep · blocks ${downstreamCount} downstream`}
+        </span>
+      </div>
       <div className="flex items-center gap-2 min-w-max">
         {chain.map((s, i) => (
           <div key={s.stepKey} className="flex items-center gap-2">
-            <div
-              className="flex items-center gap-2 px-3 h-9 rounded-[10px] shrink-0"
-              style={{
-                background: "rgba(159,18,57,0.08)",
-                border: "1px solid rgba(159,18,57,0.30)",
-              }}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.24, delay: i * 0.08, ease: [0.2, 0.8, 0.2, 1] }}
+              className="flex flex-col gap-1"
             >
-              <Ban className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--status-blocked)" }} />
-              <span className="text-[12px] font-medium whitespace-nowrap" style={{ color: "var(--text-hi)" }}>
-                {locale === "ar" ? s.labelAr : s.label}
+              <div
+                className="flex items-center gap-2 px-3 h-9 rounded-[10px] shrink-0"
+                style={{
+                  background: "rgba(159,18,57,0.08)",
+                  border: "1px solid rgba(159,18,57,0.30)",
+                  ...(i === 0 ? { boxShadow: "0 0 0 2px rgba(159,18,57,0.18)" } : {}),
+                }}
+              >
+                <Ban className={`w-3.5 h-3.5 shrink-0 ${i === 0 ? "ast-pulse-ring" : ""}`} strokeWidth={1.75} style={{ color: "var(--status-blocked)" }} />
+                <span className="text-[12px] font-medium whitespace-nowrap" style={{ color: "var(--text-hi)" }}>
+                  {locale === "ar" ? s.labelAr : s.label}
+                </span>
+              </div>
+              <span className="text-[10px] tabular px-1" style={{ color: "var(--text-lo)" }}>
+                {s.targetHours}h target
               </span>
-            </div>
+            </motion.div>
             {i < chain.length - 1 && (
-              <ArrowRight
-                className="w-3.5 h-3.5 shrink-0"
-                strokeWidth={1.75}
-                style={{ color: "var(--text-lo)" }}
-                aria-hidden="true"
-              />
+              <svg width="24" height="12" className="shrink-0" aria-hidden="true">
+                <motion.line
+                  x1="2" y1="6" x2="22" y2="6"
+                  stroke="var(--text-lo)" strokeWidth="1.5" strokeLinecap="round"
+                  strokeDasharray="20" strokeDashoffset="20"
+                  initial={{ strokeDashoffset: 20 }}
+                  animate={{ strokeDashoffset: 0 }}
+                  transition={{ duration: 0.4, delay: i * 0.08 + 0.1, ease: [0.2, 0.8, 0.2, 1] }}
+                />
+                <motion.polygon
+                  points="20,2 24,6 20,10"
+                  fill="var(--text-lo)"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.2, delay: i * 0.08 + 0.4 }}
+                />
+              </svg>
             )}
           </div>
         ))}
-        <ArrowRight
-          className="w-3.5 h-3.5 shrink-0"
-          strokeWidth={1.75}
-          style={{ color: "var(--text-lo)" }}
-          aria-hidden="true"
-        />
-        <div
-          className="flex items-center gap-2 px-3 h-9 rounded-[10px] shrink-0"
-          style={{
-            background: "rgba(201,162,39,0.08)",
-            border: "1px solid rgba(201,162,39,0.30)",
-          }}
+        {/* Arrow to the blocked step */}
+        <svg width="24" height="12" className="shrink-0" aria-hidden="true">
+          <motion.line
+            x1="2" y1="6" x2="22" y2="6"
+            stroke="var(--accent-500)" strokeWidth="1.5" strokeLinecap="round"
+            strokeDasharray="20" strokeDashoffset="20"
+            initial={{ strokeDashoffset: 20 }}
+            animate={{ strokeDashoffset: 0 }}
+            transition={{ duration: 0.4, delay: chain.length * 0.08 + 0.1, ease: [0.2, 0.8, 0.2, 1] }}
+          />
+          <motion.polygon
+            points="20,2 24,6 20,10"
+            fill="var(--accent-500)"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.2, delay: chain.length * 0.08 + 0.4 }}
+          />
+        </svg>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.24, delay: chain.length * 0.08 + 0.2, ease: [0.2, 0.8, 0.2, 1] }}
+          className="flex flex-col gap-1"
         >
-          <Hourglass className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--accent-500)" }} />
-          <span className="text-[12px] font-medium whitespace-nowrap" style={{ color: "var(--text-hi)" }}>
-            {locale === "ar" ? step.labelAr : step.label}
+          <div
+            className="flex items-center gap-2 px-3 h-9 rounded-[10px] shrink-0"
+            style={{
+              background: "rgba(201,162,39,0.08)",
+              border: "1px solid rgba(201,162,39,0.30)",
+              boxShadow: "0 0 0 2px rgba(201,162,39,0.18)",
+            }}
+          >
+            <Hourglass className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--accent-500)" }} />
+            <span className="text-[12px] font-medium whitespace-nowrap" style={{ color: "var(--text-hi)" }}>
+              {locale === "ar" ? step.labelAr : step.label}
+            </span>
+          </div>
+          <span className="text-[10px] tabular px-1" style={{ color: "var(--accent-500)" }}>
+            {locale === "ar" ? "خطوتك" : "your step"}
           </span>
-        </div>
+        </motion.div>
       </div>
     </div>
   );
@@ -668,7 +725,29 @@ function StepRow({
   const showBlockedGraph = step.status === "blocked" && step.blockedBy.length > 0;
 
   return (
-    <div className="ast-card-2 overflow-hidden">
+    <motion.div
+      initial={{ opacity: 0, y: 10, rotateX: -5 }}
+      animate={{ opacity: 1, y: 0, rotateX: 0 }}
+      transition={{ type: "spring", stiffness: 200, damping: 24, delay: 0 }}
+      whileHover={{ y: -2 }}
+      className="ast-card-2 overflow-hidden"
+      style={{
+        opacity: step.status === "done" || step.status === "skipped" ? 0.85 : 1,
+        borderLeft: step.status === "blocked"
+          ? "3px solid var(--status-blocked)"
+          : step.status === "in_progress" || step.status === "waiting_employee" || step.status === "waiting_owner"
+          ? "2px solid var(--brand-500)"
+          : "1px solid var(--border)",
+        boxShadow: step.status === "blocked"
+          ? "var(--e3)"
+          : step.status === "in_progress" || step.status === "waiting_employee" || step.status === "waiting_owner"
+          ? "var(--e2)"
+          : step.status === "done" || step.status === "skipped"
+          ? "var(--e1)"
+          : "var(--e1)",
+        transition: "box-shadow 180ms var(--ease-standard), transform 180ms var(--ease-standard)",
+      }}
+    >
       {/* Outer clickable area uses role=button on a div to avoid nested interactive elements */}
       <div
         onClick={onToggle}
@@ -840,7 +919,7 @@ function StepRow({
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }
 
@@ -1071,6 +1150,99 @@ function Timeline({ events, locale }: { events: JourneyEvent[]; locale: "en" | "
 }
 
 /* ============================================================
+   Scroll Progress Indicator — thin teal bar showing journey scroll position
+   ============================================================ */
+
+function ScrollProgress({ data, locale }: { data: JourneyMeData; locale: "en" | "ar" }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: containerRef, offset: ["start start", "end end"] });
+  const width = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
+  const [currentStage, setCurrentStage] = useState(data.stage);
+
+  const journeyStages = useMemo(
+    () => ALL_STAGES.filter((s) => s.journeyType === data.employee.journeyType).sort((a, b) => a.order - b.order),
+    [data.employee.journeyType]
+  );
+
+  const stageLabels = useMemo(() => {
+    return journeyStages.map((s) => ({
+      key: s.key,
+      label: locale === "ar" ? s.labelAr : s.label,
+      order: s.order,
+      currentOrder: journeyStages.find((x) => x.key === data.stage)?.order ?? 1,
+    }));
+  }, [journeyStages, data.stage, locale]);
+
+  // Update current stage label based on scroll progress (approximate)
+  useEffect(() => {
+    return scrollYProgress.on("change", (v) => {
+      const idx = Math.floor(v * journeyStages.length);
+      const clamped = Math.min(Math.max(idx, 0), journeyStages.length - 1);
+      const stage = journeyStages[clamped];
+      if (stage && stage.key !== currentStage) {
+        setCurrentStage(stage.key);
+      }
+    });
+  }, [scrollYProgress, journeyStages, currentStage]);
+
+  const currentLabel = stageLabels.find((s) => s.key === currentStage)?.label ?? data.stage;
+
+  return (
+    <div
+      ref={containerRef}
+      className="sticky top-14 z-20"
+      style={{ background: "var(--surface-0)" }}
+    >
+      {/* Progress bar track */}
+      <div className="relative h-[3px] w-full" style={{ background: "var(--surface-2)" }}>
+        <motion.div
+          style={{ width, height: "100%", background: "linear-gradient(90deg, var(--brand-500), var(--accent-500))" }}
+        />
+        {/* Stage tick marks */}
+        {journeyStages.map((s, i) => {
+          const pos = (i / Math.max(journeyStages.length - 1, 1)) * 100;
+          const isActive = s.key === data.stage;
+          const isDone = s.order < (journeyStages.find((x) => x.key === data.stage)?.order ?? 1);
+          return (
+            <div
+              key={s.key}
+              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 group"
+              style={{ left: `${pos}%` }}
+              title={locale === "ar" ? s.labelAr : s.label}
+            >
+              <div
+                className="rounded-full transition-all"
+                style={{
+                  width: isActive ? 8 : 5,
+                  height: isActive ? 8 : 5,
+                  background: isActive ? "var(--accent-500)" : isDone ? "var(--brand-500)" : "var(--surface-3)",
+                }}
+              />
+              {/* Hover label */}
+              <div
+                className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+                style={{ background: "var(--surface-3)", color: "var(--text-mid)", border: "1px solid var(--border)" }}
+              >
+                {locale === "ar" ? s.labelAr : s.label}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {/* Floating current stage label */}
+      <div className="flex items-center justify-center py-1.5">
+        <span
+          className="text-[10px] uppercase tracking-[0.18em] font-semibold"
+          style={{ color: "var(--brand-400)" }}
+        >
+          {currentLabel}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
    Main Journey screen
    ============================================================ */
 
@@ -1150,6 +1322,7 @@ export function JourneyScreen() {
           ) : (
             <>
               <OrbitHeader data={data} locale={locale} />
+              <ScrollProgress data={data} locale={locale} />
               <StickyStageRail data={data} locale={locale} />
               <StepList data={data} events={events} locale={locale} />
               <Timeline events={events} locale={locale} />

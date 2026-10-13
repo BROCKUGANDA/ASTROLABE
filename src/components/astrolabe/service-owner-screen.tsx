@@ -29,6 +29,15 @@ import {
   Clock,
   Users,
   Inbox as InboxIcon,
+  BarChart3,
+  MapPin,
+  TrendingUp,
+  TrendingDown,
+  Save,
+  ArrowUpDown,
+  ChevronUp,
+  Calendar,
+  Award,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
 import { StatusChip, SlaChip, CitationChip } from "@/components/astrolabe/widgets";
@@ -57,6 +66,26 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
+import {
+  JourneyMapFixModal,
+  type MapFixProposal,
+} from "@/components/astrolabe/journey-map-fix-modal";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -703,10 +732,12 @@ function ResolveDialog({
 function RequestCard({
   request,
   onAction,
+  onProposeMapFix,
   locale,
 }: {
   request: ServiceRequest;
   onAction: (id: string, to: string, opts?: { note?: string; question?: string; detail?: string }) => Promise<void>;
+  onProposeMapFix: (request: ServiceRequest) => void;
   locale: "en" | "ar";
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -881,6 +912,22 @@ function RequestCard({
             {locale === "ar" ? "حلّ" : "Resolve"}
           </button>
         )}
+
+        {/* PRD §11-217 — Propose a journey-map fix straight from the ticket */}
+        <button
+          onClick={() => onProposeMapFix(request)}
+          disabled={pending !== null}
+          className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium disabled:opacity-60 ml-auto"
+          style={{
+            background: "rgba(201,162,39,0.06)",
+            border: "1px solid rgba(201,162,39,0.30)",
+            color: "var(--accent-500)",
+          }}
+          title={locale === "ar" ? "اقترح إصلاحاً على خريطة الرحلة" : "Propose a journey-map fix"}
+        >
+          <MapPin className="w-3.5 h-3.5" strokeWidth={1.75} />
+          {locale === "ar" ? "اقترح إصلاح الخريطة" : "Propose map fix"}
+        </button>
       </div>
 
       {/* Expanded payload */}
@@ -920,9 +967,610 @@ function RequestCard({
 }
 
 /* ============================================================
-   SLA dashboard
+   SLA dashboard (PRD §11-215/216)
+   Expanded into a full SLA analytics panel with:
+     · headline stats (breach rate, median ack, median resolve)
+     · breach reasons breakdown (bar chart)
+     · capacity declarations (honest SLA estimates)
+     · 7-day SLA trend mini-chart (sparkline)
+     · owner performance table (sortable, top performer badge)
    ============================================================ */
-function SlaDashboard({ items, locale }: { items: ServiceRequest[]; locale: "en" | "ar" }) {
+
+/* ---------- Breach-reason synthesis ----------
+   For the prototype we classify each open request into one of five
+   reason buckets using its actual returnCount / reassignCount /
+   status signals, then add a small baseline so the bars are always
+   visible. In production these counts would come from event log
+   analytics, not heuristics. */
+
+type BreachReason = {
+  key: string;
+  label: string;
+  labelAr: string;
+  count: number;
+};
+
+function computeBreachReasons(items: ServiceRequest[]): BreachReason[] {
+  let waitingEmployee = 0;
+  let waitingDownstream = 0;
+  let incompleteIntake = 0;
+  let queueOverload = 0;
+  let ambiguous = 0;
+
+  // Per-assignee open count → "queue overload" signal.
+  const perAssignee: Record<string, number> = {};
+  for (const r of items) {
+    if (r.status === "resolved" || r.status === "closed" || r.status === "cancelled") continue;
+    perAssignee[r.assignee] = (perAssignee[r.assignee] ?? 0) + 1;
+  }
+
+  for (const r of items) {
+    if (r.status === "resolved" || r.status === "closed" || r.status === "cancelled") continue;
+    if (r.returnCount > 0) incompleteIntake += 1;
+    else if (r.reassignCount > 0) waitingDownstream += 1;
+    else if (r.status === "waiting_employee") waitingEmployee += 1;
+    else if ((perAssignee[r.assignee] ?? 0) >= 3) queueOverload += 1;
+    else ambiguous += 1;
+  }
+
+  // Baseline — prototype padding so the chart reads even on a 4-row queue.
+  const BASE = 2;
+  return [
+    { key: "waiting_employee", label: "Waiting on employee", labelAr: "بانتظار الموظف", count: waitingEmployee + BASE },
+    { key: "waiting_downstream", label: "Waiting on downstream team", labelAr: "بانتظار فريق لاحق", count: waitingDownstream + BASE },
+    { key: "incomplete_intake", label: "Incomplete intake", labelAr: "إدخال ناقص", count: incompleteIntake + BASE },
+    { key: "queue_overload", label: "Queue overload", labelAr: "ازدحام القائمة", count: queueOverload + BASE },
+    { key: "ambiguous_request", label: "Ambiguous request", labelAr: "طلب غامض", count: ambiguous + BASE },
+  ];
+}
+
+/* ---------- Owner performance synthesis ----------
+   Deterministic synthetic per-owner metrics seeded by the owner ID
+   so they stay stable across re-renders but vary across owners. */
+
+type OwnerPerf = {
+  id: string;
+  name: string;
+  nameAr: string;
+  role: string;
+  ticketsHandled: number;
+  medianResolveHours: number;
+  breachRate: number; // 0-100
+  zeroClarificationRate: number; // 0-100
+};
+
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  }
+  return h;
+}
+
+function generateOwnerPerf(group: OwnerGroup): OwnerPerf[] {
+  const groupOwners = ALL_OWNERS.filter((o) => o.group === group);
+  if (groupOwners.length === 0) return [];
+  return groupOwners.map((o) => {
+    const h = hashStr(o.id);
+    return {
+      id: o.id,
+      name: o.name,
+      nameAr: o.nameAr ?? o.name,
+      role: o.role,
+      ticketsHandled: 8 + (h % 14), // 8-21
+      medianResolveHours: 12 + (h % 24), // 12-35h
+      breachRate: 4 + (h % 22), // 4-25%
+      zeroClarificationRate: 58 + (h % 38), // 58-95%
+    };
+  });
+}
+
+/* ---------- Breach reasons bar chart ---------- */
+
+function BreachReasonsChart({ items, locale }: { items: ServiceRequest[]; locale: "en" | "ar" }) {
+  const reasons = useMemo(() => computeBreachReasons(items), [items]);
+  const max = Math.max(...reasons.map((r) => r.count), 1);
+  const total = reasons.reduce((s, r) => s + r.count, 0);
+
+  return (
+    <div className="ast-card-2 p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <BarChart3 className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+        <h3 className="text-[13px] font-semibold" style={{ color: "var(--text-hi)" }}>
+          {locale === "ar" ? "لماذا تُخرق التذاكر" : "Why tickets breach"}
+        </h3>
+      </div>
+      <ul className="space-y-2.5">
+        {reasons.map((r, i) => {
+          const pct = (r.count / max) * 100;
+          const sharePct = total > 0 ? Math.round((r.count / total) * 100) : 0;
+          return (
+            <li key={r.key} className="flex items-center gap-3">
+              <div className="w-[140px] sm:w-[200px] shrink-0 text-[12px]" style={{ color: "var(--text-mid)" }}>
+                {locale === "ar" ? r.labelAr : r.label}
+              </div>
+              <div className="flex-1 h-5 rounded-full overflow-hidden" style={{ background: "var(--surface-3)" }}>
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${pct}%` }}
+                  transition={{ duration: 0.42, delay: i * 0.05, ease: [0.2, 0.8, 0.2, 1] }}
+                  className="h-full rounded-full"
+                  style={{ background: "var(--brand-500)", opacity: 0.85 }}
+                />
+              </div>
+              <div className="w-[78px] text-right shrink-0 flex items-center justify-end gap-1.5">
+                <span className="text-[12px] font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">{r.count}</span>
+                <span className="text-[10px] tabular" style={{ color: "var(--text-lo)" }} dir="ltr">{sharePct}%</span>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="text-[11px] mt-3" style={{ color: "var(--text-lo)" }}>
+        {locale === "ar"
+          ? "أسباب الخرق المستخلصة من علامات الإرجاع وإعادة التعيين وحالة الطلب."
+          : "Reasons synthesised from return / reassign signals + request status."}
+      </p>
+    </div>
+  );
+}
+
+/* ---------- Capacity declarations (PRD §11-215) ---------- */
+
+function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; locale: "en" | "ar" }) {
+  const committed = useMemo(
+    () =>
+      items.filter(
+        (r) => r.status !== "resolved" && r.status !== "closed" && r.status !== "cancelled",
+      ).length,
+    [items],
+  );
+
+  const [capacity, setCapacity] = useState<number>(15);
+  const [onLeave, setOnLeave] = useState(false);
+  const [leaveStart, setLeaveStart] = useState<string>("");
+  const [leaveEnd, setLeaveEnd] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+
+  const available = Math.max(0, capacity - committed - (onLeave ? 2 : 0));
+  const availableColor =
+    available === 0 ? "var(--status-friction)" : available <= 3 ? "var(--status-watch)" : "var(--accent-500)";
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await new Promise((r) => setTimeout(r, 280));
+      toast.success(
+        locale === "ar"
+          ? "حُفظت الطاقة — ستبقى تقديرات SLA صادقة"
+          : "Capacity saved — estimates will stay honest",
+        {
+          description: locale === "ar"
+            ? `الطاقة الأسبوعية: ${capacity} · ملتزم: ${committed} · متاح: ${available}`
+            : `Weekly capacity ${capacity} · committed ${committed} · available ${available}`,
+        },
+      );
+    } catch (e) {
+      toast.error(locale === "ar" ? "تعذّر الحفظ" : "Couldn't save", {
+        description: e instanceof Error ? e.message : undefined,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="ast-card-2 p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Users className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--accent-500)" }} />
+        <h3 className="text-[13px] font-semibold" style={{ color: "var(--text-hi)" }}>
+          {locale === "ar" ? "إعلان الطاقة الأسبوعية" : "Weekly capacity declaration"}
+        </h3>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        <div className="rounded-[8px] p-2.5" style={{ background: "var(--surface-3)" }}>
+          <p className="text-[10px] uppercase tracking-[0.10em]" style={{ color: "var(--text-lo)" }}>
+            {locale === "ar" ? "الطاقة الأسبوعية" : "Weekly capacity"}
+          </p>
+          <div className="flex items-center gap-1 mt-1">
+            <Input
+              type="number"
+              min={0}
+              max={50}
+              value={capacity}
+              onChange={(e) => setCapacity(Math.max(0, Number(e.target.value) || 0))}
+              className="ast-focus h-8 w-[64px] text-[18px] font-semibold tabular px-2"
+              style={{
+                background: "var(--surface-2)",
+                borderColor: "var(--border)",
+                color: "var(--text-hi)",
+              }}
+              dir="ltr"
+              aria-label={locale === "ar" ? "الطاقة الأسبوعية بالتذاكر" : "Weekly capacity in tickets"}
+            />
+            <span className="text-[11px]" style={{ color: "var(--text-lo)" }}>
+              {locale === "ar" ? "تذكرة" : "tickets"}
+            </span>
+          </div>
+        </div>
+        <div className="rounded-[8px] p-2.5" style={{ background: "var(--surface-3)" }}>
+          <p className="text-[10px] uppercase tracking-[0.10em]" style={{ color: "var(--text-lo)" }}>
+            {locale === "ar" ? "ملتزم حالياً" : "Currently committed"}
+          </p>
+          <p className="text-[22px] font-semibold tabular mt-1" style={{ color: "var(--text-hi)" }} dir="ltr">
+            {committed}
+          </p>
+          <p className="text-[10px] tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+            {locale === "ar" ? "تذاكر مفتوحة" : "open tickets"}
+          </p>
+        </div>
+        <div className="rounded-[8px] p-2.5" style={{ background: "var(--surface-3)" }}>
+          <p className="text-[10px] uppercase tracking-[0.10em]" style={{ color: "var(--text-lo)" }}>
+            {locale === "ar" ? "متاح" : "Available"}
+          </p>
+          <p className="text-[22px] font-semibold tabular mt-1" style={{ color: availableColor }} dir="ltr">
+            {available}
+          </p>
+          <p className="text-[10px]" style={{ color: "var(--text-lo)" }}>
+            {available === 0
+              ? locale === "ar" ? "ممتلئ" : "full"
+              : available <= 3
+                ? locale === "ar" ? "ضيّق" : "tight"
+                : locale === "ar" ? "صحي" : "healthy"}
+          </p>
+        </div>
+      </div>
+
+      {/* On-leave toggle + dates */}
+      <div
+        className="flex items-center gap-3 p-2.5 rounded-[8px] mb-3 flex-wrap"
+        style={{ background: "var(--surface-3)" }}
+      >
+        <div className="flex items-center gap-2 flex-1 min-w-[180px]">
+          <Calendar className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--text-lo)" }} />
+          <span className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+            {locale === "ar" ? "في إجازة هذا الأسبوع؟" : "On leave this week?"}
+          </span>
+        </div>
+        <Switch
+          checked={onLeave}
+          onCheckedChange={setOnLeave}
+          aria-label={locale === "ar" ? "في إجازة" : "On leave"}
+        />
+        {onLeave && (
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Input
+              type="text"
+              value={leaveStart}
+              onChange={(e) => setLeaveStart(e.target.value)}
+              placeholder={locale === "ar" ? "من (YYYY-MM-DD)" : "From (YYYY-MM-DD)"}
+              className="ast-focus h-8 text-[12px] font-mono tabular sm:w-[140px]"
+              style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-hi)" }}
+              dir="ltr"
+            />
+            <span style={{ color: "var(--text-lo)" }}>→</span>
+            <Input
+              type="text"
+              value={leaveEnd}
+              onChange={(e) => setLeaveEnd(e.target.value)}
+              placeholder={locale === "ar" ? "إلى (YYYY-MM-DD)" : "To (YYYY-MM-DD)"}
+              className="ast-focus h-8 text-[12px] font-mono tabular sm:w-[140px]"
+              style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-hi)" }}
+              dir="ltr"
+            />
+          </div>
+        )}
+      </div>
+
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="ast-focus inline-flex items-center gap-2 h-10 px-4 rounded-full text-[12px] font-medium disabled:opacity-60 w-full sm:w-auto justify-center"
+        style={{ background: "var(--accent-500)", color: "var(--surface-0)", border: "1px solid var(--accent-500)" }}
+      >
+        {saving ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.75} />
+        ) : (
+          <Save className="w-3.5 h-3.5" strokeWidth={1.75} />
+        )}
+        {locale === "ar" ? "حفظ الطاقة" : "Save capacity"}
+      </button>
+    </div>
+  );
+}
+
+/* ---------- SLA trend mini-chart (7-day sparkline) ---------- */
+
+const TREND_DATA: number[] = [12, 8, 15, 10, 6, 4, 8];
+const TREND_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function SlaTrendChart({ locale }: { locale: "en" | "ar" }) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
+  // Trend label: compare last 3 days vs prior 3
+  const last3 = TREND_DATA.slice(-3);
+  const prev3 = TREND_DATA.slice(-6, -3);
+  const lastAvg = last3.reduce((s, v) => s + v, 0) / last3.length;
+  const prevAvg = prev3.reduce((s, v) => s + v, 0) / prev3.length;
+  const improving = lastAvg <= prevAvg;
+
+  // Geometry
+  const W = 280;
+  const H = 64;
+  const pad = 6;
+  const max = Math.max(...TREND_DATA, 1);
+  const min = 0;
+  const stepX = (W - pad * 2) / (TREND_DATA.length - 1);
+  const y = (v: number) => H - pad - ((v - min) / (max - min)) * (H - pad * 2);
+  const x = (i: number) => pad + i * stepX;
+  const linePath = TREND_DATA.map((v, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
+  const areaPath = `${linePath} L ${x(TREND_DATA.length - 1).toFixed(1)} ${H - pad} L ${x(0).toFixed(1)} ${H - pad} Z`;
+
+  return (
+    <div className="ast-card-2 p-4">
+      <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Activity className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+          <h3 className="text-[13px] font-semibold" style={{ color: "var(--text-hi)" }}>
+            {locale === "ar" ? "اتجاه نسبة الخرق (7 أيام)" : "Breach-rate trend (7 days)"}
+          </h3>
+        </div>
+        <span
+          className="inline-flex items-center gap-1 h-6 px-2 rounded-full text-[11px] font-medium"
+          style={{
+            background: improving ? "rgba(14,159,110,0.10)" : "rgba(220,38,38,0.10)",
+            color: improving ? "var(--status-steady)" : "var(--status-friction)",
+            border: `1px solid ${improving ? "rgba(14,159,110,0.30)" : "rgba(220,38,38,0.30)"}`,
+          }}
+        >
+          {improving ? (
+            <TrendingDown className="w-3 h-3" strokeWidth={2} />
+          ) : (
+            <TrendingUp className="w-3 h-3" strokeWidth={2} />
+          )}
+          {locale === "ar"
+            ? improving ? "الاتجاه: يتحسن" : "الاتجاه: يسوء"
+            : improving ? "Trend: improving" : "Trend: worsening"}
+        </span>
+      </div>
+
+      <TooltipProvider delayDuration={0}>
+        <div className="relative w-full">
+          <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[64px]" role="img" aria-label="7-day breach rate trend">
+            <defs>
+              <linearGradient id="sla-trend-fill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--brand-500)" stopOpacity="0.32" />
+                <stop offset="100%" stopColor="var(--brand-500)" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <path d={areaPath} fill="url(#sla-trend-fill)" />
+            <motion.path
+              d={linePath}
+              fill="none"
+              stroke="var(--brand-500)"
+              strokeWidth={1.6}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
+            />
+            {TREND_DATA.map((v, i) => (
+              <Tooltip key={i}>
+                <TooltipTrigger asChild>
+                  <circle
+                    cx={x(i)}
+                    cy={y(v)}
+                    r={hoverIdx === i ? 4 : 3}
+                    fill="var(--accent-500)"
+                    stroke="var(--surface-1)"
+                    strokeWidth={1.5}
+                    onMouseEnter={() => setHoverIdx(i)}
+                    onMouseLeave={() => setHoverIdx(null)}
+                    style={{ cursor: "pointer", transition: "r 120ms var(--ease-standard)" }}
+                  />
+                </TooltipTrigger>
+                <TooltipContent
+                  side="top"
+                  className="font-mono text-[11px] tabular"
+                  style={{
+                    background: "var(--surface-2)",
+                    color: "var(--text-hi)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  {TREND_DAYS[i]} · {v}%
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </svg>
+        </div>
+      </TooltipProvider>
+
+      <div className="flex items-center justify-between mt-2 px-1">
+        {TREND_DAYS.map((d, i) => (
+          <span
+            key={d}
+            className="text-[10px] tabular"
+            style={{ color: hoverIdx === i ? "var(--brand-400)" : "var(--text-lo)" }}
+            dir="ltr"
+          >
+            {d}
+          </span>
+        ))}
+      </div>
+      <p className="text-[11px] mt-2" style={{ color: "var(--text-lo)" }}>
+        {locale === "ar"
+          ? "السطر يرسم نسبة الخرق اليومية؛ النقاط الذهبية أيام الأسابيع."
+          : "Line plots daily breach rate; gold dots mark weekdays."}
+      </p>
+    </div>
+  );
+}
+
+/* ---------- Owner performance table ---------- */
+
+type SortKey = "ticketsHandled" | "medianResolveHours" | "breachRate" | "zeroClarificationRate";
+type SortDir = "asc" | "desc";
+
+function OwnerPerfTable({ group, locale }: { group: OwnerGroup; locale: "en" | "ar" }) {
+  const rows = useMemo(() => generateOwnerPerf(group), [group]);
+  const [sortKey, setSortKey] = useState<SortKey>("zeroClarificationRate");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  const sorted = useMemo(() => {
+    const copy = [...rows];
+    copy.sort((a, b) => {
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      const diff = sortDir === "asc" ? av - bv : bv - av;
+      return diff;
+    });
+    return copy;
+  }, [rows, sortKey, sortDir]);
+
+  // Top performer = highest zero-clarification rate (composite: high ZCR + low breach)
+  const topPerformerId = useMemo(() => {
+    if (rows.length === 0) return null;
+    const sortedTop = [...rows].sort((a, b) => {
+      const ascore = a.zeroClarificationRate - a.breachRate * 1.5;
+      const bscore = b.zeroClarificationRate - b.breachRate * 1.5;
+      return bscore - ascore;
+    });
+    return sortedTop[0].id;
+  }, [rows]);
+
+  const toggleSort = (k: SortKey) => {
+    if (sortKey === k) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(k);
+      setSortDir("desc");
+    }
+  };
+
+  const columns: { key: SortKey; label: string; labelAr: string; align: "left" | "right" }[] = [
+    { key: "ticketsHandled", label: "Tickets handled", labelAr: "تذاكر معالجة", align: "right" },
+    { key: "medianResolveHours", label: "Median resolve", labelAr: "وسيط الحل", align: "right" },
+    { key: "breachRate", label: "Breach rate", labelAr: "نسبة الخرق", align: "right" },
+    { key: "zeroClarificationRate", label: "Zero-clarif.", labelAr: "صفر-توضيح", align: "right" },
+  ];
+
+  const SortIcon = ({ k }: { k: SortKey }) => {
+    if (sortKey !== k) return <ArrowUpDown className="w-3 h-3 inline-block ml-1 opacity-50" strokeWidth={1.75} />;
+    return sortDir === "asc"
+      ? <ChevronUp className="w-3 h-3 inline-block ml-1" strokeWidth={2} style={{ color: "var(--brand-400)" }} />
+      : <ChevronDown className="w-3 h-3 inline-block ml-1" strokeWidth={2} style={{ color: "var(--brand-400)" }} />;
+  };
+
+  if (rows.length === 0) {
+    return (
+      <div className="ast-card-2 p-4">
+        <p className="text-[12px]" style={{ color: "var(--text-lo)" }}>
+          {locale === "ar" ? "لا يوجد مالكو خدمات في هذه المجموعة بعد." : "No service owners in this group yet."}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="ast-card-2 overflow-hidden">
+      <div className="flex items-center gap-2 p-3" style={{ borderBottom: "1px solid var(--border-soft)" }}>
+        <Award className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+        <h3 className="text-[13px] font-semibold" style={{ color: "var(--text-hi)" }}>
+          {locale === "ar" ? "أداء المالكين" : "Owner performance"}
+        </h3>
+        <span className="text-[11px] ml-auto" style={{ color: "var(--text-lo)" }}>
+          {locale === "ar" ? `${rows.length} مالكين` : `${rows.length} owners`}
+        </span>
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow style={{ borderColor: "var(--border)" }}>
+            <TableHead className="text-[11px] uppercase tracking-[0.10em]" style={{ color: "var(--text-lo)" }}>
+              {locale === "ar" ? "المالك" : "Owner"}
+            </TableHead>
+            {columns.map((c) => (
+              <TableHead
+                key={c.key}
+                className={cn(
+                  "text-[11px] uppercase tracking-[0.10em] cursor-pointer ast-focus select-none",
+                  c.align === "right" ? "text-right" : "text-left",
+                )}
+                style={{ color: "var(--text-lo)" }}
+                onClick={() => toggleSort(c.key)}
+              >
+                {locale === "ar" ? c.labelAr : c.label}
+                <SortIcon k={c.key} />
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {sorted.map((r) => {
+            const isTop = r.id === topPerformerId;
+            return (
+              <TableRow key={r.id} style={{ borderColor: "var(--border-soft)" }}>
+                <TableCell className="text-[13px]" style={{ color: "var(--text-hi)" }}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium">{locale === "ar" ? r.nameAr : r.name}</span>
+                    {isTop && (
+                      <span
+                        className="inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-medium"
+                        style={{
+                          background: "rgba(22,154,165,0.10)",
+                          color: "var(--brand-400)",
+                          border: "1px solid rgba(22,154,165,0.32)",
+                        }}
+                      >
+                        <Award className="w-2.5 h-2.5" strokeWidth={2} />
+                        {locale === "ar" ? "الأفضل" : "Top performer"}
+                      </span>
+                    )}
+                    <span className="text-[11px] block w-full" style={{ color: "var(--text-lo)" }}>{r.role}</span>
+                  </div>
+                </TableCell>
+                <TableCell className="text-[13px] tabular text-right" style={{ color: "var(--text-hi)" }} dir="ltr">
+                  {r.ticketsHandled}
+                </TableCell>
+                <TableCell className="text-[13px] tabular text-right" style={{ color: "var(--text-hi)" }} dir="ltr">
+                  {r.medianResolveHours.toFixed(0)}h
+                </TableCell>
+                <TableCell
+                  className="text-[13px] tabular text-right"
+                  style={{ color: r.breachRate >= 15 ? "var(--status-friction)" : r.breachRate >= 8 ? "var(--status-watch)" : "var(--status-steady)" }}
+                  dir="ltr"
+                >
+                  {r.breachRate.toFixed(0)}%
+                </TableCell>
+                <TableCell
+                  className="text-[13px] tabular text-right"
+                  style={{ color: r.zeroClarificationRate >= 80 ? "var(--status-steady)" : r.zeroClarificationRate >= 60 ? "var(--accent-500)" : "var(--status-watch)" }}
+                  dir="ltr"
+                >
+                  {r.zeroClarificationRate.toFixed(0)}%
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+/* ---------- The expanded SLA panel ---------- */
+
+function SlaDashboard({
+  items,
+  group,
+  locale,
+}: {
+  items: ServiceRequest[];
+  group: OwnerGroup;
+  locale: "en" | "ar";
+}) {
   const breachCount = items.filter((r) => {
     const elapsed = differenceInHours(PACK_NOW, new Date(r.openedAt));
     return elapsed >= r.slaHours;
@@ -956,38 +1604,53 @@ function SlaDashboard({ items, locale }: { items: ServiceRequest[]; locale: "en"
   ];
 
   return (
-    <section className="ast-card p-5 sm:p-6 ast-fade-rise">
-      <div className="flex items-center gap-2.5 mb-4">
-        <div
-          className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
-          style={{ background: "rgba(22,154,165,0.10)", color: "var(--brand-400)" }}
-        >
-          <Activity className="w-4.5 h-4.5" strokeWidth={1.75} />
-        </div>
-        <div>
-          <h2 className="text-[16px] font-semibold" style={{ color: "var(--text-hi)" }}>
-            {locale === "ar" ? "لوحة SLA" : "SLA dashboard"}
-          </h2>
-          <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>
-            {locale === "ar" ? "مقاييس الزمن الحقيقي لمجموعة المالكين هذه" : "Live metrics for this owner group"}
-          </p>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {stats.map((s) => (
-          <div key={s.label} className="ast-card-2 p-4">
-            <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
-              {s.label}
-            </p>
-            <p className="text-[26px] font-semibold tabular mt-1.5" style={{ color: s.color }} dir="ltr">
-              {s.value}
-            </p>
-            <p className="text-[11px] tabular mt-1" style={{ color: "var(--text-lo)" }}>
-              {s.sub}
+    <section className="space-y-3 ast-fade-rise">
+      {/* Header + headline stats */}
+      <div className="ast-card p-5 sm:p-6">
+        <div className="flex items-center gap-2.5 mb-4">
+          <div
+            className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
+            style={{ background: "rgba(22,154,165,0.10)", color: "var(--brand-400)" }}
+          >
+            <Activity className="w-4.5 h-4.5" strokeWidth={1.75} />
+          </div>
+          <div>
+            <h2 className="text-[16px] font-semibold" style={{ color: "var(--text-hi)" }}>
+              {locale === "ar" ? "لوحة SLA" : "SLA dashboard"}
+            </h2>
+            <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+              {locale === "ar" ? "مقاييس الزمن الحقيقي لمجموعة المالكين هذه" : "Live metrics for this owner group"}
             </p>
           </div>
-        ))}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {stats.map((s) => (
+            <div key={s.label} className="ast-card-2 p-4">
+              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                {s.label}
+              </p>
+              <p className="text-[26px] font-semibold tabular mt-1.5" style={{ color: s.color }} dir="ltr">
+                {s.value}
+              </p>
+              <p className="text-[11px] tabular mt-1" style={{ color: "var(--text-lo)" }}>
+                {s.sub}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
+
+      {/* Breach reasons + trend (two-column on desktop) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <BreachReasonsChart items={items} locale={locale} />
+        <SlaTrendChart locale={locale} />
+      </div>
+
+      {/* Capacity declarations */}
+      <CapacityDeclaration items={items} locale={locale} />
+
+      {/* Owner performance table */}
+      <OwnerPerfTable group={group} locale={locale} />
     </section>
   );
 }
@@ -1044,6 +1707,23 @@ export function ServiceOwnerScreen() {
   const [items, setItems] = useState<ServiceRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+
+  // PRD §11-217 — pending journey-map fix proposals + modal trigger state.
+  const [proposals, setProposals] = useState<MapFixProposal[]>([]);
+  const [mapFixOpen, setMapFixOpen] = useState(false);
+  const [mapFixRequest, setMapFixRequest] = useState<{ ref: string; type: RequestType } | null>(null);
+
+  const handleProposeMapFix = useCallback((request: ServiceRequest) => {
+    setMapFixRequest({ ref: request.ref, type: request.type });
+    setMapFixOpen(true);
+  }, []);
+
+  const handleSubmitProposal = useCallback(
+    (proposal: MapFixProposal) => {
+      setProposals((prev) => [proposal, ...prev]);
+    },
+    [],
+  );
 
   const fetchQueue = useCallback(async () => {
     setLoading(true);
@@ -1169,18 +1849,60 @@ export function ServiceOwnerScreen() {
     <div dir={dir} className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10">
       {/* Header */}
       <header className="mb-6">
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--brand-400)" }}>
-          <Inbox className="w-3.5 h-3.5" strokeWidth={1.75} />
-          <span>{locale === "ar" ? "وحدة مالك الخدمة" : "Service owner console"}</span>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--brand-400)" }}>
+              <Inbox className="w-3.5 h-3.5" strokeWidth={1.75} />
+              <span>{locale === "ar" ? "وحدة مالك الخدمة" : "Service owner console"}</span>
+            </div>
+            <h1 className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight" style={{ color: "var(--text-hi)" }}>
+              {locale === "ar" ? "قائمة الانتظار" : "Your queue"}
+            </h1>
+            <p className="mt-1 text-[13px]" style={{ color: "var(--text-mid)" }}>
+              {locale === "ar"
+                ? "حمولات كاملة، أسئلة قياسية، حلول منظّمة. أقل رحلات ذهاب وإياب."
+                : "Complete payloads, standard questions, structured resolutions. Fewer round-trips."}
+            </p>
+          </div>
+
+          {/* PRD §11-217 — Pending map-fix proposals counter */}
+          {proposals.length > 0 && (
+            <button
+              type="button"
+              onClick={() => toast.info(
+                locale === "ar"
+                  ? `${proposals.length} اقتراحات إصلاح خريطة بانتظار المراجعة`
+                  : `${proposals.length} map-fix proposal${proposals.length === 1 ? "" : "s"} awaiting review`,
+                {
+                  description: proposals
+                    .slice(0, 3)
+                    .map((p) => `${p.requestRef} · ${p.stepKey}`)
+                    .join("\n"),
+                },
+              )}
+              className="ast-focus inline-flex items-center gap-2 h-9 px-3 rounded-full text-[12px] font-medium whitespace-nowrap"
+              style={{
+                background: "rgba(201,162,39,0.08)",
+                border: "1px solid rgba(201,162,39,0.32)",
+                color: "var(--accent-500)",
+              }}
+              aria-label={locale === "ar" ? `${proposals.length} اقتراحات بانتظار المراجعة` : `${proposals.length} proposals awaiting review`}
+            >
+              <MapPin className="w-3.5 h-3.5" strokeWidth={1.75} />
+              <span>{locale === "ar" ? "اقتراحات قيد الانتظار" : "Pending proposals"}</span>
+              <span
+                className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full text-[11px] font-mono tabular"
+                style={{
+                  background: "var(--accent-500)",
+                  color: "var(--surface-0)",
+                }}
+                dir="ltr"
+              >
+                {proposals.length}
+              </span>
+            </button>
+          )}
         </div>
-        <h1 className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight" style={{ color: "var(--text-hi)" }}>
-          {locale === "ar" ? "قائمة الانتظار" : "Your queue"}
-        </h1>
-        <p className="mt-1 text-[13px]" style={{ color: "var(--text-mid)" }}>
-          {locale === "ar"
-            ? "حمولات كاملة، أسئلة قياسية، حلول منظّمة. أقل رحلات ذهاب وإياب."
-            : "Complete payloads, standard questions, structured resolutions. Fewer round-trips."}
-        </p>
       </header>
 
       {/* Group filter + count */}
@@ -1294,7 +2016,13 @@ export function ServiceOwnerScreen() {
         <div className="space-y-3">
           <AnimatePresence initial={false}>
             {filtered.map((r) => (
-              <RequestCard key={r.id} request={r} onAction={handleAction} locale={locale} />
+              <RequestCard
+                key={r.id}
+                request={r}
+                onAction={handleAction}
+                onProposeMapFix={handleProposeMapFix}
+                locale={locale}
+              />
             ))}
           </AnimatePresence>
         </div>
@@ -1303,7 +2031,7 @@ export function ServiceOwnerScreen() {
       {/* SLA dashboard */}
       {!loading && !err && filtered.length > 0 && (
         <div className="mt-6">
-          <SlaDashboard items={filtered} locale={locale} />
+          <SlaDashboard items={filtered} group={group} locale={locale} />
         </div>
       )}
 
@@ -1313,6 +2041,15 @@ export function ServiceOwnerScreen() {
           ? `قائمة ${group} · ${filtered.length} طلبًا · ${zeroClarificationCount} بدون توضيح`
           : `Queue ${group} · ${filtered.length} requests · ${zeroClarificationCount} without clarification`}
       </p>
+
+      {/* PRD §11-217 — Journey-map fix proposal modal */}
+      <JourneyMapFixModal
+        open={mapFixOpen}
+        onOpenChange={setMapFixOpen}
+        requestRef={mapFixRequest?.ref ?? ""}
+        requestType={mapFixRequest?.type ?? null}
+        onSubmit={handleSubmitProposal}
+      />
     </div>
   );
 }
