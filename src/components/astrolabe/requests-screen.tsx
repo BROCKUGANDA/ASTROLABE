@@ -46,7 +46,9 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
-import { StatusChip, SlaChip, CitationChip } from "@/components/astrolabe/widgets";
+import { StatusChip, CitationChip } from "@/components/astrolabe/widgets";
+import { Tilt3D } from "@/components/astrolabe/micro-interactions";
+import { SlaRing } from "@/components/astrolabe/sla-ring";
 import {
   INTAKE_SCHEMAS,
   type IntakeSchema,
@@ -868,7 +870,77 @@ function ReturnQuestionBanner({
 }
 
 /* ============================================================
-   Request card (list item)
+   Helpers — reduced-motion hook + status-based depth config
+   ============================================================ */
+
+function usePrefersReducedMotion(): boolean {
+  const [reduce, setReduce] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReduce(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return reduce;
+}
+
+type DepthConfig = {
+  shadow: string;
+  borderLeft: string;
+  opacity: number;
+  glow: string;
+};
+
+/* Status-based depth layering — fresh requests are calm (e1 + teal hairline);
+   in-progress is elevated (e2 + teal glow); returned is amber-elevated (e3 +
+   amber glow, the "your next move" cue); resolved/closed are recessed
+   (e1 + steady green hairline, slight opacity); draft is flat. */
+function getRequestDepth(status: string): DepthConfig {
+  switch (status) {
+    case "submitted":
+    case "acknowledged":
+      return {
+        shadow: "var(--e1)",
+        borderLeft: "2px solid var(--brand-500)",
+        opacity: 1,
+        glow: "",
+      };
+    case "in_progress":
+      return {
+        shadow: "var(--e2)",
+        borderLeft: "3px solid var(--brand-500)",
+        opacity: 1,
+        glow: "0 0 24px rgba(22,154,165,0.16)",
+      };
+    case "returned":
+      return {
+        shadow: "var(--e3)",
+        borderLeft: "3px solid var(--accent-500)",
+        opacity: 1,
+        glow: "0 0 28px rgba(201,162,39,0.20)",
+      };
+    case "resolved":
+    case "closed":
+      return {
+        shadow: "var(--e1)",
+        borderLeft: "1px solid var(--status-steady)",
+        opacity: 0.85,
+        glow: "",
+      };
+    case "draft":
+    default:
+      return {
+        shadow: "var(--e1)",
+        borderLeft: "1px solid var(--border)",
+        opacity: 1,
+        glow: "",
+      };
+  }
+}
+
+/* ============================================================
+   Request card (list item) — 3D tilt + status-based depth + SlaRing
    ============================================================ */
 
 function RequestCard({
@@ -887,6 +959,8 @@ function RequestCard({
   index: number;
 }) {
   const [copied, setCopied] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const reduce = usePrefersReducedMotion();
   const schema = INTAKE_SCHEMAS[req.type];
   const typeLabel = schema ? (locale === "ar" ? schema.labelAr : schema.label) : req.type;
   const TypeIcon = TYPE_ICONS[req.type] ?? Inbox;
@@ -905,6 +979,14 @@ function RequestCard({
       ? ownerGroupLabel.ar
       : ownerGroupLabel.en
     : req.ownerGroup;
+
+  // Status-based depth layering — different shadow + left border + glow per status
+  const depth = getRequestDepth(req.status);
+  const composeShadow = (base: string) =>
+    depth.glow ? `${base}, ${depth.glow}` : base;
+  const defaultShadow = composeShadow(depth.shadow);
+  const hoverShadow = composeShadow("var(--e3)");
+  const finalShadow = hovered ? hoverShadow : defaultShadow;
 
   const handleCopyRef = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -925,168 +1007,213 @@ function RequestCard({
   const showReturnQuestion =
     req.status === "returned" && !!req.returnQuestion;
 
+  // Spring drop-in — stiffness 200 / damping 24, 40ms stagger capped at 8 (320ms)
+  const entranceTransition = reduce
+    ? { duration: 0.12 }
+    : {
+        type: "spring" as const,
+        stiffness: 200,
+        damping: 24,
+        delay: Math.min(index * 0.04, 0.32),
+      };
+
   return (
     <motion.li
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.18, delay: Math.min(index * 0.04, 0.2) }}
-      className="ast-card overflow-hidden"
+      initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
+      animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0 }}
+      exit={reduce ? { opacity: 0 } : { opacity: 0, y: -8 }}
+      transition={entranceTransition}
+      style={{ listStyle: "none" }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      {showReturnQuestion && req.returnQuestion && (
-        <ReturnQuestionBanner
-          req={req}
-          ownerGroupText={ownerGroupText}
-          onResubmit={onResubmit}
-          locale={locale}
-        />
-      )}
-      {/* Outer clickable area uses role=button on a div to avoid nested <button> hydration errors */}
+      {/* Hover-lift wrapper — 2px translateY on hover (180ms) */}
       <div
-        onClick={onToggle}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onToggle();
-          }
+        style={{
+          transform:
+            hovered && !reduce ? "translateY(-2px)" : "translateY(0)",
+          transition: reduce ? "none" : "transform 180ms var(--ease-standard)",
         }}
-        role="button"
-        tabIndex={0}
-        aria-expanded={expanded}
-        className="ast-focus w-full text-left p-4 sm:p-5 cursor-pointer"
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3 min-w-0 flex-1">
+        <Tilt3D maxDeg={2} as="div">
+          {/* Visual card — status-based depth + accent left border */}
+          <div
+            className="ast-card overflow-hidden"
+            style={{
+              boxShadow: finalShadow,
+              borderLeft: depth.borderLeft,
+              opacity: depth.opacity,
+            }}
+          >
+            {showReturnQuestion && req.returnQuestion && (
+              <ReturnQuestionBanner
+                req={req}
+                ownerGroupText={ownerGroupText}
+                onResubmit={onResubmit}
+                locale={locale}
+              />
+            )}
+            {/* Outer clickable area uses role=button on a div to avoid nested <button> hydration errors */}
             <div
-              className="flex items-center justify-center w-9 h-9 rounded-full shrink-0"
-              style={{
-                background: "rgba(22,154,165,0.10)",
-                color: "var(--brand-400)",
+              onClick={onToggle}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onToggle();
+                }
               }}
-              aria-hidden="true"
+              role="button"
+              tabIndex={0}
+              aria-expanded={expanded}
+              className="ast-focus w-full text-left p-4 sm:p-5 cursor-pointer"
             >
-              <TypeIcon className="w-4 h-4" strokeWidth={1.75} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p
-                className="text-[15px] font-semibold leading-snug truncate"
-                style={{ color: "var(--text-hi)" }}
-              >
-                {typeLabel}
-              </p>
-              <div className="mt-1.5 flex items-center flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCopyRef();
-                  }}
-                  className="ast-focus inline-flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-mono tabular transition-colors hover:bg-[var(--surface-2)]"
-                  style={{ color: "var(--text-lo)" }}
-                  title={locale === "ar" ? "نسخ المرجع" : "Copy reference"}
-                >
-                  {copied ? (
-                    <Check
-                      className="w-3 h-3"
-                      strokeWidth={1.75}
-                      style={{ color: "var(--status-steady)" }}
-                    />
-                  ) : (
-                    <Copy className="w-3 h-3" strokeWidth={1.75} />
-                  )}
-                  {req.ref}
-                </button>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  {/* 3D medallion — radial gradient + inner highlight ring + drop shadow */}
+                  <div
+                    className="flex items-center justify-center rounded-full shrink-0"
+                    style={{
+                      width: 36,
+                      height: 36,
+                      background:
+                        "radial-gradient(circle at 30% 30%, rgba(22,154,165,0.36) 0%, rgba(22,154,165,0.14) 55%, rgba(11,17,28,0.55) 100%)",
+                      border: "1px solid rgba(22,154,165,0.30)",
+                      color: "var(--brand-400)",
+                      boxShadow: [
+                        // Drop shadow below the icon (2px offset, 4px blur, 0.2 opacity)
+                        "0 2px 4px rgba(0,0,0,0.20)",
+                        // Inner highlight ring (1px, white at 0.1 opacity)
+                        "inset 0 0 0 1px rgba(255,255,255,0.10)",
+                        // Subtle inset glow at top-left for added depth
+                        "inset 1.5px 1.5px 2px rgba(255,255,255,0.06)",
+                      ].join(", "),
+                    }}
+                    aria-hidden="true"
+                  >
+                    <TypeIcon className="w-4 h-4" strokeWidth={1.75} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="text-[15px] font-semibold leading-snug truncate"
+                      style={{ color: "var(--text-hi)" }}
+                    >
+                      {typeLabel}
+                    </p>
+                    <div className="mt-1.5 flex items-center flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCopyRef();
+                        }}
+                        className="ast-focus inline-flex items-center gap-1 h-6 px-2 rounded-md text-[10px] font-mono tabular transition-colors hover:bg-[var(--surface-2)]"
+                        style={{ color: "var(--text-lo)" }}
+                        title={locale === "ar" ? "نسخ المرجع" : "Copy reference"}
+                      >
+                        {copied ? (
+                          <Check
+                            className="w-3 h-3"
+                            strokeWidth={1.75}
+                            style={{ color: "var(--status-steady)" }}
+                          />
+                        ) : (
+                          <Copy className="w-3 h-3" strokeWidth={1.75} />
+                        )}
+                        {req.ref}
+                      </button>
+                      <span
+                        className="text-[11px] tabular"
+                        style={{ color: "var(--text-lo)" }}
+                      >
+                        {locale === "ar"
+                          ? `فُتح ${format(new Date(req.openedAt), "d MMM")}`
+                          : `Opened ${format(new Date(req.openedAt), "d MMM")}`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  <StatusChip status={req.status} locale={locale} />
+                  <SlaRing
+                    elapsedHours={elapsedHours}
+                    targetHours={req.slaHours}
+                    breachLevel={breach}
+                  />
+                </div>
+              </div>
+
+              {/* Meta row */}
+              <div className="mt-3 flex items-center flex-wrap gap-x-3 gap-y-1.5 text-[12px]">
                 <span
-                  className="text-[11px] tabular"
-                  style={{ color: "var(--text-lo)" }}
+                  className="inline-flex items-center gap-1.5"
+                  style={{ color: "var(--text-mid)" }}
                 >
-                  {locale === "ar"
-                    ? `فُتح ${format(new Date(req.openedAt), "d MMM")}`
-                    : `Opened ${format(new Date(req.openedAt), "d MMM")}`}
+                  <User className="w-3 h-3" strokeWidth={1.75} />
+                  {assignee ? assignee.name : req.assignee}
+                  <span className="opacity-60">· {ownerGroupText}</span>
+                </span>
+                {req.reassignCount > 0 && (
+                  <span
+                    className="inline-flex items-center gap-1 tabular"
+                    style={{ color: "var(--status-watch)" }}
+                  >
+                    <CircleDot className="w-3 h-3" strokeWidth={1.75} />
+                    {locale === "ar"
+                      ? `أُعيد تعيينها ${req.reassignCount}×`
+                      : `Reassigned ${req.reassignCount}×`}
+                  </span>
+                )}
+                {req.returnCount > 0 && (
+                  <span
+                    className="inline-flex items-center gap-1 tabular"
+                    style={{ color: "var(--status-friction)" }}
+                  >
+                    <RotateCcw className="w-3 h-3" strokeWidth={1.75} />
+                    {locale === "ar"
+                      ? `أُرجعت ${req.returnCount}×`
+                      : `Returned ${req.returnCount}×`}
+                  </span>
+                )}
+                <span
+                  className="ml-auto inline-flex items-center gap-1 text-[12px] font-medium"
+                  style={{ color: "var(--brand-400)" }}
+                >
+                  {expanded
+                    ? locale === "ar"
+                      ? "إخفاء"
+                      : "Hide"
+                    : locale === "ar"
+                      ? "عرض"
+                      : "View"}
+                  <ChevronDown
+                    className={cn("w-3.5 h-3.5 transition-transform", expanded && "rotate-180")}
+                    strokeWidth={1.75}
+                  />
                 </span>
               </div>
             </div>
-          </div>
-          <div className="flex flex-col items-end gap-1.5 shrink-0">
-            <StatusChip status={req.status} locale={locale} />
-            <SlaChip
-              elapsedHours={elapsedHours}
-              targetHours={req.slaHours}
-              breachLevel={breach}
-              locale={locale}
-            />
-          </div>
-        </div>
 
-        {/* Meta row */}
-        <div className="mt-3 flex items-center flex-wrap gap-x-3 gap-y-1.5 text-[12px]">
-          <span
-            className="inline-flex items-center gap-1.5"
-            style={{ color: "var(--text-mid)" }}
-          >
-            <User className="w-3 h-3" strokeWidth={1.75} />
-            {assignee ? assignee.name : req.assignee}
-            <span className="opacity-60">· {ownerGroupText}</span>
-          </span>
-          {req.reassignCount > 0 && (
-            <span
-              className="inline-flex items-center gap-1 tabular"
-              style={{ color: "var(--status-watch)" }}
-            >
-              <CircleDot className="w-3 h-3" strokeWidth={1.75} />
-              {locale === "ar"
-                ? `أُعيد تعيينها ${req.reassignCount}×`
-                : `Reassigned ${req.reassignCount}×`}
-            </span>
-          )}
-          {req.returnCount > 0 && (
-            <span
-              className="inline-flex items-center gap-1 tabular"
-              style={{ color: "var(--status-friction)" }}
-            >
-              <RotateCcw className="w-3 h-3" strokeWidth={1.75} />
-              {locale === "ar"
-                ? `أُرجعت ${req.returnCount}×`
-                : `Returned ${req.returnCount}×`}
-            </span>
-          )}
-          <span
-            className="ml-auto inline-flex items-center gap-1 text-[12px] font-medium"
-            style={{ color: "var(--brand-400)" }}
-          >
-            {expanded
-              ? locale === "ar"
-                ? "إخفاء"
-                : "Hide"
-              : locale === "ar"
-                ? "عرض"
-                : "View"}
-            <ChevronDown
-              className={cn("w-3.5 h-3.5 transition-transform", expanded && "rotate-180")}
-              strokeWidth={1.75}
-            />
-          </span>
-        </div>
+            {/* Expandable detail */}
+            <AnimatePresence initial={false}>
+              {expanded && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden border-t border-[var(--border-soft)]"
+                >
+                  <div className="p-4 sm:p-5 space-y-4 bg-[var(--surface-0)]">
+                    <RequestTimeline req={req} locale={locale} />
+                    <RequestContext req={req} locale={locale} />
+                    <RequestPolicyRef req={req} locale={locale} />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </Tilt3D>
       </div>
-
-      {/* Expandable detail */}
-      <AnimatePresence initial={false}>
-        {expanded && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden border-t border-[var(--border-soft)]"
-          >
-            <div className="p-4 sm:p-5 space-y-4 bg-[var(--surface-0)]">
-              <RequestTimeline req={req} locale={locale} />
-              <RequestContext req={req} locale={locale} />
-              <RequestPolicyRef req={req} locale={locale} />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </motion.li>
   );
 }
@@ -1215,6 +1342,168 @@ function RequestPolicyRef({ req, locale }: { req: ServiceRequest; locale: "en" |
 }
 
 /* ============================================================
+   StepIndicator — 3-dot wizard step indicator with labels
+   Horizontal dots connected by a line that fills teal as the
+   user progresses. Completed steps are filled teal with a
+   checkmark; the current step is filled sand-gold with a
+   pulse ring; future steps are outlined gray. Each dot has
+   a label below.
+   ============================================================ */
+
+const WIZARD_STEPS: ReadonlyArray<{ en: string; ar: string }> = [
+  { en: "Choose type", ar: "اختر النوع" },
+  { en: "Fill details", ar: "أدخل التفاصيل" },
+  { en: "Preview & submit", ar: "معاينة وإرسال" },
+];
+
+function StepIndicator({ step, locale }: { step: 0 | 1 | 2; locale: "en" | "ar" }) {
+  const reduce = usePrefersReducedMotion();
+  // Progress fraction (0, 0.5, 1.0) drives the filled-line width
+  const progress = step / 2;
+
+  return (
+    <div className="mb-5">
+      {/* Dot row with connecting line */}
+      <div className="relative grid grid-cols-3 items-center" style={{ height: 12 }}>
+        {/* Background track — runs from center of col 1 to center of col 3 */}
+        <div
+          className="absolute rounded-full"
+          style={{
+            left: "16.66%",
+            right: "16.66%",
+            top: "50%",
+            height: 2,
+            transform: "translateY(-50%)",
+            background: "var(--surface-3)",
+          }}
+          aria-hidden="true"
+        />
+        {/* Filled track — animates from 0 to progress × 66.66% of total width */}
+        <motion.div
+          className="absolute rounded-full"
+          style={{
+            left: "16.66%",
+            top: "50%",
+            height: 2,
+            transform: "translateY(-50%)",
+            background: "var(--brand-500)",
+          }}
+          initial={false}
+          animate={{ width: `${progress * 66.66}%` }}
+          transition={
+            reduce
+              ? { duration: 0 }
+              : { type: "spring" as const, stiffness: 200, damping: 24 }
+          }
+          aria-hidden="true"
+        />
+        {/* Dots */}
+        {WIZARD_STEPS.map((s, i) => {
+          const isComplete = i < step;
+          const isCurrent = i === step;
+          const isFuture = i > step;
+          return (
+            <div
+              key={i}
+              className="relative flex justify-center items-center"
+              style={{ height: 12 }}
+            >
+              <motion.div
+                className="rounded-full flex items-center justify-center"
+                style={{
+                  width: 12,
+                  height: 12,
+                  borderWidth: 1,
+                  borderStyle: "solid",
+                  zIndex: 1,
+                }}
+                initial={false}
+                animate={{
+                  backgroundColor: isComplete
+                    ? "var(--brand-500)"
+                    : isCurrent
+                      ? "var(--accent-500)"
+                      : "var(--surface-1)",
+                  borderColor: isFuture ? "var(--border)" : "transparent",
+                  scale: isCurrent ? 1.1 : 0.95,
+                }}
+                transition={
+                  reduce
+                    ? { duration: 0 }
+                    : { type: "spring" as const, stiffness: 300, damping: 22 }
+                }
+              >
+                {isComplete && (
+                  <Check
+                    className="w-2 h-2"
+                    strokeWidth={3.5}
+                    style={{ color: "var(--surface-0)" }}
+                    aria-hidden="true"
+                  />
+                )}
+              </motion.div>
+              {/* Pulse ring around the current step */}
+              {isCurrent && !reduce && (
+                <motion.div
+                  className="absolute rounded-full pointer-events-none"
+                  style={{
+                    width: 12,
+                    height: 12,
+                    border: "1px solid var(--accent-500)",
+                  }}
+                  initial={{ opacity: 0.6, scale: 1 }}
+                  animate={{ opacity: [0.6, 0, 0.6], scale: [1, 1.8, 1] }}
+                  transition={{
+                    duration: 1.8,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                  aria-hidden="true"
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Labels */}
+      <div className="grid grid-cols-3 gap-1 mt-2">
+        {WIZARD_STEPS.map((s, i) => {
+          const isCurrent = i === step;
+          const isComplete = i < step;
+          return (
+            <div
+              key={i}
+              className={cn(
+                "text-center",
+                i === 0 && "text-left",
+                i === WIZARD_STEPS.length - 1 && "text-right",
+              )}
+            >
+              <motion.span
+                className="text-[10px] font-medium uppercase tracking-[0.04em] tabular block"
+                style={{
+                  color: isCurrent
+                    ? "var(--accent-500)"
+                    : isComplete
+                      ? "var(--brand-400)"
+                      : "var(--text-lo)",
+                }}
+                initial={false}
+                animate={{ opacity: isCurrent || isComplete ? 1 : 0.7 }}
+                transition={reduce ? { duration: 0 } : { duration: 0.18 }}
+              >
+                {locale === "ar" ? s.ar : s.en}
+              </motion.span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
    Wizard (3 steps)
    ============================================================ */
 
@@ -1334,19 +1623,8 @@ function Wizard({
 
   return (
     <div>
-      {/* Step indicator */}
-      <div className="flex items-center gap-1.5 mb-4">
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className="flex-1 h-1 rounded-full"
-            style={{
-              background:
-                i <= step ? "var(--brand-500)" : "var(--surface-3)",
-            }}
-          />
-        ))}
-      </div>
+      {/* Step indicator — 3-dot with labels and connecting line */}
+      <StepIndicator step={step} locale={locale} />
 
       <AnimatePresence mode="wait">
         {step === 0 && (

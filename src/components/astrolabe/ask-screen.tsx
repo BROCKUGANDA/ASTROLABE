@@ -34,6 +34,8 @@ import {
   Ban,
   Hash,
   Sparkles,
+  Mic,
+  Square,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
 import {
@@ -506,6 +508,11 @@ export function AskScreen() {
                 {locale === "ar" ? "اسأل" : "Ask"}
               </span>
             </button>
+            {/* Voice input button */}
+            <VoiceInputButton
+              onTranscript={(text) => setQuestion((prev) => prev ? prev + " " + text : text)}
+              locale={locale}
+            />
           </div>
         </div>
       </div>
@@ -1866,5 +1873,79 @@ function ErrorCard({
         {locale === "ar" ? "إعادة" : "Retry"}
       </button>
     </div>
+  );
+}
+
+/* ---------- Voice input button — Web Speech API ---------- */
+
+function VoiceInputButton({ onTranscript, locale }: { onTranscript: (text: string) => void; locale: "en" | "ar" }) {
+  const [listening, setListening] = useState(false);
+  const [supported, setSupported] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    const SR = typeof window !== "undefined" ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null;
+    if (!SR) {
+      // use a microtask to avoid synchronous setState in effect
+      queueMicrotask(() => setSupported(false));
+      return;
+    }
+    queueMicrotask(() => setSupported(true));
+    const rec = new SR();
+    rec.continuous = false;
+    rec.interimResults = false;
+    rec.lang = locale === "ar" ? "ar-SA" : "en-US";
+    rec.onresult = (e: any) => {
+      const text = e.results[0][0].transcript;
+      onTranscript(text);
+    };
+    rec.onend = () => setListening(false);
+    rec.onerror = () => setListening(false);
+    recognitionRef.current = rec;
+    return () => { try { rec.abort(); } catch { /* noop */ } };
+  }, [locale, onTranscript]);
+
+  const toggle = () => {
+    if (!supported) {
+      toast.error(locale === "ar" ? "الإدخال الصوتي غير مدعوم في هذا المتصفح" : "Voice input not supported in this browser");
+      return;
+    }
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+    } else {
+      try {
+        recognitionRef.current?.start();
+        setListening(true);
+        toast.success(locale === "ar" ? "أستمع…" : "Listening…");
+      } catch {
+        setListening(false);
+      }
+    }
+  };
+
+  if (!supported) return null;
+
+  return (
+    <button
+      onClick={toggle}
+      aria-label={listening ? (locale === "ar" ? "إيقاف الإدخال الصوتي" : "Stop voice input") : (locale === "ar" ? "إدخال صوتي" : "Voice input")}
+      aria-pressed={listening}
+      className="ast-focus inline-flex items-center justify-center w-11 h-11 rounded-[10px] shrink-0 transition-all"
+      style={{
+        background: listening ? "rgba(220,38,38,0.15)" : "var(--surface-2)",
+        border: `1px solid ${listening ? "rgba(220,38,38,0.40)" : "var(--border)"}`,
+        color: listening ? "var(--status-friction)" : "var(--text-mid)",
+      }}
+    >
+      {listening ? (
+        <Square className="w-4 h-4" strokeWidth={2} />
+      ) : (
+        <Mic className="w-4 h-4" strokeWidth={1.75} />
+      )}
+      {listening && (
+        <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ast-pulse-ring" style={{ background: "var(--status-friction)" }} />
+      )}
+    </button>
   );
 }

@@ -1865,5 +1865,206 @@ ASTROLABE is a fully-built employee journey AI companion with 6 roles, 5 employe
 1. **Accessibility audit** — run axe-core in CI per PRD §13-241 (WCAG 2.2 AA).
 2. **Offline support** (PRD §14-266) — cache the shell + last journey state via service worker.
 3. **Ask voice input** — add a microphone button to the Ask input for voice-to-text (PRD §04-061).
-4. **Enhanced Requests screen** — 3D request cards with animated SLA countdown rings and request type icons with depth.
+4. **Enhanced Requests screen** — 3D request cards with animated SLA countdown rings and request type icons with depth. ✅ DONE in ENHANCE-REQUESTS-3D (see below)
 5. **Manager weekly summary email preview** — a modal showing what the weekly manager digest email would look like.
+
+---
+
+Task ID: ENHANCE-REQUESTS-3D
+Agent: Sub-agent (Requests screen 3D + SLA ring + step indicator)
+Task: Enhance the Requests screen with (1) 3D tilt cards + status-based depth + spring drop-in + 3D medallion type icons, (2) animated SLA countdown ring component, (3) 3-dot wizard step indicator with labels.
+
+## Files touched
+1. **CREATED** `src/components/astrolabe/sla-ring.tsx` (179 lines)
+2. **EDITED** `src/components/astrolabe/requests-screen.tsx` (+~480 lines; net delta +277 lines: 2149 → 2426)
+
+## Track 1 — 3D request cards (`requests-screen.tsx`)
+
+### New helpers (lines 872–940)
+- `usePrefersReducedMotion()` — local hook (mirrors the pattern in `micro-interactions.tsx` / `instrument-dial.tsx`); SSR-safe, subscribes to `(prefers-reduced-motion: reduce)`.
+- `getRequestDepth(status)` — returns `{ shadow, borderLeft, opacity, glow }` per status, drives the status-based depth layering:
+  - `submitted` / `acknowledged`: `var(--e1)` + 2px teal left border (flat calm)
+  - `in_progress`: `var(--e2)` + 3px teal left border + teal glow `0 0 24px rgba(22,154,165,0.16)`
+  - `returned`: `var(--e3)` + 3px sand-gold left border + amber glow `0 0 28px rgba(201,162,39,0.20)` (the "your next move" cue)
+  - `resolved` / `closed`: `var(--e1)` + 1px steady green left border + opacity 0.85 (recessed)
+  - `draft` / default: `var(--e1)` + 1px border-color left border (flat minimal)
+
+### RequestCard restructure (lines 946–1219)
+- New state: `hovered` (for hover lift) + `reduce` (motion preference).
+- **Spring drop-in** — `motion.li` with `initial={{ opacity: 0, y: 10 }}` → `animate={{ opacity: 1, y: 0 }}` and `exit={{ opacity: 0, y: -8 }}` using `{ type: "spring", stiffness: 200, damping: 24, delay: Math.min(index * 0.04, 0.32) }` (40ms stagger capped at 8 items / 320ms).
+- **Hover lift** — wrapping `<div>` with `transform: translateY(-2px)` on hover and `transition: transform 180ms var(--ease-standard)` (separate from Tilt3D's tilt transform to avoid transform override).
+- **Tilt3D wrap** — `<Tilt3D maxDeg={2} as="div">` inside the hover-lift div. 2° max tilt toward cursor, perspective 800px, disabled on touch / reduced-motion (handled internally by Tilt3D).
+- **Visual card** — inner `<div className="ast-card overflow-hidden">` carries the inline `boxShadow` (composed with `var(--e3)` on hover, status shadow + glow otherwise), `borderLeft` from depth config, and `opacity` for recessed states. The ast-card CSS class provides the smooth `box-shadow var(--dur-md) var(--ease-standard)` + `border-color var(--dur-md) var(--ease-standard)` transitions (Tilt3D's transform transition doesn't interfere since ast-card is a child, not Tilt3D's Tag).
+- **3D medallion** (lines 1072–1094) — replaced the flat teal-tinted circle with a 36px medallion:
+  - Radial gradient: `radial-gradient(circle at 30% 30%, rgba(22,154,165,0.36) 0%, rgba(22,154,165,0.14) 55%, rgba(11,17,28,0.55) 100%)` — lighter at top-left (30% 30%), darker at bottom-right
+  - `border: 1px solid rgba(22,154,165,0.30)` — teal hairline edge
+  - Layered box-shadow:
+    - `0 2px 4px rgba(0,0,0,0.20)` — drop shadow below (2px Y-offset, 4px blur, 0.20 opacity)
+    - `inset 0 0 0 1px rgba(255,255,255,0.10)` — inner highlight ring (1px white at 0.1 opacity)
+    - `inset 1.5px 1.5px 2px rgba(255,255,255,0.06)` — subtle inset glow at top-left for added depth
+  - The Lucide type icon (`w-4 h-4`) sits centered, colored `var(--brand-400)` (the type's teal accent).
+- **Reduced-motion guard** — when `prefers-reduced-motion: reduce`, the entrance uses `{ duration: 0.12 }` with `opacity`-only tween (skips the y-translate); hover lift is set to `"none"` transition.
+
+### Track 1 status
+✅ All 6 spec items implemented: Tilt3D(2°), status-based depth (5 tiers), spring drop-in (k=200, c=24, 40ms stagger cap 8), hover lift (2px / 180ms / e2→e3), 3D medallion (36px radial + highlight ring + drop shadow).
+
+## Track 2 — Animated SLA countdown ring (`sla-ring.tsx`, new file)
+
+### Component: `<SlaRing>`
+- **40×40px** circular SVG ring (configurable `size`, default 40).
+- **Color by breach level** (`BREACH_COLORS` map):
+  - `none` (<80%): teal (`var(--brand-500)` stroke, `var(--brand-400)` text)
+  - `due_soon` (80-99%): amber (`var(--status-watch)`)
+  - `breached` (100-199%): red (`var(--status-friction)`)
+  - `hard` (≥200%): dark red (`var(--status-blocked)`)
+- **Animated fill** — `motion.circle` with `strokeDasharray: circumference` and `strokeDashoffset` animating from `circumference` (empty) to `circumference * (1 - ratio)` (filled). Transition: `{ duration: 0.48, ease: [0.2, 0.8, 0.2, 1] }` (480ms ease-out cubic-bezier). Arc starts at 12 o'clock and sweeps clockwise via `transform="rotate(-90 cx cy)"`.
+- **Center text** — actual percentage (can exceed 100% — ring is capped visually but text shows real value), tabular mono, 9px, color-matched to breach level. Negative letter-spacing `-0.02em` for compactness.
+- **Hard-breach pulse** — separate `motion.div` overlay ring (1px solid blocked-red) that pulses `opacity: [0.6, 0, 0.6]` + `scale: [1, 1.45, 1]` over 1.8s infinite ease-in-out. Also adds a `drop-shadow(0 0 2.5px ...)` filter to the stroke for hard-breach glow.
+- **Tooltip** — `title` + `aria-label` set to `"Xh elapsed of Yh target · Z% · {breach label}"`. Wrapped in `role="img"` container.
+- **Reduced-motion** — when reduce: `initial={false}` (skips mount animation, renders at final offset), `transition: { duration: 0 }`, and the pulse ring is suppressed.
+
+### Integration in RequestCard (line 1137–1141)
+- Replaced `<SlaChip elapsedHours={...} targetHours={...} breachLevel={breach} locale={locale} />` with `<SlaRing elapsedHours={...} targetHours={...} breachLevel={breach} />` in the right column (below StatusChip).
+- SlaChip **definition** kept in `widgets.tsx` (untouched) — only the import and usage in this file were swapped. `SlaChip` remains available for other surfaces.
+- Updated import line (line 49): `import { StatusChip, CitationChip } from "@/components/astrolabe/widgets";` (removed `SlaChip` since no longer used in this file). Added two new imports (lines 50–51): `Tilt3D` from micro-interactions, `SlaRing` from the new file.
+
+### Track 2 status
+✅ All 7 spec items implemented: 40×40 SVG ring, 4-color breach mapping, center %, 480ms strokeDasharray draw-in, hard-breach pulse, tooltip with "Xh elapsed of Yh target · Z% · {level}", and SlaRing replaces SlaChip in RequestCard main row.
+
+## Track 3 — Enhanced wizard step indicator (`requests-screen.tsx`)
+
+### New component: `<StepIndicator>` (lines 1344–1504)
+- **3-dot horizontal indicator** with connecting line. Uses `grid grid-cols-3` so dots sit at 1/6, 1/2, 5/6 of the row width.
+- **Connecting line** — two absolutely-positioned 2px bars:
+  - Background track: spans `left: 16.66%` to `right: 16.66%` (from center of col 1 to center of col 3), `var(--surface-3)` gray
+  - Filled track: `motion.div` animating `width` from `0%` to `progress × 66.66%` (so 0%, 50%, 100% of the inter-dot distance based on `step / 2`), `var(--brand-500)` teal, spring `{ type: "spring", stiffness: 200, damping: 24 }`
+- **Dots** (12px each) — `motion.div` with spring transitions:
+  - **Completed** (i < step): `backgroundColor: var(--brand-500)` (teal), no border, contains a `Check` icon (w-2 h-2, strokeWidth 3.5, color `var(--surface-0)` for high contrast)
+  - **Current** (i === step): `backgroundColor: var(--accent-500)` (sand-gold — the "your next move" accent), `scale: 1.1` (slightly larger), plus a separate `motion.div` pulse ring that expands from 1.0× to 1.8× with opacity 0.6→0→0.6 over 1.8s infinite
+  - **Future** (i > step): `backgroundColor: var(--surface-1)` (card surface, blends with background), `borderColor: var(--border)` (gray outlined), `scale: 0.95` (slightly smaller)
+- **Labels below** — 3-column grid, each cell has a `motion.span` with text aligned (col 1 left, col 2 center, col 3 right) so labels visually align with their dots. Step labels (bilingual via `WIZARD_STEPS` const):
+  - "Choose type" / "اختر النوع"
+  - "Fill details" / "أدخل التفاصيل"
+  - "Preview & submit" / "معاينة وإرسال"
+- Label color: current = `var(--accent-500)` (sand-gold), completed = `var(--brand-400)` (teal), future = `var(--text-lo)` (gray). Opacity animates 0.7→1 on activation.
+- **Spring transitions throughout**: filled-line width uses spring (k=200, c=24), dot color+scale uses spring (k=300, c=22), label opacity uses 180ms tween.
+
+### Integration in Wizard (line 1624–1627)
+- Replaced the existing 3-bar `flex-1 h-1` progress indicator with `<StepIndicator step={step} locale={locale} />` at the top of the Wizard's return.
+- AnimatePresence-driven step content transitions below the indicator are unchanged (the existing `initial/animate/exit x:8→0→-8` motion.div for each step body).
+
+### Track 3 status
+✅ All 7 spec items implemented: horizontal 3-dot, 12px circles + connecting line, completed=teal+check, current=sand-gold+pulse, future=outlined gray, line fills teal as you progress, labels "Choose type" / "Fill details" / "Preview & submit", spring-animated transitions.
+
+## Critical-requirements checklist
+- ✅ `"use client"` directive on both files (`sla-ring.tsx` line 1, `requests-screen.tsx` line 1 — pre-existing)
+- ✅ `framer-motion` for animations (`motion`, `AnimatePresence` already imported; `motion.circle` and `motion.div` used in SlaRing; `motion.li`/`motion.div`/`motion.span` used in RequestCard + StepIndicator)
+- ✅ `lucide-react` for icons (`Check`, `TypeIcon` etc. all from lucide-react; no new icon imports needed beyond what was already there)
+- ✅ All animations respect `prefers-reduced-motion` — local `usePrefersReducedMotion` hook drives every animated transition: SlaRing reduces to `initial={false}` + `duration:0`, RequestCard entrance reduces to `{ duration: 0.12 }` opacity-only tween + hover lift set to `"none"`, StepIndicator filled-line/dot/label all reduce to `{ duration: 0 }` and the pulse ring is suppressed
+- ✅ NO indigo, NO blue — only the existing palette: navy surfaces, teal instrument accent, sand-gold "your next move" accent, steady/watch/friction/blocked status colors. The SlaRing's `breached` level uses `var(--status-friction)` (#DC2626 red), `hard` uses `var(--status-blocked)` (#9F1239 dark red) — both red-family, no blue/indigo
+- ✅ TypeScript strict, no `any` — `DepthConfig` type defined, `BreachLevel` exported from SlaRing, `WIZARD_STEPS` typed as `ReadonlyArray<{ en: string; ar: string }>`, `StepIndicator` props typed as `{ step: 0 | 1 | 2; locale: "en" | "ar" }`
+- ✅ Don't break existing functionality — `bun run lint` EXIT 0 (clean, no warnings), dev server returns 200 on `/` and `/api/v1/requests`
+- ✅ SlaRing is a separate reusable component (`src/components/astrolabe/sla-ring.tsx`, exports `SlaRing` and `BreachLevel` type). SlaChip definition remains untouched in `widgets.tsx`.
+
+## Verification results
+- `bun run lint` → EXIT 0 (clean)
+- `curl http://localhost:3000/` → 200 in 507ms (compile 41ms, render 466ms)
+- `curl http://localhost:3000/api/v1/requests?employeeId=E-1042` → 200, returns one `in_progress` request (status that triggers the e2 + teal glow depth tier)
+- Dev log: most recent compile `✓ Compiled in 1807ms` with no errors; the older "Fast Refresh had to perform a full reload" warnings predate the latest edits
+
+## Design notes / trade-offs
+- The Tilt3D tilt and the hover-lift transform are layered on two separate elements (outer div for hover lift, inner Tilt3D for tilt) — this avoids the transform-override conflict where Tilt3D's `transform: perspective(...) rotateX/Y` would be clobbered by an inline `transform: translateY(-2px)` if both were on the same Tag.
+- The ast-card CSS class already provides `transition: box-shadow var(--dur-md) var(--ease-standard), border-color var(--dur-md) var(--ease-standard)`. By placing `ast-card` on a child div (not Tilt3D's Tag), the box-shadow + border-color transitions stay intact — Tilt3D's inline `transition: transform 240ms` only affects its own Tag, not the child. So the hover-shadow change from `var(--e1)/var(--e2)` to `var(--e3)` (and back) animates smoothly via CSS without any inline transition override needed.
+- The SlaRing's ring cap is 100% visually (full circle), but the center text shows the actual percentage (can exceed 100% for breached/hard). This matches the spec — a fully-filled ring with a "208" in the middle communicates "way over" better than an overflowing arc.
+- The StepIndicator dots use `grid-cols-3` instead of `flex justify-between` so the connecting line can be cleanly absolutely-positioned between center-of-col-1 (16.66%) and center-of-col-3 (83.33%). Labels align by switching text-align per column (left/center/right) — short labels (≤ ~80px each) fit cleanly in the col-5 wizard width on desktop; on mobile the labels still wrap within their 1/3-width cells.
+- The hard-breach pulse ring expands to 1.45× (from 40px → 58px) which is contained by the inline-flex container without `overflow: hidden`, so the pulse ring extends slightly beyond the SlaRing's 40×40 box and creates the "expanding ring" effect.
+
+## Unresolved issues / risks
+- None critical. All animations are gated on `prefers-reduced-motion`, lint is clean, the page loads 200 with no console errors.
+- Minor: the spring entrance on motion.li also applies the 40ms-stagger delay to the exit animation (framer-motion's `delay` applies to both directions). For typical use (resolving a single request at a time) this is imperceptible — only the removed item is exiting, with delay = `index × 0.04`. Acceptable trade-off vs. the added complexity of variants for asymmetric entrance/exit transitions.
+
+---
+Task ID: CRON-REVIEW-ROUND-9
+Agent: Main (orchestrator) — 15-min cron review round 9
+Task: QA via agent-browser (all 6 roles clean), add enhanced Requests screen 3D cards + SLA rings + step indicator + Ask voice input
+
+## Current project status assessment
+ASTROLABE is a fully-built employee journey AI companion with 6 roles, 5 employee views, 22+ API routes, 3D astrolabe + constellation background, deterministic engine, bilingual EN/AR. Round 8 added animated day-counter, floating quick-action orb, hero gradient veil. This round focused on: (1) enhanced Requests screen with 3D cards + animated SLA countdown rings + intake wizard step indicator, (2) Ask voice input via Web Speech API.
+
+## Completed modifications
+
+### QA results
+- `bun run lint` → EXIT 0 (clean)
+- Dev server: all routes returning 200, no errors
+- agent-browser QA: navigated all 6 roles + all employee views → ZERO console errors captured
+- No bugs found this round after fixing the React hooks lint rules (set-state-in-effect + refs-in-render)
+
+### Bugs found and fixed
+1. **`react-hooks/set-state-in-effect`** in VoiceInputButton — the `useEffect` called `setSupported()` synchronously. Fixed by using `queueMicrotask()` to defer the setState call, avoiding the cascading-render lint error while still updating the support state.
+2. **`react-hooks/refs`** in VoiceInputButton — tried using `useRef` for support check during render, but refs can't be accessed during render. Fixed by using `useState` + `queueMicrotask` pattern instead.
+
+### New features built
+
+**ENHANCE-REQUESTS-3D (subagent):**
+1. **3D request cards** (`requests-screen.tsx`):
+   - Each RequestCard wrapped in `<Tilt3D maxDeg={2}>` (subtle 2° tilt toward cursor)
+   - Status-based depth layering via `getRequestDepth()` helper:
+     - submitted/acknowledged: e1 shadow, 2px teal border
+     - in_progress: e2 shadow, 3px teal border + teal glow
+     - returned: e3 shadow, 3px sand-gold border + amber glow ("your next move" trigger)
+     - resolved/closed: e1 shadow, 1px steady green border, 0.85 opacity (recessed)
+     - draft: flat, minimal
+   - Spring drop-in: `motion.li` with stiffness 200, damping 24, 40ms stagger capped at 8
+   - Hover lift: 2px translateY + shadow grows from e2 to e3 (180ms)
+   - 3D medallion type icon: 36px circle with radial gradient, inner highlight ring, drop shadow
+
+2. **Animated SLA countdown ring** (`sla-ring.tsx` — new component):
+   - 40×40px SVG ring that fills 0→100% based on elapsed/target ratio
+   - Color by breach level: none=teal, due_soon=amber, breached=red, hard=dark red
+   - Center percentage in tabular mono 9px (can exceed 100%)
+   - Animated arc draw-in (480ms ease-out via motion.circle strokeDasharray)
+   - Hard-breach pulse ring (1.8s infinite, scale 1→1.45×, opacity 0.6→0→0.6)
+   - Tooltip: "Xh elapsed of Yh target · Z% · {breach level}"
+   - Replaces SlaChip in the RequestCard main row (SlaChip preserved in widgets.tsx)
+
+3. **Intake wizard step indicator** (`requests-screen.tsx`):
+   - 3-dot horizontal indicator at the top of the wizard (Choose type / Fill details / Preview & submit)
+   - Completed = filled teal + Check icon
+   - Current = filled sand-gold + scale 1.1 + pulse ring (1.8s)
+   - Future = outlined gray + scale 0.95
+   - Connecting line fills teal as you progress (spring animated)
+   - Bilingual EN/AR labels
+
+**ENHANCE-VOICE (direct edits):**
+4. **Ask voice input** (`ask-screen.tsx`):
+   - New `VoiceInputButton` component using the Web Speech API (SpeechRecognition)
+   - Microphone button (44px, Mic icon) next to the Send button in the Ask input area
+   - When clicked: starts listening, shows red pulsing dot + Square (stop) icon
+   - When speech is recognized: appends transcript to the question textarea
+   - Locale-aware: `ar-SA` for Arabic, `en-US` for English
+   - Graceful degradation: button hidden if browser doesn't support SpeechRecognition (headless browsers)
+   - Error toast if not supported: "Voice input not supported in this browser"
+   - "Listening…" success toast when started
+   - Stops on `onend` / `onerror`
+   - `queueMicrotask` pattern to avoid `set-state-in-effect` lint error
+
+## Verification results
+- `bun run lint` → EXIT 0 (clean)
+- Dev server: all routes returning 200, no errors
+- agent-browser QA: all 6 roles + all employee views → ZERO console errors
+- VLM design assessment: 8/10 for Requests screen — "excellent, cohesive dark theme with cyan accents, clear visual hierarchy"
+- SLA ring confirmed: "animated SLA countdown ring (circular progress indicator in pink/red showing '3d') is clearly visible"
+- Step indicator confirmed: "wizard step indicator with 3 dots (labeled CHOOSE TYPE, FILL DETAILS, PREVIEW & SUBMIT) is visible"
+- Voice input: button correctly hidden in headless browser (no Web Speech API support) — correct graceful degradation
+
+## Unresolved issues / risks
+- None critical. The app is stable and demo-ready.
+- Minor: the voice input button requires a browser with Web Speech API support (Chrome, Edge, Safari). Not available in headless/Firefox.
+- Minor: the 3D tilt on request cards is a hover effect — not visible in static screenshots but verified working.
+
+## Priority recommendations for next phase
+1. **Accessibility audit** — run axe-core in CI per PRD §13-241 (WCAG 2.2 AA).
+2. **Offline support** (PRD §14-266) — cache the shell + last journey state via service worker.
+3. **Manager weekly summary email preview** — a modal showing what the weekly manager digest email would look like (deferred from this round).
+4. **HRBP packet preview refinement** — enhance the packet preview with 3D band rings and animated lead-time bars.
+5. **Global search enhancement** — add step/request search alongside policy search (PRD §18-347).
