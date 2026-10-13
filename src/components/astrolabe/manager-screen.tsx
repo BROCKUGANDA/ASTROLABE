@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { format, formatDistanceStrict } from "date-fns";
+import { format, formatDistanceStrict, differenceInCalendarDays } from "date-fns";
 import {
   ShieldCheck,
   Users,
@@ -29,9 +29,30 @@ import {
   Lock,
   ArrowLeftRight,
   BarChart3,
+  BellRing,
+  BellOff,
+  History,
+  AlarmClock,
+  AlarmClockOff,
+  X,
+  Clock3,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
 import { StatusChip } from "@/components/astrolabe/widgets";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
+import { NOW as PACK_NOW } from "@/lib/data/pack";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -46,11 +67,16 @@ type StepStatus =
   | "done"
   | "skipped";
 
+type BreachLevel = "none" | "due_soon" | "breached" | "hard";
+
 interface OwnedStep {
   stepKey: string;
   label: string;
   status: StepStatus;
   dueAt?: string;
+  /** PRD §11-205 — surfaced by the cohort API so the manager screen can
+   * detect late steps without re-running the engine on the client. */
+  breachLevel?: BreachLevel;
 }
 
 interface CohortItem {
@@ -247,6 +273,9 @@ export function ManagerScreen() {
   const [items, setItems] = useState<CohortItem[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // Per-manager nudge history (PRD §11-205). Seeded with 5 historical
+  // entries so the bar chart demonstrates that nudges convert.
+  const [nudgeHistory, setNudgeHistory] = useState<NudgeHistoryEntry[]>(SEED_NUDGE_HISTORY);
 
   const fetchCohort = useCallback(async () => {
     setLoading(true);
@@ -305,6 +334,100 @@ export function ManagerScreen() {
     });
     return out;
   }, [items]);
+
+  // Late steps = waiting_owner AND (dueAt < NOW OR breachLevel breached/hard).
+  // Used by the late-step nudge banner + per-step nudge icon.
+  const lateSteps = useMemo(() => {
+    return allObligations
+      .filter(({ step }) => isStepLate(step))
+      .map(({ employee, step }) => ({
+        employee,
+        step,
+        daysLate: daysLateFor(step.dueAt),
+      }));
+  }, [allObligations]);
+
+  const handleNudgeDaily = useCallback(() => {
+    toast.success(
+      locale === "ar"
+        ? "جُدول التنبيه اليومي"
+        : "Daily nudge scheduled",
+      {
+        description: locale === "ar"
+          ? "سنُذكّرك كل صباح حتى تنتهي هذه الخطوات."
+          : "We'll remind you every morning until these are done.",
+      }
+    );
+  }, [locale]);
+
+  const handleSnoozeToday = useCallback(() => {
+    setNudgeHistory((prev) => [
+      {
+        id: `nh-live-${Date.now()}`,
+        date: new Date(PACK_NOW.getTime() - 0).toISOString(),
+        stepLabel: locale === "ar" ? "كل الخطوات المتأخرة" : "All late steps",
+        employeeName: locale === "ar" ? "أنت" : "You",
+        action: "snoozed" as NudgeAction,
+      },
+      ...prev,
+    ]);
+    toast.success(
+      locale === "ar"
+        ? "أُجّل حتى الغد 09:00"
+        : "Snoozed until tomorrow 09:00",
+      {
+        description: locale === "ar"
+          ? "سنُذكّرك عندها."
+          : "We'll remind you then.",
+      }
+    );
+  }, [locale]);
+
+  const handleNudge = useCallback(
+    (schedule: NudgeSchedule, step: OwnedStep, employee: CohortItem) => {
+      const labels: Record<NudgeSchedule, { en: string; ar: string }> = {
+        "1h":       { en: "in 1 hour",       ar: "بعد ساعة" },
+        "4h":       { en: "in 4 hours",      ar: "بعد 4 ساعات" },
+        tomorrow:   { en: "tomorrow at 09:00", ar: "غداً 09:00" },
+        never:      { en: "Never",            ar: "أبدًا" },
+      };
+      const lbl = labels[schedule];
+      if (schedule === "never") {
+        setNudgeHistory((prev) => [
+          {
+            id: `nh-live-${Date.now()}`,
+            date: new Date(PACK_NOW.getTime()).toISOString(),
+            stepLabel: step.label,
+            employeeName: employee.employeeName,
+            action: "ignored" as NudgeAction,
+          },
+          ...prev,
+        ]);
+        toast.warning(
+          locale === "ar" ? "لن نُذكّرك بهذه الخطوة" : "We won't nudge you about this step",
+          { description: `${step.label} · ${employee.employeeName}` }
+        );
+      } else {
+        setNudgeHistory((prev) => [
+          {
+            id: `nh-live-${Date.now()}`,
+            date: new Date(PACK_NOW.getTime()).toISOString(),
+            stepLabel: step.label,
+            employeeName: employee.employeeName,
+            action: "snoozed" as NudgeAction,
+          },
+          ...prev,
+        ]);
+        toast.success(
+          locale === "ar" ? "جُدول التنبيه" : "Nudge scheduled",
+          {
+            description: `${step.label} · ${employee.employeeName} · ${locale === "ar" ? lbl.ar : lbl.en}`,
+          }
+        );
+      }
+    },
+    [locale]
+  );
 
   return (
     <div
@@ -500,6 +623,19 @@ export function ManagerScreen() {
                 </span>
               </div>
 
+              {/* Late-step nudge banner (PRD §11-205) — only when ≥1
+                  owned step is late. Sand-gold accent = "your next move". */}
+              <AnimatePresence>
+                {lateSteps.length > 0 && (
+                  <LateStepsBanner
+                    lateSteps={lateSteps}
+                    onNudgeDaily={handleNudgeDaily}
+                    onSnoozeToday={handleSnoozeToday}
+                    locale={locale}
+                  />
+                )}
+              </AnimatePresence>
+
               {allObligations.length === 0 ? (
                 <div className="ast-card p-10 flex flex-col items-center text-center">
                   <div
@@ -514,15 +650,23 @@ export function ManagerScreen() {
                 </div>
               ) : (
                 <ul className="space-y-2">
-                  {allObligations.map(({ employee, step }) => (
-                    <ObligationRow
-                      key={`${employee.employeeId}-${step.stepKey}`}
-                      employee={employee}
-                      step={step}
-                    />
-                  ))}
+                  {allObligations.map(({ employee, step }) => {
+                    const late = isStepLate(step);
+                    return (
+                      <ObligationRow
+                        key={`${employee.employeeId}-${step.stepKey}`}
+                        employee={employee}
+                        step={step}
+                        late={late}
+                        onNudge={handleNudge}
+                      />
+                    );
+                  })}
                 </ul>
               )}
+
+              {/* Nudge history (PRD §11-205) — collapsible, last 5 + chart */}
+              <NudgeHistory history={nudgeHistory} locale={locale} />
             </section>
           )}
 
@@ -577,13 +721,382 @@ export function ManagerScreen() {
   );
 }
 
+/* ---------- Late step detection (PRD §11-205) ---------- */
+
+/** A step is "late" when ANY of:
+ *  1. status is waiting_owner AND its dueAt is in the past, OR
+ *  2. breachLevel is breached/hard (regardless of status — covers
+ *     in_progress steps that have blown past their SLA target too).
+ *
+ * Per PRD §11-205: "(status=waiting_owner AND dueAt < NOW,
+ * OR breachLevel=breached/hard)". */
+function isStepLate(step: OwnedStep): boolean {
+  // (2) breachLevel breach/hard → always late.
+  if (step.breachLevel === "breached" || step.breachLevel === "hard") return true;
+  // (1) waiting_owner + past dueAt.
+  if (step.status !== "waiting_owner") return false;
+  if (step.dueAt) {
+    try {
+      const due = new Date(step.dueAt);
+      if (due.getTime() < PACK_NOW.getTime()) return true;
+    } catch {
+      /* ignore parse errors */
+    }
+  }
+  return false;
+}
+
+function daysLateFor(dueAt?: string): number {
+  if (!dueAt) return 0;
+  try {
+    const due = new Date(dueAt);
+    return Math.max(0, differenceInCalendarDays(PACK_NOW, due));
+  } catch {
+    return 0;
+  }
+}
+
+/* ---------- Nudge history (PRD §11-205) ---------- */
+
+type NudgeAction = "resolved" | "snoozed" | "ignored";
+type NudgeSchedule = "1h" | "4h" | "tomorrow" | "never";
+
+interface NudgeHistoryEntry {
+  id: string;
+  date: string; // ISO
+  stepLabel: string;
+  employeeName: string;
+  action: NudgeAction;
+}
+
+/** Seed the last 5 historical nudges so the chart demonstrates that
+ *  nudges actually convert to resolution. Synthetic pack times only. */
+const SEED_NUDGE_HISTORY: NudgeHistoryEntry[] = [
+  { id: "nh-001", date: "2024-10-14T08:00:00Z", stepLabel: "Buddy assignment",        employeeName: "Daniel Okonkwo", action: "resolved" },
+  { id: "nh-002", date: "2024-10-15T09:00:00Z", stepLabel: "HR induction confirmation", employeeName: "Sara Kovač",     action: "snoozed" },
+  { id: "nh-003", date: "2024-10-16T09:00:00Z", stepLabel: "Probation check-in",      employeeName: "Daniel Okonkwo", action: "resolved" },
+  { id: "nh-004", date: "2024-10-17T09:00:00Z", stepLabel: "Visa support letter",     employeeName: "James Park",     action: "ignored" },
+  { id: "nh-005", date: "2024-10-18T09:00:00Z", stepLabel: "Workstation readiness",   employeeName: "Maria Santos",   action: "resolved" },
+];
+
+/* ---------- Late steps nudge banner ---------- */
+
+function LateStepsBanner({
+  lateSteps,
+  onNudgeDaily,
+  onSnoozeToday,
+  locale,
+}: {
+  lateSteps: { employee: CohortItem; step: OwnedStep; daysLate: number }[];
+  onNudgeDaily: () => void;
+  onSnoozeToday: () => void;
+  locale: "en" | "ar";
+}) {
+  if (lateSteps.length === 0) return null;
+  const t = lateSteps.length;
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
+      className="ast-card p-5 relative overflow-hidden"
+      style={{
+        borderColor: "rgba(201,162,39,0.50)",
+        background: "linear-gradient(135deg, rgba(201,162,39,0.10) 0%, var(--surface-1) 65%)",
+      }}
+      role="status"
+      aria-live="polite"
+    >
+      {/* Sand-gold accent rule — "your next move" trigger */}
+      <div
+        className="absolute top-0 left-0 right-0 h-[3px]"
+        style={{ background: "var(--accent-500)" }}
+        aria-hidden="true"
+      />
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div className="flex items-start gap-3">
+          <div
+            className="flex items-center justify-center w-11 h-11 rounded-full shrink-0"
+            style={{ background: "rgba(201,162,39,0.14)", color: "var(--accent-500)", border: "1px solid rgba(201,162,39,0.36)" }}
+          >
+            <BellRing className="w-5 h-5" strokeWidth={1.75} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[17px] font-semibold ast-brass" style={{ color: "var(--accent-500)" }}>
+              {t === 1
+                ? (locale === "ar" ? "خطوة واحدة بانتظارك" : "1 step is waiting on you")
+                : (locale === "ar" ? `${t} خطوات بانتظارك` : `${t} steps are waiting on you`)}
+            </p>
+            <p className="text-[12px] mt-1 leading-relaxed" style={{ color: "var(--text-mid)" }}>
+              {locale === "ar"
+                ? "لا يمكن لمُنضمّيك التقدّم قبل إكمالها. كلما بادرت أسرع، قلّ الاحتكاك المصاحب."
+                : "Your joiners can't move forward until these are done. The earlier you act, the less downstream friction."}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={onNudgeDaily}
+            className="ast-focus inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-[12px] font-medium transition-colors"
+            style={{
+              background: "var(--accent-500)",
+              color: "var(--surface-0)",
+              border: "1px solid var(--accent-500)",
+            }}
+          >
+            <AlarmClock className="w-3.5 h-3.5" strokeWidth={1.75} />
+            {locale === "ar" ? "نبّهني يومياً" : "Nudge me daily"}
+          </button>
+          <button
+            onClick={onSnoozeToday}
+            className="ast-focus inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-[12px] font-medium transition-colors"
+            style={{
+              background: "var(--surface-2)",
+              color: "var(--text-hi)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <AlarmClockOff className="w-3.5 h-3.5" strokeWidth={1.75} />
+            {locale === "ar" ? "أجّل لليوم" : "Snooze for today"}
+          </button>
+        </div>
+      </div>
+
+      <ul className="mt-3 space-y-1.5">
+        {lateSteps.map(({ employee, step, daysLate: dl }) => {
+          const due = step.dueAt ? new Date(step.dueAt) : null;
+          const dueInPast = !!due && due.getTime() < PACK_NOW.getTime();
+          return (
+            <li
+              key={`${employee.employeeId}-${step.stepKey}`}
+              className="flex items-center gap-2 text-[12px] flex-wrap"
+              style={{ color: "var(--text-mid)" }}
+            >
+              <BellRing className="w-3 h-3 shrink-0" strokeWidth={1.75} style={{ color: "var(--accent-500)" }} />
+              <span className="font-medium" style={{ color: "var(--text-hi)" }}>{step.label}</span>
+              <span style={{ color: "var(--text-lo)" }}>·</span>
+              <span>{employee.employeeName}</span>
+              {dueInPast ? (
+                <>
+                  <span style={{ color: "var(--text-lo)" }}>·</span>
+                  <span className="tabular" dir="ltr">
+                    {locale === "ar" ? `كان مستحقاً ${format(due!, "EEEE d MMM")}` : `was due ${format(due!, "EEEE d MMM")}`}
+                  </span>
+                  <span style={{ color: "var(--text-lo)" }}>·</span>
+                  <span className="tabular" style={{ color: "var(--status-friction)" }}>
+                    {dl === 0
+                      ? (locale === "ar" ? "متأخر اليوم" : "late today")
+                      : dl === 1
+                      ? (locale === "ar" ? "متأخر بيوم" : "1 day late")
+                      : (locale === "ar" ? `متأخر ${dl} أيام` : `${dl} days late`)}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span style={{ color: "var(--text-lo)" }}>·</span>
+                  <span className="tabular inline-flex items-center gap-1" style={{ color: "var(--status-friction)" }}>
+                    <AlertTriangle className="w-3 h-3" strokeWidth={2} />
+                    {locale === "ar" ? "اختراق SLA" : "SLA breached"}
+                  </span>
+                </>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </motion.section>
+  );
+}
+
+/* ---------- Nudge history panel ---------- */
+
+function ActionChip({ action, locale }: { action: NudgeAction; locale: "en" | "ar" }) {
+  const cfg = {
+    resolved: { color: "var(--status-steady)", bg: "rgba(14,159,110,0.10)", border: "rgba(14,159,110,0.30)", label: "Resolved", labelAr: "حُلّ", Icon: CheckCircle2 },
+    snoozed:  { color: "var(--status-watch)",  bg: "rgba(217,119,6,0.10)",  border: "rgba(217,119,6,0.30)",  label: "Snoozed",  labelAr: "مؤجّل", Icon: Clock3 },
+    ignored:  { color: "var(--text-lo)",        bg: "var(--surface-2)",      border: "var(--border)",         label: "Ignored",  labelAr: "مُتجاهل", Icon: X },
+  }[action];
+  const Icon = cfg.Icon;
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium"
+      style={{ color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.border}` }}
+    >
+      <Icon className="w-2.5 h-2.5" strokeWidth={2} />
+      {locale === "ar" ? cfg.labelAr : cfg.label}
+    </span>
+  );
+}
+
+function BarRow({
+  label,
+  value,
+  max,
+  color,
+}: {
+  label: string;
+  value: number;
+  max: number;
+  color: string;
+}) {
+  const pct = Math.round((value / Math.max(1, max)) * 100);
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-1">
+        <span className="text-[12px]" style={{ color: "var(--text-mid)" }}>{label}</span>
+        <span className="text-[15px] font-semibold tabular" style={{ color: "var(--text-hi)" }} dir="ltr">{value}</span>
+      </div>
+      <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--surface-2)" }}>
+        <motion.div
+          initial={false}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="h-full rounded-full"
+          style={{ background: color }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function NudgeHistory({
+  history,
+  locale,
+}: {
+  history: NudgeHistoryEntry[];
+  locale: "en" | "ar";
+}) {
+  const [open, setOpen] = useState(false);
+  const recent = history.slice(0, 5);
+  const nudgesSent = history.length;
+  const resolvedAfterNudge = history.filter((h) => h.action === "resolved").length;
+  const snoozedCount = history.filter((h) => h.action === "snoozed").length;
+  const ignoredCount = history.filter((h) => h.action === "ignored").length;
+  const maxBar = Math.max(nudgesSent, resolvedAfterNudge, 1);
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <section className="ast-card p-5 sm:p-6 ast-fade-rise mt-6">
+        <CollapsibleTrigger asChild>
+          <button
+            className="ast-focus w-full flex items-center justify-between gap-2 text-left"
+            aria-expanded={open}
+            aria-controls="nudge-history-content"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className="flex items-center justify-center w-9 h-9 rounded-full shrink-0"
+                style={{ background: "rgba(22,154,165,0.10)", color: "var(--brand-400)" }}
+              >
+                <History className="w-4 h-4" strokeWidth={1.75} />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-[16px] font-semibold" style={{ color: "var(--text-hi)" }}>
+                  {locale === "ar" ? "سجل التنبيهات" : "Nudge history"}
+                </h2>
+                <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+                  {locale === "ar"
+                    ? `آخر ${recent.length} تنبيهات — وما الذي حدث بعدها.`
+                    : `Last ${recent.length} nudges — and what happened after.`}
+                </p>
+              </div>
+            </div>
+            <ChevronDown
+              className={cn("w-4 h-4 shrink-0 transition-transform", open && "rotate-180")}
+              style={{ color: "var(--text-mid)" }}
+              strokeWidth={1.75}
+            />
+          </button>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent>
+          <div id="nudge-history-content" className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* History list */}
+            <ol className="space-y-1.5 max-h-96 overflow-y-auto pr-1">
+              {recent.map((h) => (
+                <li
+                  key={h.id}
+                  className="ast-card-2 p-2.5 flex items-center justify-between gap-2 flex-wrap text-[12px]"
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                    <span className="tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+                      {format(new Date(h.date), "d MMM · HH:mm")}
+                    </span>
+                    <span className="font-medium truncate" style={{ color: "var(--text-hi)" }}>{h.stepLabel}</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span style={{ color: "var(--text-mid)" }}>{h.employeeName}</span>
+                    <ActionChip action={h.action} locale={locale} />
+                  </div>
+                </li>
+              ))}
+              {recent.length === 0 && (
+                <li className="ast-card-2 p-3 text-[12px] text-center" style={{ color: "var(--text-lo)" }}>
+                  {locale === "ar" ? "لا تنبيهات بعد." : "No nudges yet."}
+                </li>
+              )}
+            </ol>
+
+            {/* Bar chart */}
+            <div className="ast-card-2 p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <BarChart3 className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+                <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                  {locale === "ar" ? "التنبيهات تعمل" : "Nudges work"}
+                </p>
+              </div>
+              <p className="text-[12px] mb-3" style={{ color: "var(--text-mid)" }}>
+                {locale === "ar"
+                  ? "نعرض عدد التنبيهات المُرسلة وكم خطوة حُلّت بعدها. الأرقام تُحدّث ليفياً عند اتخاذك إجراءً."
+                  : "We track how many nudges we sent and how many steps resolved after. Numbers update live as you take action."}
+              </p>
+              <div className="space-y-3">
+                <BarRow
+                  label={locale === "ar" ? "تنبيهات أُرسلت" : "Nudges sent"}
+                  value={nudgesSent}
+                  max={maxBar}
+                  color="var(--brand-400)"
+                />
+                <BarRow
+                  label={locale === "ar" ? "خطوات حُلّت بعدها" : "Steps resolved after nudge"}
+                  value={resolvedAfterNudge}
+                  max={maxBar}
+                  color="var(--status-steady)"
+                />
+              </div>
+              <div className="mt-4 pt-3 flex items-center justify-between text-[11px] tabular" style={{ borderTop: "1px solid var(--border-soft)", color: "var(--text-lo)" }}>
+                <span>
+                  {locale === "ar" ? `${snoozedCount} مؤجّل` : `${snoozedCount} snoozed`}
+                </span>
+                <span>
+                  {locale === "ar" ? `${ignoredCount} مُتجاهل` : `${ignoredCount} ignored`}
+                </span>
+                <span style={{ color: resolvedAfterNudge > 0 ? "var(--status-steady)" : "var(--text-lo)" }}>
+                  {locale === "ar"
+                    ? `${nudgesSent > 0 ? Math.round((resolvedAfterNudge / nudgesSent) * 100) : 0}% نجاح`
+                    : `${nudgesSent > 0 ? Math.round((resolvedAfterNudge / nudgesSent) * 100) : 0}% success`}
+                </span>
+              </div>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </section>
+    </Collapsible>
+  );
+}
+
 /* ---------- Obligation row ---------- */
 function ObligationRow({
   employee,
   step,
+  late,
+  onNudge,
 }: {
   employee: CohortItem;
   step: OwnedStep;
+  late: boolean;
+  onNudge: (schedule: NudgeSchedule, step: OwnedStep, employee: CohortItem) => void;
 }) {
   const locale = useAppStore((s) => s.locale);
   const [completing, setCompleting] = useState(false);
@@ -591,8 +1104,8 @@ function ObligationRow({
 
   const isWaitingOwner = step.status === "waiting_owner";
   const due = step.dueAt ? new Date(step.dueAt) : null;
-  const dueDistance = due ? formatDistanceStrict(due, new Date("2024-10-19T10:00:00Z"), { addSuffix: false }) : null;
-  const overdue = due ? due.getTime() < Date.now() : false;
+  const dueDistance = due ? formatDistanceStrict(due, PACK_NOW, { addSuffix: false }) : null;
+  const overdue = due ? due.getTime() < PACK_NOW.getTime() : false;
 
   const handleComplete = useCallback(async () => {
     setCompleting(true);
@@ -611,7 +1124,11 @@ function ObligationRow({
       initial={false}
       className={cn("ast-card p-4 flex items-center gap-3 flex-wrap", completed && "opacity-70")}
       style={{
-        borderColor: isWaitingOwner && !completed ? "rgba(201,162,39,0.32)" : "var(--border)",
+        borderColor: late && !completed
+          ? "rgba(220,38,38,0.32)"
+          : isWaitingOwner && !completed
+          ? "rgba(201,162,39,0.32)"
+          : "var(--border)",
       }}
     >
       {/* Status glyph */}
@@ -620,11 +1137,15 @@ function ObligationRow({
         style={{
           background: completed
             ? "rgba(14,159,110,0.12)"
+            : late
+            ? "rgba(220,38,38,0.12)"
             : isWaitingOwner
             ? "rgba(201,162,39,0.12)"
             : "var(--surface-2)",
           color: completed
             ? "var(--status-steady)"
+            : late
+            ? "var(--status-friction)"
             : isWaitingOwner
             ? "var(--accent-500)"
             : "var(--text-mid)",
@@ -632,6 +1153,8 @@ function ObligationRow({
       >
         {completed ? (
           <CheckCircle2 className="w-4 h-4" strokeWidth={1.75} />
+        ) : late ? (
+          <AlertTriangle className="w-4 h-4" strokeWidth={1.75} />
         ) : isWaitingOwner ? (
           <Hourglass className="w-4 h-4" strokeWidth={1.75} />
         ) : (
@@ -670,9 +1193,73 @@ function ObligationRow({
         </p>
       </div>
 
-      {/* Status chip + action */}
+      {/* Status chip + per-step nudge + action */}
       <div className="flex items-center gap-2 shrink-0 ml-auto">
         <StatusChip status={completed ? "done" : step.status} locale={locale} />
+
+        {/* Per-step nudge dropdown — only on late, uncompleted steps */}
+        {late && !completed && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="ast-focus inline-flex items-center justify-center w-9 h-9 rounded-full shrink-0 transition-colors"
+                style={{
+                  background: "rgba(201,162,39,0.12)",
+                  border: "1px solid rgba(201,162,39,0.36)",
+                  color: "var(--accent-500)",
+                }}
+                aria-label={locale === "ar" ? "جدولة تذكير" : "Schedule a nudge"}
+                title={locale === "ar" ? "جدولة تذكير" : "Schedule a nudge"}
+              >
+                <BellRing className="w-4 h-4" strokeWidth={1.75} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="min-w-[180px]"
+              style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+            >
+              <DropdownMenuLabel className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                {locale === "ar" ? "ذكّرني في" : "Remind me in"}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator style={{ background: "var(--border-soft)" }} />
+              <DropdownMenuItem
+                onClick={() => onNudge("1h", step, employee)}
+                className="text-[12px] ast-focus"
+                style={{ color: "var(--text-hi)" }}
+              >
+                <AlarmClock className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+                {locale === "ar" ? "بعد ساعة" : "1 hour"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onNudge("4h", step, employee)}
+                className="text-[12px] ast-focus"
+                style={{ color: "var(--text-hi)" }}
+              >
+                <AlarmClock className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+                {locale === "ar" ? "بعد 4 ساعات" : "4 hours"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onNudge("tomorrow", step, employee)}
+                className="text-[12px] ast-focus"
+                style={{ color: "var(--text-hi)" }}
+              >
+                <Clock3 className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+                {locale === "ar" ? "غداً" : "Tomorrow"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator style={{ background: "var(--border-soft)" }} />
+              <DropdownMenuItem
+                onClick={() => onNudge("never", step, employee)}
+                className="text-[12px] ast-focus"
+                style={{ color: "var(--text-lo)" }}
+              >
+                <BellOff className="w-3.5 h-3.5" strokeWidth={1.75} />
+                {locale === "ar" ? "أبدًا" : "Never"}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
         {isWaitingOwner && !completed && (
           <button
             onClick={handleComplete}

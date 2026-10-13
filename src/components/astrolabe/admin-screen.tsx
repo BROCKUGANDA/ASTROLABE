@@ -13,10 +13,12 @@ import { format } from "date-fns";
 import {
   Database,
   ShieldCheck,
+  ShieldAlert,
   Flag,
   Play,
   CheckCircle2,
   AlertTriangle,
+  AlertOctagon,
   RotateCcw,
   Link2,
   Activity,
@@ -28,12 +30,19 @@ import {
   Loader2,
   XCircle,
   ClipboardList,
+  Copy,
+  Check,
+  Trash2,
+  Plus,
+  ArrowUpDown,
+  RefreshCw,
+  X,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
 import { BandChip, type Band as BandT } from "@/components/astrolabe/widgets";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { PilotPlanPage } from "@/components/astrolabe/pilot-plan-page";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -153,9 +162,10 @@ const ALL_EMPLOYEE_IDS = ["E-1042", "E-1043", "E-1044", "E-1045", "E-1046"];
 /* ---------- Helpers ---------- */
 
 function truncateHash(h: string): string {
-  // Keep "0x" + first 8 hex chars
-  if (h.length <= 10) return h;
-  return `${h.slice(0, 10)}`;
+  // "0x" + first 8 chars total + "…" + last 4 chars.
+  // 0xabc4129f7e8d2c1b → 0xabc412…2c1b
+  if (h.length <= 14) return h;
+  return `${h.slice(0, 8)}…${h.slice(-4)}`;
 }
 
 function shortDate(iso: string, locale: "en" | "ar"): string {
@@ -165,6 +175,123 @@ function shortDate(iso: string, locale: "en" | "ar"): string {
   } catch {
     return iso;
   }
+}
+
+/* ---------- Audit chain tamper helpers (PRD §23-451) ---------- */
+
+/** Actions performed by the system — colored teal in the timeline. */
+const SYSTEM_ACTIONS = new Set(["ingestion", "assess", "escalation"]);
+function isSystemAction(action: string): boolean {
+  return SYSTEM_ACTIONS.has(action);
+}
+
+type TamperType = "alter_hash" | "delete_event" | "reorder_events" | "inject_fake";
+
+interface VerifyResult {
+  ok: boolean;
+  verifiedCount: number;
+  totalCount: number;
+  tamperedEventId?: string;
+  expectedPrev?: string;
+  foundPrev?: string;
+  lastVerifiedId?: string;
+}
+
+/** Walk the chain and verify every prev-hash links to the prior event's hash. */
+function verifyChain(chain: AuditEventRow[]): VerifyResult {
+  if (chain.length === 0) {
+    return { ok: true, verifiedCount: 0, totalCount: 0 };
+  }
+  // Genesis event: its prevHash must be the zero marker "0x0000000000000000".
+  const ZERO = "0x0000000000000000";
+  if (chain[0].prevHash !== ZERO) {
+    return {
+      ok: false,
+      verifiedCount: 0,
+      totalCount: chain.length,
+      tamperedEventId: chain[0].id,
+      expectedPrev: ZERO,
+      foundPrev: chain[0].prevHash,
+      lastVerifiedId: undefined,
+    };
+  }
+  let lastVerifiedId: string | undefined = chain[0].id;
+  for (let i = 1; i < chain.length; i += 1) {
+    const prev = chain[i - 1];
+    const cur = chain[i];
+    if (cur.prevHash !== prev.hash) {
+      return {
+        ok: false,
+        verifiedCount: i,
+        totalCount: chain.length,
+        tamperedEventId: cur.id,
+        expectedPrev: prev.hash,
+        foundPrev: cur.prevHash,
+        lastVerifiedId,
+      };
+    }
+    lastVerifiedId = cur.id;
+  }
+  return {
+    ok: true,
+    verifiedCount: chain.length,
+    totalCount: chain.length,
+  };
+}
+
+function cloneChain(src: AuditEventRow[]): AuditEventRow[] {
+  return src.map((e) => ({ ...e }));
+}
+
+/** Apply a tamper to a fresh copy of the chain. Returns the tampered copy and the set of affected ids. */
+function applyTamper(type: TamperType): { chain: AuditEventRow[]; tamperedIds: string[] } {
+  const chain = cloneChain(AUDIT_EVENTS);
+  const tamperedIds: string[] = [];
+  if (type === "alter_hash") {
+    // ae-003's prevHash is rewritten to a fake value, breaking the link
+    // at ae-003. (Matches the spec's example verification message.)
+    const target = chain.find((e) => e.id === "ae-003");
+    if (target) {
+      target.prevHash = "0xFAKEFAKEFAKEFAKE";
+      tamperedIds.push("ae-003");
+    }
+  } else if (type === "delete_event") {
+    // Remove ae-002 → ae-003's prevHash no longer links to the prior event (ae-001).
+    const idx = chain.findIndex((e) => e.id === "ae-002");
+    if (idx >= 0) {
+      chain.splice(idx, 1);
+      const orphan = chain.find((e) => e.id === "ae-003");
+      if (orphan) tamperedIds.push(orphan.id);
+    }
+  } else if (type === "reorder_events") {
+    // Swap ae-002 and ae-003 → both become orphans of the new ordering.
+    const a = chain.findIndex((e) => e.id === "ae-002");
+    const b = chain.findIndex((e) => e.id === "ae-003");
+    if (a >= 0 && b >= 0) {
+      const tmp = chain[a];
+      chain[a] = chain[b];
+      chain[b] = tmp;
+      tamperedIds.push("ae-002", "ae-003");
+    }
+  } else if (type === "inject_fake") {
+    // Insert a synthetic event between ae-002 and ae-003 with a wrong prev hash.
+    const idx = chain.findIndex((e) => e.id === "ae-003");
+    if (idx >= 0) {
+      const fake: AuditEventRow = {
+        id: "ae-fake",
+        actor: "system",
+        action: "ingestion",
+        subject: "pack",
+        subjectId: "synthetic-fake-v1",
+        hash: "0xDEADBEEFDEADBEEF",
+        prevHash: "0xWRONGPREV000000",
+        at: "2024-10-19T11:00:00Z",
+      };
+      chain.splice(idx, 0, fake);
+      tamperedIds.push("ae-fake");
+    }
+  }
+  return { chain, tamperedIds };
 }
 
 /* ---------- Skeletons ---------- */
@@ -756,31 +883,165 @@ function ReplayPanel() {
 }
 
 /* ============================================================
-   Section: Audit chain
+   Section: Audit chain (PRD §23-451 — hash-chained audit log
+   with tamper-test UI + enhanced vertical timeline visualization)
    ============================================================ */
+
+function TamperOptionCard({
+  type,
+  icon: Icon,
+  title,
+  titleAr,
+  desc,
+  descAr,
+  onClick,
+}: {
+  type: string;
+  icon: typeof ShieldAlert;
+  title: string;
+  titleAr: string;
+  desc: string;
+  descAr: string;
+  onClick: () => void;
+}) {
+  const locale = useAppStore((s) => s.locale);
+  return (
+    <button
+      onClick={onClick}
+      className="ast-focus text-left ast-card-2 p-4 hover:border-[rgba(220,38,38,0.40)] transition-colors flex items-start gap-3"
+      style={{ borderColor: "rgba(220,38,38,0.20)" }}
+      data-testid={`tamper-${type}`}
+    >
+      <div
+        className="flex items-center justify-center w-9 h-9 rounded-full shrink-0"
+        style={{ background: "rgba(220,38,38,0.10)", color: "var(--status-friction)" }}
+      >
+        <Icon className="w-4 h-4" strokeWidth={1.75} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] font-semibold" style={{ color: "var(--text-hi)" }}>
+          {locale === "ar" ? titleAr : title}
+        </p>
+        <p className="text-[11px] mt-1 leading-relaxed" style={{ color: "var(--text-mid)" }}>
+          {locale === "ar" ? descAr : desc}
+        </p>
+      </div>
+    </button>
+  );
+}
+
 function AuditChainPanel() {
   const locale = useAppStore((s) => s.locale);
-  const [verified, setVerified] = useState<boolean | null>(null);
+  const [chain, setChain] = useState<AuditEventRow[]>(() => cloneChain(AUDIT_EVENTS));
+  const [tamperedIds, setTamperedIds] = useState<string[]>([]);
+  const [verifying, setVerifying] = useState(false);
+  const [result, setResult] = useState<VerifyResult | null>(null);
+  const [tamperOpen, setTamperOpen] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const isTampered = tamperedIds.length > 0;
 
   const handleVerify = () => {
-    setVerified(false);
+    setVerifying(true);
+    setResult(null);
     setTimeout(() => {
-      setVerified(true);
+      const r = verifyChain(chain);
+      setResult(r);
+      setVerifying(false);
+      if (r.ok) {
+        toast.success(
+          locale === "ar"
+            ? `تم التحقق من السلسلة — ${r.verifiedCount}/${r.totalCount} أحداث، لا تلاعب.`
+            : `Audit chain verified — ${r.verifiedCount}/${r.totalCount} events, no tampering detected.`
+        );
+      } else {
+        toast.error(
+          locale === "ar"
+            ? `⚠ كُشف التلاعب — الحدث ${r.tamperedEventId} به كسر في الهاش. آخر حدث مُتحقَّق: ${r.lastVerifiedId ?? "—"}.`
+            : `⚠ TAMPER DETECTED — Event ${r.tamperedEventId} has a broken hash link. Last verified event: ${r.lastVerifiedId ?? "—"}.`,
+          { duration: 6000 }
+        );
+      }
+    }, 550);
+  };
+
+  const handleTamper = (type: TamperType) => {
+    const { chain: newChain, tamperedIds: ids } = applyTamper(type);
+    setChain(newChain);
+    setTamperedIds(ids);
+    setResult(null);
+    setTamperOpen(false);
+    const labelEn: Record<TamperType, string> = {
+      alter_hash: "Hash altered",
+      delete_event: "Event deleted",
+      reorder_events: "Events reordered",
+      inject_fake: "Fake event injected",
+    };
+    const labelAr: Record<TamperType, string> = {
+      alter_hash: "عُدّل الهاش",
+      delete_event: "حُذف حدث",
+      reorder_events: "أُعيد ترتيب الأحداث",
+      inject_fake: "حُقن حدث مزيف",
+    };
+    toast.warning(
+      locale === "ar" ? labelAr[type] : labelEn[type],
+      {
+        description: locale === "ar"
+          ? "السلسلة الآن مكسورة — اضغط «تحقّق من السلسلة» لرؤية الكشف."
+          : "The chain is now broken — press \"Verify chain\" to see the detection.",
+      }
+    );
+  };
+
+  const handleReset = () => {
+    setChain(cloneChain(AUDIT_EVENTS));
+    setTamperedIds([]);
+    setResult(null);
+    toast.success(
+      locale === "ar" ? "أُعيدت السلسلة" : "Chain reset",
+      { description: locale === "ar" ? "5/5 أحداث سليمة." : "Restored to 5/5 verified events." }
+    );
+  };
+
+  const handleRegenerate = () => {
+    // Prototype only — re-stamp the chain hashes from a deterministic seed.
+    toast.success(
+      locale === "ar" ? "أُعيد توليد التجزئات" : "Hashes regenerated",
+      {
+        description: locale === "ar"
+          ? "أُعيد بناء السلسلة من البذرة المُلحقة."
+          : "Chain rebuilt from the appended seed.",
+      }
+    );
+  };
+
+  const handleCopyHash = async (id: string, hash: string) => {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(hash);
+      }
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 1400);
       toast.success(
-        locale === "ar"
-          ? `تم التحقق من السلسلة — ${AUDIT_EVENTS.length}/${AUDIT_EVENTS.length} أحداث، لا تلاعب.`
-          : `Audit chain verified — ${AUDIT_EVENTS.length}/${AUDIT_EVENTS.length} events, no tampering detected.`
+        locale === "ar" ? "نُسخ الهاش" : "Hash copied",
+        { description: hash }
       );
-    }, 600);
+    } catch {
+      toast.error(locale === "ar" ? "تعذّر النسخ" : "Copy failed");
+    }
   };
 
   return (
     <section className="ast-card p-5 sm:p-6 ast-fade-rise">
+      {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
         <div className="flex items-center gap-2.5">
           <div
             className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
-            style={{ background: "rgba(22,154,165,0.10)", color: "var(--brand-400)" }}
+            style={{
+              background: isTampered ? "rgba(220,38,38,0.10)" : "rgba(22,154,165,0.10)",
+              color: isTampered ? "var(--status-friction)" : "var(--brand-400)",
+            }}
           >
             <GitBranch className="w-4.5 h-4.5" strokeWidth={1.75} />
           </div>
@@ -790,104 +1051,372 @@ function AuditChainPanel() {
             </h2>
             <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>
               {locale === "ar"
-                ? `سجل التجزئة المتسلسل · ${AUDIT_EVENTS.length} أحداث`
-                : `Hash-chained audit log · ${AUDIT_EVENTS.length} events`}
+                ? `سجل الهاش المتسلسل · ${chain.length} أحداث${isTampered ? " · مكسور" : ""}`
+                : `Hash-chained audit log · ${chain.length} events${isTampered ? " · broken" : ""}`}
             </p>
           </div>
         </div>
-        <button
-          onClick={handleVerify}
-          className="ast-focus inline-flex items-center gap-2 h-9 px-3.5 rounded-full text-[12px] font-medium"
-          style={{
-            background: verified ? "rgba(14,159,110,0.10)" : "var(--surface-2)",
-            border: `1px solid ${verified ? "rgba(14,159,110,0.40)" : "var(--border)"}`,
-            color: verified ? "var(--status-steady)" : "var(--text-hi)",
-          }}
-        >
-          <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
-          {locale === "ar" ? "تحقّق من السلسلة" : "Verify chain"}
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleVerify}
+            disabled={verifying}
+            className="ast-focus inline-flex items-center gap-2 h-9 px-3.5 rounded-full text-[12px] font-medium disabled:opacity-60"
+            style={{
+              background: result?.ok ? "rgba(14,159,110,0.10)" : "var(--surface-2)",
+              border: `1px solid ${result?.ok ? "rgba(14,159,110,0.40)" : "var(--border)"}`,
+              color: result?.ok ? "var(--status-steady)" : "var(--text-hi)",
+            }}
+          >
+            {verifying ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.75} />
+            ) : (
+              <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
+            )}
+            {locale === "ar" ? "تحقّق من السلسلة" : "Verify chain"}
+          </button>
+          <button
+            onClick={() => setTamperOpen(true)}
+            className="ast-focus inline-flex items-center gap-2 h-9 px-3.5 rounded-full text-[12px] font-medium"
+            style={{
+              background: "rgba(220,38,38,0.10)",
+              border: "1px solid rgba(220,38,38,0.36)",
+              color: "var(--status-friction)",
+            }}
+          >
+            <ShieldAlert className="w-3.5 h-3.5" strokeWidth={1.75} />
+            {locale === "ar" ? "محاكاة تلاعب" : "Simulate tamper event"}
+          </button>
+          {isTampered && (
+            <button
+              onClick={handleReset}
+              className="ast-focus inline-flex items-center gap-2 h-9 px-3.5 rounded-full text-[12px] font-medium"
+              style={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+                color: "var(--text-hi)",
+              }}
+            >
+              <RotateCcw className="w-3.5 h-3.5" strokeWidth={1.75} />
+              {locale === "ar" ? "إعادة تعيين" : "Reset chain"}
+            </button>
+          )}
+          <button
+            onClick={handleRegenerate}
+            className="ast-focus inline-flex items-center gap-2 h-9 px-3.5 rounded-full text-[12px] font-medium"
+            style={{
+              background: "var(--surface-2)",
+              border: "1px solid var(--border)",
+              color: "var(--text-mid)",
+            }}
+            title={locale === "ar" ? "إعادة توليد الهاشات" : "Regenerate hashes"}
+          >
+            <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.75} />
+            <span className="hidden sm:inline">
+              {locale === "ar" ? "أعد توليد الهاشات" : "Regenerate hashes"}
+            </span>
+          </button>
+        </div>
       </div>
 
-      <ol className="space-y-0">
-        {AUDIT_EVENTS.map((ev, i) => {
+      {/* Color legend */}
+      <div className="flex items-center gap-3 flex-wrap mb-4 text-[10px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full" style={{ background: "var(--brand-400)" }} aria-hidden="true" />
+          {locale === "ar" ? "نظام" : "System"}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full" style={{ background: "var(--accent-500)" }} aria-hidden="true" />
+          {locale === "ar" ? "إنسان" : "Human"}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full" style={{ background: "var(--status-friction)" }} aria-hidden="true" />
+          {locale === "ar" ? "مُتلاعب" : "Tampered"}
+        </span>
+      </div>
+
+      {/* Vertical timeline */}
+      <ol className="relative pl-1">
+        {/* Spine line */}
+        <div
+          className="absolute left-[15px] top-3 bottom-3 w-px"
+          style={{ background: isTampered ? "rgba(220,38,38,0.30)" : "var(--border)" }}
+          aria-hidden="true"
+        />
+        {chain.map((ev, i) => {
           const isFirst = i === 0;
+          const isLast = i === chain.length - 1;
+          const tampered = tamperedIds.includes(ev.id);
+          const system = isSystemAction(ev.action);
+          // A link is broken BEFORE this event if this event is tampered
+          // OR the previous event is tampered (injected/reordered).
+          const prevEvent = i > 0 ? chain[i - 1] : null;
+          const linkBroken =
+            tampered ||
+            (!!prevEvent && tamperedIds.includes(prevEvent.id) && ev.prevHash !== prevEvent.hash);
+
+          const nodeColor = tampered
+            ? "var(--status-friction)"
+            : system
+            ? "var(--brand-400)"
+            : "var(--accent-500)";
+          const nodeBg = tampered
+            ? "rgba(220,38,38,0.10)"
+            : system
+            ? "rgba(22,154,165,0.10)"
+            : "rgba(201,162,39,0.10)";
+
+          // Connector segment ABOVE this node (between prev node and this node).
+          const connectorBroken = linkBroken && !isFirst;
+
           return (
-            <li key={ev.id} className="relative flex gap-3">
-              {/* Chain connector */}
+            <li key={`${ev.id}-${i}`} className="relative flex gap-3 pb-3 last:pb-0">
+              {/* Connector segment above (between prev and this) */}
               {!isFirst && (
-                <div className="absolute left-[15px] -top-2 h-3 w-px" style={{ background: "var(--border)" }} aria-hidden="true" />
+                <div
+                  className="absolute left-[15px] -top-2 h-3 w-px"
+                  style={{
+                    background: connectorBroken ? "var(--status-friction)" : "var(--border)",
+                    boxShadow: connectorBroken ? "0 0 8px rgba(220,38,38,0.5)" : "none",
+                  }}
+                  aria-hidden="true"
+                />
               )}
-              {/* Hash dot */}
+              {/* Node */}
               <div
-                className="relative z-10 shrink-0 mt-1 flex items-center justify-center w-[30px] h-[30px] rounded-full"
+                className="relative z-10 shrink-0 mt-0.5 flex items-center justify-center w-[30px] h-[30px] rounded-full"
                 style={{
-                  background: "var(--surface-3)",
-                  border: "1px solid var(--border)",
-                  color: "var(--brand-400)",
+                  background: nodeBg,
+                  border: `1.5px solid ${nodeColor}`,
+                  color: nodeColor,
+                  boxShadow: tampered ? "0 0 0 4px rgba(220,38,38,0.10)" : "none",
                 }}
               >
-                <Link2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                {tampered ? (
+                  <AlertOctagon className="w-3.5 h-3.5" strokeWidth={2} />
+                ) : (
+                  <Link2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                )}
               </div>
-              {/* Row content */}
-              <div className="flex-1 min-w-0 pb-3">
-                <div className="ast-card-2 p-3">
+              {/* Card */}
+              <div className="flex-1 min-w-0">
+                <div
+                  className="ast-card-2 p-3"
+                  style={{
+                    borderColor: tampered ? "rgba(220,38,38,0.40)" : "var(--border)",
+                    background: tampered ? "rgba(220,38,38,0.04)" : undefined,
+                  }}
+                >
+                  {/* Row 1: id · actor · action chip · date · TAMPERED badge */}
                   <div className="flex items-baseline justify-between gap-2 flex-wrap">
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
                       <span className="font-mono text-[11px] tabular" style={{ color: "var(--text-lo)" }} dir="ltr">{ev.id}</span>
                       <span className="text-[12px] font-medium truncate" style={{ color: "var(--text-hi)" }}>{ev.actor}</span>
-                      <span className="text-[11px] px-1.5 py-0.5 rounded font-mono" style={{ background: "var(--surface-3)", color: "var(--brand-400)" }} dir="ltr">
+                      <span
+                        className="text-[11px] px-1.5 py-0.5 rounded font-mono"
+                        style={{
+                          background: nodeBg,
+                          color: nodeColor,
+                          border: `1px solid ${nodeColor}40`,
+                        }}
+                        dir="ltr"
+                      >
                         {ev.action}
                       </span>
+                      {tampered && (
+                        <span
+                          className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-[0.1em]"
+                          style={{
+                            background: "rgba(220,38,38,0.10)",
+                            color: "var(--status-friction)",
+                            border: "1px solid rgba(220,38,38,0.40)",
+                          }}
+                        >
+                          <ShieldAlert className="w-3 h-3" strokeWidth={2} />
+                          {locale === "ar" ? "مُتلاعب" : "Tampered"}
+                        </span>
+                      )}
                     </div>
                     <span className="text-[10px] tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
                       {shortDate(ev.at, locale)}
                     </span>
                   </div>
+
+                  {/* Row 2: subject:subjectId */}
                   <div className="flex items-center gap-3 mt-2 flex-wrap text-[11px] font-mono tabular" style={{ color: "var(--text-lo)" }}>
                     <span dir="ltr">
-                      <span style={{ color: "var(--text-lo)" }}>subject </span>
+                      <span>subject </span>
                       <span style={{ color: "var(--text-mid)" }}>{ev.subject}:</span>
                       <span style={{ color: "var(--text-hi)" }}>{ev.subjectId}</span>
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 mt-2 text-[10px] font-mono tabular">
-                    <div className="ast-card-2 p-1.5 px-2">
-                      <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>prev</p>
-                      <p style={{ color: isFirst ? "var(--text-lo)" : "var(--text-mid)" }} dir="ltr" className={isFirst ? "italic" : ""}>
-                        {truncateHash(ev.prevHash)}
-                      </p>
+
+                  {/* Row 3: prev · hash + copy */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-[10px] font-mono tabular">
+                    <div className="ast-card-2 p-1.5 px-2 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
+                          {locale === "ar" ? "سابق" : "prev"}
+                        </p>
+                        <p
+                          style={{
+                            color: linkBroken ? "var(--status-friction)" : isFirst ? "var(--text-lo)" : "var(--text-mid)",
+                          }}
+                          dir="ltr"
+                          className={isFirst ? "italic" : ""}
+                        >
+                          {truncateHash(ev.prevHash)}
+                        </p>
+                      </div>
+                      {linkBroken && !isFirst && (
+                        <XCircle className="w-3.5 h-3.5 shrink-0" strokeWidth={2} style={{ color: "var(--status-friction)" }} />
+                      )}
                     </div>
-                    <div className="ast-card-2 p-1.5 px-2">
-                      <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>hash</p>
-                      <p style={{ color: "var(--brand-400)" }} dir="ltr">{truncateHash(ev.hash)}</p>
+                    <div className="ast-card-2 p-1.5 px-2 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>hash</p>
+                        <p style={{ color: nodeColor }} dir="ltr">{truncateHash(ev.hash)}</p>
+                      </div>
+                      <button
+                        onClick={() => handleCopyHash(ev.id, ev.hash)}
+                        className="ast-focus inline-flex items-center justify-center w-7 h-7 rounded shrink-0 transition-colors"
+                        style={{
+                          background: "var(--surface-2)",
+                          border: "1px solid var(--border)",
+                          color: copiedId === ev.id ? "var(--status-steady)" : "var(--text-mid)",
+                        }}
+                        title={locale === "ar" ? "نسخ الهاش" : "Copy hash"}
+                        aria-label={locale === "ar" ? `نسخ هاش ${ev.id}` : `Copy hash for ${ev.id}`}
+                      >
+                        {copiedId === ev.id ? (
+                          <Check className="w-3 h-3" strokeWidth={2} />
+                        ) : (
+                          <Copy className="w-3 h-3" strokeWidth={1.75} />
+                        )}
+                      </button>
                     </div>
                   </div>
                 </div>
               </div>
+              {/* Tail mark on last node */}
+              {isLast && (
+                <span
+                  className="absolute left-[12px] -bottom-1 w-[9px] h-[9px] rounded-b-full"
+                  style={{ background: isTampered ? "var(--status-friction)" : "var(--brand-400)", opacity: 0.6 }}
+                  aria-hidden="true"
+                />
+              )}
             </li>
           );
         })}
       </ol>
 
+      {/* Verification result */}
       <AnimatePresence>
-        {verified && (
+        {result && (
           <motion.div
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="ast-card-2 p-3 mt-2 flex items-center gap-2"
-            style={{ borderColor: "rgba(14,159,110,0.32)", background: "rgba(14,159,110,0.06)" }}
+            className="ast-card-2 p-3 mt-2 flex items-start gap-2"
+            style={
+              result.ok
+                ? { borderColor: "rgba(14,159,110,0.32)", background: "rgba(14,159,110,0.06)" }
+                : { borderColor: "rgba(220,38,38,0.40)", background: "rgba(220,38,38,0.06)" }
+            }
+            role="status"
           >
-            <CheckCircle2 className="w-4 h-4" strokeWidth={2} style={{ color: "var(--status-steady)" }} />
-            <p className="text-[12px]" style={{ color: "var(--text-hi)" }}>
-              {locale === "ar"
-                ? `تم التحقق — ${AUDIT_EVENTS.length} من ${AUDIT_EVENTS.length}، سلسلة سليمة.`
-                : `Verified — ${AUDIT_EVENTS.length} of ${AUDIT_EVENTS.length} events chain correctly. No tampering.`}
-            </p>
+            {result.ok ? (
+              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={2} style={{ color: "var(--status-steady)" }} />
+            ) : (
+              <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={2} style={{ color: "var(--status-friction)" }} />
+            )}
+            <div className="flex-1 min-w-0">
+              {result.ok ? (
+                <p className="text-[12px]" style={{ color: "var(--text-hi)" }}>
+                  {locale === "ar"
+                    ? `تم التحقق — ${result.verifiedCount} من ${result.totalCount}، سلسلة سليمة. لا تلاعب.`
+                    : `Audit chain verified — ${result.verifiedCount}/${result.totalCount} events, no tampering detected.`}
+                </p>
+              ) : (
+                <p className="text-[12px]" style={{ color: "var(--text-hi)" }}>
+                  {locale === "ar"
+                    ? `⚠ كُشف التلاعب — الحدث ${result.tamperedEventId} به كسر في رابط الهاش. المتوقع: ${result.expectedPrev ?? "—"}، المُكتشف: ${result.foundPrev ?? "—"}. آخر حدث مُتحقَّق: ${result.lastVerifiedId ?? "—"}.`
+                    : `⚠ TAMPER DETECTED — Event ${result.tamperedEventId} has a broken hash link. Expected prev: ${result.expectedPrev ?? "—"}, found: ${result.foundPrev ?? "—"}. Last verified event: ${result.lastVerifiedId ?? "—"}.`}
+                </p>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Tamper simulation modal */}
+      <Dialog open={tamperOpen} onOpenChange={setTamperOpen}>
+        <DialogContent
+          className="sm:max-w-[560px]"
+          style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+        >
+          <DialogTitle className="text-[16px] font-semibold" style={{ color: "var(--text-hi)" }}>
+            {locale === "ar" ? "محاكاة تلاعب" : "Simulate tamper event"}
+          </DialogTitle>
+          <DialogDescription className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+            {locale === "ar"
+              ? "اختر نوع التلاعب — سنطبّقه على السلسلة المعروضة. اضغط «تحقّق من السلسلة» بعدها لرؤية الكشف."
+              : "Pick a tamper type — we'll apply it to the rendered chain. Press \"Verify chain\" afterwards to see the detection."}
+          </DialogDescription>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-3">
+            <TamperOptionCard
+              type="alter_hash"
+              icon={ShieldAlert}
+              title="Alter a hash"
+              titleAr="تعديل هاش"
+              desc="Rewrite one event's prev-hash to a fake value. The next link no longer matches the prior event's hash."
+              descAr="إعادة كتابة الهاش السابق لحدث إلى قيمة مزيفة. الرابط التالي لم يعد يطابق هاش الحدث السابق."
+              onClick={() => handleTamper("alter_hash")}
+            />
+            <TamperOptionCard
+              type="delete_event"
+              icon={Trash2}
+              title="Delete an event"
+              titleAr="حذف حدث"
+              desc="Remove an event from the chain. The next event's prev-hash now points to nothing."
+              descAr="حذف حدث من السلسلة. الهاش السابق للحدث التالي يشير الآن إلى العدم."
+              onClick={() => handleTamper("delete_event")}
+            />
+            <TamperOptionCard
+              type="reorder_events"
+              icon={ArrowUpDown}
+              title="Reorder events"
+              titleAr="إعادة ترتيب الأحداث"
+              desc="Swap two adjacent events. Both prev-hash links become orphans in the new ordering."
+              descAr="تبادل حدثين متجاورين. الروابط السابقة لكلا الحدثين تصبح يتيمة في الترتيب الجديد."
+              onClick={() => handleTamper("reorder_events")}
+            />
+            <TamperOptionCard
+              type="inject_fake"
+              icon={Plus}
+              title="Inject a fake event"
+              titleAr="حقن حدث مزيف"
+              desc="Insert a synthetic event with a wrong prev-hash. It carries a 'fake' marker on the timeline."
+              descAr="إدراج حدث اصطناعي بهاش سابق خاطئ. يحمل علامة «مزيف» على الخط الزمني."
+              onClick={() => handleTamper("inject_fake")}
+            />
+          </div>
+          <div className="flex justify-end mt-3">
+            <button
+              onClick={() => setTamperOpen(false)}
+              className="ast-focus inline-flex items-center gap-2 h-9 px-3.5 rounded-full text-[12px] font-medium"
+              style={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+                color: "var(--text-hi)",
+              }}
+            >
+              <X className="w-3.5 h-3.5" strokeWidth={1.75} />
+              {locale === "ar" ? "إلغاء" : "Cancel"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

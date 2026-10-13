@@ -51,6 +51,10 @@ export async function GET(req: NextRequest) {
       stepStates.length > 0 ? Math.round((doneCount / stepStates.length) * 100) : 0;
 
     // Only the manager's own HR-owner obligations.
+    // PRD §11-205: surface breachLevel so the manager surface can
+    // detect late steps even when the API consumer doesn't have the
+    // engine on hand. Stays within the schema boundary — still no
+    // sentiment, pulse, or friction scores per person.
     const ownedSteps = stepStates
       .filter((s) => s.ownerGroup === "HR" && s.actor === "owner")
       .map((s) => ({
@@ -58,6 +62,7 @@ export async function GET(req: NextRequest) {
         label: s.label,
         status: s.status,
         dueAt: s.dueAt,
+        breachLevel: s.breachLevel,
       }));
 
     return {

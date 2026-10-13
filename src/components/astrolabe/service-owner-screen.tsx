@@ -38,6 +38,13 @@ import {
   ChevronUp,
   Calendar,
   Award,
+  BellOff,
+  BellRing,
+  Moon,
+  AppWindow,
+  Mail,
+  Smartphone,
+  Volume2,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
 import { StatusChip, SlaChip, CitationChip } from "@/components/astrolabe/widgets";
@@ -68,6 +75,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableHeader,
@@ -1697,6 +1705,368 @@ function EmptyState({ group, locale }: { group: OwnerGroup; locale: "en" | "ar" 
 }
 
 /* ============================================================
+   Section: Notification preferences (PRD §07-127)
+   Per-owner channel matrix + quiet hours + per-owner mute.
+   Distinct from the admin global kill-switch — this is the
+   owner's own preferences, stored locally for the prototype.
+   ============================================================ */
+
+type NotifChannel = "in_app" | "email" | "push";
+type NotifPrefs = Record<string, Record<NotifChannel, boolean>>;
+
+const NOTIF_CATEGORIES: { id: string; label: string; labelAr: string; Icon: typeof BellRing }[] = [
+  { id: "new_ticket", label: "New ticket assigned", labelAr: "تذكرة جديدة مسندة إليك", Icon: Inbox },
+  { id: "returned", label: "Ticket returned to you", labelAr: "تذكرة أُعيدت إليك", Icon: RotateCcw },
+  { id: "sla_breach", label: "SLA breach", labelAr: "اختراق SLA", Icon: AlertTriangle },
+  { id: "daily_digest", label: "Daily digest", labelAr: "ملخص يومي", Icon: Calendar },
+  { id: "weekly_digest", label: "Weekly digest", labelAr: "ملخص أسبوعي", Icon: FileText },
+  { id: "escalation", label: "Escalation about your queue", labelAr: "تصعيد بشأن قائمتك", Icon: TrendingUp },
+];
+
+const NOTIF_CHANNELS: { id: NotifChannel; label: string; labelAr: string; Icon: typeof BellRing }[] = [
+  { id: "in_app", label: "In-app", labelAr: "داخل التطبيق", Icon: AppWindow },
+  { id: "email", label: "Email", labelAr: "البريد", Icon: Mail },
+  { id: "push", label: "Push", labelAr: "إشعار فوري", Icon: Smartphone },
+];
+
+const DEFAULT_NOTIF_PREFS: NotifPrefs = {
+  new_ticket:     { in_app: true,  email: true,  push: false },
+  returned:       { in_app: true,  email: false, push: false },
+  sla_breach:     { in_app: true,  email: true,  push: true  },
+  daily_digest:   { in_app: true,  email: false, push: false },
+  weekly_digest:  { in_app: false, email: true,  push: false },
+  escalation:     { in_app: true,  email: true,  push: true  },
+};
+
+function NotificationPreferencesPanel({ locale }: { locale: "en" | "ar" }) {
+  const [prefs, setPrefs] = useState<NotifPrefs>(() =>
+    JSON.parse(JSON.stringify(DEFAULT_NOTIF_PREFS)) as NotifPrefs
+  );
+  const [quietEnabled, setQuietEnabled] = useState(true);
+  const [quietFrom, setQuietFrom] = useState("22:00");
+  const [quietTo, setQuietTo] = useState("07:00");
+  const [muted, setMuted] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const toggleChannel = (catId: string, channel: NotifChannel) => {
+    if (muted) return; // muted → no toggles
+    setPrefs((prev) => ({
+      ...prev,
+      [catId]: { ...prev[catId], [channel]: !prev[catId][channel] },
+    }));
+  };
+
+  const handleSave = () => {
+    setSaving(true);
+    setTimeout(() => {
+      setSaving(false);
+      toast.success(
+        locale === "ar" ? "حُفظت تفضيلات الإشعارات" : "Notification preferences saved",
+        {
+          description: locale === "ar"
+            ? "سنحترم تفضيلاتك — فقط عند الحاجة إليك."
+            : "We'll respect your channels — only when something needs you.",
+        }
+      );
+    }, 480);
+  };
+
+  const handleMuteAll = () => {
+    const next = !muted;
+    setMuted(next);
+    if (next) {
+      toast.warning(
+        locale === "ar"
+          ? "كُتمت كل الإشعارات"
+          : "All notifications muted",
+        {
+          description: locale === "ar"
+            ? "لن ترى شيئاً حتى تُلغي الكتم."
+            : "You'll see nothing until you unmute.",
+          duration: 5000,
+        }
+      );
+    } else {
+      toast.success(
+        locale === "ar" ? "أُلغي كتم الإشعارات" : "Notifications unmuted",
+        {
+          description: locale === "ar"
+            ? "عادت قنواتك المفضّلة."
+            : "Your preferred channels are back.",
+        }
+      );
+    }
+  };
+
+  return (
+    <section
+      className="ast-card p-5 sm:p-6 ast-fade-rise"
+      style={muted ? { borderColor: "rgba(220,38,38,0.30)" } : undefined}
+      aria-labelledby="notif-prefs-title"
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between flex-wrap gap-3 mb-1">
+        <div className="flex items-center gap-2.5">
+          <div
+            className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
+            style={{
+              background: muted ? "rgba(220,38,38,0.10)" : "rgba(22,154,165,0.10)",
+              color: muted ? "var(--status-friction)" : "var(--brand-400)",
+            }}
+          >
+            <BellRing className="w-4.5 h-4.5" strokeWidth={1.75} />
+          </div>
+          <div>
+            <h2 id="notif-prefs-title" className="text-[16px] font-semibold" style={{ color: "var(--text-hi)" }}>
+              {locale === "ar" ? "كيف تريد أن نُنبّهك" : "How you want to be notified"}
+            </h2>
+            <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+              {locale === "ar"
+                ? "اختر قناتك لكل فئة. لن نُرسل لك شيئاً إلا عند الحاجة إليك."
+                : "Choose your channel per category. We'll never spam — only when something needs you."}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={handleMuteAll}
+          aria-pressed={muted}
+          className="ast-focus inline-flex items-center gap-2 h-9 px-3.5 rounded-full text-[12px] font-medium transition-colors shrink-0"
+          style={{
+            background: muted ? "rgba(220,38,38,0.10)" : "var(--surface-2)",
+            border: `1px solid ${muted ? "rgba(220,38,38,0.40)" : "var(--border)"}`,
+            color: muted ? "var(--status-friction)" : "var(--text-hi)",
+          }}
+        >
+          <BellOff className="w-3.5 h-3.5" strokeWidth={1.75} />
+          {muted
+            ? (locale === "ar" ? "ارفع الكتم" : "Unmute all")
+            : (locale === "ar" ? "اكتم الكل" : "Mute all")}
+        </button>
+      </div>
+
+      {/* Muted banner */}
+      <AnimatePresence>
+        {muted && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="ast-card-2 p-3 mt-3 flex items-start gap-2"
+            style={{ borderColor: "rgba(220,38,38,0.30)", background: "rgba(220,38,38,0.04)" }}
+            role="status"
+          >
+            <Volume2 className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={1.75} style={{ color: "var(--status-friction)" }} />
+            <p className="text-[12px]" style={{ color: "var(--text-hi)" }}>
+              {locale === "ar"
+                ? "كتمت كل القنوات. لن تصلك إشعارات دفع أو بريد أو إشعار داخل التطبيق حتى ترفع الكتم."
+                : "All channels muted. No in-app, email, or push notifications will arrive until you unmute."}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Matrix table */}
+      <div className="mt-4 -mx-2 overflow-x-auto">
+        <table className="w-full text-[12px]" role="grid" aria-label={locale === "ar" ? "مصفوفة الإشعارات" : "Notification matrix"}>
+          <thead>
+            <tr style={{ borderBottom: "1px solid var(--border)" }}>
+              <th
+                className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium"
+                style={{ color: "var(--text-lo)" }}
+              >
+                {locale === "ar" ? "الفئة" : "Category"}
+              </th>
+              {NOTIF_CHANNELS.map((c) => {
+                const Icon = c.Icon;
+                return (
+                  <th
+                    key={c.id}
+                    className="text-center p-2 text-[10px] uppercase tracking-[0.1em] font-medium min-w-[88px]"
+                    style={{ color: "var(--text-lo)" }}
+                  >
+                    <div className="flex items-center justify-center gap-1.5">
+                      <Icon className="w-3.5 h-3.5" strokeWidth={1.75} />
+                      <span>{locale === "ar" ? c.labelAr : c.label}</span>
+                    </div>
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {NOTIF_CATEGORIES.map((cat) => {
+              const Icon = cat.Icon;
+              const rowPrefs = prefs[cat.id];
+              return (
+                <tr
+                  key={cat.id}
+                  style={{ borderBottom: "1px solid var(--border-soft)" }}
+                  className={muted ? "opacity-50" : ""}
+                >
+                  <td className="p-2">
+                    <div className="flex items-center gap-2">
+                      <Icon className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+                      <span className="text-[13px]" style={{ color: "var(--text-hi)" }}>
+                        {locale === "ar" ? cat.labelAr : cat.label}
+                      </span>
+                    </div>
+                  </td>
+                  {NOTIF_CHANNELS.map((c) => (
+                    <td key={c.id} className="p-2 text-center">
+                      <label className="inline-flex items-center justify-center w-11 h-11 cursor-pointer ast-focus rounded">
+                        <span className="sr-only">
+                          {locale === "ar" ? cat.labelAr : cat.label} · {locale === "ar" ? c.labelAr : c.label}
+                        </span>
+                        <Checkbox
+                          checked={muted ? false : rowPrefs[c.id]}
+                          onCheckedChange={() => toggleChannel(cat.id, c.id)}
+                          disabled={muted}
+                          className="data-[state=checked]:bg-[var(--brand-500)] data-[state=checked]:border-[var(--brand-500)] data-[state=checked]:text-[var(--surface-0)]"
+                        />
+                      </label>
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Quiet hours */}
+      <div
+        className="mt-5 ast-card-2 p-4"
+        style={{ borderColor: "rgba(22,154,165,0.22)", background: "rgba(22,154,165,0.03)" }}
+      >
+        <div className="flex items-start justify-between flex-wrap gap-3 mb-3">
+          <div className="flex items-center gap-2.5">
+            <div
+              className="flex items-center justify-center w-9 h-9 rounded-full shrink-0"
+              style={{ background: "rgba(22,154,165,0.10)", color: "var(--brand-400)" }}
+            >
+              <Moon className="w-4 h-4" strokeWidth={1.75} />
+            </div>
+            <div>
+              <h3 className="text-[14px] font-semibold" style={{ color: "var(--text-hi)" }}>
+                {locale === "ar" ? "ساعات الهدوء" : "Quiet hours"}
+              </h3>
+              <p className="text-[11px]" style={{ color: "var(--text-mid)" }}>
+                {locale === "ar"
+                  ? "لن نُرسل دفعاً أو بريداً في هذه الفترة. تبقى الرسائل داخل التطبيق تنتظرك."
+                  : "We won't send push or email during quiet hours. In-app messages still arrive — you'll see them when you open the app."}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="quiet-switch" className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+              {locale === "ar" ? "مُفعّل" : "Enabled"}
+            </Label>
+            <Switch
+              id="quiet-switch"
+              checked={quietEnabled}
+              onCheckedChange={setQuietEnabled}
+              aria-label={locale === "ar" ? "تفعيل ساعات الهدوء" : "Enable quiet hours"}
+            />
+          </div>
+        </div>
+
+        <div className={`grid grid-cols-1 sm:grid-cols-3 gap-3 ${quietEnabled ? "" : "opacity-50 pointer-events-none"}`}>
+          <div>
+            <Label htmlFor="quiet-from" className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+              {locale === "ar" ? "من" : "From"}
+            </Label>
+            <Input
+              id="quiet-from"
+              type="time"
+              value={quietFrom}
+              onChange={(e) => setQuietFrom(e.target.value)}
+              className="mt-1 h-10 font-mono tabular"
+              style={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+                color: "var(--text-hi)",
+              }}
+              dir="ltr"
+            />
+          </div>
+          <div>
+            <Label htmlFor="quiet-to" className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+              {locale === "ar" ? "إلى" : "To"}
+            </Label>
+            <Input
+              id="quiet-to"
+              type="time"
+              value={quietTo}
+              onChange={(e) => setQuietTo(e.target.value)}
+              className="mt-1 h-10 font-mono tabular"
+              style={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+                color: "var(--text-hi)",
+              }}
+              dir="ltr"
+            />
+          </div>
+          <div>
+            <Label htmlFor="quiet-tz" className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+              {locale === "ar" ? "المنطقة الزمنية" : "Timezone"}
+            </Label>
+            <Input
+              id="quiet-tz"
+              type="text"
+              value="Asia/Dubai"
+              readOnly
+              aria-readonly
+              className="mt-1 h-10 font-mono tabular"
+              style={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+                color: "var(--text-lo)",
+                cursor: "default",
+              }}
+              dir="ltr"
+            />
+          </div>
+        </div>
+
+        {/* Plain-language explainer */}
+        <p className="text-[11px] mt-3 leading-relaxed" style={{ color: "var(--text-lo)" }}>
+          {locale === "ar"
+            ? `من ${quietFrom} إلى ${quietTo} بتوقين آسيا/دبي — لن تصلك إشعارات الدفع أو البريد. تبقى الرسائل داخل التطبيق تنتظرك عند فتحه.`
+            : `From ${quietFrom} to ${quietTo} (Asia/Dubai) — no push or email will arrive. In-app messages still land; you'll see them when you open the app.`}
+        </p>
+      </div>
+
+      {/* Footer actions */}
+      <div className="flex items-center justify-between flex-wrap gap-3 mt-5">
+        <p className="text-[11px]" style={{ color: "var(--text-lo)" }}>
+          {locale === "ar"
+            ? "هذه تفضيلاتك أنت — منفصلة عن مفتاح الإسكات العام للإدارة."
+            : "These are your own preferences — separate from the admin global kill switch."}
+        </p>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium disabled:opacity-60"
+          style={{
+            background: "var(--brand-500)",
+            color: "var(--surface-0)",
+            border: "1px solid var(--brand-500)",
+          }}
+        >
+          {saving ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.75} />
+          ) : (
+            <Save className="w-4 h-4" strokeWidth={1.75} />
+          )}
+          {locale === "ar" ? "احفظ التفضيلات" : "Save preferences"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/* ============================================================
    Root
    ============================================================ */
 export function ServiceOwnerScreen() {
@@ -2032,6 +2402,13 @@ export function ServiceOwnerScreen() {
       {!loading && !err && filtered.length > 0 && (
         <div className="mt-6">
           <SlaDashboard items={filtered} group={group} locale={locale} />
+        </div>
+      )}
+
+      {/* Notification preferences (PRD §07-127) */}
+      {!loading && !err && (
+        <div className="mt-6">
+          <NotificationPreferencesPanel locale={locale} />
         </div>
       )}
 

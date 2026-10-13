@@ -1,0 +1,936 @@
+     1→"use client";
+     2→
+     3→/* ============================================================
+     4→   ASTROLABE — Me Screen (consent + data, PRD §15)
+     5→   "Your data is yours." Privacy summary banner, six consent
+     6→   toggles, expandable data-held table, view log, JSON/PDF export,
+     7→   and revoke-all-optional modal.
+     8→   ============================================================ */
+     9→
+    10→import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+    11→import { motion, AnimatePresence } from "framer-motion";
+    12→import { format, formatDistance } from "date-fns";
+    13→import {
+    14→  ShieldCheck,
+    15→  Lock,
+    16→  Unlock,
+    17→  ChevronDown,
+    18→  ChevronRight,
+    19→  Download,
+    20→  FileText,
+    21→  AlertTriangle,
+    22→  RotateCcw,
+    23→  Eye,
+    24→  Clock,
+    25→  Trash2,
+    26→  Check,
+    27→  Info,
+    28→  FileJson,
+    29→  Hourglass,
+    30→} from "lucide-react";
+    31→import { useAppStore } from "@/lib/store/app-store";
+    32→import { Switch } from "@/components/ui/switch";
+    33→import {
+    34→  Tooltip,
+    35→  TooltipContent,
+    36→  TooltipTrigger,
+    37→} from "@/components/ui/tooltip";
+    38→import {
+    39→  Table,
+    40→  TableBody,
+    41→  TableCell,
+    42→  TableHead,
+    43→  TableHeader,
+    44→  TableRow,
+    45→} from "@/components/ui/table";
+    46→import {
+    47→  AlertDialog,
+    48→  AlertDialogAction,
+    49→  AlertDialogCancel,
+    50→  AlertDialogContent,
+    51→  AlertDialogDescription,
+    52→  AlertDialogFooter,
+    53→  AlertDialogHeader,
+    54→  AlertDialogTitle,
+    55→  AlertDialogTrigger,
+    56→} from "@/components/ui/alert-dialog";
+    57→import {
+    58→  Dialog,
+    59→  DialogContent,
+    60→  DialogTitle,
+    61→} from "@/components/ui/dialog";
+    62→import { PrivacyPage } from "@/components/astrolabe/privacy-page";
+    63→import { toast } from "sonner";
+    64→import { cn } from "@/lib/utils";
+    65→
+    66→/* ---------- Types ---------- */
+    67→
+    68→type Purpose =
+    69→  | "journey_assistance"
+    70→  | "pulse_capture"
+    71→  | "share_pulse_summary"
+    72→  | "comment_retention"
+    73→  | "aggregate_analytics"
+    74→  | "manager_visibility";
+    75→
+    76→interface ConsentRecord {
+    77→  id: string;
+    78→  employeeId: string;
+    79→  purpose: Purpose;
+    80→  granted: boolean;
+    81→  grantedAt: string;
+    82→  revokedAt?: string;
+    83→  version: string;
+    84→  textHash: string;
+    85→}
+    86→
+    87→interface MeDataEmployee {
+    88→  id: string;
+    89→  ref: string;
+    90→  displayName: string;
+    91→  journeyType: "onboarding" | "mobility";
+    92→  stage: string;
+    93→  location: "DXB" | "AUH" | "REMOTE";
+    94→  role: string;
+    95→  team: string;
+    96→  locale: "en" | "ar";
+    97→  startDate: string;
+    98→  effectiveDate?: string;
+    99→  manager: { id: string; name: string; role: string } | null;
+   100→  hrbp: { id: string; name: string; role: string } | null;
+   101→}
+   102→
+   103→interface MeData {
+   104→  employee: MeDataEmployee;
+   105→  journeyEvents: { id: string; stepKey: string; type: string; occurredAt: string; recordedAt: string; source: string }[];
+   106→  serviceRequests: { id: string; ref: string; type: string; ownerGroup: string; assignee: string; status: string; openedAt: string; slaHours: number; reassignCount: number; returnCount: number }[];
+   107→  pulseResponses: { id: string; stage: string; score: number; commentRef?: string; createdAt: string }[];
+   108→  pulseConsentGranted: boolean;
+   109→  consentRecords: ConsentRecord[];
+   110→  auditEvents: unknown[];
+   111→  viewLog: { actor: string; action: string; at: string; purpose: string }[];
+   112→  exportLink: string;
+   113→  generatedAt: string;
+   114→  snapshotAt: string;
+   115→}
+   116→
+   117→interface ApiEnvelope<T> {
+   118→  ok: boolean;
+   119→  data: T | null;
+   120→  meta: { requestId: string; asOf: string; servedFrom: string };
+   121→  error: { code: string; message: string; hint?: string } | null;
+   122→}
+   123→
+   124→/* ---------- Purpose metadata ---------- */
+   125→
+   126→interface PurposeMeta {
+   127→  key: Purpose;
+   128→  labelEn: string;
+   129→  labelAr: string;
+   130→  descEn: string;
+   131→  descAr: string;
+   132→  noChangeEn: string;
+   133→  noChangeAr: string;
+   134→  required?: boolean;
+   135→  defaultOn: boolean;
+   136→}
+   137→
+   138→const PURPOSES: PurposeMeta[] = [
+   139→  {
+   140→    key: "journey_assistance",
+   141→    labelEn: "Journey assistance",
+   142→    labelAr: "مساعدة الرحلة",
+   143→    descEn: "Help me with onboarding and mobility steps. The instrument reads my journey to suggest the next best move.",
+   144→    descAr: "ساعدني في خطوات الالتحاق والتنقل. تقرأ الأداة رحلتي لاقتراح الخطوة التالية الأفضل.",
+   145→    noChangeEn: "Required for use — cannot be turned off.",
+   146→    noChangeAr: "ضرورية للاستخدام — لا يمكن إيقافها.",
+   147→    required: true,
+   148→    defaultOn: true,
+   149→  },
+   150→  {
+   151→    key: "pulse_capture",
+   152→    labelEn: "Two-question pulse",
+   153→    labelAr: "نبضة من سؤالين",
+   154→    descEn: "Only if you want to: can I ask two quick questions to spot problems early?",
+   155→    descAr: "فقط إذا رغبت: هل يمكنني طرح سؤالين سريعين لرصد المشاكل مبكراً؟",
+   156→    noChangeEn: "Your pulse score and any comment will not be captured. The band uses journey + request data only.",
+   157→    noChangeAr: "لن يتم تسجيل درجة نبضتك أو أي تعليق. يعتمد التصنيف على بيانات الرحلة والطلبات فقط.",
+   158→    defaultOn: false,
+   159→  },
+   160→  {
+   161→    key: "share_pulse_summary",
+   162→    labelEn: "Share pulse summary with HRBP",
+   163→    labelAr: "مشاركة ملخص النبضة مع شريك الموارد البشرية",
+   164→    descEn: "If I capture a pulse, may I share the summary (1–5 score, no comment text) with my HRBP only when an escalation is built?",
+   165→    descAr: "إذا سجّلت نبضة، هل أشارك الملخص (درجة 1–5، بدون نص التعليق) مع شريك الموارد البشرية فقط عند بناء تصعيد؟",
+   166→    noChangeEn: "HRBP sees journey state + request telemetry only — never the pulse score, never any comment.",
+   167→    noChangeAr: "يرى شريك الموارد البشرية حالة الرحلة وبيانات الطلبات فقط — لا درجة النبضة ولا أي تعليق.",
+   168→    defaultOn: false,
+   169→  },
+   170→  {
+   171→    key: "comment_retention",
+   172→    labelEn: "Retain my comment text",
+   173→    labelAr: "الاحتفاظ بنص تعليقي",
+   174→    descEn: "When I leave a comment on a pulse, may I keep that text on file so I can read it back later?",
+   175→    descAr: "عندما أكتب تعليقاً على نبضة، هل أحتفظ بالنص في ملفي لمراجعته لاحقاً؟",
+   176→    noChangeEn: "Comments are not retained — only the 1–5 score is kept. You will not be able to read past comments.",
+   177→    noChangeAr: "لا يتم الاحتفاظ بالتعليقات — يُحتفظ فقط بدرجة 1–5. لن تتمكن من قراءة التعليقات السابقة.",
+   178→    defaultOn: false,
+   179→  },
+   180→  {
+   181→    key: "manager_visibility",
+   182→    labelEn: "Show manager my obligations",
+   183→    labelAr: "إظهار التزاماتي لمديري",
+   184→    descEn: "May my line manager see the steps they own on my journey, and aggregate completion? They never see my pulse, comments, or friction score.",
+   185→    descAr: "هل يرى مديري المباشر الخطوات التي يملكها في رحلتي ونسبة الإنجاز الكلية؟ لا يرى أبداً نبضتي أو تعليقاتي أو درجة الاحتكاك.",
+   186→    noChangeEn: "Your manager sees only their own to-do list — not your journey, not your stage.",
+   187→    noChangeAr: "يرى مديرك فقط قائمة مهامه الخاصة — ليس رحلتك ولا مرحلتك.",
+   188→    defaultOn: true,
+   189→  },
+   190→  {
+   191→    key: "aggregate_analytics",
+   192→    labelEn: "Aggregate analytics",
+   193→    labelAr: "تحليلات مجمّعة",
+   194→    descEn: "May the platform use fully de-identified, k≥5 aggregate stats to find systemic stalls (e.g., 'visa step is slow for everyone')?",
+   195→    descAr: "هل تستخدم المنصة إحصاءات مجمّعة مجهولة الهوية (k≥5) لرصد الاختناقات النظامية (مثل: 'تأشيرة بطيئة للجميع')؟",
+   196→    noChangeEn: "Your data is excluded from systemic-stall analytics. Insights may be sparser.",
+   197→    noChangeAr: "تُستثنى بياناتك من تحليلات الاختناقات النظامية. قد تكون الرؤى أقل.",
+   198→    defaultOn: true,
+   199→  },
+   200→];
+   201→
+   202→/* ---------- Helpers ---------- */
+   203→
+   204→function latestConsent(records: ConsentRecord[], purpose: Purpose): ConsentRecord | undefined {
+   205→  return records
+   206→    .filter((r) => r.purpose === purpose)
+   207→    .sort((a, b) => b.grantedAt.localeCompare(a.grantedAt))[0];
+   208→}
+   209→
+   210→function purposeGranted(
+   211→  records: ConsentRecord[],
+   212→  overrides: Record<string, boolean>,
+   213→  meta: PurposeMeta
+   214→): boolean {
+   215→  if (typeof overrides[meta.key] === "boolean") return overrides[meta.key];
+   216→  const latest = latestConsent(records, meta.key);
+   217→  if (latest) return latest.granted;
+   218→  return meta.defaultOn;
+   219→}
+   220→
+   221→/* ---------- Skeleton ---------- */
+   222→
+   223→function MeSkeleton() {
+   224→  return (
+   225→    <div className="space-y-6" aria-hidden="true">
+   226→      <div className="ast-card h-24 ast-shimmer rounded-[14px]" />
+   227→      <div className="ast-card p-6 space-y-4 ast-shimmer rounded-[14px]">
+   228→        <div className="h-5 w-1/3 rounded bg-white/5" />
+   229→        {Array.from({ length: 6 }).map((_, i) => (
+   230→          <div key={i} className="h-12 rounded bg-white/5" />
+   231→        ))}
+   232→      </div>
+   233→      <div className="ast-card h-72 ast-shimmer rounded-[14px]" />
+   234→      <div className="ast-card h-48 ast-shimmer rounded-[14px]" />
+   235→    </div>
+   236→  );
+   237→}
+   238→
+   239→/* ---------- Error banner ---------- */
+   240→
+   241→function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+   242→  return (
+   243→    <div
+   244→      className="ast-card p-5 flex flex-col sm:flex-row sm:items-center gap-4"
+   245→      role="alert"
+   246→      style={{ borderColor: "rgba(220,38,38,0.4)" }}
+   247→    >
+   248→      <div
+   249→        className="flex items-center justify-center w-11 h-11 rounded-full shrink-0"
+   250→        style={{ background: "rgba(220,38,38,0.12)", color: "var(--status-friction)" }}
+   251→      >
+   252→        <AlertTriangle className="w-5 h-5" strokeWidth={1.75} />
+   253→      </div>
+   254→      <div className="flex-1 min-w-0">
+   255→        <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+   256→          We can&apos;t reach your data file right now.
+   257→        </p>
+   258→        <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+   259→          {message}
+   260→        </p>
+   261→      </div>
+   262→      <button
+   263→        onClick={onRetry}
+   264→        className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium shrink-0"
+   265→        style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+   266→      >
+   267→        <RotateCcw className="w-4 h-4" strokeWidth={1.75} />
+   268→        Retry
+   269→      </button>
+   270→    </div>
+   271→  );
+   272→}
+   273→
+   274→/* ---------- Data-row model ---------- */
+   275→
+   276→interface DataRow {
+   277→  source: string;
+   278→  purpose: string;
+   279→  retention: string;
+   280→  lastViewed: string;
+   281→  sample: unknown;
+   282→  count: number;
+   283→  hidden?: boolean; // hidden when consent off (pulse)
+   284→}
+   285→
+   286→/* ============================================================
+   287→   Component
+   288→   ============================================================ */
+   289→
+   290→export function MeScreen() {
+   291→  const employeeId = useAppStore((s) => s.currentEmployeeId);
+   292→  const locale = useAppStore((s) => s.locale);
+   293→  const overrides = useAppStore((s) => s.consentOverrides);
+   294→  const setConsent = useAppStore((s) => s.setConsent);
+   295→  const reducedMotion = useAppStore((s) => s.reducedMotion);
+   296→  const dir = locale === "ar" ? "rtl" : "ltr";
+   297→
+   298→  const [data, setData] = useState<MeData | null>(null);
+   299→  const [loading, setLoading] = useState(true);
+   300→  const [err, setErr] = useState<string | null>(null);
+   301→  const [pendingPurpose, setPendingPurpose] = useState<Purpose | null>(null);
+   302→  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+   303→  const [revokeOpen, setRevokeOpen] = useState(false);
+   304→  const [privacyOpen, setPrivacyOpen] = useState(false);
+   305→
+   306→  const fetchData = useCallback(async () => {
+   307→    setLoading(true);
+   308→    setErr(null);
+   309→    try {
+   310→      const res = await fetch(`/api/v1/me/data?employeeId=${encodeURIComponent(employeeId)}`, { cache: "no-store" });
+   311→      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+   312→      const json: ApiEnvelope<MeData> = await res.json();
+   313→      if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
+   314→      setData(json.data);
+   315→    } catch (e) {
+   316→      setErr(e instanceof Error ? e.message : "Network error");
+   317→    } finally {
+   318→      setLoading(false);
+   319→    }
+   320→  }, [employeeId]);
+   321→
+   322→  useEffect(() => {
+   323→    fetchData();
+   324→  }, [fetchData]);
+   325→
+   326→  const pulseOn = useMemo(() => {
+   327→    if (!data) return false;
+   328→    return purposeGranted(data.consentRecords, overrides, PURPOSES[1]);
+   329→  }, [data, overrides]);
+   330→
+   331→  const handleToggle = useCallback(
+   332→    async (meta: PurposeMeta, next: boolean) => {
+   333→      if (meta.required) return;
+   334→      setPendingPurpose(meta.key);
+   335→      // Optimistic update via the store
+   336→      setConsent(meta.key, next);
+   337→      try {
+   338→        const res = await fetch("/api/v1/consent", {
+   339→          method: "POST",
+   340→          headers: { "Content-Type": "application/json" },
+   341→          body: JSON.stringify({ employeeId, purpose: meta.key, granted: next, version: "v1" }),
+   342→        });
+   343→        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+   344→        const json: ApiEnvelope<{ receiptId: string; grantedAt: string }> = await res.json();
+   345→        if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
+   346→        const stamp = format(new Date(json.data.grantedAt), "HH:mm");
+   347→        if (next) {
+   348→          toast.success(`Consent recorded · ${json.data.receiptId} at ${stamp}`, {
+   349→            description: meta.labelEn,
+   350→          });
+   351→        } else {
+   352→          toast(`Revoked · ${json.data.receiptId}`, {
+   353→            description: meta.labelEn,
+   354→          });
+   355→        }
+   356→        // Refetch so the snapshot reflects the server
+   357→        await fetchData();
+   358→      } catch (e) {
+   359→        // Roll back
+   360→        setConsent(meta.key, !next);
+   361→        toast.error("Could not update consent", {
+   362→          description: e instanceof Error ? e.message : "Network error",
+   363→        });
+   364→      } finally {
+   365→        setPendingPurpose(null);
+   366→      }
+   367→    },
+   368→    [employeeId, fetchData, setConsent]
+   369→  );
+   370→
+   371→  const handleRevokeAll = useCallback(async () => {
+   372→    const optionalPurposes = PURPOSES.filter((p) => !p.required);
+   373→    for (const p of optionalPurposes) {
+   374→      const currentlyOn = data ? purposeGranted(data.consentRecords, overrides, p) : false;
+   375→      if (currentlyOn) {
+   376→        setConsent(p.key, false);
+   377→        try {
+   378→          await fetch("/api/v1/consent", {
+   379→            method: "POST",
+   380→            headers: { "Content-Type": "application/json" },
+   381→            body: JSON.stringify({ employeeId, purpose: p.key, granted: false, version: "v1" }),
+   382→          });
+   383→        } catch {
+   384→          /* ignore — already rolled back state */
+   385→        }
+   386→      }
+   387→    }
+   388→    setRevokeOpen(false);
+   389→    toast("All optional consents revoked", {
+   390→      description: "Pulse, sharing, comment retention, manager visibility, and analytics are off. Journey assistance remains on.",
+   391→    });
+   392→    await fetchData();
+   393→  }, [data, employeeId, fetchData, overrides, setConsent]);
+   394→
+   395→  const handleExportJson = useCallback(() => {
+   396→    if (!data) return;
+   397→    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+   398→    const url = URL.createObjectURL(blob);
+   399→    const a = document.createElement("a");
+   400→    a.href = url;
+   401→    a.download = `astrolabe-me-${employeeId}-${new Date().toISOString().slice(0, 10)}.json`;
+   402→    document.body.appendChild(a);
+   403→    a.click();
+   404→    document.body.removeChild(a);
+   405→    URL.revokeObjectURL(url);
+   406→    toast.success("Exported as JSON", { description: `${employeeId} · snapshot ${data.snapshotAt.slice(0, 10)}` });
+   407→  }, [data, employeeId]);
+   408→
+   409→  const handleExportPdf = useCallback(() => {
+   410→    toast("PDF export queued — we'll email you", {
+   411→      description: "A signed PDF copy of your data file will arrive within 24 hours.",
+   412→    });
+   413→  }, []);
+   414→
+   415→  /* ---------- Build data-held rows from server snapshot ---------- */
+   416→  const dataRows: DataRow[] = useMemo(() => {
+   417→    if (!data) return [];
+   418→    const nowIso = data.generatedAt;
+   419→    const rows: DataRow[] = [
+   420→      {
+   421→        source: "Employee record",
+   422→        purpose: "Journey assistance",
+   423→        retention: "Duration of employment + 6 years",
+   424→        lastViewed: data.viewLog[0]?.at ?? nowIso,
+   425→        count: 1,
+   426→        sample: data.employee,
+   427→      },
+   428→      {
+   429→        source: "Journey events",
+   430→        purpose: "Journey assistance",
+   431→        retention: "Duration of employment + 6 years",
+   432→        lastViewed: data.viewLog[0]?.at ?? nowIso,
+   433→        count: data.journeyEvents.length,
+   434→        sample: data.journeyEvents.slice(0, 5),
+   435→      },
+   436→      {
+   437→        source: "Service requests",
+   438→        purpose: "Journey assistance",
+   439→        retention: "Duration of employment + 6 years",
+   440→        lastViewed: data.viewLog[0]?.at ?? nowIso,
+   441→        count: data.serviceRequests.length,
+   442→        sample: data.serviceRequests,
+   443→      },
+   444→      {
+   445→        source: "Pulse responses",
+   446→        purpose: "Pulse capture",
+   447→        retention: "12 months (or until consent revoked)",
+   448→        lastViewed: "—",
+   449→        count: data.pulseResponses.length,
+   450→        sample: data.pulseResponses,
+   451→        hidden: !pulseOn,
+   452→      },
+   453→      {
+   454→        source: "Consent records",
+   455→        purpose: "Audit / proof",
+   456→        retention: "Duration of employment + 6 years",
+   457→        lastViewed: nowIso,
+   458→        count: data.consentRecords.length,
+   459→        sample: data.consentRecords,
+   460→      },
+   461→      {
+   462→        source: "Audit events",
+   463→        purpose: "Access log",
+   464→        retention: "Duration of employment + 6 years",
+   465→        lastViewed: nowIso,
+   466→        count: data.auditEvents.length,
+   467→        sample: data.auditEvents,
+   468→      },
+   469→    ];
+   470→    return rows;
+   471→  }, [data, pulseOn]);
+   472→
+   473→  /* ---------- Render ---------- */
+   474→
+   475→  return (
+   476→    <div
+   477→      dir={dir}
+   478→      className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10"
+   479→    >
+   480→      {/* Heading */}
+   481→      <header className="mb-6">
+   482→        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--brand-400)" }}>
+   483→          <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
+   484→          <span>{locale === "ar" ? "مركز الخصوصية" : "Privacy center"}</span>
+   485→        </div>
+   486→        <h1 className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight" style={{ color: "var(--text-hi)" }}>
+   487→          {locale === "ar" ? "بياناتك ملكك" : "Your data is yours"}
+   488→        </h1>
+   489→      </header>
+   490→
+   491→      {/* Privacy summary banner */}
+   492→      <motion.section
+   493→        initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+   494→        animate={{ opacity: 1, y: 0 }}
+   495→        transition={{ duration: 0.24 }}
+   496→        className="ast-card p-5 sm:p-6 mb-6"
+   497→        style={{ borderColor: "rgba(22,154,165,0.32)" }}
+   498→      >
+   499→        <div className="flex items-start gap-4">
+   500→          <div
+   501→            className="flex items-center justify-center w-11 h-11 rounded-full shrink-0"
+   502→            style={{ background: "rgba(22,154,165,0.12)", color: "var(--brand-400)" }}
+   503→          >
+   504→            <ShieldCheck className="w-5 h-5" strokeWidth={1.75} />
+   505→          </div>
+   506→          <div className="flex-1 min-w-0">
+   507→            <p className="text-[15px] sm:text-[16px] font-medium" style={{ color: "var(--text-hi)" }}>
+   508→              {locale === "ar"
+   509→                ? "بياناتك ملكك. لا نستخدمها أبداً لتقييم الأداء أو الإجراءات التأديبية أو قرارات التأشيرة."
+   510→                : "Your data is yours. We never use it for performance, discipline, or visa decisions."}
+   511→            </p>
+   512→            <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+   513→              {locale === "ar"
+   514→                ? "تتحكم في ما نراه وفي ما نشاركه. كل تغيير يُسجَّل بإيصال."
+   515→                : "You control what we see and what we share. Every change is recorded with a receipt."}
+   516→            </p>
+   517→            <a
+   518→              href="#"
+   519→              onClick={(e) => { e.preventDefault(); setPrivacyOpen(true); }}
+   520→              className="ast-focus inline-flex items-center gap-1.5 mt-3 text-[13px] font-medium"
+   521→              style={{ color: "var(--brand-400)" }}
+   522→            >
+   523→              {locale === "ar" ? "ملخص الخصوصية" : "Privacy summary"}
+   524→              <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.75} />
+   525→            </a>
+   526→          </div>
+   527→        </div>
+   528→      </motion.section>
+   529→
+   530→      {/* Privacy page modal */}
+   531→      <Dialog open={privacyOpen} onOpenChange={setPrivacyOpen}>
+   532→        <DialogContent
+   533→          className="sm:max-w-[820px] max-h-[88vh] overflow-y-auto"
+   534→          style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+   535→        >
+   536→          <DialogTitle className="sr-only">{locale === "ar" ? "الخصوصية بالكامل" : "Privacy in full"}</DialogTitle>
+   537→          <PrivacyPage />
+   538→        </DialogContent>
+   539→      </Dialog>
+   540→
+   541→      {/* Loading / error */}
+   542→      {loading ? (
+   543→        <MeSkeleton />
+   544→      ) : err ? (
+   545→        <ErrorBanner message={err} onRetry={fetchData} />
+   546→      ) : data ? (
+   547→        <>
+   548→          {/* Pulse-off disclosure when applicable */}
+   549→          <AnimatePresence>
+   550→            {!pulseOn && (
+   551→              <motion.div
+   552→                initial={reducedMotion ? false : { opacity: 0, height: 0 }}
+   553→                animate={{ opacity: 1, height: "auto" }}
+   554→                exit={{ opacity: 0, height: 0 }}
+   555→                className="ast-card-2 p-4 mb-6 flex items-start gap-3"
+   556→                style={{ borderColor: "rgba(217,119,6,0.32)", background: "rgba(217,119,6,0.06)" }}
+   557→              >
+   558→                <Info className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--status-watch)" }} />
+   559→                <p className="text-[13px]" style={{ color: "var(--text-mid)" }}>
+   560→                  {locale === "ar"
+   561→                    ? "نبضتك متوقفة. يستخدم هذا العرض بيانات الرحلة والطلبات فقط."
+   562→                    : "Pulse signals are off, so this view uses journey and request data only."}
+   563→                </p>
+   564→              </motion.div>
+   565→            )}
+   566→          </AnimatePresence>
+   567→
+   568→          {/* Consent toggles */}
+   569→          <section className="ast-card p-5 sm:p-6 mb-6">
+   570→            <div className="flex items-baseline justify-between mb-5">
+   571→              <div>
+   572→                <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
+   573→                  {locale === "ar" ? "ما الذي تسمح به" : "What you allow"}
+   574→                </h2>
+   575→                <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+   576→                  {locale === "ar"
+   577→                    ? "ستة أغراض. كل واحد قابل للعكس. كل تغيير يولّد إيصالاً."
+   578→                    : "Six purposes. Each is reversible. Every change generates a receipt."}
+   579→                </p>
+   580→              </div>
+   581→            </div>
+   582→
+   583→            <ul className="space-y-3">
+   584→              {PURPOSES.map((meta) => {
+   585→                const granted = purposeGranted(data.consentRecords, overrides, meta);
+   586→                const isPending = pendingPurpose === meta.key;
+   587→                return (
+   588→                  <li
+   589→                    key={meta.key}
+   590→                    className="ast-card-2 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-start gap-4"
+   591→                  >
+   592→                    <div className="flex-1 min-w-0">
+   593→                      <div className="flex items-center gap-2 flex-wrap">
+   594→                        <h3 className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+   595→                          {locale === "ar" ? meta.labelAr : meta.labelEn}
+   596→                        </h3>
+   597→                        {meta.required && (
+   598→                          <span
+   599→                            className="ast-chip"
+   600→                            style={{
+   601→                              color: "var(--accent-500)",
+   602→                              background: "rgba(201,162,39,0.08)",
+   603→                              borderColor: "rgba(201,162,39,0.32)",
+   604→                            }}
+   605→                          >
+   606→                            {locale === "ar" ? "ضروري" : "Required"}
+   607→                          </span>
+   608→                        )}
+   609→                        {granted ? (
+   610→                          <span
+   611→                            className="ast-chip"
+   612→                            style={{
+   613→                              color: "var(--status-steady)",
+   614→                              background: "rgba(14,159,110,0.08)",
+   615→                              borderColor: "rgba(14,159,110,0.30)",
+   616→                            }}
+   617→                          >
+   618→                            <Check className="w-3 h-3" strokeWidth={2} />
+   619→                            {locale === "ar" ? "مُفعّل" : "On"}
+   620→                          </span>
+   621→                        ) : (
+   622→                          <span className="ast-chip">
+   623→                            {locale === "ar" ? "متوقف" : "Off"}
+   624→                          </span>
+   625→                        )}
+   626→                      </div>
+   627→                      <p className="text-[13px] mt-2 leading-relaxed" style={{ color: "var(--text-mid)" }}>
+   628→                        {locale === "ar" ? meta.descAr : meta.descEn}
+   629→                      </p>
+   630→                      <p className="text-[12px] mt-2 leading-relaxed" style={{ color: "var(--text-lo)" }}>
+   631→                        <span className="font-medium" style={{ color: "var(--text-mid)" }}>
+   632→                          {locale === "ar" ? "إذا رفضت: " : "What changes if you say no: "}
+   633→                        </span>
+   634→                        {locale === "ar" ? meta.noChangeAr : meta.noChangeEn}
+   635→                      </p>
+   636→                    </div>
+   637→
+   638→                    <div className="shrink-0 self-start sm:self-center">
+   639→                      {meta.required ? (
+   640→                        <Tooltip>
+   641→                          <TooltipTrigger asChild>
+   642→                            <div>
+   643→                              <Switch checked disabled aria-label={`${meta.labelEn} — required`} />
+   644→                            </div>
+   645→                          </TooltipTrigger>
+   646→                          <TooltipContent side="left">
+   647→                            {locale === "ar" ? "ضروري للاستخدام" : "Required for use"}
+   648→                          </TooltipContent>
+   649→                        </Tooltip>
+   650→                      ) : (
+   651→                        <Tooltip>
+   652→                          <TooltipTrigger asChild>
+   653→                            <div className="inline-flex">
+   654→                              <Switch
+   655→                                checked={granted}
+   656→                                disabled={isPending}
+   657→                                onCheckedChange={(v) => handleToggle(meta, v)}
+   658→                                aria-label={meta.labelEn}
+   659→                                className="ast-focus data-[state=checked]:bg-[var(--brand-500)]"
+   660→                              />
+   661→                            </div>
+   662→                          </TooltipTrigger>
+   663→                          <TooltipContent side="left">
+   664→                            {granted
+   665→                              ? locale === "ar" ? "اضغط لإيقافه" : "Click to revoke"
+   666→                              : locale === "ar" ? "اضغط للتفعيل" : "Click to grant"}
+   667→                          </TooltipContent>
+   668→                        </Tooltip>
+   669→                      )}
+   670→                    </div>
+   671→                  </li>
+   672→                );
+   673→              })}
+   674→            </ul>
+   675→
+   676→            {/* Revoke all */}
+   677→            <div className="mt-5 flex justify-end">
+   678→              <AlertDialog open={revokeOpen} onOpenChange={setRevokeOpen}>
+   679→                <AlertDialogTrigger asChild>
+   680→                  <button
+   681→                    className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium transition-colors"
+   682→                    style={{
+   683→                      background: "rgba(220,38,38,0.08)",
+   684→                      border: "1px solid rgba(220,38,38,0.32)",
+   685→                      color: "var(--status-friction)",
+   686→                    }}
+   687→                  >
+   688→                    <Trash2 className="w-4 h-4" strokeWidth={1.75} />
+   689→                    {locale === "ar" ? "إيقاف كل الموافقات الاختيارية" : "Revoke all optional consents"}
+   690→                  </button>
+   691→                </AlertDialogTrigger>
+   692→                <AlertDialogContent
+   693→                  style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+   694→                >
+   695→                  <AlertDialogHeader>
+   696→                    <AlertDialogTitle style={{ color: "var(--text-hi)" }}>
+   697→                      {locale === "ar" ? "إيقاف كل الموافقات الاختيارية؟" : "Revoke all optional consents?"}
+   698→                    </AlertDialogTitle>
+   699→                    <AlertDialogDescription style={{ color: "var(--text-mid)" }}>
+   700→                      {locale === "ar"
+   701→                        ? "سيتم إيقاف النبضة ومشاركة الملخص والاحتفاظ بالتعليقات ورؤية المدير والتحليلات. مساعدة الرحلة تبقى مفعّلة لأنها ضرورية. يمكنك إعادة تفعيل أي غرض لاحقاً."
+   702→                        : "This will turn off pulse capture, pulse summary sharing, comment retention, manager visibility, and aggregate analytics. Journey assistance stays on because it's required. You can re-enable any purpose later."}
+   703→                    </AlertDialogDescription>
+   704→                  </AlertDialogHeader>
+   705→                  <AlertDialogFooter>
+   706→                    <AlertDialogCancel
+   707→                      className="ast-focus"
+   708→                      style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+   709→                    >
+   710→                      {locale === "ar" ? "تراجع" : "Cancel"}
+   711→                    </AlertDialogCancel>
+   712→                    <AlertDialogAction
+   713→                      onClick={handleRevokeAll}
+   714→                      className="ast-focus"
+   715→                      style={{ background: "var(--status-friction)", color: "white", border: "1px solid var(--status-friction)" }}
+   716→                    >
+   717→                      {locale === "ar" ? "أوقف الكل" : "Revoke all"}
+   718→                    </AlertDialogAction>
+   719→                  </AlertDialogFooter>
+   720→                </AlertDialogContent>
+   721→              </AlertDialog>
+   722→            </div>
+   723→          </section>
+   724→
+   725→          {/* Data held about me */}
+   726→          <section className="ast-card p-5 sm:p-6 mb-6">
+   727→            <div className="flex items-baseline justify-between mb-5 flex-wrap gap-3">
+   728→              <div>
+   729→                <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
+   730→                  {locale === "ar" ? "البيانات المخزّنة عنك" : "Data held about you"}
+   731→                </h2>
+   732→                <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+   733→                  {locale === "ar"
+   734→                    ? "كل ما لدينا في ملف واحد. اضغط أي صف لرؤية عينة."
+   735→                    : "Everything we hold, in one file. Tap any row to see a sample."}
+   736→                </p>
+   737→              </div>
+   738→              <div className="flex items-center gap-2">
+   739→                <button
+   740→                  onClick={handleExportJson}
+   741→                  className="ast-focus inline-flex items-center gap-2 h-11 px-3.5 rounded-full text-[13px] font-medium transition-colors"
+   742→                  style={{
+   743→                    background: "var(--surface-2)",
+   744→                    border: "1px solid var(--border)",
+   745→                    color: "var(--text-hi)",
+   746→                  }}
+   747→                >
+   748→                  <FileJson className="w-4 h-4" strokeWidth={1.75} />
+   749→                  {locale === "ar" ? "تصدير JSON" : "Export as JSON"}
+   750→                </button>
+   751→                <button
+   752→                  onClick={handleExportPdf}
+   753→                  className="ast-focus inline-flex items-center gap-2 h-11 px-3.5 rounded-full text-[13px] font-medium transition-colors"
+   754→                  style={{
+   755→                    background: "var(--surface-2)",
+   756→                    border: "1px solid var(--border)",
+   757→                    color: "var(--text-hi)",
+   758→                  }}
+   759→                >
+   760→                  <FileText className="w-4 h-4" strokeWidth={1.75} />
+   761→                  {locale === "ar" ? "تصدير PDF" : "Export as PDF"}
+   762→                </button>
+   763→              </div>
+   764→            </div>
+   765→
+   766→            <div className="rounded-[10px] overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+   767→              <Table>
+   768→                <TableHeader>
+   769→                  <TableRow style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}>
+   770→                    <TableHead className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+   771→                      {locale === "ar" ? "المصدر" : "Source"}
+   772→                    </TableHead>
+   773→                    <TableHead className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+   774→                      {locale === "ar" ? "الغرض" : "Purpose"}
+   775→                    </TableHead>
+   776→                    <TableHead className="text-[11px] uppercase tracking-[0.12em] hidden sm:table-cell" style={{ color: "var(--text-lo)" }}>
+   777→                      {locale === "ar" ? "الاحتفاظ" : "Retention"}
+   778→                    </TableHead>
+   779→                    <TableHead className="text-[11px] uppercase tracking-[0.12em] hidden md:table-cell" style={{ color: "var(--text-lo)" }}>
+   780→                      {locale === "ar" ? "آخر مشاهدة" : "Last viewed"}
+   781→                    </TableHead>
+   782→                    <TableHead className="text-[11px] uppercase tracking-[0.12em] text-right" style={{ color: "var(--text-lo)" }}>
+   783→                      <span className="tabular">{locale === "ar" ? "العدد" : "Count"}</span>
+   784→                    </TableHead>
+   785→                    <TableHead className="w-10" />
+   786→                  </TableRow>
+   787→                </TableHeader>
+   788→                <TableBody>
+   789→                  {dataRows.map((row) => {
+   790→                    const isOpen = expandedRow === row.source;
+   791→                    const suppressed = row.hidden;
+   792→                    return (
+   793→                      <Fragment key={row.source}>
+   794→                        <TableRow
+   795→                          className="cursor-pointer ast-focus"
+   796→                          style={{ borderColor: "var(--border-soft)" }}
+   797→                          onClick={() => setExpandedRow(isOpen ? null : row.source)}
+   798→                        >
+   799→                              <TableCell className="font-medium text-[13px]" style={{ color: "var(--text-hi)" }}>
+   800→                                <div className="flex items-center gap-2">
+   801→                                  {suppressed ? (
+   802→                                    <Lock className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--text-lo)" }} />
+   803→                                  ) : (
+   804→                                    <Unlock className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+   805→                                  )}
+   806→                                  {row.source}
+   807→                                </div>
+   808→                              </TableCell>
+   809→                              <TableCell className="text-[13px]" style={{ color: "var(--text-mid)" }}>
+   810→                                {row.purpose}
+   811→                              </TableCell>
+   812→                              <TableCell className="text-[12px] hidden sm:table-cell" style={{ color: "var(--text-mid)" }}>
+   813→                                {row.retention}
+   814→                              </TableCell>
+   815→                              <TableCell className="text-[12px] hidden md:table-cell tabular" style={{ color: "var(--text-mid)" }}>
+   816→                                {row.lastViewed === "—"
+   817→                                  ? "—"
+   818→                                  : format(new Date(row.lastViewed), "d MMM HH:mm")}
+   819→                              </TableCell>
+   820→                              <TableCell className="text-right tabular text-[13px]" style={{ color: "var(--text-hi)" }}>
+   821→                                {suppressed ? "—" : row.count}
+   822→                              </TableCell>
+   823→                              <TableCell className="text-right">
+   824→                                {suppressed ? (
+   825→                                  <span className="text-[11px]" style={{ color: "var(--text-lo)" }}>
+   826→                                    {locale === "ar" ? "مكتوم" : "suppressed"}
+   827→                                  </span>
+   828→                                ) : (
+   829→                                  <ChevronDown
+   830→                                    className={cn("w-4 h-4 transition-transform", isOpen && "rotate-180")}
+   831→                                    strokeWidth={1.75}
+   832→                                    style={{ color: "var(--text-mid)" }}
+   833→                                  />
+   834→                                )}
+   835→                              </TableCell>
+   836→                        </TableRow>
+   837→                        {isOpen && (
+   838→                          <tr style={{ background: "var(--surface-2)" }}>
+   839→                              <td colSpan={6} className="p-0">
+   840→                                <motion.div
+   841→                                  initial={reducedMotion ? false : { opacity: 0 }}
+   842→                                  animate={{ opacity: 1 }}
+   843→                                  transition={{ duration: 0.2 }}
+   844→                                  className="p-4 sm:p-5"
+   845→                                >
+   846→                                  {suppressed ? (
+   847→                                    <p className="text-[12px]" style={{ color: "var(--text-lo)" }}>
+   848→                                      {locale === "ar"
+   849→                                        ? "هذا الصف مكتوم لأن موافقة النبضة متوقفة."
+   850→                                        : "This row is suppressed because pulse capture consent is off."}
+   851→                                    </p>
+   852→                                  ) : (
+   853→                                    <pre
+   854→                                      className="text-[11px] font-mono leading-relaxed max-h-72 overflow-auto rounded p-3"
+   855→                                      style={{
+   856→                                        background: "var(--surface-0)",
+   857→                                        border: "1px solid var(--border)",
+   858→                                        color: "var(--text-mid)",
+   859→                                        direction: "ltr",
+   860→                                      }}
+   861→                                    >
+   862→                                      {JSON.stringify(row.sample, null, 2)}
+   863→                                    </pre>
+   864→                                  )}
+   865→                                </motion.div>
+   866→                              </td>
+   867→                            </tr>
+   868→                        )}
+   869→                      </Fragment>
+   870→                    );
+   871→                  })}
+   872→                </TableBody>
+   873→              </Table>
+   874→            </div>
+   875→          </section>
+   876→
+   877→          {/* View log */}
+   878→          <section className="ast-card p-5 sm:p-6">
+   879→            <div className="flex items-center gap-2 mb-4">
+   880→              <Eye className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+   881→              <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
+   882→                {locale === "ar" ? "سجل المشاهدات" : "View log"}
+   883→              </h2>
+   884→            </div>
+   885→            {data.viewLog.length === 0 ? (
+   886→              <p className="text-[13px]" style={{ color: "var(--text-mid)" }}>
+   887→                {locale === "ar" ? "لا مشاهدات بعد." : "No views yet."}
+   888→              </p>
+   889→            ) : (
+   890→              <ul className="space-y-2">
+   891→                {data.viewLog.map((entry, i) => (
+   892→                  <li
+   893→                    key={i}
+   894→                    className="ast-card-2 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3"
+   895→                  >
+   896→                    <div
+   897→                      className="flex items-center justify-center w-8 h-8 rounded-full shrink-0"
+   898→                      style={{ background: "var(--surface-3)", color: "var(--text-mid)" }}
+   899→                    >
+   900→                      <Eye className="w-3.5 h-3.5" strokeWidth={1.75} />
+   901→                    </div>
+   902→                    <div className="flex-1 min-w-0">
+   903→                      <p className="text-[13px]" style={{ color: "var(--text-hi)" }}>
+   904→                        <span className="font-medium">{entry.actor}</span>
+   905→                        <span style={{ color: "var(--text-mid)" }}>
+   906→                          {" "}
+   907→                          {locale === "ar" ? "قرأ سجلك" : "read your record"}
+   908→                        </span>
+   909→                      </p>
+   910→                      <p className="text-[12px] mt-0.5 flex items-center gap-1.5 flex-wrap" style={{ color: "var(--text-lo)" }}>
+   911→                        <Clock className="w-3 h-3" strokeWidth={1.75} />
+   912→                        <span className="tabular">
+   913→                          {formatDistance(new Date(entry.at), new Date("2024-10-19T10:00:00Z"), { addSuffix: true })}
+   914→                        </span>
+   915→                        <span style={{ color: "var(--text-lo)" }}>·</span>
+   916→                        <span>{locale === "ar" ? "الغرض: " : "for "}{entry.purpose.replace(/_/g, " ")}</span>
+   917→                      </p>
+   918→                    </div>
+   919→                  </li>
+   920→                ))}
+   921→              </ul>
+   922→            )}
+   923→          </section>
+   924→
+   925→          {/* Footer — receipt anchor */}
+   926→          <p className="mt-6 text-[11px] text-center tabular" style={{ color: "var(--text-lo)" }}>
+   927→            {locale === "ar"
+   928→              ? `ملف ${employeeId} · لقطة ${data.snapshotAt.slice(0, 10)} · ${data.consentRecords.length} سجل موافقة`
+   929→              : `File ${employeeId} · snapshot ${data.snapshotAt.slice(0, 10)} · ${data.consentRecords.length} consent records`}
+   930→          </p>
+   931→        </>
+   932→      ) : null}
+   933→    </div>
+   934→  );
+   935→}
+   936→
