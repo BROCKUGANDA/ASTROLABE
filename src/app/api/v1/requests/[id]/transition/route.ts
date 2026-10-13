@@ -1,0 +1,97 @@
+/**
+ * ASTROLABE API — /api/v1/requests/[id]/transition (POST)
+ * Transitions a service request through the legal state machine.
+ */
+import { NextRequest } from "next/server";
+import { success, error } from "@/lib/api/envelope";
+import { serviceRequests, type ServiceRequest } from "@/lib/data/pack";
+import { canTransition } from "@/lib/actions/actions";
+
+export const dynamic = "force-dynamic";
+
+const VALID_STATUSES: ReadonlySet<ServiceRequest["status"]> = new Set([
+  "draft",
+  "validated",
+  "submitted",
+  "acknowledged",
+  "in_progress",
+  "waiting_employee",
+  "resolved",
+  "closed",
+  "returned",
+  "reassigned",
+  "cancelled",
+]);
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const start = Date.now();
+  const { id } = await params;
+
+  let body: { to?: string; idempotencyKey?: string };
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    return error("E_BAD_BODY", "Request body must be valid JSON", 400);
+  }
+
+  const to = (body.to ?? "").trim();
+  const idempotencyKey = (body.idempotencyKey ?? "").trim();
+
+  if (!to) {
+    return error("E_VALIDATION", "`to` is required", 422, {
+      hint: "Target status e.g. 'acknowledged', 'in_progress', 'resolved'.",
+    });
+  }
+  if (!idempotencyKey) {
+    return error("E_VALIDATION", "`idempotencyKey` is required", 422);
+  }
+  if (!VALID_STATUSES.has(to as ServiceRequest["status"])) {
+    return error(
+      "E_VALIDATION",
+      `Unknown target status '${to}'`,
+      422,
+      {
+        hint: "Must be one of: draft, validated, submitted, acknowledged, in_progress, waiting_employee, resolved, closed, returned, reassigned, cancelled",
+      }
+    );
+  }
+
+  const request = serviceRequests.find((r) => r.id === id);
+  if (!request) {
+    return error("E_NOT_FOUND", `Service request ${id} not found`, 404);
+  }
+
+  const from = request.status;
+  if (!canTransition(from, to)) {
+    return error(
+      "E_CONFLICT",
+      `Illegal transition: '${from}' → '${to}'`,
+      409,
+      {
+        hint: `Legal transitions from '${from}' are defined in the request state machine.`,
+      }
+    );
+  }
+
+  // Idempotency: if the request is already in the target state, treat as replay.
+  const servedFrom = from === to ? "cache" : "live";
+
+  // Mutate in place (prototype only).
+  request.status = to as ServiceRequest["status"];
+
+  return success(
+    {
+      ...request,
+      servedFrom,
+      transition: { from, to },
+    },
+    {
+      servedFrom,
+      asOf: new Date().toISOString(),
+      latencyMs: Date.now() - start,
+    }
+  );
+}

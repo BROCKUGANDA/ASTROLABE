@@ -1,0 +1,364 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================
+   ASTROLABE DESIGN SYSTEM
+   "Instrument, not dashboard" — calm navy + teal instrument
+   + sand-gold highlight reserved for "your next move".
+   ============================================================ */
+
+@theme inline {
+  /* shadcn aliases (kept for compatibility) */
+  --color-background: var(--surface-0);
+  --color-foreground: var(--text-hi);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains);
+  --font-arabic: var(--font-plex-arabic);
+  --color-sidebar-ring: var(--ring);
+  --color-sidebar-border: var(--border);
+  --color-sidebar-accent-foreground: var(--text-hi);
+  --color-sidebar-accent: var(--surface-2);
+  --color-sidebar-primary-foreground: var(--surface-0);
+  --color-sidebar-primary: var(--brand-500);
+  --color-sidebar-foreground: var(--text-hi);
+  --color-sidebar: var(--surface-1);
+  --color-chart-5: var(--accent-500);
+  --color-chart-4: var(--brand-500);
+  --color-chart-3: #2563EB;
+  --color-chart-2: #D97706;
+  --color-chart-1: #0E9F6E;
+  --color-ring: var(--ring);
+  --color-input: var(--border);
+  --color-border: var(--border);
+  --color-destructive: #DC2626;
+  --color-accent-foreground: var(--surface-0);
+  --color-accent: var(--accent-500);
+  --color-muted-foreground: var(--text-mid);
+  --color-muted: var(--surface-2);
+  --color-secondary-foreground: var(--text-hi);
+  --color-secondary: var(--surface-2);
+  --color-primary-foreground: var(--surface-0);
+  --color-primary: var(--brand-500);
+  --color-popover-foreground: var(--text-hi);
+  --color-popover: var(--surface-1);
+  --color-card-foreground: var(--text-hi);
+  --color-card: var(--surface-1);
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+}
+
+/* ============================================================
+   TOKENS — Dark "instrument" mode is default (calm navy)
+   ============================================================ */
+:root,
+.dark {
+  /* Surfaces — calm navy */
+  --surface-0: #0B111C;
+  --surface-1: #101827;
+  --surface-2: #16202F;
+  --surface-3: #1C2839;
+  --surface-glass: rgba(22, 32, 47, 0.65);
+
+  /* Text */
+  --text-hi: #F2F6FB;
+  --text-mid: #B8C4D4;
+  --text-lo: #7D8DA1;
+
+  /* Brand — teal instrument */
+  --brand-700: #0E5C63;
+  --brand-600: #12767F;
+  --brand-500: #169AA5;
+  --brand-400: #2FB5BF;
+  --brand-100: #D6F0F2;
+
+  /* Accent — sand-gold reserved for "your next move" */
+  --accent-500: #C9A227;
+  --accent-400: #D9B445;
+  --accent-100: #F6ECC9;
+
+  /* Status */
+  --status-steady: #0E9F6E;
+  --status-watch: #D97706;
+  --status-friction: #DC2626;
+  --status-blocked: #9F1239;
+  --status-info: #2563EB;
+  --status-neutral: #64748B;
+
+  /* Border / ring */
+  --border: #22303F;
+  --border-soft: #1A2535;
+  --ring: #169AA5;
+
+  /* Elevation */
+  --e1: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --e2: 0 6px 18px rgba(0, 0, 0, 0.22);
+  --e3: 0 18px 48px rgba(0, 0, 0, 0.28);
+  --e-glow: 0 0 0 1px rgba(22, 154, 165, 0.18), 0 12px 32px rgba(22, 154, 165, 0.12);
+
+  /* Gradients */
+  --g-horizon: linear-gradient(135deg, #0E5C63 0%, #12767F 55%, #C9A227 100%);
+  --g-veil: radial-gradient(120% 80% at 50% -20%, rgba(22, 154, 165, 0.26), transparent 60%);
+  --g-glass: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  --g-card: linear-gradient(180deg, rgba(22, 154, 165, 0.04), rgba(11, 17, 28, 0));
+  --g-brass: linear-gradient(135deg, #C9A227 0%, #8A6F1A 40%, #C9A227 60%, #F6ECC9 100%);
+
+  /* Motion tokens */
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-accel: cubic-bezier(0.4, 0, 1, 1);
+  --ease-decel: cubic-bezier(0, 0, 0.2, 1);
+  --dur-xs: 120ms;
+  --dur-sm: 180ms;
+  --dur-md: 240ms;
+  --dur-lg: 320ms;
+  --dur-xl: 480ms;
+}
+
+/* Optional light variant — projector mode / daytime review */
+.light {
+  --surface-0: #FFFFFF;
+  --surface-1: #F7F9FC;
+  --surface-2: #EEF2F7;
+  --surface-3: #E2E8F0;
+  --surface-glass: rgba(255, 255, 255, 0.8);
+
+  --text-hi: #0B1221;
+  --text-mid: #3F4C60;
+  --text-lo: #6B7A8F;
+
+  --border: #D6DEE9;
+  --border-soft: #E5EAF1;
+
+  --e1: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --e2: 0 6px 18px rgba(15, 23, 42, 0.08);
+  --e3: 0 18px 48px rgba(15, 23, 42, 0.12);
+  --e-glow: 0 0 0 1px rgba(22, 154, 165, 0.18), 0 12px 32px rgba(22, 154, 165, 0.08);
+
+  --g-card: linear-gradient(180deg, rgba(22, 154, 165, 0.03), rgba(255, 255, 255, 0));
+}
+
+/* ============================================================
+   BASE
+   ============================================================ */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  body {
+    background-color: var(--surface-0);
+    color: var(--text-hi);
+    font-family: var(--font-inter), system-ui, sans-serif;
+    font-feature-settings: "ss01", "cv11", "tnum";
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+  /* Numeric tabular */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+  /* Arabic */
+  [dir="rtl"] {
+    font-family: var(--font-plex-arabic), var(--font-inter), sans-serif;
+    line-height: 1.76;
+  }
+  [dir="rtl"] .tabular {
+    letter-spacing: 0;
+  }
+  ::selection {
+    background: rgba(22, 154, 165, 0.32);
+    color: var(--text-hi);
+  }
+  /* Custom scrollbar — instrument-grade */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--surface-0);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--surface-3);
+    border-radius: 999px;
+    border: 2px solid var(--surface-0);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--brand-700);
+  }
+}
+
+/* ============================================================
+   COMPONENT UTILITIES
+   ============================================================ */
+@layer components {
+  /* Glass card — the primary surface */
+  .ast-card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--e2);
+    position: relative;
+    overflow: hidden;
+  }
+  .ast-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--g-card);
+    pointer-events: none;
+  }
+  .ast-card-2 {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+  /* Glow ring for "your next move" */
+  .ast-glow {
+    box-shadow: var(--e-glow);
+  }
+  /* Brass accent — the astrolabe's instrument ring */
+  .ast-brass {
+    background: var(--g-brass);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Brand gradient text — horizon */
+  .ast-horizon-text {
+    background: var(--g-horizon);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Hairline ring used on the astrolabe dial */
+  .ast-ring {
+    border: 1px solid rgba(22, 154, 165, 0.22);
+    border-radius: 999px;
+  }
+  /* Chip — pill, used for citations and statuses */
+  .ast-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text-mid);
+    white-space: nowrap;
+  }
+  /* Status dot — shape-distinct per band */
+  .ast-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    display: inline-block;
+  }
+  .ast-dot-steady { background: var(--status-steady); box-shadow: 0 0 8px rgba(14, 159, 110, 0.5); }
+  .ast-dot-watch  { background: var(--status-watch);  border-radius: 999px 999px 999px 0; box-shadow: 0 0 8px rgba(217, 119, 6, 0.5); }
+  .ast-dot-friction { background: var(--status-friction); transform: rotate(45deg); box-shadow: 0 0 8px rgba(220, 38, 38, 0.5); }
+  .ast-dot-blocked { background: var(--status-blocked); border-radius: 2px; box-shadow: 0 0 8px rgba(159, 18, 57, 0.5); }
+
+  /* Focus ring — visible everywhere */
+  .ast-focus:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  /* Stage rail segment */
+  .ast-rail-seg {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--surface-3);
+    transition: background var(--dur-md) var(--ease-standard);
+  }
+  .ast-rail-seg[data-state="done"] { background: var(--brand-500); }
+  .ast-rail-seg[data-state="active"] {
+    background: linear-gradient(90deg, var(--brand-500), var(--accent-500));
+  }
+  .ast-rail-seg[data-state="blocked"] { background: var(--status-blocked); }
+
+  /* Verdict card — band readout */
+  .ast-verdict {
+    position: relative;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .ast-verdict::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--g-glass);
+    pointer-events: none;
+  }
+}
+
+/* ============================================================
+   MOTION — prefers-reduced-motion
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 120ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 120ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   PROJECTOR MODE — 1.25× type, raised contrast
+   ============================================================ */
+.projector {
+  font-size: 1.25rem;
+}
+.projector body { font-size: 20px; }
+
+/* ============================================================
+   CUSTOM KEYFRAMES
+   ============================================================ */
+@keyframes ast-fade-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes ast-spin-slow {
+  to { transform: rotate(360deg); }
+}
+@keyframes ast-pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(22, 154, 165, 0.5); }
+  70% { box-shadow: 0 0 0 12px rgba(22, 154, 165, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(22, 154, 165, 0); }
+}
+@keyframes ast-ticker {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes ast-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.ast-fade-rise { animation: ast-fade-rise var(--dur-md) var(--ease-standard) both; }
+.ast-spin-slow { animation: ast-spin-slow 24s linear infinite; }
+.ast-pulse-ring { animation: ast-pulse-ring 2.4s var(--ease-standard) infinite; }
+.ast-ticker { animation: ast-ticker var(--dur-md) var(--ease-decel) both; }
+
+/* Shimmer for skeletons */
+.ast-shimmer {
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: ast-shimmer 1.6s infinite linear;
+}

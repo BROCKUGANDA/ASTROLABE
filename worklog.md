@@ -1,0 +1,252 @@
+# ASTROLABE — Worklog
+
+## Project: Employee Journey AI Companion (Emirates onboarding + mobility)
+
+### Source PRD
+Pasted Content_1791909825963.txt — full PRD with 30 sections, 500-item checklist, design system, deterministic engine, 42-signal friction pack, bilingual EN/AR, consent-gated computation, named-human escalation.
+
+### Theme summary
+- **Brand idea**: Instrument, not dashboard. Calm navy surfaces, teal instrument accent, sand-gold highlight for "your next move".
+- **Color tokens**: surface-0 #0B111C, brand-500 #169AA5, accent-500 #C9A227, status steady/watch/friction/blocked
+- **Typography**: Inter (Latin) + IBM Plex Sans Arabic + JetBrains Mono
+- **Motion**: 5 durations (120-480ms), spring verdict drops, scroll reveals, parallax ≤8px
+- **3D enhancement**: Astrolabe instrument hero with React Three Fiber
+
+### Architecture decision (adapted for Next.js single-app)
+PRD calls for a Turborepo monorepo. Since we have a single Next.js 16 app, we adapt:
+- `src/lib/engine/` — deterministic core (no I/O)
+- `src/lib/policy/` — retrieval + grounding
+- `src/lib/actions/` — intake + escalation
+- `src/lib/privacy/` — consent + audit
+- `src/lib/data/` — synthetic pack
+- `src/lib/store/` — Zustand client state
+- `src/components/astrolabe/` — domain widgets
+- `src/components/three/` — 3D instrument
+- `src/app/api/v1/` — REST envelope
+- All surfaces on `/` route via state-driven view switching (Today · Journey · Ask · Requests · Me · HRBP · Manager · Judge)
+
+---
+Task ID: 0
+Agent: Main (orchestrator)
+Task: Read PRD, plan architecture, set up design system + 3D + engine + seed data
+
+Work Log:
+- Read full PRD (1384 lines): brand, design tokens, 42 signals, fusion bands, screens, API, reliability, edge cases, master prompt
+- Inspected existing project: Next.js 16, shadcn/ui, Prisma+SQLite, framer-motion, zustand, z-ai-web-dev-sdk all present
+- Installed @react-three/fiber + @react-three/drei + three for 3D astrolabe instrument
+- Built worklog scaffold
+
+Stage Summary:
+- Stack confirmed: Next.js 16 + TS + Tailwind 4 + shadcn/ui + Prisma/SQLite + R3F + Framer Motion + Zustand + z-ai-web-dev-sdk
+- Single-page app on `/` with role switcher (employee/HRBP/manager/judge) and view tabs (Today/Journey/Ask/Requests/Me)
+- 3D astrolabe instrument as hero centerpiece (rotating brass ring system, not generic blobs)
+
+---
+Task ID: API-ROUTES
+Agent: Sub-agent (general-purpose)
+Task: Build the 15 REST API routes under src/app/api/v1/ using the shared success/error envelope, deterministic engine, data pack, policy retrieval, and actions module.
+
+Work Log:
+- Read worklog + prior lib modules (engine.ts, pack.ts, retrieval.ts, actions.ts, envelope.ts) to confirm data shapes and the existing /api/v1/journey/me pattern.
+- Read existing route `src/app/api/v1/journey/me/route.ts` as the canonical style template (force-dynamic, NextRequest, success/error, latencyMs, asOf).
+- Created 15 route files under `src/app/api/v1/`:
+  1. `ask/route.ts` (POST) — policy Q&A with 3-stage progress array + 400–700ms artificial retrieval latency. Maps PolicyAnswer.servedFrom ("extractive"|"live"|"cache") into the envelope's "live"|"cache"|"deterministic" space.
+  2. `policies/[slug]/route.ts` (GET) — returns `{docSlug,title,titleAr,sections[]}` filtered from `policies`. 404 with hint listing valid slugs.
+  3. `requests/route.ts` (GET + POST) — GET list with cursor pagination (max 50, cursor = `${openedAt}|${id}`), optional `?employeeId=` filter. POST creates with INTAKE_SCHEMAS validation, `resolveOwner`, idempotency cache (returns `servedFrom:"cache"` on retry), `E_NO_OWNER` 422 when owner null.
+  4. `requests/[id]/transition/route.ts` (POST) — uses `canTransition`; legal mutation returns updated request with `transition:{from,to}`; illegal returns `E_CONFLICT` 409; idempotent replay when `from===to` returns `servedFrom:"cache"`.
+  5. `pulse/route.ts` (POST) — `getConsent(employeeId,"pulse_capture")` gate; on rejection returns `E_CONSENT_REQUIRED` 412 with hint "Enable pulse capture in Me → Consent". On grant, pushes a new `PulseResponse` (id `PS-{ts36}`, commentRef derived when commentText present).
+  6. `consent/route.ts` (POST) — validates purpose against the 6 known purposes, appends to `consentRecords`, returns `{receiptId:"RC-{ts36}", consentRecordId, grantedAt, purpose, granted, version}`.
+  7. `me/data/route.ts` (GET) — PII-minimised SAR export: employee (no nationality/timezone), journey events, service requests, pulse responses (only if consent), consent records, empty auditEvents, synthetic viewLog (`Fatima Al-Mansouri · read_record · 2024-10-19T08:00:00Z · hrbp_review`), and `exportLink`.
+  8. `escalations/route.ts` (POST) — `E_UNPROCESSABLE` 422 if namedOwnerId missing/empty; verifies named owner exists; builds packet via `buildEscalationPacket` then overrides `namedOwner` with caller's choice (the builder defaults to HRBP).
+  9. `hrbp/queue/route.ts` (GET) — assesses every employee, sorts by band severity (blocked>friction>watch>steady) then lead-time-desc; optional `?band=` filter; each item has top 3 signals by weight + suggestedOwner (HRBP of record).
+  10. `manager/cohort/route.ts` (GET) — `?managerId=` filter; per employee returns ONLY `{employeeId, employeeName, journeyType, stage, dayInStage, aggregateCompletion, ownedSteps[]}`. `ownedSteps` filtered to `ownerGroup==="HR" && actor==="owner"`. NO signals, NO band, NO pulse, NO score — schema-level privacy boundary.
+  11. `insights/stalls/route.ts` (GET) — builds (stage × ownerGroup) grid from step defs; for each cell collects completed-step durations across all employees, computes median time-to-complete, breach rate, reassignment rate (from serviceRequests in that ownerGroup). k≥5 suppression: if unique contributors < 5 → `{suppressed:true, reason:"Not enough data to show safely (n<5)"}`.
+  12. `admin/replay/route.ts` (POST) — `{asOf, employeeIds?}`. Re-runs `assess(employee, asOf)` for each (or all if not specified). Surfaces unknown employeeIds as 404. Returns `{jobId:"replay-{ts36}", asOf, results:Assessment[]}` with `servedFrom:"deterministic"`.
+  13. `scenarios/route.ts` (GET) — returns the 5 seeded judge-mode scenarios (S1–S5) with id, employeeId, title, description.
+  14. `employees/route.ts` (GET) — lightweight list (id, ref, displayName, displayNameAr, journeyType, stage, location, role, team, startDate, effectiveDate, managerId, hrbpId) for the scenario switcher.
+  15. `journey/[id]/assessment/route.ts` (GET) — `?asOf=`. Returns `{assessment, trace}` so judge mode can render stage inference, signals fired/suppressed, fusion band, and next-best-step reasoning. `servedFrom:"deterministic"`.
+- Critical-rule adherence:
+  - Every response uses `success()` / `error()` from `@/lib/api/envelope`.
+  - `export const dynamic = "force-dynamic"` on every route.
+  - Query params via `req.nextUrl.searchParams`; bodies via `await req.json()` typed with `as` casts.
+  - No `Math.random()` for IDs — receipts/SR-IDs/pulse-IDs/consent-IDs/job-IDs all use `Date.now().toString(36)`. Math.random only used for the simulated retrieval latency in `/ask` (non-determinism of latency does not affect data).
+  - In-memory mutations done by pushing to the imported arrays directly (`serviceRequests`, `pulseResponses`, `consentRecords`) — prototype-only, as instructed.
+  - TypeScript strict: fixed two type errors during verification — (a) PolicyAnswer.servedFrom `"extractive"` is not in the envelope's union, mapped to `"live"`; (b) `Band` is exported from `@/lib/engine/engine`, not `@/lib/data/pack`.
+- Verification:
+  - `bunx eslint src/app/api/v1` → EXIT 0 (clean). (Pre-existing errors in `src/lib/actions/actions.ts` and `src/lib/engine/engine.ts` around `require()` are unrelated to this task and were not touched.)
+  - `bunx tsc --noEmit` → 0 errors in `src/app/api/**` (only unrelated errors in `examples/` and `skills/`).
+  - Smoke-tested every route against the running dev server (curl):
+    - GET /scenarios, /employees, /policies/relocation-policy → 200 with envelope.
+    - POST /ask → 200 with 3 stages + PolicyAnswer (artificial delay observed).
+    - GET /requests?employeeId=E-1042 → existing SR-2024-091.
+    - POST /requests (create) → 201-like response with `servedFrom:"live"`, owner path `step_owner_group:IT`. Retry with same idempotencyKey → `servedFrom:"cache"`, same SR id.
+    - POST /requests/{id}/transition submitted→acknowledged → 200 with transition object. acknowledged→resolved → 409 E_CONFLICT.
+    - POST /pulse for E-1043 (no pulse_capture consent) → 412 E_CONSENT_REQUIRED with hint. For E-1042 (consent granted) → 200 with new PS-{ts36} record.
+    - POST /consent → 200 with RC-{ts36} receipt.
+    - GET /me/data?employeeId=E-1042 → 200 with minimised PII, journey events, requests, pulse, consent records, viewLog, exportLink.
+    - POST /escalations missing namedOwnerId → 422 E_UNPROCESSABLE with hint.
+    - GET /hrbp/queue → 200, sorted with E-1044 (blocked) first; lead-time-desc tiebreak works.
+    - GET /manager/cohort?managerId=MGR-1 → 200, ownedSteps filtered to HR-owner steps, no signals/score/band leaked.
+    - GET /insights/stalls → 200, all cells `suppressed:true` (n<5 with only 5 employees in the pack — expected for the prototype).
+    - POST /admin/replay with asOf=2024-10-19 and 2 employeeIds → 200 with jobId + 2 Assessments.
+    - GET /journey/E-1044/assessment → 200 with assessment + trace.
+
+Stage Summary:
+- 15 route files created, all compiling under TS strict + ESLint, all returning the shared ApiEnvelope.
+- The deterministic engine + retrieval + actions + data pack are now exposed via a consistent REST surface under `/api/v1/`.
+- Idempotency, consent gating, schema validation, owner resolution, k≥5 suppression, and judge-mode trace are all wired through.
+- Frontend surfaces (Today / Journey / Ask / Requests / Me / HRBP / Manager / Judge) can now consume these endpoints directly — no further API work blocking the UI build.
+
+---
+Task ID: UI-TODAY-JOURNEY
+Agent: Main (UI builder)
+Task: Build the two primary employee screens — today-screen.tsx ("What now?") and journey-screen.tsx (full map + history) — consuming /api/v1/journey/me + /api/v1/me/data, with consent-gated pulse, plain-language copy kit, mobile-first responsive, RTL Arabic, framer-motion, lucide-react, tabular numerals, and the existing widgets/3D instrument.
+
+Work Log:
+- Read worklog + widgets.tsx + three/astrolabe.tsx + journey/me route + me/data route + app-store + globals.css + pack.ts to ground every prop, token, and data shape.
+- Built `src/components/astrolabe/today-screen.tsx`:
+  - Hero strip with sticky Day-N stage chip, BandChip, journey-type chip, employee name/role/team/location, and a 200×200 Astrolabe3D (size=0.7) floating top-right on lg+ only. Right-edge brass-band gradient accent strip.
+  - Next Best Step card (col-span-7): sand-gold "your next move" with ast-glow ring + 3px sand-gold accent bar, 320ms spring drop on mount (framer-motion), named owner ("with Fatima Al-Mansouri"), due date ("Thursday 16 Oct · in 3 days" via date-fns format + formatDistanceToNow), reason text, sand-gold Start button (creates service request via POST /api/v1/requests when nextBestStep.requestType is set), and CitationChip when policyRefs[0] exists.
+  - Late items panel (col-span-5): filters blocked + breached + hard. Each row: step label, SlaChip, named owner, plain "3 days late — hard breach" copy. Empty state: "Nothing is late. Next: {nbsLabel} by {EEEE d MMM}."
+  - Stage Rail: ol with grid-template-columns: repeat(N, minmax(0,1fr)); each .ast-rail-seg gets data-state of done/active/blocked; active stage label is sand-gold, done is teal, blocked is dark red.
+  - Coming up: next 3 not-started non-blocked steps with stage label + named owner + "about N days from start".
+  - Pulse card (consent-gated via /api/v1/me/data → pulseConsentGranted): when false shows Lock + consent copy + Enable button (POST /api/v1/consent {purpose:pulse_capture}); when true shows 1-5 score selector + Send (POST /api/v1/pulse). Handles E_CONSENT_REQUIRED (412) by flipping back to the prompt.
+- Built `src/components/astrolabe/journey-screen.tsx`:
+  - JourneyOrbit3D header (280/380px) with steps mapped to {label,status} where status is done|active|blocked|waiting|todo derived from step.status. BandChip anchored bottom-right.
+  - Sticky collapsing Stage Rail: framer-motion useScroll → useTransform [0,120]→[64,48] → useSpring, subscribed via motionValue.on("change") to a local h state (avoids setState-in-effect lint). ChevronRight separators between stage labels.
+  - Step list grouped by stage with sticky stage headers at top:64px. Each StepRow: 56px touch target; left = band-shape icon (Circle/CircleDot/Diamond/Square per steady/watch/friction/blocked) + label + stepKey; middle (desktop) = named owner + SlaChip + due date + "blocks N" pill; right = StatusChip + rotating ChevronDown. Mobile gets a compact meta line.
+  - Expandable panel: AnimatePresence 220ms height+opacity. Shows "Why this is held up" plain-words chain + BlockedByGraph flexbox mini-graph (Ban nodes + ArrowRight separators, ending in a sand-gold Hourglass node for the current step), "Events for this step" filtered timeline, and CitationChip.
+  - blockedByChainWords() walks step.blockedBy[0] recursively to build "{A} waits on {B}, which waits on {C}".
+  - Auto-expand: first blocked/hard step is expanded by default until the user explicitly toggles (tracked via userOverride: string | null | undefined — undefined = "no user override yet").
+  - Timeline: groups events by ISO week (Mon start, newest first, slice to 50 per week for prototype), sticky week headers inside scroll container, each event row uses ast-fade-rise with animation-delay: calc(var(--i) * 40ms) for the 40ms stagger reveal.
+  - Empty state: Compass glyph, "Your journey hasn't started in the system yet", 3-item pre-boarding checklist, named HR contact card from employee.hrbp, retry button.
+  - Error state: AlertTriangle banner with request-id copy + Retry button.
+- Cross-screen rules: "use client", framer-motion, lucide-react (stroke 1.75), mobile-first responsive, 44-56px touch targets with ast-focus rings, .tabular on every timer/count, try/catch with skeleton+error fallback, date-fns format + formatDistanceToNow, NO indigo/blue, sand-gold strictly reserved for "your next move", dir="rtl" + Arabic labels when locale==="ar", TS strict with no `any`.
+- Deterministic asOf: both screens pass `asOf = PACK_NOW.toISOString()` (2024-10-19T10:00:00Z) so the elapsed-hour reads match the seed events. Without this, every employee renders as "blocked" with 2-year-old SLA breaches.
+- Wired both screens into `src/app/page.tsx` with a slim preview-only top bar (sticky, blur backdrop, ASTROLABE wordmark in .ast-brass gradient text, Today/Journey tab pill, employee picker for E-1042..E-1046, EN/AR locale toggle). Both screens read currentEmployeeId + locale from useAppStore so switching re-fetches automatically.
+- Verification:
+  - `bunx eslint src/components/astrolabe/today-screen.tsx src/components/astrolabe/journey-screen.tsx src/app/page.tsx` → EXIT 0.
+  - `bunx tsc --noEmit` → 0 errors in src/components/astrolabe/** or src/app/page.tsx (only pre-existing errors in examples/ and skills/).
+  - `bun run lint` → EXIT 0.
+  - Dev server log: ✓ Compiled cleanly; GET / 200; GET /api/v1/journey/me?employeeId=E-1042&asOf=2024-10-19T10:00:00.000Z 200; GET /api/v1/me/data?employeeId=E-1042 200.
+  - Smoke-test: E-1042 returns stage=first_day, dayInStage=4, band=blocked, score=25 with TL-01/TL-02 firing on ob_kit_issued (72h elapsed vs 24h target — matches the "Your laptop is 3 days later than it should be" copy kit).
+- Work record also written to `/home/z/my-project/agent-ctx/UI-TODAY-JOURNEY-main.md`.
+
+Stage Summary:
+- Two production-grade employee screens delivered. Today screen above-the-fold answers "what should I do next" with a sand-gold Next Best Step card + plain-language late panel + consent-gated pulse. Journey screen renders the full orbit, sticky collapsing rail, grouped expandable step list with blocked-by chain in words + mini-graph, and a 40ms-staggered virtualised timeline.
+- Plain-language copy kit honored throughout (no "SLA breach on step IT-KIT-02" anywhere — only "Your laptop is 3 days later than it should be" / "with Fatima in HR" / "Held up — waiting on another step").
+- Sand-gold strictly reserved for "your next move" surfaces: Next Best Step card top bar + Start button + label, current-stage label on both rails, active node in BlockedByGraph, current-stage chip on step list, Send button on Pulse. Teal instrument accent everywhere else.
+- Both screens lint clean, type-clean, and render successfully against the live dev server with sensible reads for the seed pack. Previewable in the Preview Panel by clicking the "Open in New Tab" button above the preview.
+
+---
+Task ID: UI-ASK-REQUESTS
+Agent: Main (UI builder)
+Task: Build the Ask (cited-answers, PRD §13) and Requests (status + intake, PRD §12) screens — consuming `/api/v1/ask`, `/api/v1/requests`, `/api/v1/journey/me` — with three-stage progress, simulated token streaming, abstain handoff, prefilled 3-step intake wizard, duplicate handling, full Arabic RTL, framer-motion, lucide-react, react-markdown, date-fns, and the existing widgets.
+
+Work Log:
+- Read worklog + globals.css + widgets.tsx + app-store.ts + actions.ts + retrieval.ts + ask route + requests route + journey/me route + pack.ts + today-screen (for design tokens,OWNER_GROUP_LABEL, fetch patterns, citation parsing, lint-rule workarounds). Confirmed react-markdown + sonner + date-fns installed.
+- Built `src/components/astrolabe/ask-screen.tsx`:
+  - Sticky bottom ask-input card with auto-resizing textarea, 1000-char counter, keyboard-first (Enter to send / Shift+Enter for newline), teal Send button (44px, ast-focus, hover lift).
+  - Six hardcoded starter questions (EN + AR) in a 2-col chip grid; visible only when no turns exist. Clicking a starter auto-submits.
+  - Three-stage progress card while a turn is loading: `checking your journey → reading policy → drafting`, three pulse dots connected by hairlines, per-stage elapsed counter updated every 80ms via setInterval, active dot has `ast-pulse-ring`.
+  - AnswerCard (kind: "answer"): simulated streaming reveal (4 chars every 16ms via setInterval), `stripCitations(md)` removes inline `[^n]` refs + footnote definitions, react-markdown renders the clean prose with custom p/em/strong renderers, "Sources" row collapsible to chips by default (expanded reveals snippet + effective/review dates), answerId with copy button, "Last checked" timestamp, Copy / Share-to-owner (mailto:) / This-was-wrong (ThumbsDown→Reported) action buttons, follow-up chips below that auto-submit on click, sand-gold "Start this request" inline CTA that expands to 4 type chips and calls `setActiveRequestType(type)` + `setView("requests")`.
+  - AbstainCard (kind: "abstain"): rendered as a *handoff* (sand-gold border, brass compass, plain-language reason copy EN/AR). Explicit "What I won't do: guess" boundary line. Named owner card with avatar + name + role + email. Editable prefilled question textarea + sand-gold `Send to {owner name}` button opening a mailto:. Special routing: if `abstainReasonCode === "out_of_scope"` AND the EN reason matches `/journey|action/i`, render "Go to Today" + "Go to Requests" buttons instead of the mailto path.
+  - Stale banner: if `answer.degraded.includes("policy_stale")`, render a watch-colored banner "Policy search returned a stale document — please confirm with the owner." above the answer body.
+  - History: last 5 turns kept in scrollable chip-list above input (max-h-32, custom scrollbar). Each chip re-submits on click. Clear-on-employee-change via useEffect. Clear button.
+  - Error card with Retry. Loading skeleton (shimmer bars) while turn is loading. try/catch on the `/api/v1/ask` fetch.
+- Built `src/components/astrolabe/requests-screen.tsx`:
+  - Header + teal "New request" button.
+  - Two-column grid: left col-7 = request list, right col-5 = inline wizard card (sticky top-20). Mobile: wizard moves into a shadcn Dialog triggered by a full-width button.
+  - RequestCard: type icon (8 mapped Lucide icons), label, mono ref (click-to-copy), opened-date, StatusChip, SlaChip (elapsedHours from PACK_NOW - openedAt, breachLevel via computeBreach). Meta row: assignee name + owner group, "Reassigned N×" pill (watch color) if > 0, "Returned N×" pill (friction color) if > 0, View/Hide toggle. Expandable (AnimatePresence height+opacity 200ms): Timeline (deterministic events from metadata), Attached context (autoAttachedContext chips), Policy reference (CitationChip from INTAKE_SCHEMAS[type].policyRef).
+  - Wizard (3 steps): step indicator = 3 hairlines that fill teal as steps progress.
+    - Step 1: 2-col grid of 8 type cards (icon + label + SLA + owner group).
+    - Step 2: dynamic form from INTAKE_SCHEMAS[type].fields. Each field rendered by type — Input/Textarea/Select/Checkbox/number/date — prefilled fields show teal "Prefilled" badge, inline validation per field (required + type-specific), Next button disabled until all required fields pass.
+    - Step 3: preview recipient card (avatar + name + role + group + "Expected by {EEEE d MMM}" from now+slaHours), payload preview as definition list, auto-attached context chips, submit error inline, Edit + sand-gold Submit buttons.
+  - Submit: POSTs with idempotency key `idm-{employeeId}-{type}-{Date.now().toString(36)}`. On `servedFrom === "cache"` → duplicate notice banner + auto-expand original + toast.info "This request already exists — showing the original". On success → confetti toast ✨ + auto-expand new card + re-fetch list. On 422/409/network → inline submit error + toast.
+  - Prefill: reads `/api/v1/journey/me?...&asOf=PACK_NOW`. Maps employee.location/stage/startDate/role to fields with matching `prefillFrom`. Non-fatal if fetch fails.
+  - activeRequestType pickup: when the store flag is set (e.g. from Ask screen's "Start this request"), an effect opens the wizard, sets the type, jumps to step 2, builds the prefill map, then clears the store flag.
+  - Empty state: "No open requests. Here is what people usually need on day 5." with 3 quick-start chips (it_kit, system_access, training).
+  - Wizard remount strategy: keyed by `wizardType` so the lazy `useState(() => buildInitial())` initializer re-runs on type change — avoids the `react-hooks/set-state-in-effect` lint rule.
+- Updated `src/app/page.tsx` to route 4 views (Today/Journey/Ask/Requests) through the Zustand store's `view`/`setView` instead of local state, so the Ask screen's `setView("requests")` and activeRequestType pickup actually work. Added tab pills with icons (Compass/Map/MessageSquare/Inbox) and AR labels.
+- Cross-cutting rules honored: `"use client"`, framer-motion, lucide-react (1.75 stroke), react-markdown, date-fns, mobile-first responsive, 44px touch targets with ast-focus, `.tabular` on every timer/counter, try/catch with skeleton+error fallbacks, NO indigo/blue, sand-gold strictly for "your next move" (Submit, Start this request, abstain Send), `dir="rtl"` + Arabic labels when `locale === "ar"`, TS strict with no `any` (local `SubmitResult` discriminated union types the submit handler), follow-up chips auto-submit, "Start this request" sets activeRequestType + switches view.
+- Verification:
+  - `bunx eslint src/components/astrolabe/ask-screen.tsx src/components/astrolabe/requests-screen.tsx src/app/page.tsx` → EXIT 0.
+  - `bunx tsc --noEmit` → 0 errors in any of the three files (only pre-existing unrelated errors in examples/ and skills/).
+  - `bun run lint` (full project) → EXIT 0.
+  - Dev server log shows clean compiles + 200s for `/`, `/api/v1/ask`, `/api/v1/requests` (GET list + POST create + POST idempotency replay returning `servedFrom:"cache"`).
+  - Smoke-tested endpoints:
+    - POST /ask "How many days of relocation allowance do I get?" → abstain (low_grounding) with AR reason copy.
+    - POST /ask "When is my flight booked?" → answer with answerMarkdown + 1 citation — full streaming + Sources row will render.
+    - POST /ask "Who is my HRBP?" → answer path.
+    - GET /requests?employeeId=E-1042 → 1 item (SR-2024-091, it_kit, in_progress, reassignCount:1).
+    - POST /requests (create it_kit) → 200 with servedFrom:"live" + owner Ahmed Al-Rashid (IT Provisioning Lead) — recipient card renders correctly.
+    - POST /requests (same idempotencyKey) → servedFrom:"cache" — duplicate notice fires.
+- Work record also written to `/home/z/my-project/agent-ctx/UI-ASK-REQUESTS-main.md`.
+
+Stage Summary:
+- Two production-grade screens delivered. Ask screen surfaces a teal instrument-style answering flow with three-stage progress, character-by-character streaming, plain-language abstain handoffs with named owners, and last-5 history. Requests screen pairs a live status list with a 3-step intake wizard that prefills from the employee's journey, validates inline, previews the exact recipient, and handles duplicate submissions gracefully. Sand-gold is strictly reserved for "your next move" surfaces. Both screens are reachable from the top-nav pill (Today/Journey/Ask/Requests) and view-switching flows correctly from Ask → Requests via the store's `activeRequestType`. Both screens lint clean, type-clean, and render against the live dev server. Previewable in the Preview Panel by clicking the "Open in New Tab" button above the preview.
+
+---
+Task ID: UI-ME-CONSOLES
+Agent: Main (UI builder)
+Task: Build the four remaining console screens — Me (consent + data, PRD §15), HRBP (early-warning queue + escalation packet + stalls heatmap, PRD §10/§14), Manager (aggregate-only cohort, PRD §16, strict privacy boundary), Judge (scenarios + engine trace + degraded simulator, PRD §18/§21). All four consume the REST envelope from /api/v1/* and route via the Zustand store's role switcher.
+
+Work Log:
+- Read worklog + widgets.tsx + three/astrolabe.tsx (BandSphere3D signature) + app-store.ts + globals.css + me/data, consent, hrbp/queue, escalations, manager/cohort, insights/stalls, scenarios, journey/[id]/assessment, admin/replay, employees routes + engine.ts (Assessment/EngineTrace/FrictionSignal/Band) + actions.ts (EscalationPacket/buildEscalationPacket) + pack.ts (employees/stages/owners/hrbps/consentRecords/getConsent) + today-screen/ask-screen patterns for fetch+skeleton+toast conventions.
+- Built `src/components/astrolabe/me-screen.tsx`:
+  - Privacy summary banner at top with ShieldCheck icon + sand-gold-free teal accent + "Your data is yours. We never use it for performance, discipline, or visa decisions." + Privacy summary link.
+  - 6 consent toggles as ast-card-2 rows. Each row: purpose label + plain-language description (e.g., "Only if you want to: can I ask two quick questions to spot problems early?") + "What changes if you say no" muted line + shadcn Switch.
+  - PURPOSES metadata includes: journey_assistance (required, defaultOn, switch disabled with Tooltip "Required for use"), pulse_capture (default off), share_pulse_summary (default off), comment_retention (default off), manager_visibility (default on), aggregate_analytics (default on).
+  - Toggle handler: optimistic update via store.setConsent → POST /api/v1/consent {employeeId, purpose, granted, version:"v1"} → toast "Consent recorded · RC-xxx at HH:mm" or "Revoked · RC-xxx" → refetch /me/data. Rollback on error.
+  - Pulse-off disclosure: when pulse_capture is off, show a watch-tinted banner "Pulse signals are off, so this view uses journey and request data only." (AnimatePresence height auto).
+  - Data held table: 6 rows (employee record, journey events, service requests, pulse responses (suppressed when consent off), consent records, audit events) with Source/Purpose/Retention/Last viewed/Count columns. Each row expandable via Collapsible to reveal a JSON <pre> sample of the actual data (dir="ltr"). Suppressed rows show a Lock glyph and "suppressed" hint instead of an expand arrow.
+  - View log: list of {actor, action, at, purpose} with Eye glyph + relative-time (formatDistanceToNow) + "for {purpose}". Example: "Fatima Al-Mansouri read your record · 2 hours ago · for HRBP review".
+  - Export buttons: "Export as JSON" (Blob + URL.createObjectURL + auto-download "astrolabe-me-E-1042-YYYY-MM-DD.json") + "Export as PDF" (toast "PDF export queued — we'll email you").
+  - Revoke-all-optional: AlertDialog modal with destructive accent, iterates optional purposes, POSTs granted:false for each currently-on, then refetches + toast "All optional consents revoked".
+- Built `src/components/astrolabe/hrbp-screen.tsx`:
+  - Sub-view pill tabs (queue/employee/stalls) bound to store.hrbpView + setHrbpView (role="tab" + aria-selected).
+  - Queue view: GET /api/v1/hrbp/queue → ranked list. Active slice = friction+blocked above-the-fold; rest in a <details> "X on watch or steady". Each QueueRow: rank + BandChip(lg) + name + stage + "first signal N days ago" (leadDays from leadTimeHours) + top 3 SignalBadges with hard-trip inferred from DP/MB prefix + Claim button (toast "Case claimed by Fatima — employee notified" + 320ms delay) + sand-gold-free teal "Open packet" button → onOpenPacket(employeeId). Empty state for active: CheckCircle2 + "No one in Friction or above today."
+  - Employee view: GET /api/v1/journey/[id]/assessment (no asOf so server uses new Date) → renders packet builder. Decision textarea (default text filled from top signal + stage + band), Named-owner Select (HRBP-1/HRBP-2 from pack.hrbps), Share-pulse-summary toggle button (disabled+Lock glyph when PS family is suppressed per trace.signalsSuppressed). "Build packet" → POST /api/v1/escalations → renders packet preview with sections: situation (one-paragraph summary), evidence (top 3 signals with SignalBadge + description + evidenceRefs), timeline (last 10 events, mono ref + step + type), blocked downstream chips, open requests with age + reassign pill, named owner + backup cards, consent statement card (sharedWithHrbp/withheld/freeTextExcluded). After packet built: "Edit summary" + "Assign to service owner" + sand-gold "Send packet" → confirmation Dialog → success state with employee-notification quote "I've asked Fatima in HR to step in. She'll reply today."
+  - Consent-limited notice: when trace.signalsSuppressed includes PS, show watch-tinted banner "Pulse signals are suppressed — this view uses journey and request data only." Share-pulse-summary toggle disabled.
+  - Stalls view: GET /api/v1/insights/stalls → heatmap table stage × owner-group. Each cell shows median days (large), breach rate % (watch color), reassignment rate % (friction color), n count (mono). Cells with suppressed=true show Hourglass icon + "Not enough data to show safely (n<5)". Color scale: teal (≤1d) → sand-gold (1–3d) → watch (3–7d) → friction (7d+). Filter chips (All stages / All owners / All locations) are non-functional for prototype. Legend strip below the grid.
+  - Back button (ArrowLeft) on employee view returns to queue and clears selectedEmployeeId.
+- Built `src/components/astrolabe/manager-screen.tsx`:
+  - CRITICAL privacy banner: "This is not a monitoring tool. You see only your own obligations and aggregate completion. We do not show sentiment, pulse scores, transcripts, friction scores per person, or comments for anyone." — teal-tinted.
+  - Sub-view pill tabs (cohort/my_steps) bound to store.managerView + setManagerView.
+  - Hero stats row (3 cards): "Waiting on you" — sand-gold (primary, ast-brass gradient text + sand-gold top bar + sand-gold-tinted background, large 44px tabular number), "Joiners" count, "Avg completion" with progress bar.
+  - Cohort view: GET /api/v1/manager/cohort?managerId=MGR-1 → list of joiner cards. Each: name, journey type, stage, day-in-stage, aggregate completion bar (color-coded steady/brand/watch by %), and "Waiting on you" count in sand-gold on the right. NO pulse, NO band, NO score, NO signals, NO comments — schema-bound.
+  - My obligations view: flatten ownedSteps across cohort, sort waiting_owner first then by dueAt asc. Each ObligationRow: status glyph (Hourglass for waiting_owner, Clock for others, CheckCircle2 when completed), step label, "for {employeeName}", due date with overdue coloring (formatDistanceToNowStrict), StatusChip, and sand-gold "Complete" button for waiting_owner steps (380ms simulated completion + toast "Step complete" + visually marks row as done with reduced opacity). No related request ref is returned by the cohort API so completion is simulated per the task spec.
+  - Empty state for zero obligations: CheckCircle2 + "Nothing waiting on you."
+  - Footer: Lock glyph + "Schema-bound view: pulse, comments, friction scores, and transcripts are never returned to this surface."
+- Built `src/components/astrolabe/judge-screen.tsx`:
+  - Sub-view pill tabs (scenarios/trace/degraded) bound to store.judgeView + setJudgeView.
+  - Scenarios view: GET /api/v1/scenarios (note: returns {scenarios: [...]} not {items}) + GET /api/v1/employees in parallel. 5 scenario cards (S1–S5) in a 2-col grid; clicking selects + sets currentEmployeeId; while selected, a live preview fetches /api/v1/journey/[id]/assessment?asOf=PACK_NOW+offset and shows a small BandChip on the card. "Load scenario" button → setView("trace").
+  - AsOfClock component: prominent 28px tabular display of current asOf date/time (format EEE d MMM yyyy · HH:mm), offset in hours (mono, brand color), Slider (-240h to +240h, step 6h) bound to store.asOfOffsetHours + setAsOfOffset, with reset-to-now + ±24h/±72h quick chips. The slider drives live re-computation in both scenarios preview and trace view.
+  - Trace view: GET /api/v1/journey/[id]/assessment?asOf=PACK_NOW+offset (so the engine sees seed-time events, not current 2026). Side-by-side grid (xl:grid-cols-2): trace panel on the left, read-only Today summary on the right (sticky top-20).
+    - Trace panel sections: Band verdict with BandChip(lg) + Forced-blocked pill + Score/Hard-trips metrics + 3D BandSphere3D (28×28 sm:36×36, suppressed if reducedMotion), Stage inference (stage label + reason), Signals fired table (code/family/weight/evidence chips/hard-trip Ban glyph — sorted by weight desc), Suppressed families list (with reason), Next best step (sand-gold accent — reserved for "your next move"), Provenance footer (servedFrom + degraded chips).
+    - Read-only Today summary: employee id, stage, day, BandChip+score, sand-gold "Your next move" card with stepKey + reason, top 3 signals with descriptions, suppressed-families Lock disclosure.
+  - Degraded simulator: 5-button grid (L0 Full / L1 Extractive / L2 Curated / L3 Queued writes / L4 Safe read-only) bound to store.degradedLevel + setDegradedLevel. Each button has its own color dot + ID + label. Clicking sets the level + toast notification. Current-level banner (color-coded) shows full description. Level-specific simulations: L1 shows "Quoting policy directly right now" info banner; L4 shows "Read-only mode — here is who to contact" red banner with disabled Send/Enable-pulse buttons (cursor-not-allowed, opacity 50). Level reference list at the bottom for context.
+- Updated `src/app/page.tsx`:
+  - Added role switcher (select on sm+, mobile strip with role icons) bound to store.role + setRole.
+  - Employee role keeps the original Today/Journey/Ask/Requests tab pills + adds new "Me" tab (User icon) → routes to MeScreen.
+  - HRBP role → HrbpScreen. Manager role → ManagerScreen. Judge role → JudgeScreen.
+  - Employee + locale switchers retained for preview.
+- Cross-cutting rules honored across all four screens: `"use client"`, framer-motion (motion.li, motion.section, AnimatePresence height/opacity transitions), lucide-react (24px / stroke 1.75), shadcn components (Switch, Tooltip, Table, Dialog, AlertDialog, Slider, Select, Textarea, Collapsible), date-fns (format, formatDistanceToNow, formatDistanceToNowStrict), mobile-first responsive (grid-cols-1 → sm/lg/xl), 44px touch targets with ast-focus rings, `.tabular` on every count/timer/percentage/offset, try/catch with skeleton+error fallbacks (Skeleton + ErrorBanner with Retry), NO indigo/blue accents (only teal + sand-gold + status colors), sand-gold strictly reserved for "your next move" surfaces (Next best step in trace, Waiting-on-you number in manager, Send packet button in HRBP, "Your next move" card in read-only Today), `dir="rtl"` + Arabic labels when `locale === "ar"`, TS strict with no `any` (typed ApiEnvelope<T> + purpose-specific interfaces), Manager view never imports or displays any sentiment/pulse/score/comments type, HRBP queue renders only {code, weight, description} from topSignals — never free-text comments.
+- Verification:
+  - `bunx eslint src/components/astrolabe/me-screen.tsx src/components/astrolabe/hrbp-screen.tsx src/components/astrolabe/manager-screen.tsx src/components/astrolabe/judge-screen.tsx src/app/page.tsx` → EXIT 0 (clean, no warnings).
+  - `bunx tsc --noEmit` → 0 errors in any of the five files (only pre-existing unrelated errors in examples/ and skills/).
+  - `bun run lint` (full project) → EXIT 0.
+  - Dev server log: clean compiles, GET / 200, all smoke-tested endpoints return 200.
+  - Smoke-tested every endpoint the new screens consume:
+    - GET /me/data?employeeId=E-1042 → 200 with PII-minimised employee + journey events + requests + (consent-gated) pulse + consent records + viewLog + exportLink.
+    - POST /consent {granted:false} → 200 with RC-mv6yt53b receipt.
+    - GET /hrbp/queue → 200, sorted with E-1044 (blocked) first, lead-time-desc tiebreak works.
+    - POST /escalations {namedOwnerId:HRBP-1} → 200 with full EscalationPacket (topSignals, timeline, blockedDownstream, openRequests, consentStatement).
+    - GET /manager/cohort?managerId=MGR-1 → 200 with ownedSteps filtered to HR-owner steps, no signals/score/band leaked.
+    - GET /insights/stalls → 200, all cells suppressed:true (n<5 with only 5 employees — expected for the prototype).
+    - GET /scenarios → 200 with 5 scenarios S1–S5 (note: envelope key is `scenarios`, not `items`).
+    - GET /journey/E-1042/assessment → 200 with assessment + trace (stageInference, signalsFired, signalsSuppressed, band, nextBestStep, servedFrom, degraded).
+- Work record also written to `/home/z/my-project/agent-ctx/UI-ME-CONSOLES-main.md`.
+
+Stage Summary:
+- Four production-grade console screens delivered. The Me screen turns the consent model into six tactile toggles with receipts + a SAR-style expandable data table + view log + JSON/PDF export + revoke-all modal. The HRBP screen routes through queue/packet/stalls sub-views — the packet builder writes a real EscalationPacket via the API, the consent statement is rendered verbatim, and the stalls heatmap respects k≥5 suppression. The Manager screen enforces the schema boundary visually — no pulse, no score, no comments anywhere; the sand-gold "Waiting on you" hero number is the primary metric. The Judge screen surfaces the engine's full reasoning path (stage inference, signals fired/suppressed, fusion band with hard trips, next best step, servedFrom/degraded) next to a 3D BandSphere3D and a read-only employee Today view, with an as-of clock slider that recomputes live and a 5-level degraded simulator that injects banners + disables write actions at L4. All four screens route from the top-nav role switcher and lint/type-check clean against the running dev server. Previewable in the Preview Panel by clicking the "Open in New Tab" button above the preview, then switching role in the top bar (Employee → use the Me tab; HRBP/Manager/Judge → screens render directly).

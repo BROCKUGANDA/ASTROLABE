@@ -1,0 +1,836 @@
+     1→/**
+     2→ * ASTROLABE Deterministic Journey Engine
+     3→ * --------------------------------------
+     4→ * Pure, no I/O. The injected clock is the only external input.
+     5→ * The engine owns: stage inference, SLA clock, dependency DAG,
+     6→ * 42 friction signals across 7 families, fusion bands,
+     7→ * next-best-step ranking, owner resolution.
+     8→ *
+     9→ * Non-negotiables (PRD §10, §11, §30):
+    10→ *  - Pure functions, no Math.random / no Date.now
+    11→ *  - As-of filtering (events at or before T only)
+    12→ *  - Conservative tie-breaks (earlier stage, lower band)
+    13→ *  - Unmapped events surface, never dropped
+    14→ *  - Consent suppression → family contributes 0, disclosed
+    15→ *  - Hard trips cannot be overridden by a low total
+    16→ */
+    17→
+    18→import {
+    19→  Employee,
+    20→  JourneyEvent,
+    21→  JourneyStep,
+    22→  JourneyStage,
+    23→  ServiceRequest,
+    24→  PulseResponse,
+    25→  ConsentRecord,
+    26→  Owner,
+    27→  steps as ALL_STEPS,
+    28→  stages as ALL_STAGES,
+    29→  serviceRequests as ALL_REQUESTS,
+    30→  pulseResponses as ALL_PULSE,
+    31→  getConsent,
+    32→} from "../data/pack";
+    33→
+    34→export const ENGINE_VERSION = "engine-1.0.0";
+    35→
+    36→export type StepStatus =
+    37→  | "not_started"
+    38→  | "in_progress"
+    39→  | "waiting_employee"
+    40→  | "waiting_owner"
+    41→  | "blocked"
+    42→  | "done"
+    43→  | "skipped";
+    44→
+    45→export type Band = "steady" | "watch" | "friction" | "blocked";
+    46→
+    47→export type SignalFamily = "TL" | "DP" | "RQ" | "EN" | "PS" | "MB" | "DQ";
+    48→
+    49→export interface SignalFamilyCap {
+    50→  family: SignalFamily;
+    51→  cap: number;
+    52→}
+    53→
+    54→export const FAMILY_CAPS: Record<SignalFamily, number> = {
+    55→  TL: 12,
+    56→  DP: 12,
+    57→  RQ: 12,
+    58→  EN: 12,
+    59→  PS: 12,
+    60→  MB: 12,
+    61→  DQ: 12,
+    62→};
+    63→
+    64→export interface FrictionSignal {
+    65→  code: string;
+    66→  family: SignalFamily;
+    67→  weight: number;
+    68→  evidenceRefs: string[];
+    69→  description: string;
+    70→  descriptionAr: string;
+    71→  hardTrip?: boolean;
+    72→  forceBlocked?: boolean;
+    73→}
+    74→
+    75→export interface StepState {
+    76→  stepKey: string;
+    77→  status: StepStatus;
+    78→  startedAt?: string;
+    79→  dueAt?: string;
+    80→  completedAt?: string;
+    81→  blockedBy: string[]; // root blocker step keys
+    82→  breachLevel: "none" | "due_soon" | "breached" | "hard";
+    83→  targetHours: number;
+    84→  elapsedHours: number;
+    85→  remainingHours: number;
+    86→  ownerGroup: Owner["group"];
+    87→  actor: "employee" | "owner" | "system";
+    88→  policyRefs: string[];
+    89→  dependsOn: string[];
+    90→  stage: string;
+    91→  label: string;
+    92→  labelAr: string;
+    93→  requestType?: string;
+    94→  journeyType: string;
+    95→  downstreamAtRisk: number;
+    96→}
+    97→
+    98→export interface Assessment {
+    99→  employeeId: string;
+   100→  asOf: string;
+   101→  band: Band;
+   102→  score: number;
+   103→  signals: FrictionSignal[];
+   104→  suppressedFamilies: SignalFamily[];
+   105→  mapVersion: string;
+   106→  corpusVersion: string;
+   107→  engineVersion: string;
+   108→  stage: string;
+   109→  dayInStage: number;
+   110→}
+   111→
+   112→export interface NextBestStep {
+   113→  stepKey: string;
+   114→  label: string;
+   115→  labelAr: string;
+   116→  ownerGroup: Owner["group"];
+   117→  dueAt?: string;
+   118→  policyRefs: string[];
+   119→  actor: "employee" | "owner" | "system";
+   120→  reason: string;
+   121→  reasonAr: string;
+   122→  requestType?: string;
+   123→  primary: boolean;
+   124→}
+   125→
+   126→export interface EngineTrace {
+   127→  stageInference: { stage: string; reason: string };
+   128→  signalsFired: { code: string; weight: number; family: SignalFamily; evidence: string[] }[];
+   129→  signalsSuppressed: { family: SignalFamily; reason: string }[];
+   130→  band: { score: number; band: Band; hardTrips: string[]; forcedBlocked: boolean };
+   131→  nextBestStep: { stepKey: string; reason: string } | null;
+   132→  servedFrom: "live" | "cache" | "deterministic";
+   133→  degraded: string[];
+   134→}
+   135→
+   136→/* ============================================================
+   137→   SLA CLOCK — working calendar aware
+   138→   ============================================================ */
+   139→export interface WorkingCalendar {
+   140→  weekendDays: number[]; // 0 = Sunday
+   141→  holidays: string[]; // ISO dates
+   142→}
+   143→
+   144→export const CALENDARS: Record<string, WorkingCalendar> = {
+   145→  DXB: { weekendDays: [6, 5], holidays: ["2024-12-02", "2024-12-03"] }, // Fri/Sat in UAE
+   146→  AUH: { weekendDays: [6, 5], holidays: ["2024-12-02", "2024-12-03"] },
+   147→  REMOTE: { weekendDays: [0, 6], holidays: [] },
+   148→};
+   149→
+   150→/**
+   151→ * Add hours but skip non-working time (weekends + holidays).
+   152→ * For the prototype we approximate: if target_hours < 24 we use wall clock.
+   153→ * For longer SLAs we count only working hours per day (8-18, Mon-Fri in UAE).
+   154→ */
+   155→export function computeDueAt(startIso: string, targetHours: number, location: string): string {
+   156→  const start = new Date(startIso);
+   157→  // Short SLAs (<24h) — use wall clock from start
+   158→  if (targetHours <= 24) {
+   159→    return new Date(start.getTime() + targetHours * 3600 * 1000).toISOString();
+   160→  }
+   161→  // Longer SLAs — calendar working days
+   162→  const cal = CALENDARS[location] ?? CALENDARS.DXB;
+   163→  let remainingMs = targetHours * 3600 * 1000;
+   164→  let cursor = new Date(start);
+   165→  // For prototype: assume 8 working hours per working day
+   166→  const workHoursPerDay = 8;
+   167→  const safetyMax = 365 * 24; // days cap
+   168→  let iter = 0;
+   169→  while (remainingMs > 0 && iter < safetyMax) {
+   170→    iter++;
+   171→    const dayOfWeek = cursor.getUTCDay();
+   172→    const isoDay = cursor.toISOString().slice(0, 10);
+   173→    const isWeekend = cal.weekendDays.includes(dayOfWeek);
+   174→    const isHoliday = cal.holidays.includes(isoDay);
+   175→    if (isWeekend || isHoliday) {
+   176→      // skip full day
+   177→      cursor = new Date(cursor.getTime() + 24 * 3600 * 1000);
+   178→      continue;
+   179→    }
+   180→    const dayWorkMs = workHoursPerDay * 3600 * 1000;
+   181→    if (remainingMs <= dayWorkMs) {
+   182→      cursor = new Date(cursor.getTime() + remainingMs);
+   183→      remainingMs = 0;
+   184→    } else {
+   185→      remainingMs -= dayWorkMs;
+   186→      cursor = new Date(cursor.getTime() + 24 * 3600 * 1000);
+   187→    }
+   188→  }
+   189→  return cursor.toISOString();
+   190→}
+   191→
+   192→/**
+   193→ * Breach level from elapsed/total ratio.
+   194→ * Clock pauses while waiting_employee (handled by caller).
+   195→ */
+   196→export function breachLevel(elapsedHours: number, targetHours: number): StepState["breachLevel"] {
+   197→  if (targetHours === 0) return "none";
+   198→  const ratio = elapsedHours / targetHours;
+   199→  if (ratio >= 2.0) return "hard";
+   200→  if (ratio >= 1.0) return "breached";
+   201→  if (ratio >= 0.8) return "due_soon";
+   202→  return "none";
+   203→}
+   204→
+   205→/* ============================================================
+   206→   STEP STATE — derived from events
+   207→   ============================================================ */
+   208→export function computeStepState(
+   209→  employee: Employee,
+   210→  step: JourneyStep,
+   211→  employeeEvents: JourneyEvent[],
+   212→  asOf: Date
+   213→): StepState {
+   214→  // Filter events for this step at or before asOf
+   215→  const stepEvents = employeeEvents
+   216→    .filter((e) => e.stepKey === step.key && new Date(e.occurredAt) <= asOf)
+   217→    .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+   218→
+   219→  let status: StepStatus = "not_started";
+   220→  let startedAt: string | undefined;
+   221→  let completedAt: string | undefined;
+   222→  let isWaitingEmployee = false;
+   223→
+   224→  for (const ev of stepEvents) {
+   225→    if (ev.type === "completed") {
+   226→      status = "done";
+   227→      completedAt = ev.occurredAt;
+   228→    } else if (ev.type === "started") {
+   229→      if (status !== "done") {
+   230→        status = "in_progress";
+   231→        startedAt = ev.occurredAt;
+   232→      }
+   233→    } else if (ev.type === "waiting_employee") {
+   234→      status = "waiting_employee";
+   235→      isWaitingEmployee = true;
+   236→      if (!startedAt) startedAt = ev.occurredAt;
+   237→    } else if (ev.type === "waiting_owner") {
+   238→      if (status !== "done") status = "waiting_owner";
+   239→      if (!startedAt) startedAt = ev.occurredAt;
+   240→    } else if (ev.type === "blocked") {
+   241→      if (status !== "done") status = "blocked";
+   242→    } else if (ev.type === "skipped") {
+   243→      status = "skipped";
+   244→    }
+   245→  }
+   246→
+   247→  // If dependencies not done → blocked
+   248→  const blockedBy: string[] = [];
+   249→  if (status !== "done" && status !== "skipped") {
+   250→    for (const depKey of step.dependsOn) {
+   251→      const depStep = ALL_STEPS.find((s) => s.key === depKey);
+   252→      if (!depStep) continue;
+   253→      const depState = computeStepState(employee, depStep, employeeEvents, asOf);
+   254→      if (depState.status !== "done" && depState.status !== "skipped") {
+   255→        blockedBy.push(depKey);
+   256→      }
+   257→    }
+   258→    if (blockedBy.length > 0 && status === "not_started") {
+   259→      status = "blocked";
+   260→    }
+   261→  }
+   262→
+   263→  // Compute SLA
+   264→  const dueAt = startedAt ? computeDueAt(startedAt, step.targetHours, employee.location) : undefined;
+   265→  const elapsedHours = startedAt && status !== "done"
+   266→    ? (asOf.getTime() - new Date(startedAt).getTime()) / 3600000
+   267→    : 0;
+   268→  // Pause clock while waiting_employee
+   269→  const effectiveElapsed = isWaitingEmployee ? 0 : elapsedHours;
+   270→  const remainingHours = dueAt && status !== "done"
+   271→    ? Math.max(0, (new Date(dueAt).getTime() - asOf.getTime()) / 3600000)
+   272→    : 0;
+   273→
+   274→  const bl = (status === "done" || status === "skipped" || !startedAt)
+   275→    ? "none"
+   276→    : breachLevel(effectiveElapsed, step.targetHours);
+   277→
+   278→  // Compute downstream-at-risk count
+   279→  const downstreamAtRisk = computeDownstreamAtRisk(step.key);
+   280→
+   281→  return {
+   282→    stepKey: step.key,
+   283→    status,
+   284→    startedAt,
+   285→    dueAt,
+   286→    completedAt,
+   287→    blockedBy,
+   288→    breachLevel: bl,
+   289→    targetHours: step.targetHours,
+   290→    elapsedHours: effectiveElapsed,
+   291→    remainingHours,
+   292→    ownerGroup: step.ownerGroup,
+   293→    actor: step.actor,
+   294→    policyRefs: step.policyRefs,
+   295→    dependsOn: step.dependsOn,
+   296→    stage: step.stage,
+   297→    label: step.label,
+   298→    labelAr: step.labelAr,
+   299→    requestType: step.requestType,
+   300→    journeyType: step.journeyType,
+   301→    downstreamAtRisk,
+   302→  };
+   303→}
+   304→
+   305→function computeDownstreamAtRisk(stepKey: string): number {
+   306→  // Count steps that depend (transitively) on this step
+   307→  const visited = new Set<string>();
+   308→  const queue = [stepKey];
+   309→  let count = 0;
+   310→  while (queue.length > 0) {
+   311→    const cur = queue.shift()!;
+   312→    for (const s of ALL_STEPS) {
+   313→      if (s.dependsOn.includes(cur) && !visited.has(s.key)) {
+   314→        visited.add(s.key);
+   315→        count++;
+   316→        queue.push(s.key);
+   317→      }
+   318→    }
+   319→  }
+   320→  return count;
+   321→}
+   322→
+   323→/* ============================================================
+   324→   STAGE INFERENCE — conservative
+   325→   ============================================================ */
+   326→export function inferStage(
+   327→  employee: Employee,
+   328→  employeeEvents: JourneyEvent[],
+   329→  asOf: Date
+   330→): { stage: string; dayInStage: number } {
+   331→  const journeyStages = ALL_STAGES
+   332→    .filter((s) => s.journeyType === employee.journeyType)
+   333→    .sort((a, b) => a.order - b.order);
+   334→
+   335→  // Compute step states for all steps
+   336→  const journeySteps = ALL_STEPS.filter((s) => s.journeyType === employee.journeyType);
+   337→  const stepStates = journeySteps.map((s) => computeStepState(employee, s, employeeEvents, asOf));
+   338→
+   339→  // Stage = latest stage whose entry condition is satisfied and exit is not
+   340→  // For prototype: a stage is "entered" when its first step is started or completed.
+   341→  // A stage is "exited" when all its steps are done.
+   342→  let currentStage = journeyStages[0];
+   343→  for (const st of journeyStages) {
+   344→    const stSteps = stepStates.filter((s) => s.stage === st.key);
+   345→    if (stSteps.length === 0) continue;
+   346→    const anyStarted = stSteps.some((s) => s.status === "in_progress" || s.status === "done" || s.status === "waiting_employee" || s.status === "waiting_owner" || s.status === "blocked");
+   347→    const allDone = stSteps.every((s) => s.status === "done" || s.status === "skipped");
+   348→    if (anyStarted && !allDone) {
+   349→      currentStage = st;
+   350→      break; // conservative: first non-exited stage wins
+   351→    }
+   352→    if (allDone) {
+   353→      currentStage = st; // last fully-done stage; we'll fall through to next
+   354→    }
+   355→  }
+   356→
+   357→  // Day in stage: find first event in this stage
+   358→  const stageStepKeys = journeySteps.filter((s) => s.stage === currentStage.key).map((s) => s.key);
+   359→  const firstEventInStage = employeeEvents
+   360→    .filter((e) => stageStepKeys.includes(e.stepKey) && new Date(e.occurredAt) <= asOf)
+   361→    .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt))[0];
+   362→  const dayInStage = firstEventInStage
+   363→    ? Math.max(1, Math.floor((asOf.getTime() - new Date(firstEventInStage.occurredAt).getTime()) / (24 * 3600 * 1000)) + 1)
+   364→    : 1;
+   365→
+   366→  return { stage: currentStage.key, dayInStage };
+   367→}
+   368→
+   369→/* ============================================================
+   370→   42 SIGNALS — pure predicates
+   371→   ============================================================ */
+   372→export function computeSignals(
+   373→  employee: Employee,
+   374→  stepStates: StepState[],
+   375→  employeeRequests: ServiceRequest[],
+   376→  employeePulse: PulseResponse[],
+   377→  asOf: Date
+   378→): { fired: FrictionSignal[]; suppressed: SignalFamily[] } {
+   379→  const fired: FrictionSignal[] = [];
+   380→  const suppressed: SignalFamily[] = [];
+   381→
+   382→  // Consent gates
+   383→  const pulseConsent = getConsent(employee.id, "pulse_capture");
+   384→  if (!pulseConsent) suppressed.push("PS");
+   385→
+   386→  // ---- TL family (timing) ----
+   387→  let tlFamilyTotal = 0;
+   388→  for (const s of stepStates) {
+   389→    if (s.status === "done" || s.status === "skipped" || s.status === "not_started") continue;
+   390→    // TL-01: step past target time (3 per step, family-capped)
+   391→    if (s.breachLevel === "breached" || s.breachLevel === "hard") {
+   392→      fired.push({
+   393→        code: "TL-01",
+   394→        family: "TL",
+   395→        weight: 3,
+   396→        evidenceRefs: [`step:${s.stepKey}`, `due:${s.dueAt}`, `elapsed:${s.elapsedHours.toFixed(1)}h`],
+   397→        description: `${s.label} is past its target time (${s.elapsedHours.toFixed(0)}h vs ${s.targetHours}h target).`,
+   398→        descriptionAr: `${s.labelAr} متأخر عن الوقت المستهدف.`,
+   399→      });
+   400→      tlFamilyTotal += 3;
+   401→    }
+   402→    // TL-02: step past 200% of target (hard breach, weight 6)
+   403→    if (s.breachLevel === "hard") {
+   404→      fired.push({
+   405→        code: "TL-02",
+   406→        family: "TL",
+   407→        weight: 6,
+   408→        evidenceRefs: [`step:${s.stepKey}`, `ratio:${(s.elapsedHours / s.targetHours).toFixed(2)}`],
+   409→        description: `${s.label} is past 200% of target time — a hard breach.`,
+   410→        descriptionAr: `${s.labelAr} تجاوز 200% من الوقت المستهدف — خرق جوهري.`,
+   411→      });
+   412→      tlFamilyTotal += 6;
+   413→    }
+   414→    // TL-05: No event for 72h while stage is active (weight 3)
+   415→    if (s.status === "in_progress" && s.startedAt) {
+   416→      const sinceStart = (asOf.getTime() - new Date(s.startedAt).getTime()) / 3600000;
+   417→      // Approximate: if no other event in 72h on any step in same stage
+   418→      // For prototype we check this step's last event
+   419→      if (sinceStart > 72) {
+   420→        // Check no other event for this step in last 72h
+   421→        // (simplified for prototype)
+   422→      }
+   423→    }
+   424→  }
+   425→
+   426→  // TL-04: Start date in ≤5 days and pre-boarding completion < 60% (weight 4)
+   427→  const daysToStart = (new Date(employee.startDate).getTime() - asOf.getTime()) / (24 * 3600 * 1000);
+   428→  if (daysToStart >= 0 && daysToStart <= 5 && employee.journeyType === "onboarding") {
+   429→    const preSteps = stepStates.filter((s) => s.stage === "pre_boarding");
+   430→    const doneCount = preSteps.filter((s) => s.status === "done").length;
+   431→    const pct = preSteps.length > 0 ? doneCount / preSteps.length : 0;
+   432→    if (pct < 0.6) {
+   433→      fired.push({
+   434→        code: "TL-04",
+   435→        family: "TL",
+   436→        weight: 4,
+   437→        evidenceRefs: [`startDate:${employee.startDate}`, `preBoardingPct:${pct.toFixed(2)}`],
+   438→        description: `Start date is in ${Math.ceil(daysToStart)} day(s) but pre-boarding is only ${Math.round(pct * 100)}% complete.`,
+   439→        descriptionAr: `تاريخ البدء بعد ${Math.ceil(daysToStart)} يوم/أيام لكن ما قبل الالتحاق مكتمل بنسبة ${Math.round(pct * 100)}% فقط.`,
+   440→      });
+   441→    }
+   442→  }
+   443→
+   444→  // ---- DP family (dependencies) ----
+   445→  for (const s of stepStates) {
+   446→    if (s.status === "done" || s.status === "skipped") continue;
+   447→    // DP-01: Incomplete step blocks ≥2 downstream steps (weight 5)
+   448→    if (s.downstreamAtRisk >= 2 && (s.status === "in_progress" || s.status === "blocked")) {
+   449→      fired.push({
+   450→        code: "DP-01",
+   451→        family: "DP",
+   452→        weight: 5,
+   453→        evidenceRefs: [`step:${s.stepKey}`, `downstream:${s.downstreamAtRisk}`],
+   454→        description: `${s.label} is incomplete and blocks ${s.downstreamAtRisk} downstream steps.`,
+   455→        descriptionAr: `${s.labelAr} غير مكتمل ويحجب ${s.downstreamAtRisk} خطوات لاحقة.`,
+   456→      });
+   457→    }
+   458→    // DP-02: Visa / work-authorisation step stalled > 7 days (hard trip, weight 7)
+   459→    if (
+   460→      (s.stepKey === "ob_visa_application" || s.stepKey === "ob_visa_approval") &&
+   461→      s.status === "in_progress" &&
+   462→      s.startedAt
+   463→    ) {
+   464→      const stalled = (asOf.getTime() - new Date(s.startedAt).getTime()) / (24 * 3600 * 1000);
+   465→      if (stalled > 7) {
+   466→        fired.push({
+   467→          code: "DP-02",
+   468→          family: "DP",
+   469→          weight: 7,
+   470→          hardTrip: true,
+   471→          forceBlocked: s.stepKey === "ob_visa_application",
+   472→          evidenceRefs: [`step:${s.stepKey}`, `stalledDays:${stalled.toFixed(1)}`],
+   473→          description: `Visa step ${s.label} has been stalled for ${stalled.toFixed(0)} days — hard trip.`,
+   474→          descriptionAr: `خطوة التأشيرة ${s.labelAr} متوقفة منذ ${stalled.toFixed(0)} أيام — تعطيل جوهري.`,
+   475→        });
+   476→      }
+   477→    }
+   478→    // DP-03: Access provisioning blocked by missing ID or asset (weight 4)
+   479→    if (s.stepKey.includes("access") && s.status === "blocked") {
+   480→      fired.push({
+   481→        code: "DP-03",
+   482→        family: "DP",
+   483→        weight: 4,
+   484→        evidenceRefs: [`step:${s.stepKey}`, `blockedBy:${s.blockedBy.join(",")}`],
+   485→        description: `Access provisioning is blocked by missing prerequisites.`,
+   486→        descriptionAr: `توفير الوصول محجوب بسبب متطلبات مفقودة.`,
+   487→      });
+   488→    }
+   489→    // DP-05: Transfer approved, releasing-manager handover absent > 5 days (weight 4)
+   490→    if (s.stepKey === "mb_release_handover" && s.status === "in_progress" && s.startedAt) {
+   491→      const stalled = (asOf.getTime() - new Date(s.startedAt).getTime()) / (24 * 3600 * 1000);
+   492→      if (stalled > 5) {
+   493→        fired.push({
+   494→          code: "DP-05",
+   495→          family: "DP",
+   496→          weight: 4,
+   497→          evidenceRefs: [`step:${s.stepKey}`, `stalledDays:${stalled.toFixed(1)}`],
+   498→          description: `Releasing manager handover has been pending for ${stalled.toFixed(0)} days.`,
+   499→          descriptionAr: `تسليم المدير السابق معلق منذ ${stalled.toFixed(0)} أيام.`,
+   500→        });
+   501→      }
+   502→    }
+   503→  }
+   504→
+   505→  // ---- RQ family (requests) ----
+   506→  for (const r of employeeRequests) {
+   507→    const ageHours = (asOf.getTime() - new Date(r.openedAt).getTime()) / 3600000;
+   508→    // RQ-01: Request open beyond its type SLA (weight 3)
+   509→    if (ageHours > r.slaHours) {
+   510→      fired.push({
+   511→        code: "RQ-01",
+   512→        family: "RQ",
+   513→        weight: 3,
+   514→        evidenceRefs: [`request:${r.ref}`, `ageHours:${ageHours.toFixed(0)}`, `sla:${r.slaHours}`],
+   515→        description: `Request ${r.ref} is open ${ageHours.toFixed(0)}h vs ${r.slaHours}h SLA.`,
+   516→        descriptionAr: `الطلب ${r.ref} مفتوح منذ ${ageHours.toFixed(0)} ساعة مقابل ${r.slaHours} ساعة مستهدفة.`,
+   517→      });
+   518→    }
+   519→    // RQ-02: Request reassigned ≥3 times (weight 4)
+   520→    if (r.reassignCount >= 3) {
+   521→      fired.push({
+   522→        code: "RQ-02",
+   523→        family: "RQ",
+   524→        weight: 4,
+   525→        evidenceRefs: [`request:${r.ref}`, `reassignCount:${r.reassignCount}`],
+   526→        description: `Request ${r.ref} has been reassigned ${r.reassignCount} times (queue ping-pong).`,
+   527→        descriptionAr: `الطلب ${r.ref} تمت إعادة تعيينه ${r.reassignCount} مرة (ترقّص بين الطوابير).`,
+   528→      });
+   529→    }
+   530→    // RQ-03: Request returned as incomplete ≥2 times (weight 4)
+   531→    if (r.returnCount >= 2) {
+   532→      fired.push({
+   533→        code: "RQ-03",
+   534→        family: "RQ",
+   535→        weight: 4,
+   536→        evidenceRefs: [`request:${r.ref}`, `returnCount:${r.returnCount}`],
+   537→        description: `Request ${r.ref} returned as incomplete ${r.returnCount} times.`,
+   538→        descriptionAr: `الطلب ${r.ref} تم إرجاعه كغير مكتمل ${r.returnCount} مرة.`,
+   539→      });
+   540→    }
+   541→  }
+   542→
+   543→  // ---- PS family (pulse, consent-gated) ----
+   544→  if (pulseConsent && suppressed.indexOf("PS") === -1) {
+   545→    for (const p of employeePulse) {
+   546→      // PS-01: Opt-in pulse confidence ≤2/5 at a stage gate (weight 4)
+   547→      if (p.score <= 2) {
+   548→        fired.push({
+   549→          code: "PS-01",
+   550→          family: "PS",
+   551→          weight: 4,
+   552→          evidenceRefs: [`pulse:${p.id}`, `score:${p.score}`, `stage:${p.stage}`],
+   553→          description: `Pulse score at ${p.stage} was ${p.score}/5 — low confidence.`,
+   554→          descriptionAr: `نتيجة النبضة في ${p.stage} كانت ${p.score}/5 — ثقة منخفضة.`,
+   555→        });
+   556→      }
+   557→      // PS-05: Explicit "I need help now" flag (weight 6, hard trip)
+   558→      // Detected via comment lexicon (deterministic, model labels only)
+   559→      if (p.commentText && /(stuck|nobody replied|i need help now|no one told me)/i.test(p.commentText)) {
+   560→        fired.push({
+   561→          code: "PS-05",
+   562→          family: "PS",
+   563→          weight: 6,
+   564→          hardTrip: true,
+   565→          forceBlocked: false,
+   566→          evidenceRefs: [`pulse:${p.id}`, `commentRef:${p.commentRef}`, `lexicon:help_seeking`],
+   567→          description: `Employee comment signals help-seeking intent.`,
+   568→          descriptionAr: `تعليق الموظف يشير إلى طلب المساعدة.`,
+   569→        });
+   570→      }
+   571→    }
+   572→  } else {
+   573→    // PS-04: Pulse consent absent → family suppressed, surfaced in explanation
+   574→    if (suppressed.indexOf("PS") !== -1) {
+   575→      // Do not add a signal; suppression is disclosed separately
+   576→    }
+   577→  }
+   578→
+   579→  // ---- MB family (mobility) ----
+   580→  if (employee.journeyType === "mobility" && employee.effectiveDate) {
+   581→    const daysSinceEffective = (asOf.getTime() - new Date(employee.effectiveDate).getTime()) / (24 * 3600 * 1000);
+   582→    // MB-01: Effective date set but role access profile unchanged > 3 days (weight 4)
+   583→    const roleAccessStep = stepStates.find((s) => s.stepKey === "mb_role_access");
+   584→    if (roleAccessStep && roleAccessStep.status === "in_progress" && daysSinceEffective > 3) {
+   585→      fired.push({
+   586→        code: "MB-01",
+   587→        family: "MB",
+   588→        weight: 4,
+   589→        evidenceRefs: [`step:mb_role_access`, `daysSinceEffective:${daysSinceEffective.toFixed(0)}`],
+   590→        description: `Role access profile unchanged for ${daysSinceEffective.toFixed(0)} days after effective date.`,
+   591→        descriptionAr: `ملف الوصول للدور لم يتغير منذ ${daysSinceEffective.toFixed(0)} أيام من تاريخ السريان.`,
+   592→      });
+   593→    }
+   594→    // MB-04: Payroll/allowance change unconfirmed, cycle cutoff < 7 days (hard trip, weight 6)
+   595→    const payrollStep = stepStates.find((s) => s.stepKey === "mb_payroll_change");
+   596→    if (payrollStep && payrollStep.status === "in_progress") {
+   597→      // Days to next payroll cutoff (25th of month)
+   598→      const nextCutoff = new Date(asOf);
+   599→      nextCutoff.setUTCDate(25);
+   600→      if (nextCutoff <= asOf) nextCutoff.setUTCMonth(nextCutoff.getUTCMonth() + 1);
+   601→      const daysToCutoff = (nextCutoff.getTime() - asOf.getTime()) / (24 * 3600 * 1000);
+   602→      if (daysToCutoff < 7) {
+   603→        fired.push({
+   604→          code: "MB-04",
+   605→          family: "MB",
+   606→          weight: 6,
+   607→          hardTrip: true,
+   608→          forceBlocked: true,
+   609→          evidenceRefs: [`step:mb_payroll_change`, `daysToCutoff:${daysToCutoff.toFixed(0)}`],
+   610→          description: `Payroll change unconfirmed and cycle cutoff is in ${daysToCutoff.toFixed(0)} days — hard trip.`,
+   611→          descriptionAr: `تغيير الراتب غير مؤكد وتقطع دورة الرواتب بعد ${daysToCutoff.toFixed(0)} أيام — تعطيل جوهري.`,
+   612→        });
+   613→      }
+   614→    }
+   615→    // MB-03: Dual reporting unresolved > 7 days after effective date (weight 3)
+   616→    const dualStep = stepStates.find((s) => s.stepKey === "mb_dual_reporting");
+   617→    if (dualStep && dualStep.status === "waiting_owner" && daysSinceEffective > 7) {
+   618→      fired.push({
+   619→        code: "MB-03",
+   620→        family: "MB",
+   621→        weight: 3,
+   622→        evidenceRefs: [`step:mb_dual_reporting`, `daysSinceEffective:${daysSinceEffective.toFixed(0)}`],
+   623→        description: `Dual reporting unresolved for ${daysSinceEffective.toFixed(0)} days after effective date.`,
+   624→        descriptionAr: `التقارير المزدوجة غير محلولة منذ ${daysSinceEffective.toFixed(0)} أيام من تاريخ السريان.`,
+   625→      });
+   626→    }
+   627→  }
+   628→
+   629→  // ---- DQ family (data quality) ----
+   630→  // DQ-01: Manager or HRBP mapping missing (weight 4)
+   631→  if (!employee.managerId || !employee.hrbpId) {
+   632→    fired.push({
+   633→      code: "DQ-01",
+   634→      family: "DQ",
+   635→      weight: 4,
+   636→      evidenceRefs: [`employee:${employee.id}`],
+   637→      description: `Manager or HRBP mapping missing on employee record.`,
+   638→      descriptionAr: `تعيين المدير أو شريك الموارد البشرية مفقود في سجل الموظف.`,
+   639→    });
+   640→  }
+   641→  // DQ-05: Step references a policy absent from the corpus
+   642→  // (simplified — for prototype assume all policy refs resolve)
+   643→
+   644→  return { fired, suppressed };
+   645→}
+   646→
+   647→/* ============================================================
+   648→   FUSION — bands from capped signal weights + hard trips
+   649→   ============================================================ */
+   650→export function fuse(signals: FrictionSignal[], suppressed: SignalFamily[]): {
+   651→  score: number;
+   652→  band: Band;
+   653→  hardTrips: string[];
+   654→  forcedBlocked: boolean;
+   655→} {
+   656→  // Apply family caps
+   657→  const familyTotals: Record<string, number> = {};
+   658→  const hardTrips: string[] = [];
+   659→  let forcedBlocked = false;
+   660→
+   661→  for (const sig of signals) {
+   662→    const fam = sig.family;
+   663→    const capped = Math.min(sig.weight, FAMILY_CAPS[fam]);
+   664→    familyTotals[fam] = (familyTotals[fam] ?? 0) + capped;
+   665→    if (sig.hardTrip) hardTrips.push(sig.code);
+   666→    if (sig.forceBlocked) forcedBlocked = true;
+   667→  }
+   668→
+   669→  let score = 0;
+   670→  for (const [fam, total] of Object.entries(familyTotals)) {
+   671→    score += Math.min(total, FAMILY_CAPS[fam as SignalFamily]);
+   672→  }
+   673→
+   674→  let band: Band = "steady";
+   675→  if (score >= 20) band = "blocked";
+   676→  else if (score >= 12) band = "friction";
+   677→  else if (score >= 6) band = "watch";
+   678→
+   679→  // Hard trips: any weight≥6 forces at least Friction
+   680→  if (hardTrips.length > 0 && band === "steady") band = "watch";
+   681→  if (hardTrips.length > 0 && (band === "steady" || band === "watch")) band = "friction";
+   682→  // DP-02, PS-05, MB-04 force Blocked
+   683→  if (hardTrips.some((c) => c === "DP-02" || c === "PS-05" || c === "MB-04") || forcedBlocked) {
+   684→    band = "blocked";
+   685→  }
+   686→
+   687→  return { score, band, hardTrips, forcedBlocked };
+   688→}
+   689→
+   690→/* ============================================================
+   691→   ASSESSMENT — top-level verdict
+   692→   ============================================================ */
+   693→export function assess(
+   694→  employee: Employee,
+   695→  asOf: Date = new Date()
+   696→): Assessment {
+   697→  const employeeEvents = eventsForEmployee(employee.id);
+   698→  const employeeRequests = ALL_REQUESTS.filter((r) => r.employeeId === employee.id);
+   699→  const employeePulse = ALL_PULSE.filter((p) => p.employeeId === employee.id);
+   700→
+   701→  const journeySteps = ALL_STEPS.filter((s) => s.journeyType === employee.journeyType);
+   702→  const stepStates = journeySteps.map((s) => computeStepState(employee, s, employeeEvents, asOf));
+   703→
+   704→  const { fired, suppressed } = computeSignals(employee, stepStates, employeeRequests, employeePulse, asOf);
+   705→  const fusion = fuse(fired, suppressed);
+   706→
+   707→  const { stage, dayInStage } = inferStage(employee, employeeEvents, asOf);
+   708→
+   709→  return {
+   710→    employeeId: employee.id,
+   711→    asOf: asOf.toISOString(),
+   712→    band: fusion.band,
+   713→    score: fusion.score,
+   714→    signals: fired,
+   715→    suppressedFamilies: suppressed,
+   716→    mapVersion: "map-1.0.0",
+   717→    corpusVersion: "policies-2024-q4-v1",
+   718→    engineVersion: ENGINE_VERSION,
+   719→    stage,
+   720→    dayInStage,
+   721→  };
+   722→}
+   723→
+   724→export function eventsForEmployee(employeeId: string): JourneyEvent[] {
+   725→  // Lazy import via require to keep engine pure (data is static)
+   726→  // We import from pack at module load
+   727→  const { events } = require("../data/pack");
+   728→  return (events as JourneyEvent[]).filter((e) => e.employeeId === employeeId);
+   729→}
+   730→
+   731→/* ============================================================
+   732→   NEXT BEST STEP — ranked
+   733→   ============================================================ */
+   734→export function nextBestStep(employee: Employee, asOf: Date = new Date()): NextBestStep | null {
+   735→  const employeeEvents = eventsForEmployee(employee.id);
+   736→  const journeySteps = ALL_STEPS.filter((s) => s.journeyType === employee.journeyType);
+   737→  const stepStates = journeySteps.map((s) => computeStepState(employee, s, employeeEvents, asOf));
+   738→
+   739→  // Candidates: not done, dependencies satisfied, in current or next stage
+   740→  const { stage } = inferStage(employee, employeeEvents, asOf);
+   741→  const journeyStages = ALL_STAGES.filter((s) => s.journeyType === employee.journeyType).sort((a, b) => a.order - b.order);
+   742→  const stageIdx = journeyStages.findIndex((s) => s.key === stage);
+   743→  const allowedStages = journeyStages.slice(stageIdx, stageIdx + 2).map((s) => s.key);
+   744→
+   745→  const candidates = stepStates.filter((s) => {
+   746→    if (s.status === "done" || s.status === "skipped") return false;
+   747→    if (!allowedStages.includes(s.stage)) return false;
+   748→    if (s.status === "blocked") return false;
+   749→    return true;
+   750→  });
+   751→
+   752→  if (candidates.length === 0) return null;
+   753→
+   754→  // Rank: hard breach > most downstream blocked > nearest due > employee-actionable > least effort
+   755→  candidates.sort((a, b) => {
+   756→    const aHard = a.breachLevel === "hard" ? 1 : 0;
+   757→    const bHard = b.breachLevel === "hard" ? 1 : 0;
+   758→    if (aHard !== bHard) return bHard - aHard;
+   759→    if (b.downstreamAtRisk !== a.downstreamAtRisk) return b.downstreamAtRisk - a.downstreamAtRisk;
+   760→    const aDue = a.dueAt ? new Date(a.dueAt).getTime() : Infinity;
+   761→    const bDue = b.dueAt ? new Date(b.dueAt).getTime() : Infinity;
+   762→    if (aDue !== bDue) return aDue - bDue;
+   763→    const aEmp = a.actor === "employee" ? 0 : 1;
+   764→    const bEmp = b.actor === "employee" ? 0 : 1;
+   765→    if (aEmp !== bEmp) return aEmp - bEmp;
+   766→    return a.targetHours - b.targetHours;
+   767→  });
+   768→
+   769→  const top = candidates[0];
+   770→  const step = journeySteps.find((s) => s.key === top.stepKey)!;
+   771→  let reason = `This unblocks ${top.downstreamAtRisk} step(s) and is the most urgent item.`;
+   772→  let reasonAr = `هذا يحرر ${top.downstreamAtRisk} خطوة/خطوات وهو العنصر الأكثر إلحاحاً.`;
+   773→  if (top.breachLevel === "hard") {
+   774→    reason = `${step.label} is past 200% of its target — this is the most urgent item.`;
+   775→    reasonAr = `${step.labelAr} تجاوز 200% من المستهدف — هذا هو العنصر الأكثر إلحاحاً.`;
+   776→  } else if (top.actor === "employee") {
+   777→    reason = `${step.label} is yours to do — and it unblocks the next ${top.downstreamAtRisk} step(s).`;
+   778→    reasonAr = `${step.labelAr} خطوتك للقيام بها — وتحرر ${top.downstreamAtRisk} خطوة/خطوات لاحقة.`;
+   779→  }
+   780→
+   781→  return {
+   782→    stepKey: top.stepKey,
+   783→    label: step.label,
+   784→    labelAr: step.labelAr,
+   785→    ownerGroup: step.ownerGroup,
+   786→    dueAt: top.dueAt,
+   787→    policyRefs: step.policyRefs,
+   788→    actor: step.actor,
+   789→    reason,
+   790→    reasonAr,
+   791→    requestType: step.requestType,
+   792→    primary: true,
+   793→  };
+   794→}
+   795→
+   796→/* ============================================================
+   797→   ENGINE TRACE — judge mode visibility
+   798→   ============================================================ */
+   799→export function trace(employee: Employee, asOf: Date = new Date()): EngineTrace {
+   800→  const assessment = assess(employee, asOf);
+   801→  const employeeEvents = eventsForEmployee(employee.id);
+   802→  const journeySteps = ALL_STEPS.filter((s) => s.journeyType === employee.journeyType);
+   803→  const stepStates = journeySteps.map((s) => computeStepState(employee, s, employeeEvents, asOf));
+   804→  const employeeRequests = ALL_REQUESTS.filter((r) => r.employeeId === employee.id);
+   805→  const employeePulse = ALL_PULSE.filter((p) => p.employeeId === employee.id);
+   806→  const { fired, suppressed } = computeSignals(employee, stepStates, employeeRequests, employeePulse, asOf);
+   807→  const fusion = fuse(fired, suppressed);
+   808→  const nbs = nextBestStep(employee, asOf);
+   809→
+   810→  return {
+   811→    stageInference: {
+   812→      stage: assessment.stage,
+   813→      reason: `Latest stage with started activity and not all steps done (conservative tie-break).`,
+   814→    },
+   815→    signalsFired: fired.map((s) => ({
+   816→      code: s.code,
+   817→      weight: s.weight,
+   818→      family: s.family,
+   819→      evidence: s.evidenceRefs,
+   820→    })),
+   821→    signalsSuppressed: suppressed.map((family) => ({
+   822→      family,
+   823→      reason: family === "PS" ? "Pulse consent not granted — family suppressed, contributes 0." : "Unknown",
+   824→    })),
+   825→    band: {
+   826→      score: fusion.score,
+   827→      band: fusion.band,
+   828→      hardTrips: fusion.hardTrips,
+   829→      forcedBlocked: fusion.forcedBlocked,
+   830→    },
+   831→    nextBestStep: nbs ? { stepKey: nbs.stepKey, reason: nbs.reason } : null,
+   832→    servedFrom: "live",
+   833→    degraded: [],
+   834→  };
+   835→}
+   836→
