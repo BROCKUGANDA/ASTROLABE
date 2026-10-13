@@ -639,6 +639,28 @@ export function computeSignals(
       descriptionAr: `تعيين المدير أو شريك الموارد البشرية مفقود في سجل الموظف.`,
     });
   }
+  // DQ-03: Out-of-order event (occurredAt > asOf) — weight 3.
+  // Future-dated events are excluded from step-state computation
+  // (computeStepState filters `occurredAt <= asOf`), but they still
+  // surface as a data-quality signal so the judge can see them.
+  const futureEvents = eventsForEmployee(employee.id).filter(
+    (e) => new Date(e.occurredAt).getTime() > asOf.getTime()
+  );
+  if (futureEvents.length > 0) {
+    fired.push({
+      code: "DQ-03",
+      family: "DQ",
+      weight: 3,
+      evidenceRefs: [
+        `count:${futureEvents.length}`,
+        `firstId:${futureEvents[0].id}`,
+        `firstOccurredAt:${futureEvents[0].occurredAt}`,
+        `asOf:${asOf.toISOString()}`,
+      ],
+      description: `${futureEvents.length} future-dated event(s) detected — excluded from as-of state.`,
+      descriptionAr: `${futureEvents.length} حدث/أحداث بتاريخ مستقبلي — استُبعدت من حالة وقت التقييم.`,
+    });
+  }
   // DQ-05: Step references a policy absent from the corpus
   // (simplified — for prototype assume all policy refs resolve)
 

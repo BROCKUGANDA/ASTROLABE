@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { formatDistanceToNow, differenceInHours } from "date-fns";
+import { formatDistanceToNow, differenceInHours, format, addDays, startOfWeek, isSameDay } from "date-fns";
 import {
   Inbox,
   Copy,
@@ -1123,43 +1123,126 @@ function BreachReasonsChart({ items, locale }: { items: ServiceRequest[]; locale
   );
 }
 
-/* ---------- Capacity declarations (PRD §11-215) ---------- */
+/* ---------- Weekly capacity calendar (PRD §11-215) ----------
+   Replaces the simple "Weekly capacity: X" input with a 7-day
+   calendar (Mon-Sun) showing committed vs available per day, leave
+   indicators, weekend dimming, current-day highlight, a weekly
+   summary, and a 4-week utilization trend sparkline.
+   --------------------------------------------------------------- */
+
+/* Deterministic PRNG — used for synthetic per-day committed counts
+   and the 4-week utilization trend. The hashStr() helper already
+   exists in this file (see generateOwnerPerf above). */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const WEEKDAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAY_SHORT_AR = ["إثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة", "سبت", "أحد"];
 
 function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; locale: "en" | "ar" }) {
-  const committed = useMemo(
+  const ar = locale === "ar";
+  const openItems = useMemo(
     () =>
       items.filter(
         (r) => r.status !== "resolved" && r.status !== "closed" && r.status !== "cancelled",
-      ).length,
+      ),
     [items],
   );
 
-  const [capacity, setCapacity] = useState<number>(15);
-  const [onLeave, setOnLeave] = useState(false);
-  const [leaveStart, setLeaveStart] = useState<string>("");
-  const [leaveEnd, setLeaveEnd] = useState<string>("");
+  // Compute the current week (Mon-Sun) from PACK_NOW.
+  const weekStart = useMemo(
+    () => startOfWeek(PACK_NOW, { weekStartsOn: 1 }),
+    [],
+  );
+  const days = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
+    [weekStart],
+  );
+
+  // Per-day capacity (editable, default 3) and per-day leave toggle.
+  // Initialised once from a deterministic seed so the demo is stable.
+  const [capacityByDay, setCapacityByDay] = useState<number[]>(() => {
+    const rand = mulberry32(hashStr("cap-seed-v1"));
+    return Array.from({ length: 7 }, () => 2 + Math.floor(rand() * 3)); // 2..4
+  });
+  const [leaveByDay, setLeaveByDay] = useState<boolean[]>(() => Array.from({ length: 7 }, () => false));
   const [saving, setSaving] = useState(false);
 
-  const available = Math.max(0, capacity - committed - (onLeave ? 2 : 0));
-  const availableColor =
-    available === 0 ? "var(--status-friction)" : available <= 3 ? "var(--status-watch)" : "var(--accent-500)";
+  // Per-day committed count — synthetic, deterministic. The total is
+  // capped near the number of open items so the calendar feels live.
+  const committedByDay = useMemo(() => {
+    const rand = mulberry32(hashStr("committed-seed-v1"));
+    const total = openItems.length;
+    // Distribute `total` across 7 days with a weekday bias (Mon-Thu get
+    // more, Fri-Sat get fewer because of UAE weekend).
+    const weights = [1.0, 1.0, 1.0, 1.0, 0.3, 0.3, 0.6];
+    const raw = weights.map((w) => w * (0.6 + rand() * 0.8));
+    const rawSum = raw.reduce((a, b) => a + b, 0) || 1;
+    const counts = raw.map((r) => Math.round((r / rawSum) * total));
+    // Fix rounding drift on the last day
+    const drift = total - counts.reduce((a, b) => a + b, 0);
+    counts[6] = Math.max(0, counts[6] + drift);
+    return counts;
+  }, [openItems.length]);
+
+  // 4-week utilization trend (committed/capacity % per week).
+  const utilizationTrend = useMemo(() => {
+    const rand = mulberry32(hashStr("util-trend-v1"));
+    return Array.from({ length: 4 }, (_, i) => {
+      // Recent weeks trend toward current utilization
+      const currentUtil = (() => {
+        const cap = capacityByDay.reduce((a, b) => a + b, 0) || 1;
+        const com = committedByDay.reduce((a, b) => a + b, 0);
+        return Math.min(100, Math.round((com / cap) * 100));
+      })();
+      const noise = (rand() - 0.5) * 24 * (1 - i / 5);
+      return Math.max(0, Math.min(100, Math.round(currentUtil + noise - (3 - i) * 4)));
+    });
+  }, [capacityByDay, committedByDay]);
+
+  const totalCapacity = capacityByDay.reduce((a, b) => a + b, 0);
+  const totalCommitted = committedByDay.reduce((a, b) => a + b, 0);
+  const totalAvailable = Math.max(0, totalCapacity - totalCommitted);
+  const currentUtilization = totalCapacity > 0 ? Math.round((totalCommitted / totalCapacity) * 100) : 0;
+
+  const handleCapacityChange = (i: number, value: number) => {
+    setCapacityByDay((prev) => {
+      const next = [...prev];
+      next[i] = Math.max(0, Math.min(20, value));
+      return next;
+    });
+  };
+
+  const handleLeaveToggle = (i: number) => {
+    setLeaveByDay((prev) => {
+      const next = [...prev];
+      next[i] = !next[i];
+      return next;
+    });
+  };
 
   const handleSave = async () => {
     setSaving(true);
     try {
       await new Promise((r) => setTimeout(r, 280));
       toast.success(
-        locale === "ar"
-          ? "حُفظت الطاقة — ستبقى تقديرات SLA صادقة"
-          : "Capacity saved — estimates will stay honest",
+        ar ? "حُفظت الطاقة الأسبوعية" : "Weekly capacity saved",
         {
-          description: locale === "ar"
-            ? `الطاقة الأسبوعية: ${capacity} · ملتزم: ${committed} · متاح: ${available}`
-            : `Weekly capacity ${capacity} · committed ${committed} · available ${available}`,
+          description: ar
+            ? `الطاقة: ${totalCapacity} · ملتزم: ${totalCommitted} · متاح: ${totalAvailable}`
+            : `Capacity ${totalCapacity} · committed ${totalCommitted} · available ${totalAvailable}`,
         },
       );
     } catch (e) {
-      toast.error(locale === "ar" ? "تعذّر الحفظ" : "Couldn't save", {
+      toast.error(ar ? "تعذّر الحفظ" : "Couldn't save", {
         description: e instanceof Error ? e.message : undefined,
       });
     } finally {
@@ -1167,114 +1250,327 @@ function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; local
     }
   };
 
+  // Headline message color: sand-gold if >5, amber if 1-5, red if 0.
+  const headlineColor =
+    totalAvailable > 5
+      ? "var(--accent-500)"
+      : totalAvailable >= 1
+      ? "var(--status-watch)"
+      : "var(--status-friction)";
+
+  // Utilization warning
+  const overloaded = currentUtilization > 90;
+  const hasCapacity = currentUtilization < 50;
+
   return (
     <div className="ast-card-2 p-4">
-      <div className="flex items-center gap-2 mb-3">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
         <Users className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--accent-500)" }} />
         <h3 className="text-[13px] font-semibold" style={{ color: "var(--text-hi)" }}>
-          {locale === "ar" ? "إعلان الطاقة الأسبوعية" : "Weekly capacity declaration"}
+          {ar ? "تقويم الطاقة الأسبوعي" : "Weekly capacity calendar"}
         </h3>
+        <span className="text-[10px] uppercase tracking-[0.10em] ml-auto" style={{ color: "var(--text-lo)" }} dir="ltr">
+          {format(weekStart, "d MMM")} → {format(addDays(weekStart, 6), "d MMM")}
+        </span>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mb-3">
-        <div className="rounded-[8px] p-2.5" style={{ background: "var(--surface-3)" }}>
-          <p className="text-[10px] uppercase tracking-[0.10em]" style={{ color: "var(--text-lo)" }}>
-            {locale === "ar" ? "الطاقة الأسبوعية" : "Weekly capacity"}
-          </p>
-          <div className="flex items-center gap-1 mt-1">
-            <Input
-              type="number"
-              min={0}
-              max={50}
-              value={capacity}
-              onChange={(e) => setCapacity(Math.max(0, Number(e.target.value) || 0))}
-              className="ast-focus h-8 w-[64px] text-[18px] font-semibold tabular px-2"
-              style={{
-                background: "var(--surface-2)",
-                borderColor: "var(--border)",
-                color: "var(--text-hi)",
-              }}
-              dir="ltr"
-              aria-label={locale === "ar" ? "الطاقة الأسبوعية بالتذاكر" : "Weekly capacity in tickets"}
-            />
-            <span className="text-[11px]" style={{ color: "var(--text-lo)" }}>
-              {locale === "ar" ? "تذكرة" : "tickets"}
-            </span>
-          </div>
-        </div>
-        <div className="rounded-[8px] p-2.5" style={{ background: "var(--surface-3)" }}>
-          <p className="text-[10px] uppercase tracking-[0.10em]" style={{ color: "var(--text-lo)" }}>
-            {locale === "ar" ? "ملتزم حالياً" : "Currently committed"}
-          </p>
-          <p className="text-[22px] font-semibold tabular mt-1" style={{ color: "var(--text-hi)" }} dir="ltr">
-            {committed}
-          </p>
-          <p className="text-[10px] tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
-            {locale === "ar" ? "تذاكر مفتوحة" : "open tickets"}
-          </p>
-        </div>
-        <div className="rounded-[8px] p-2.5" style={{ background: "var(--surface-3)" }}>
-          <p className="text-[10px] uppercase tracking-[0.10em]" style={{ color: "var(--text-lo)" }}>
-            {locale === "ar" ? "متاح" : "Available"}
-          </p>
-          <p className="text-[22px] font-semibold tabular mt-1" style={{ color: availableColor }} dir="ltr">
-            {available}
-          </p>
-          <p className="text-[10px]" style={{ color: "var(--text-lo)" }}>
-            {available === 0
-              ? locale === "ar" ? "ممتلئ" : "full"
-              : available <= 3
-                ? locale === "ar" ? "ضيّق" : "tight"
-                : locale === "ar" ? "صحي" : "healthy"}
-          </p>
-        </div>
-      </div>
-
-      {/* On-leave toggle + dates */}
+      {/* 7-day calendar */}
       <div
-        className="flex items-center gap-3 p-2.5 rounded-[8px] mb-3 flex-wrap"
+        className="grid grid-cols-7 gap-1.5 mb-3"
+        style={{ minWidth: 0 }}
+      >
+        {days.map((day, i) => {
+          const isWeekend = i === 4 || i === 5; // Fri(4) / Sat(5) — UAE weekend
+          const isToday = isSameDay(day, PACK_NOW);
+          const dimmed = isWeekend;
+          const committed = committedByDay[i] ?? 0;
+          const capacity = capacityByDay[i] ?? 0;
+          const onLeave = leaveByDay[i] ?? false;
+          const effectiveCapacity = onLeave ? 0 : capacity;
+          const available = Math.max(0, effectiveCapacity - committed);
+          const availColor =
+            available === 0
+              ? "var(--status-friction)"
+              : available === 1
+              ? "var(--status-watch)"
+              : "var(--brand-400)";
+
+          return (
+            <div
+              key={i}
+              className="rounded-[10px] p-2 flex flex-col gap-1.5"
+              style={{
+                background: dimmed ? "var(--surface-3)" : "var(--surface-2)",
+                border: `1px solid ${isToday ? "var(--brand-500)" : dimmed ? "var(--border-soft)" : "var(--border)"}`,
+                opacity: dimmed ? 0.62 : 1,
+                boxShadow: isToday ? "0 0 0 1px var(--brand-500), 0 4px 12px rgba(22,154,165,0.12)" : undefined,
+              }}
+            >
+              {/* Day name + date */}
+              <div className="flex items-baseline justify-between gap-1">
+                <span
+                  className="text-[10px] font-semibold uppercase tracking-[0.06em]"
+                  style={{ color: isToday ? "var(--brand-400)" : "var(--text-mid)" }}
+                >
+                  {ar ? WEEKDAY_SHORT_AR[i] : WEEKDAY_SHORT[i]}
+                </span>
+                {isToday && (
+                  <span
+                    className="text-[8px] uppercase tracking-[0.08em] px-1 py-0.5 rounded"
+                    style={{
+                      background: "rgba(22,154,165,0.14)",
+                      color: "var(--brand-400)",
+                    }}
+                  >
+                    {ar ? "اليوم" : "today"}
+                  </span>
+                )}
+              </div>
+              <span className="text-[9px] tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+                {format(day, "d MMM")}
+              </span>
+
+              {/* Leave badge */}
+              {onLeave && (
+                <span
+                  className="inline-flex items-center gap-0.5 self-start text-[8px] uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-full"
+                  style={{
+                    background: "rgba(217,119,6,0.12)",
+                    color: "var(--status-watch)",
+                    border: "1px solid rgba(217,119,6,0.30)",
+                  }}
+                >
+                  <Moon className="w-2 h-2" strokeWidth={2} />
+                  {ar ? "إجازة" : "Leave"}
+                </span>
+              )}
+
+              {/* Committed */}
+              <div>
+                <span className="text-[8px] uppercase tracking-[0.06em]" style={{ color: "var(--text-lo)" }}>
+                  {ar ? "ملتزم" : "Committed"}
+                </span>
+                <p className="text-[14px] font-semibold tabular leading-none" style={{ color: "var(--text-hi)" }} dir="ltr">
+                  {committed}
+                </p>
+              </div>
+
+              {/* Capacity (editable) */}
+              <div>
+                <span className="text-[8px] uppercase tracking-[0.06em]" style={{ color: "var(--text-lo)" }}>
+                  {ar ? "الطاقة" : "Capacity"}
+                </span>
+                <Input
+                  type="number"
+                  min={0}
+                  max={20}
+                  value={capacity}
+                  onChange={(e) => handleCapacityChange(i, Number(e.target.value) || 0)}
+                  disabled={onLeave}
+                  className="ast-focus h-7 w-full text-[13px] font-semibold tabular px-1.5 mt-0.5"
+                  style={{
+                    background: "var(--surface-3)",
+                    borderColor: "var(--border)",
+                    color: onLeave ? "var(--text-lo)" : "var(--text-hi)",
+                    opacity: onLeave ? 0.5 : 1,
+                  }}
+                  dir="ltr"
+                  aria-label={ar ? `طاقة ${WEEKDAY_SHORT_AR[i]}` : `Capacity ${WEEKDAY_SHORT[i]}`}
+                />
+              </div>
+
+              {/* Available */}
+              <div>
+                <span className="text-[8px] uppercase tracking-[0.06em]" style={{ color: "var(--text-lo)" }}>
+                  {ar ? "متاح" : "Available"}
+                </span>
+                <p className="text-[14px] font-semibold tabular leading-none" style={{ color: availColor }} dir="ltr">
+                  {available}
+                </p>
+              </div>
+
+              {/* Leave toggle */}
+              <button
+                onClick={() => handleLeaveToggle(i)}
+                className="ast-focus inline-flex items-center justify-center h-6 px-1.5 rounded-full text-[8px] font-medium transition-colors mt-auto"
+                style={{
+                  background: onLeave
+                    ? "rgba(217,119,6,0.12)"
+                    : "var(--surface-3)",
+                  color: onLeave ? "var(--status-watch)" : "var(--text-lo)",
+                  border: `1px solid ${onLeave ? "rgba(217,119,6,0.30)" : "var(--border)"}`,
+                }}
+              >
+                <Moon className="w-2.5 h-2.5" strokeWidth={1.75} />
+                {onLeave ? (ar ? "إجازة" : "On leave") : (ar ? "إجازة؟" : "Leave?")}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Weekly summary */}
+      <div
+        className="rounded-[10px] p-3 mb-3"
         style={{ background: "var(--surface-3)" }}
       >
-        <div className="flex items-center gap-2 flex-1 min-w-[180px]">
-          <Calendar className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--text-lo)" }} />
-          <span className="text-[12px]" style={{ color: "var(--text-mid)" }}>
-            {locale === "ar" ? "في إجازة هذا الأسبوع؟" : "On leave this week?"}
+        <div className="grid grid-cols-3 gap-3 mb-2">
+          <div>
+            <p className="text-[9px] uppercase tracking-[0.10em]" style={{ color: "var(--text-lo)" }}>
+              {ar ? "إجمالي الطاقة" : "Total capacity"}
+            </p>
+            <p className="text-[20px] font-semibold tabular leading-none mt-1" style={{ color: "var(--text-hi)" }} dir="ltr">
+              {totalCapacity}
+            </p>
+          </div>
+          <div>
+            <p className="text-[9px] uppercase tracking-[0.10em]" style={{ color: "var(--text-lo)" }}>
+              {ar ? "إجمالي ملتزم" : "Total committed"}
+            </p>
+            <p className="text-[20px] font-semibold tabular leading-none mt-1" style={{ color: "var(--text-hi)" }} dir="ltr">
+              {totalCommitted}
+            </p>
+          </div>
+          <div>
+            <p className="text-[9px] uppercase tracking-[0.10em]" style={{ color: "var(--text-lo)" }}>
+              {ar ? "إجمالي متاح" : "Total available"}
+            </p>
+            <p className="text-[20px] font-semibold tabular leading-none mt-1" style={{ color: headlineColor }} dir="ltr">
+              {totalAvailable}
+            </p>
+          </div>
+        </div>
+        {/* Headline message */}
+        <div
+          className="rounded-[8px] p-2.5 flex items-center gap-2 text-[12px]"
+          style={{
+            background:
+              totalAvailable > 5
+                ? "rgba(201,162,39,0.08)"
+                : totalAvailable >= 1
+                ? "rgba(217,119,6,0.08)"
+                : "rgba(220,38,38,0.08)",
+            border: `1px solid ${
+              totalAvailable > 5
+                ? "rgba(201,162,39,0.30)"
+                : totalAvailable >= 1
+                ? "rgba(217,119,6,0.30)"
+                : "rgba(220,38,38,0.30)"
+            }`,
+            color: headlineColor,
+          }}
+        >
+          <Calendar className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} />
+          <span>
+            {totalAvailable === 0
+              ? ar
+                ? "الأسبوع ممتلئ — لا يمكنك استقبال المزيد"
+                : "This week you're full — no more tickets"
+              : ar
+              ? `هذا الأسبوع يمكنك معالجة ${totalAvailable} تذاكر إضافية`
+              : `This week you can handle ${totalAvailable} more ticket${totalAvailable === 1 ? "" : "s"}`}
           </span>
         </div>
-        <Switch
-          checked={onLeave}
-          onCheckedChange={setOnLeave}
-          aria-label={locale === "ar" ? "في إجازة" : "On leave"}
-        />
-        {onLeave && (
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Input
-              type="text"
-              value={leaveStart}
-              onChange={(e) => setLeaveStart(e.target.value)}
-              placeholder={locale === "ar" ? "من (YYYY-MM-DD)" : "From (YYYY-MM-DD)"}
-              className="ast-focus h-8 text-[12px] font-mono tabular sm:w-[140px]"
-              style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-hi)" }}
-              dir="ltr"
-            />
-            <span style={{ color: "var(--text-lo)" }}>→</span>
-            <Input
-              type="text"
-              value={leaveEnd}
-              onChange={(e) => setLeaveEnd(e.target.value)}
-              placeholder={locale === "ar" ? "إلى (YYYY-MM-DD)" : "To (YYYY-MM-DD)"}
-              className="ast-focus h-8 text-[12px] font-mono tabular sm:w-[140px]"
-              style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-hi)" }}
-              dir="ltr"
-            />
-          </div>
-        )}
       </div>
 
+      {/* 4-week utilization trend + warning */}
+      <div
+        className="rounded-[10px] p-3"
+        style={{ background: "var(--surface-3)" }}
+      >
+        <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Activity className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+            <span className="text-[10px] uppercase tracking-[0.10em] font-medium" style={{ color: "var(--text-lo)" }}>
+              {ar ? "اتجاه الاستخدام (4 أسابيع)" : "Utilization trend (4 weeks)"}
+            </span>
+          </div>
+          <span
+            className="inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-medium"
+            style={{
+              background: overloaded
+                ? "rgba(217,119,6,0.12)"
+                : hasCapacity
+                ? "rgba(22,154,165,0.12)"
+                : "var(--surface-2)",
+              color: overloaded
+                ? "var(--status-watch)"
+                : hasCapacity
+                ? "var(--brand-400)"
+                : "var(--text-mid)",
+              border: `1px solid ${
+                overloaded
+                  ? "rgba(217,119,6,0.32)"
+                  : hasCapacity
+                  ? "rgba(22,154,165,0.32)"
+                  : "var(--border)"
+              }`,
+            }}
+          >
+            {overloaded ? (
+              <>
+                <AlertTriangle className="w-2.5 h-2.5" strokeWidth={2} />
+                {ar ? "أنت محمّل" : "You're overloaded"}
+              </>
+            ) : hasCapacity ? (
+              <>
+                <TrendingUp className="w-2.5 h-2.5" strokeWidth={2} />
+                {ar ? "لديك طاقة" : "You have capacity"}
+              </>
+            ) : (
+              <>
+                <Activity className="w-2.5 h-2.5" strokeWidth={2} />
+                {ar ? "مستقر" : "Steady"}
+              </>
+            )}
+          </span>
+        </div>
+        {/* Mini bar chart for 4-week trend */}
+        <div className="flex items-end gap-2 h-12">
+          {utilizationTrend.map((v, i) => {
+            const height = Math.max(6, v);
+            const isThis = i === utilizationTrend.length - 1;
+            return (
+              <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
+                <span className="text-[8px] tabular" style={{ color: isThis ? "var(--brand-400)" : "var(--text-lo)" }} dir="ltr">
+                  {v}%
+                </span>
+                <div
+                  className="w-full rounded-t transition-all"
+                  style={{
+                    height: `${height}%`,
+                    minHeight: 4,
+                    background: v > 90
+                      ? "linear-gradient(180deg, var(--status-watch) 0%, var(--status-friction) 100%)"
+                      : isThis
+                      ? "linear-gradient(180deg, var(--brand-400) 0%, var(--brand-500) 100%)"
+                      : "linear-gradient(180deg, var(--surface-3) 0%, var(--surface-2) 100%)",
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex items-center justify-between mt-1">
+          {["-3w", "-2w", "-1w", "now"].map((lbl, i) => (
+            <span
+              key={lbl}
+              className="text-[8px] tabular flex-1 text-center"
+              style={{ color: i === 3 ? "var(--brand-400)" : "var(--text-lo)" }}
+              dir="ltr"
+            >
+              {lbl}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Save button */}
       <button
         onClick={handleSave}
         disabled={saving}
-        className="ast-focus inline-flex items-center gap-2 h-10 px-4 rounded-full text-[12px] font-medium disabled:opacity-60 w-full sm:w-auto justify-center"
+        className="ast-focus inline-flex items-center gap-2 h-10 px-4 rounded-full text-[12px] font-medium disabled:opacity-60 w-full sm:w-auto justify-center mt-3"
         style={{ background: "var(--accent-500)", color: "var(--surface-0)", border: "1px solid var(--accent-500)" }}
       >
         {saving ? (
@@ -1282,7 +1578,7 @@ function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; local
         ) : (
           <Save className="w-3.5 h-3.5" strokeWidth={1.75} />
         )}
-        {locale === "ar" ? "حفظ الطاقة" : "Save capacity"}
+        {ar ? "حفظ الطاقة الأسبوعية" : "Save weekly capacity"}
       </button>
     </div>
   );

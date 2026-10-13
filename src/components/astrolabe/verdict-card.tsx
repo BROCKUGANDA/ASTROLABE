@@ -14,6 +14,7 @@
 
 import { motion } from "framer-motion";
 import { BandSphere3D } from "@/components/three/astrolabe";
+import { InstrumentDial, ScanLineOverlay } from "@/components/astrolabe/instrument-dial";
 import { NumberTicker } from "@/components/astrolabe/micro-interactions";
 import { SignalBadge, type Band } from "@/components/astrolabe/widgets";
 import { SignalWeightBar } from "@/components/astrolabe/signal-weight-bar";
@@ -109,6 +110,9 @@ export function VerdictCard({
       aria-label={isAr ? "حالتك الآن" : "Your status"}
       dir={dir}
     >
+      {/* Scan-line instrument texture */}
+      <ScanLineOverlay opacity={0.022} />
+
       {/* Sand-gold top accent for Blocked — "your next move" surface */}
       {isBlocked && (
         <div
@@ -197,12 +201,12 @@ export function VerdictCard({
           )}
         </div>
 
-        {/* ===== Right side (40%) — 3D band sphere ===== */}
+        {/* ===== Right side (40%) — holographic instrument dial ===== */}
         <div
-          className="hidden sm:block relative h-[200px] w-[200px] place-self-center"
+          className="hidden sm:flex relative h-[200px] w-[200px] place-self-center items-center justify-center"
           aria-hidden="true"
         >
-          <BandSphere3D band={band} />
+          <InstrumentDial band={band} score={score} maxScore={30} size={200} />
         </div>
       </div>
     </motion.section>

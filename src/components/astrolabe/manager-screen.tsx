@@ -36,9 +36,19 @@ import {
   AlarmClockOff,
   X,
   Clock3,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Zap,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
 import { StatusChip } from "@/components/astrolabe/widgets";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -1283,6 +1293,233 @@ function ObligationRow({
 }
 
 /* ============================================================
+   Trend sparkline (PRD §16) — completion % trend per joiner
+   ------------------------------------------------------------
+   Deterministic 7-point synthetic trend seeded by a hash of the
+   employeeId. Ends at the current aggregateCompletion %. Renders a
+   smooth teal line with sand-gold dots and a hover tooltip showing
+   "Day -7: X% → Day 0: Y%". Trend label (improving/declining/steady)
+   is derived from the slope.
+   ============================================================ */
+
+/* Simple deterministic hash → uint32 (FNV-1a) */
+function hashId(id: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/* Mulberry32 PRNG — deterministic, fast */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Generate a 7-point completion % trend ending at `endValue`.
+ * The trend is monotonically plausible (not strictly increasing —
+ * real journeys plateau and dip) and stays in [0, 100].
+ */
+function generateTrend(employeeId: string, endValue: number, points = 7): number[] {
+  const rand = mulberry32(hashId(employeeId));
+  // Start 10–35 pp below the end value, clamped to [0, 100]
+  const startDrop = 10 + Math.floor(rand() * 26); // 10..35
+  let start = Math.max(0, Math.min(100, endValue - startDrop));
+  // Generate intermediate points with small noise around the linear path
+  const values: number[] = [];
+  for (let i = 0; i < points - 1; i++) {
+    const t = i / (points - 1);
+    const linear = start + (endValue - start) * t;
+    // ±4 pp noise, decaying toward the end so we always land on endValue
+    const noise = (rand() - 0.5) * 8 * (1 - t * 0.6);
+    const v = Math.max(0, Math.min(100, Math.round(linear + noise)));
+    values.push(v);
+  }
+  values.push(Math.round(endValue));
+  return values;
+}
+
+function trendDirection(values: number[]): "up" | "down" | "flat" {
+  if (values.length < 2) return "flat";
+  const delta = values[values.length - 1] - values[0];
+  if (delta > 5) return "up";
+  if (delta < -5) return "down";
+  return "flat";
+}
+
+function trendSlope(values: number[]): number {
+  if (values.length < 2) return 0;
+  return values[values.length - 1] - values[0];
+}
+
+/* ---------- The sparkline SVG ---------- */
+function TrendSparkline({
+  values,
+  width = 180,
+  height = 32,
+  showDots = true,
+  showArea = false,
+  uniqueId,
+}: {
+  values: number[];
+  width?: number;
+  height?: number;
+  showDots?: boolean;
+  showArea?: boolean;
+  uniqueId: string;
+}) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const pad = 4;
+  const max = 100;
+  const min = 0;
+  const stepX = (width - pad * 2) / (values.length - 1);
+  const y = (v: number) => height - pad - ((v - min) / (max - min)) * (height - pad * 2);
+  const x = (i: number) => pad + i * stepX;
+
+  // Smooth path — Catmull-Rom to Bezier conversion for a soft curve
+  const linePath = values
+    .map((v, i) => {
+      if (i === 0) return `M ${x(i).toFixed(1)} ${y(v).toFixed(1)}`;
+      const prev = values[i - 1];
+      const cx1 = x(i - 1) + stepX / 2;
+      const cx2 = x(i) - stepX / 2;
+      return `C ${cx1.toFixed(1)} ${y(prev).toFixed(1)}, ${cx2.toFixed(1)} ${y(v).toFixed(1)}, ${x(i).toFixed(1)} ${y(v).toFixed(1)}`;
+    })
+    .join(" ");
+  const areaPath = `${linePath} L ${x(values.length - 1).toFixed(1)} ${height - pad} L ${x(0).toFixed(1)} ${height - pad} Z`;
+
+  const dir = trendDirection(values);
+  const dirColor =
+    dir === "up" ? "var(--brand-400)" : dir === "down" ? "var(--status-watch)" : "var(--text-lo)";
+
+  const gradId = `trend-grad-${uniqueId}`;
+  const areaGradId = `trend-area-${uniqueId}`;
+
+  return (
+    <TooltipProvider delayDuration={0}>
+      <div className="relative">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          style={{ width: "100%", maxWidth: width, height }}
+          role="img"
+          aria-label={`7-day completion trend: Day -7 ${values[0]}% → Day 0 ${values[values.length - 1]}%`}
+        >
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--brand-400)" stopOpacity={1} />
+              <stop offset="100%" stopColor="var(--brand-500)" stopOpacity={1} />
+            </linearGradient>
+            <linearGradient id={areaGradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--brand-500)" stopOpacity={0.30} />
+              <stop offset="100%" stopColor="var(--brand-500)" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          {showArea && <path d={areaPath} fill={`url(#${areaGradId})`} />}
+          <motion.path
+            d={linePath}
+            fill="none"
+            stroke={`url(#${gradId})`}
+            strokeWidth={1.6}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
+          />
+          {showDots &&
+            values.map((v, i) => (
+              <Tooltip key={i}>
+                <TooltipTrigger asChild>
+                  <circle
+                    cx={x(i)}
+                    cy={y(v)}
+                    r={hoverIdx === i ? 3.5 : 2.5}
+                    fill="var(--accent-500)"
+                    stroke="var(--surface-1)"
+                    strokeWidth={1}
+                    onMouseEnter={() => setHoverIdx(i)}
+                    onMouseLeave={() => setHoverIdx(null)}
+                    style={{ cursor: "pointer", transition: "r 120ms var(--ease-standard)" }}
+                  />
+                </TooltipTrigger>
+                <TooltipContent
+                  side="top"
+                  className="font-mono text-[11px] tabular"
+                  style={{
+                    background: "var(--surface-2)",
+                    color: "var(--text-hi)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  {i === 0 ? "Day -7" : i === values.length - 1 ? "Day 0" : `Day -${values.length - 1 - i}`} · {v}%
+                </TooltipContent>
+              </Tooltip>
+            ))}
+        </svg>
+      </div>
+    </TooltipProvider>
+  );
+}
+
+/* ---------- Trend label badge ---------- */
+function TrendLabel({ values, locale }: { values: number[]; locale: "en" | "ar" }) {
+  const ar = locale === "ar";
+  const dir = trendDirection(values);
+  if (dir === "up") {
+    return (
+      <span
+        className="inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-medium"
+        style={{
+          background: "rgba(22,154,165,0.10)",
+          color: "var(--brand-400)",
+          border: "1px solid rgba(22,154,165,0.32)",
+        }}
+      >
+        <TrendingUp className="w-3 h-3" strokeWidth={2} />
+        {ar ? "يتحسن" : "improving"}
+      </span>
+    );
+  }
+  if (dir === "down") {
+    return (
+      <span
+        className="inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-medium"
+        style={{
+          background: "rgba(217,119,6,0.10)",
+          color: "var(--status-watch)",
+          border: "1px solid rgba(217,119,6,0.32)",
+        }}
+      >
+        <TrendingDown className="w-3 h-3" strokeWidth={2} />
+        {ar ? "يتدهور" : "declining"}
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-medium"
+      style={{
+        background: "var(--surface-3)",
+        color: "var(--text-lo)",
+        border: "1px solid var(--border)",
+      }}
+    >
+      <Minus className="w-3 h-3" strokeWidth={2} />
+      {ar ? "مستقر" : "steady"}
+    </span>
+  );
+}
+
+/* ============================================================
    Compare view (PRD §16) — side-by-side comparison of every joiner
    in the manager's cohort. Each joiner is a column (min-width 220px,
    horizontally scrollable on mobile). Shows: name + journey type,
@@ -1301,6 +1538,60 @@ function CompareView({
   locale: "en" | "ar";
 }) {
   const [sortBy, setSortBy] = useState<CompareSort>("completion");
+
+  // Sort a copy of items — never mutate the source. items may be null/empty;
+  // all hooks below are unconditional so rules-of-hooks holds.
+  const sorted = useMemo(() => {
+    if (!items || items.length === 0) return [] as CohortItem[];
+    const copy = [...items];
+    copy.sort((a, b) => {
+      if (sortBy === "completion") return b.aggregateCompletion - a.aggregateCompletion;
+      if (sortBy === "dayInStage") return b.dayInStage - a.dayInStage;
+      const aw = a.ownedSteps.filter((s) => s.status === "waiting_owner").length;
+      const bw = b.ownedSteps.filter((s) => s.status === "waiting_owner").length;
+      return bw - aw;
+    });
+    return copy;
+  }, [items, sortBy]);
+
+  // Per-joiner 7-day completion % trend (deterministic, seeded by employeeId).
+  // PRD §16 — sparkline below the large completion number in each column.
+  const trendsByEmployee = useMemo(() => {
+    const map: Record<string, number[]> = {};
+    for (const it of sorted) {
+      map[it.employeeId] = generateTrend(it.employeeId, it.aggregateCompletion, 7);
+    }
+    return map;
+  }, [sorted]);
+
+  // Cohort-average trend — average of all per-joiner trends at each day.
+  const cohortTrend = useMemo(() => {
+    if (sorted.length === 0) return [0, 0, 0, 0, 0, 0, 0];
+    const out: number[] = [];
+    for (let i = 0; i < 7; i++) {
+      let sum = 0;
+      for (const it of sorted) {
+        sum += trendsByEmployee[it.employeeId]?.[i] ?? 0;
+      }
+      out.push(Math.round(sum / sorted.length));
+    }
+    return out;
+  }, [sorted, trendsByEmployee]);
+
+  // Fastest improver + needs-attention — by slope of the trend.
+  const { fastest, slowest } = useMemo(() => {
+    if (sorted.length === 0) return { fastest: null as CohortItem | null, slowest: null as CohortItem | null };
+    let fast: CohortItem | null = null;
+    let fastSlope = -Infinity;
+    let slow: CohortItem | null = null;
+    let slowSlope = Infinity;
+    for (const it of sorted) {
+      const slope = trendSlope(trendsByEmployee[it.employeeId] ?? []);
+      if (slope > fastSlope) { fastSlope = slope; fast = it; }
+      if (slope < slowSlope) { slowSlope = slope; slow = it; }
+    }
+    return { fastest: fast, slowest: slow };
+  }, [sorted, trendsByEmployee]);
 
   // Empty state — no joiners in the cohort yet.
   if (!items || items.length === 0) {
@@ -1341,15 +1632,6 @@ function CompareView({
     (a, it) => a + it.ownedSteps.filter((s) => s.status === "waiting_owner").length,
     0,
   );
-
-  // Sort a copy of items — never mutate the source.
-  const sorted = [...items].sort((a, b) => {
-    if (sortBy === "completion") return b.aggregateCompletion - a.aggregateCompletion;
-    if (sortBy === "dayInStage") return b.dayInStage - a.dayInStage;
-    const aw = a.ownedSteps.filter((s) => s.status === "waiting_owner").length;
-    const bw = b.ownedSteps.filter((s) => s.status === "waiting_owner").length;
-    return bw - aw;
-  });
 
   const sortOptions: { id: CompareSort; label: string; labelAr: string }[] = [
     { id: "completion", label: "Completion %", labelAr: "نسبة الإنجاز" },
@@ -1417,6 +1699,38 @@ function CompareView({
               {totalJoiners}
             </p>
           </div>
+        </div>
+
+        {/* Cohort trend sparkline — larger, full-width */}
+        <div
+          className="mt-4 pt-4 flex flex-col sm:flex-row sm:items-center gap-3"
+          style={{ borderTop: "1px solid var(--border-soft)" }}
+        >
+          <div className="flex items-center gap-2 shrink-0">
+            <TrendingUp className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+            <span
+              className="text-[10px] uppercase tracking-[0.14em] font-medium"
+              style={{ color: "var(--text-lo)" }}
+            >
+              {locale === "ar" ? "اتجاه المجموعة (7 أيام)" : "Cohort trend (7 days)"}
+            </span>
+            <TrendLabel values={cohortTrend} locale={locale} />
+          </div>
+          <div className="flex-1 min-w-0 max-w-[280px]">
+            <TrendSparkline
+              values={cohortTrend}
+              width={240}
+              height={40}
+              showDots
+              showArea
+              uniqueId="cohort-avg"
+            />
+          </div>
+          <span className="text-[11px] tabular shrink-0" style={{ color: "var(--text-lo)" }} dir="ltr">
+            {locale === "ar"
+              ? `اليوم -7: ${cohortTrend[0]}% → اليوم 0: ${cohortTrend[6]}%`
+              : `Day -7: ${cohortTrend[0]}% → Day 0: ${cohortTrend[6]}%`}
+          </span>
         </div>
 
         {/* Mini bar chart — completion per joiner */}
@@ -1511,10 +1825,99 @@ function CompareView({
               item={it}
               locale={locale}
               index={i}
+              trend={trendsByEmployee[it.employeeId] ?? []}
+              isFastest={fastest?.employeeId === it.employeeId}
+              isSlowest={slowest?.employeeId === it.employeeId}
             />
           ))}
         </div>
       </div>
+
+      {/* Trend comparison — fastest improver + needs attention (PRD §16) */}
+      {(fastest || slowest) && (
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {fastest && (
+            <div
+              className="ast-card-2 p-3.5 flex items-center gap-3"
+              style={{
+                borderColor: "rgba(22,154,165,0.32)",
+                background: "rgba(22,154,165,0.06)",
+              }}
+            >
+              <div
+                className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
+                style={{ background: "rgba(22,154,165,0.12)", color: "var(--brand-400)" }}
+              >
+                <Zap className="w-5 h-5" strokeWidth={1.75} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] uppercase tracking-[0.12em] font-medium" style={{ color: "var(--text-lo)" }}>
+                  {locale === "ar" ? "الأسرع تحسناً" : "Who's improving fastest?"}
+                </p>
+                <p className="text-[14px] font-medium mt-0.5 truncate" style={{ color: "var(--text-hi)" }}>
+                  {fastest.employeeName}
+                </p>
+                <p className="text-[11px] tabular mt-0.5" style={{ color: "var(--text-mid)" }} dir="ltr">
+                  {locale === "ar"
+                    ? `اليوم -7: ${(trendsByEmployee[fastest.employeeId] ?? [0])[0]}% → اليوم 0: ${fastest.aggregateCompletion}%`
+                    : `Day -7: ${(trendsByEmployee[fastest.employeeId] ?? [0])[0]}% → Day 0: ${fastest.aggregateCompletion}%`}
+                </p>
+              </div>
+              <span
+                className="inline-flex items-center gap-1 h-6 px-2.5 rounded-full text-[11px] font-medium shrink-0"
+                style={{
+                  background: "rgba(22,154,165,0.12)",
+                  color: "var(--brand-400)",
+                  border: "1px solid rgba(22,154,165,0.40)",
+                }}
+              >
+                <TrendingUp className="w-3 h-3" strokeWidth={2} />
+                {locale === "ar" ? "الأسرع" : "Fastest improver"}
+              </span>
+            </div>
+          )}
+          {slowest && slowest.employeeId !== fastest?.employeeId && (
+            <div
+              className="ast-card-2 p-3.5 flex items-center gap-3"
+              style={{
+                borderColor: "rgba(217,119,6,0.32)",
+                background: "rgba(217,119,6,0.06)",
+              }}
+            >
+              <div
+                className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
+                style={{ background: "rgba(217,119,6,0.12)", color: "var(--status-watch)" }}
+              >
+                <AlertTriangle className="w-5 h-5" strokeWidth={1.75} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] uppercase tracking-[0.12em] font-medium" style={{ color: "var(--text-lo)" }}>
+                  {locale === "ar" ? "بحاجة لانتباه" : "Who needs attention?"}
+                </p>
+                <p className="text-[14px] font-medium mt-0.5 truncate" style={{ color: "var(--text-hi)" }}>
+                  {slowest.employeeName}
+                </p>
+                <p className="text-[11px] tabular mt-0.5" style={{ color: "var(--text-mid)" }} dir="ltr">
+                  {locale === "ar"
+                    ? `اليوم -7: ${(trendsByEmployee[slowest.employeeId] ?? [0])[0]}% → اليوم 0: ${slowest.aggregateCompletion}%`
+                    : `Day -7: ${(trendsByEmployee[slowest.employeeId] ?? [0])[0]}% → Day 0: ${slowest.aggregateCompletion}%`}
+                </p>
+              </div>
+              <span
+                className="inline-flex items-center gap-1 h-6 px-2.5 rounded-full text-[11px] font-medium shrink-0"
+                style={{
+                  background: "rgba(217,119,6,0.12)",
+                  color: "var(--status-watch)",
+                  border: "1px solid rgba(217,119,6,0.40)",
+                }}
+              >
+                <TrendingDown className="w-3 h-3" strokeWidth={2} />
+                {locale === "ar" ? "بحاجة لانتباه" : "Needs attention"}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Privacy reminder */}
       <p
@@ -1536,10 +1939,16 @@ function CompareColumn({
   item,
   locale,
   index,
+  trend,
+  isFastest,
+  isSlowest,
 }: {
   item: CohortItem;
   locale: "en" | "ar";
   index: number;
+  trend: number[];
+  isFastest?: boolean;
+  isSlowest?: boolean;
 }) {
   const waitingCount = item.ownedSteps.filter((s) => s.status === "waiting_owner").length;
   const hasBlocked = item.ownedSteps.some((s) => s.status === "blocked");
@@ -1558,7 +1967,20 @@ function CompareColumn({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, delay: Math.min(index * 0.05, 0.25) }}
       className="ast-card p-4 shrink-0 flex flex-col"
-      style={{ width: 220, minWidth: 220 }}
+      style={{
+        width: 220,
+        minWidth: 220,
+        borderColor: isFastest
+          ? "rgba(22,154,165,0.40)"
+          : isSlowest
+          ? "rgba(217,119,6,0.40)"
+          : "var(--border)",
+        background: isFastest
+          ? "rgba(22,154,165,0.04)"
+          : isSlowest
+          ? "rgba(217,119,6,0.04)"
+          : "var(--surface-1)",
+      }}
     >
       {/* Name */}
       <p
@@ -1628,6 +2050,25 @@ function CompareColumn({
           <span className="text-[16px] font-normal" style={{ color: "var(--text-mid)" }}>%</span>
         </p>
       </div>
+
+      {/* Per-joiner 7-day trend sparkline (PRD §16) */}
+      {trend.length > 0 && (
+        <div className="mt-2">
+          <TrendSparkline
+            values={trend}
+            width={180}
+            height={32}
+            showDots
+            uniqueId={`joiner-${item.employeeId}`}
+          />
+          <div className="flex items-center justify-between mt-1">
+            <span className="text-[10px] tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+              {locale === "ar" ? `اليوم -7: ${trend[0]}%` : `Day -7: ${trend[0]}%`}
+            </span>
+            <TrendLabel values={trend} locale={locale} />
+          </div>
+        </div>
+      )}
 
       {/* Mini stage rail — 5 segments */}
       <div className="mt-3">

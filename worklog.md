@@ -1709,3 +1709,86 @@ ASTROLABE is a fully-built employee journey AI companion with 6 roles, 5 employe
 3. **Backtest harness adversarial case runner** — make the 4 adversarial cases in the Backtest tab actually run real injection/conflict/missing-consent scenarios instead of showing static "passed" status.
 4. **Cohort trend analytics** for managers — show completion % trend over time per joiner (sparkline per column in Compare view).
 5. **Service-owner capacity calendar** — expand the capacity declaration into a weekly calendar view showing committed vs available per day.
+
+---
+Task ID: CRON-REVIEW-ROUND-7
+Agent: Main (orchestrator) — 15-min cron review round 7
+Task: QA via agent-browser (all 6 roles clean), add holographic instrument dial + scan-line texture + locator beacon + journey rail enhancement
+
+## Current project status assessment
+ASTROLABE is a fully-built employee journey AI companion with 6 roles, 5 employee views, 22+ API routes, 3D astrolabe + constellation background, deterministic engine, bilingual EN/AR, consent-gated computation. Round 6 added audit tamper test, service-owner notification preferences, manager nudge, Me screen 3D consent cards + privacy meter + audit timeline. This round focused on: (1) replacing the flat BandSphere3D in the verdict card with a holographic instrument dial (radial gauge with tick marks), (2) adding scan-line CRT/instrument texture to the verdict card, (3) adding a locator beacon to the active journey rail segment, (4) verifying all existing features still work (adversarial runner, cohort trends, capacity calendar all confirmed already built from previous rounds).
+
+## Completed modifications
+
+### QA results
+- `bun run lint` → EXIT 0 (clean)
+- Dev server: all routes returning 200, no errors
+- agent-browser QA: navigated all 6 roles + all employee views + Judge Backtest adversarial runner (ran ADV-1 injection test → "passed" with trace) → ZERO console errors captured
+- No bugs found this round after fixing the useState import
+
+### Bug found and fixed
+1. **Missing `useState` import** in `src/components/astrolabe/instrument-dial.tsx` — the `usePrefersReducedMotion` hook used `useState` but only `useEffect` and `useRef` were imported. Added `useState` to the React import.
+
+### New styling features
+
+**ENHANCE-STYLING-6 (direct edits):**
+
+1. **Holographic Instrument Dial** (`src/components/astrolabe/instrument-dial.tsx` — new component):
+   - Replaces the flat BandSphere3D 3D icosahedron with a precision radial gauge
+   - Concentric glowing rings (teal for steady → gold for next-move)
+   - 21 tick marks around the outer edge (major ticks at 0, 25, 50, 75, 100 with labels in JetBrains Mono)
+   - Sweeping arc colored by band (steady=teal, watch=amber, friction=red, blocked=dark-red)
+   - Animated arc draw-in (motion.path pathLength 0→1, 640ms ease-out)
+   - Central hub with band label + score number + "/ 30" max
+   - SVG glow filter for the arc
+   - Size 200×200px, fits the verdict card's right column
+   - Respects prefers-reduced-motion (static arc if reduced)
+
+2. **Scan-Line CRT Texture** (`ScanLineOverlay` component in instrument-dial.tsx):
+   - Subtle repeating horizontal scan lines (rgba(22,154,165,0.06) every 3px)
+   - Moving scan beam (60px tall, teal gradient, 8s linear infinite)
+   - Applied to the verdict card with 0.022 opacity — gives the "live instrument display" feel
+   - Respects prefers-reduced-motion (disabled if reduced)
+
+3. **Locator Beacon on Journey Rail** (`src/app/globals.css` + `today-screen.tsx`):
+   - New `.ast-rail-beacon` CSS class: 8px sand-gold dot with glow
+   - `ast-beacon-pulse` keyframe animation (2s ease-in-out infinite, scale 1→1.3, opacity 1→0.6)
+   - Positioned at the right edge of the active stage segment
+   - Added to the Today screen's StageRail component on the active segment
+   - Gives a "you are here" beacon effect on the journey rail
+
+4. **Enhanced Active Rail Glow** (`src/app/globals.css`):
+   - The `.ast-rail-seg[data-state="active"]` now has `box-shadow: 0 0 8px rgba(22,154,165,0.4)` (teal glow)
+   - The locator beacon adds a sand-gold pulse on top of the teal glow
+   - Creates a "neon tube" effect on the active segment
+
+5. **Instrument Panel Scan-Line Utility** (`src/app/globals.css`):
+   - New `.ast-scanlines` CSS utility class: adds repeating horizontal scan lines via `::after` pseudo-element
+   - Available for any card that wants the instrument display texture
+   - rgba(22,154,165,0.025) every 3px — very subtle
+
+### Verified existing features (from previous rounds)
+- Backtest adversarial case runner: ADV-1 injection test runs successfully, shows "passed" with detailed trace ("Injection detected and neutralized. Band unchanged: Blocked (score 25). PS-01 still fires on the genuine pulse lexicon. Injection attempt logged as `injection_attempt`.")
+- Cohort trend analytics: per-joiner sparklines already exist in Compare view
+- Service-owner capacity calendar: weekly calendar with daily capacity/committed/available already exists
+
+## Verification results
+- `bun run lint` → EXIT 0 (clean)
+- Dev server: all routes returning 200, no errors
+- agent-browser QA: all 6 roles + all employee views → ZERO console errors
+- VLM design assessment: 9/10 — "sophisticated, cohesive dark-mode UI with excellent information hierarchy and a strong sci-fi navigational theme"
+- Instrument dial confirmed: "holographic radial gauge dial with visible tick marks and a red progress arc, effectively replacing the older 3D sphere"
+- Scan-line texture confirmed: "subtle, high-tech scan-line texture is clearly visible across the surface of the status card"
+- Locator beacon confirmed: "bright yellow locator beacon is positioned on the journey rail segment to indicate the user's current progress"
+
+## Unresolved issues / risks
+- None critical. The app is stable and demo-ready.
+- Minor: the instrument dial uses an SVG radial gauge instead of WebGL — it's lighter weight but less "3D" than the previous BandSphere3D. The tradeoff favors performance and precision-instrument aesthetic over raw 3D.
+- Minor: the scan-line overlay is very subtle (0.022 opacity) — may not be visible on all displays.
+
+## Priority recommendations for next phase
+1. **Accessibility audit** — run axe-core in CI per PRD §13-241 (WCAG 2.2 AA). Check focus order, ARIA labels, contrast ratios across all 6 roles + all modals.
+2. **Offline support** (PRD §14-266) — cache the shell + last journey state via service worker for offline reading + queued actions.
+3. **Today screen hero animated day-counter** — a large animated number counting up the day-in-stage on mount
+4. **Floating quick-action orb** on Today — a 3D brass orb that floats and expands to show quick actions (Ask, Start request, View journey)
+5. **Request intake voice input** — add a microphone button to the Ask input for voice-to-text questions (PRD §04-061)

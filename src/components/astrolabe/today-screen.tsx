@@ -672,12 +672,17 @@ function StageRail({ data }: { data: JourneyMeData }) {
           const label = locale === "ar" ? st.labelAr : st.label;
           return (
             <li key={st.key} className="flex flex-col gap-2 min-w-0">
-              <div
-                className="ast-rail-seg"
-                data-state={state === "pending" ? undefined : state}
-                aria-label={`${label}: ${state}`}
-                style={state === "pending" ? { background: "var(--surface-3)" } : undefined}
-              />
+              <div className="relative">
+                <div
+                  className="ast-rail-seg"
+                  data-state={state === "pending" ? undefined : state}
+                  aria-label={`${label}: ${state}`}
+                  style={state === "pending" ? { background: "var(--surface-3)" } : undefined}
+                />
+                {isActive && (
+                  <span className="ast-rail-beacon" style={{ left: "calc(100% - 4px)" }} aria-hidden="true" />
+                )}
+              </div>
               <div className="min-w-0">
                 <p
                   className="text-[11px] sm:text-[12px] font-medium leading-tight truncate"

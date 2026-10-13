@@ -344,6 +344,42 @@
   }
   .ast-rail-seg[data-state="blocked"] { background: var(--status-blocked); }
 
+  /* Enhanced active rail — locator beacon */
+  .ast-rail-beacon {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--accent-500);
+    box-shadow: 0 0 8px var(--accent-500), 0 0 16px rgba(201,162,39,0.4);
+    animation: ast-beacon-pulse 2s ease-in-out infinite;
+  }
+  @keyframes ast-beacon-pulse {
+    0%, 100% { opacity: 1; transform: translateY(-50%) scale(1); }
+    50% { opacity: 0.6; transform: translateY(-50%) scale(1.3); }
+  }
+
+  /* Instrument panel scan-line texture */
+  .ast-scanlines {
+    position: relative;
+  }
+  .ast-scanlines::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 2px,
+      rgba(22, 154, 165, 0.025) 2px,
+      rgba(22, 154, 165, 0.025) 3px
+    );
+  }
+
   /* Verdict card — band readout */
   .ast-verdict {
     position: relative;

@@ -40,8 +40,25 @@ import {
   ShieldCheck,
   Bug,
   Zap,
+  ShieldAlert,
+  KeyRound,
+  FileWarning,
+  UserX,
+  Database,
 } from "lucide-react";
 import { useAppStore, type DegradedLevel } from "@/lib/store/app-store";
+import {
+  runInjectionTest,
+  runConflictingPoliciesTest,
+  runMissingConsentTest,
+  runQuartetTest,
+  type InjectionResult,
+  type ConflictResult,
+  type MissingConsentResult,
+  type QuartetResult,
+  type AdversarialStatus,
+  type AdversarialTraceStep,
+} from "@/lib/engine/adversarial";
 import {
   BandChip,
   BandDot,
@@ -1283,6 +1300,544 @@ function BacktestScenarioCard({
   );
 }
 
+/* ============================================================
+   Adversarial case card — PRD §22 (live runner)
+   Replaces the static "Adversarial case passed" line with a Run
+   button that actually executes the test against the live API +
+   engine and renders the structured result inline.
+   ============================================================ */
+
+type AdvRunState = "pending" | "running" | "done";
+type AdvResult = InjectionResult | ConflictResult | MissingConsentResult | QuartetResult;
+
+const ADV_STATUS_COLOR: Record<AdversarialStatus, string> = {
+  pass: "var(--status-steady)",
+  fail: "var(--status-friction)",
+  running: "var(--brand-400)",
+  pending: "var(--text-lo)",
+};
+
+const TRACE_STATUS_COLOR: Record<AdversarialTraceStep["status"], string> = {
+  pass: "var(--status-steady)",
+  fail: "var(--status-friction)",
+  warn: "var(--status-watch)",
+  info: "var(--brand-400)",
+};
+
+/* ---------- Trace timeline ---------- */
+function AdvTrace({ steps }: { steps: AdversarialTraceStep[] }) {
+  return (
+    <ol className="space-y-1.5 mt-2">
+      {steps.map((s, i) => {
+        const color = TRACE_STATUS_COLOR[s.status];
+        return (
+          <li key={i} className="flex items-start gap-2 text-[11px]">
+            <span
+              className="font-mono tabular shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center"
+              style={{ background: `${color}1A`, color, border: `1px solid ${color}40` }}
+              dir="ltr"
+            >
+              {i + 1}
+            </span>
+            <div className="flex-1 min-w-0">
+              <p style={{ color: "var(--text-hi)" }} dir="ltr">{s.label}</p>
+              {s.detail && (
+                <p className="font-mono tabular mt-0.5" style={{ color: "var(--text-lo)" }} dir="ltr">
+                  {s.detail}
+                </p>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/* ---------- Result renderer — switches per case id ---------- */
+function AdvResultPanel({ advId, result }: { advId: string; result: AdvResult }) {
+  const locale = useAppStore((s) => s.locale);
+  const ar = locale === "ar";
+
+  if (advId === "ADV-1" && "injectionDetected" in result) {
+    const r = result as InjectionResult;
+    return (
+      <div className="space-y-3">
+        <div className="ast-card-2 p-3 space-y-2 text-[11px]">
+          <div>
+            <p className="uppercase tracking-[0.1em] mb-1" style={{ color: "var(--text-lo)" }}>
+              {ar ? "التعليق الأصلي" : "Original comment"}
+            </p>
+            <p className="font-mono" style={{ color: "var(--text-hi)" }} dir="ltr">"{r.originalComment}"</p>
+          </div>
+          <div>
+            <p className="uppercase tracking-[0.1em] mb-1" style={{ color: "var(--status-watch)" }}>
+              {ar ? "النص المُحقن" : "Injected text"}
+            </p>
+            <p className="font-mono" style={{ color: "var(--status-watch)" }} dir="ltr">"{r.injectedText}"</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
+                {ar ? "الحقن مكتشف" : "Injection detected"}
+              </p>
+              <p className="font-mono tabular" style={{ color: r.injectionDetected ? "var(--status-steady)" : "var(--status-friction)" }} dir="ltr">
+                {r.injectionDetected ? "yes" : "no"}
+              </p>
+            </div>
+            <div>
+              <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
+                {ar ? "نجاحات الحقن" : "Injection successes"}
+              </p>
+              <p className="font-mono tabular" style={{ color: r.injectionSuccesses === 0 ? "var(--status-steady)" : "var(--status-friction)" }} dir="ltr">
+                {r.injectionSuccesses}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
+                {ar ? "التصنيف" : "Band"}
+              </p>
+              <p className="font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">{r.bandAfter}</p>
+            </div>
+            <div>
+              <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
+                {ar ? "النتيجة" : "Score"}
+              </p>
+              <p className="font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">{r.scoreAfter}</p>
+            </div>
+          </div>
+          {r.psSignals.length > 0 && (
+            <div>
+              <p className="uppercase tracking-[0.1em] mb-1" style={{ color: "var(--text-lo)" }}>
+                {ar ? "إشارات PS الفعلية" : "PS signals fired"}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {r.psSignals.map((s) => (
+                  <span
+                    key={s.code}
+                    className="ast-chip font-mono text-[10px]"
+                    style={{ color: "var(--brand-400)" }}
+                    dir="ltr"
+                  >
+                    {s.code} · w{s.weight}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <AdvTrace steps={r.trace} />
+      </div>
+    );
+  }
+
+  if (advId === "ADV-2" && "chunks" in result) {
+    const r = result as ConflictResult;
+    return (
+      <div className="space-y-3">
+        <div className="ast-card-2 p-3 space-y-2 text-[11px]">
+          <div>
+            <p className="uppercase tracking-[0.1em] mb-1" style={{ color: "var(--text-lo)" }}>
+              {ar ? "السؤال" : "Question"}
+            </p>
+            <p className="font-mono" style={{ color: "var(--text-hi)" }} dir="ltr">"{r.question}"</p>
+          </div>
+          <div>
+            <p className="uppercase tracking-[0.1em] mb-1" style={{ color: "var(--text-lo)" }}>
+              {ar ? "أعلى قطعتان مُسترجعتان" : "Top-2 retrieved chunks"}
+            </p>
+            <ul className="space-y-1">
+              {r.chunks.slice(0, 3).map((c, i) => (
+                <li key={i} className="flex items-baseline justify-between gap-2 font-mono tabular" dir="ltr">
+                  <span style={{ color: i < 2 ? "var(--text-hi)" : "var(--text-lo)" }}>
+                    {c.docSlug}#{c.section}
+                  </span>
+                  <span
+                    className="text-[10px] px-1.5 py-0.5 rounded"
+                    style={{
+                      background: i < 2 && r.conflictDetected ? "rgba(217,119,6,0.12)" : "var(--surface-3)",
+                      color: i < 2 && r.conflictDetected ? "var(--status-watch)" : "var(--text-lo)",
+                    }}
+                  >
+                    {c.score.toFixed(3)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
+                {ar ? "تعارض مكتشف" : "Conflict detected"}
+              </p>
+              <p className="font-mono tabular" style={{ color: r.conflictDetected ? "var(--status-watch)" : "var(--text-lo)" }} dir="ltr">
+                {r.conflictDetected ? "yes" : "no"}
+              </p>
+            </div>
+            <div>
+              <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
+                {ar ? "سبب الامتناع" : "Abstain reason"}
+              </p>
+              <p className="font-mono text-[10px]" style={{ color: "var(--text-hi)" }} dir="ltr">
+                {r.abstainReason}
+              </p>
+            </div>
+          </div>
+          {r.handoff && (
+            <div>
+              <p className="uppercase tracking-[0.1em] mb-1" style={{ color: "var(--text-lo)" }}>
+                {ar ? "تسليم إلى" : "Handoff to"}
+              </p>
+              <p className="font-mono" style={{ color: "var(--brand-400)" }} dir="ltr">
+                {r.handoff.name} · {r.handoff.role}
+              </p>
+            </div>
+          )}
+        </div>
+        <AdvTrace steps={r.trace} />
+      </div>
+    );
+  }
+
+  if (advId === "ADV-3" && "consentRevoked" in result) {
+    const r = result as MissingConsentResult;
+    return (
+      <div className="space-y-3">
+        <div className="ast-card-2 p-3 space-y-2 text-[11px]">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
+                {ar ? "قبل" : "Before"}
+              </p>
+              <p className="font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">
+                {r.bandBefore} · score {r.scoreBefore}
+              </p>
+            </div>
+            <div>
+              <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
+                {ar ? "بعد" : "After"}
+              </p>
+              <p className="font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">
+                {r.bandAfter} · score {r.scoreAfter}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
+                {ar ? "PS قبل" : "PS before"}
+              </p>
+              <p className="font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">
+                {r.psContributedBefore}
+              </p>
+            </div>
+            <div>
+              <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
+                {ar ? "PS بعد" : "PS after"}
+              </p>
+              <p className="font-mono tabular" style={{ color: r.psContributedAfter === 0 ? "var(--status-steady)" : "var(--status-watch)" }} dir="ltr">
+                {r.psContributedAfter}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
+                {ar ? "العائلات المكتومة" : "Suppressed"}
+              </p>
+              <p className="font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">
+                {r.suppressedFamilies.length > 0 ? r.suppressedFamilies.join(", ") : "—"}
+              </p>
+            </div>
+            <div>
+              <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
+                {ar ? "DQ-03" : "DQ-03"}
+              </p>
+              <p className="font-mono tabular" style={{ color: r.dq03Raised ? "var(--status-steady)" : "var(--status-friction)" }} dir="ltr">
+                {r.dq03Raised ? "raised" : "not raised"}
+              </p>
+            </div>
+          </div>
+          <div>
+            <p className="uppercase tracking-[0.1em] mb-1" style={{ color: "var(--text-lo)" }}>
+              {ar ? "الإفصاح" : "Disclosure"}
+            </p>
+            <p style={{ color: "var(--text-hi)" }} dir="ltr">"{r.disclosure}"</p>
+          </div>
+          <div>
+            <p className="uppercase tracking-[0.1em] mb-1" style={{ color: "var(--text-lo)" }}>
+              {ar ? "حدث مستقبلي" : "Future-dated event"}
+            </p>
+            <p className="font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">
+              {r.futureDatedEventId}
+            </p>
+          </div>
+        </div>
+        <AdvTrace steps={r.trace} />
+      </div>
+    );
+  }
+
+  if (advId === "ADV-4" && "subResults" in result) {
+    const r = result as QuartetResult;
+    const SUB_ICON: Record<string, typeof KeyRound> = {
+      dedup: KeyRound,
+      unknown_policy: FileWarning,
+      colleague: UserX,
+      corrupted_csv: Database,
+    };
+    return (
+      <div className="space-y-3">
+        <div
+          className="rounded-[10px] p-2.5 flex items-center justify-between"
+          style={{
+            background: r.status === "pass" ? "rgba(14,159,110,0.08)" : "rgba(220,38,38,0.08)",
+            border: `1px solid ${r.status === "pass" ? "rgba(14,159,110,0.30)" : "rgba(220,38,38,0.30)"}`,
+          }}
+        >
+          <span
+            className="inline-flex items-center gap-1.5 text-[12px] font-medium"
+            style={{ color: r.status === "pass" ? "var(--status-steady)" : "var(--status-friction)" }}
+          >
+            {r.status === "pass" ? (
+              <CheckCircle2 className="w-4 h-4" strokeWidth={2} />
+            ) : (
+              <XCircle className="w-4 h-4" strokeWidth={2} />
+            )}
+            {ar ? `${r.passed}/${r.total} اجتازت` : `${r.passed}/${r.total} sub-tests passed`}
+          </span>
+        </div>
+        <ul className="space-y-2">
+          {r.subResults.map((sub) => {
+            const Icon = SUB_ICON[sub.id] ?? KeyRound;
+            const color = sub.status === "pass" ? "var(--status-steady)" : "var(--status-friction)";
+            return (
+              <li
+                key={sub.id}
+                className="ast-card-2 p-2.5 space-y-1.5"
+                style={{ borderColor: `${color}40` }}
+              >
+                <div className="flex items-center gap-2">
+                  <Icon className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} style={{ color }} />
+                  <span className="text-[12px] font-medium" style={{ color: "var(--text-hi)" }}>
+                    {sub.label}
+                  </span>
+                  {sub.status === "pass" ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 ml-auto" strokeWidth={2} style={{ color }} />
+                  ) : (
+                    <XCircle className="w-3.5 h-3.5 ml-auto" strokeWidth={2} style={{ color }} />
+                  )}
+                </div>
+                <p className="text-[11px]" style={{ color: "var(--text-mid)" }} dir="ltr">{sub.message}</p>
+                {sub.detail && (
+                  <p className="font-mono text-[10px] tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+                    {sub.detail}
+                  </p>
+                )}
+                {sub.trace.length > 0 && <AdvTrace steps={sub.trace} />}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+/* ---------- The card itself ---------- */
+function AdversarialCard({ adv }: { adv: AdversarialCase }) {
+  const locale = useAppStore((s) => s.locale);
+  const ar = locale === "ar";
+  const [runState, setRunState] = useState<AdvRunState>("pending");
+  const [result, setResult] = useState<AdvResult | null>(null);
+
+  const handleRun = async () => {
+    setRunState("running");
+    try {
+      let r: AdvResult;
+      switch (adv.id) {
+        case "ADV-1": r = await runInjectionTest(); break;
+        case "ADV-2": r = await runConflictingPoliciesTest(); break;
+        case "ADV-3": r = await runMissingConsentTest(); break;
+        case "ADV-4": r = await runQuartetTest(); break;
+        default: return;
+      }
+      setResult(r);
+      setRunState("done");
+      if (r.status === "pass") {
+        toast.success(ar ? `${adv.id} اجتاز` : `${adv.id} passed`, { description: r.message });
+      } else {
+        toast.warning(ar ? `${adv.id} فشل` : `${adv.id} failed`, { description: r.message });
+      }
+    } catch (e) {
+      setRunState("pending");
+      toast.error(ar ? `${adv.id} خطأ` : `${adv.id} error`, {
+        description: e instanceof Error ? e.message : "Network error",
+      });
+    }
+  };
+
+  const status: AdversarialStatus =
+    runState === "running" ? "running" : runState === "done" && result ? result.status : "pending";
+  const statusColor = ADV_STATUS_COLOR[status];
+  const isRunning = runState === "running";
+
+  return (
+    <motion.li
+      initial={false}
+      whileHover={{ y: -2 }}
+      className="ast-card p-4 flex flex-col gap-3"
+      style={{
+        borderColor:
+          runState === "done"
+            ? status === "pass"
+              ? "rgba(14,159,110,0.40)"
+              : "rgba(220,38,38,0.40)"
+            : "var(--border)",
+        background:
+          runState === "done"
+            ? status === "pass"
+              ? "rgba(14,159,110,0.04)"
+              : "rgba(220,38,38,0.04)"
+            : "var(--surface-1)",
+      }}
+    >
+      {/* Header: id + status icon */}
+      <div className="flex items-baseline justify-between gap-2">
+        <span
+          className="font-mono text-[12px] tabular px-2 py-0.5 rounded"
+          style={{ background: "var(--surface-3)", color: "var(--status-watch)" }}
+        >
+          {adv.id}
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: statusColor }}>
+          {isRunning ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={2} />
+          ) : runState === "done" ? (
+            status === "pass" ? (
+              <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2} />
+            ) : (
+              <XCircle className="w-3.5 h-3.5" strokeWidth={2} />
+            )
+          ) : (
+            <ShieldAlert className="w-3.5 h-3.5" strokeWidth={1.75} />
+          )}
+          {isRunning
+            ? (ar ? "جارٍ التشغيل" : "running")
+            : runState === "done"
+            ? status === "pass"
+              ? (ar ? "اجتاز" : "passed")
+              : (ar ? "فشل" : "failed")
+            : (ar ? "بانتظار" : "pending")}
+        </span>
+      </div>
+
+      {/* Label */}
+      <h4 className="text-[14px] font-medium" style={{ color: "var(--text-hi)" }}>
+        {ar ? adv.labelAr : adv.label}
+      </h4>
+
+      {/* Cases list */}
+      <ul className="space-y-1 text-[11px]" style={{ color: "var(--text-mid)" }}>
+        {adv.cases.map((c, i) => (
+          <li key={i} className="flex items-start gap-1.5">
+            <span className="font-mono mt-0.5" style={{ color: "var(--text-lo)" }} dir="ltr">{i + 1}.</span>
+            <span dir="ltr">{c}</span>
+          </li>
+        ))}
+      </ul>
+
+      {/* Expected box */}
+      <div className="ast-card-2 p-2.5 text-[11px]" style={{ borderColor: "rgba(14,159,110,0.24)" }}>
+        <p className="uppercase tracking-[0.1em] mb-1" style={{ color: "var(--text-lo)" }}>
+          {ar ? "متوقع" : "Expected"}
+        </p>
+        <p style={{ color: "var(--status-steady)" }} dir={ar ? "rtl" : "ltr"}>
+          {ar ? adv.expectationAr : adv.expectation}
+        </p>
+      </div>
+
+      {/* Run button (when pending) */}
+      {runState === "pending" && (
+        <button
+          onClick={handleRun}
+          className="ast-focus inline-flex items-center justify-center gap-2 h-9 px-3 rounded-full text-[12px] font-medium mt-auto"
+          style={{
+            background: "var(--brand-500)",
+            color: "var(--surface-0)",
+            border: "1px solid var(--brand-500)",
+          }}
+        >
+          <Play className="w-3.5 h-3.5" strokeWidth={1.75} />
+          {ar ? "شغّل الحالة" : "Run case"}
+        </button>
+      )}
+
+      {/* Running banner */}
+      {isRunning && (
+        <div
+          className="rounded-[10px] p-3 flex items-center gap-2 text-[12px] mt-auto"
+          style={{ background: "rgba(22,154,165,0.08)", border: "1px solid rgba(22,154,165,0.30)" }}
+        >
+          <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={2} style={{ color: "var(--brand-400)" }} />
+          <span style={{ color: "var(--text-hi)" }}>
+            {ar ? "جارٍ تنفيذ الحالة العدائية…" : "Running adversarial case against live engine…"}
+          </span>
+        </div>
+      )}
+
+      {/* Result panel (when done) */}
+      <AnimatePresence>
+        {runState === "done" && result && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden mt-auto"
+          >
+            <div
+              className="rounded-[10px] p-3"
+              style={{
+                background: "var(--surface-2)",
+                border: `1px solid ${status === "pass" ? "rgba(14,159,110,0.30)" : "rgba(220,38,38,0.30)"}`,
+              }}
+            >
+              {/* Verdict message */}
+              <p
+                className="text-[12px] leading-relaxed mb-3"
+                style={{ color: status === "pass" ? "var(--status-steady)" : "var(--status-friction)" }}
+                dir={ar ? "rtl" : "ltr"}
+              >
+                {result.message}
+              </p>
+              {/* Type-specific result details */}
+              <AdvResultPanel advId={adv.id} result={result} />
+            </div>
+            {/* Re-run button */}
+            <button
+              onClick={handleRun}
+              className="ast-focus inline-flex items-center justify-center gap-2 h-8 px-3 rounded-full text-[11px] font-medium mt-2 w-full"
+              style={{
+                background: "var(--surface-2)",
+                color: "var(--text-hi)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <RotateCcw className="w-3 h-3" strokeWidth={1.75} />
+              {ar ? "أعد التشغيل" : "Re-run"}
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.li>
+  );
+}
+
 /* ---------- Backtest root view ---------- */
 function BacktestView() {
   const locale = useAppStore((s) => s.locale);
@@ -1529,62 +2084,22 @@ function BacktestView() {
         </ul>
       </section>
 
-      {/* (c) 4 adversarial cases */}
+      {/* (c) 4 adversarial cases — live runner */}
       <section className="space-y-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Bug className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--status-watch)" }} />
           <h3 className="text-[14px] font-semibold" style={{ color: "var(--text-hi)" }}>
             {ar ? "4 حالات عدائية (8 من PRD §22)" : "4 adversarial cases (8 from PRD §22)"}
           </h3>
+          <span className="text-[11px]" style={{ color: "var(--text-lo)" }}>
+            {ar
+              ? "كل بطاقة تشغّل اختباراً حقيقياً ضد المحرك المباشر"
+              : "each card runs a live test against the running engine"}
+          </span>
         </div>
         <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {ADVERSARIAL_CASES.map((adv) => (
-            <motion.li
-              key={adv.id}
-              initial={false}
-              whileHover={{ y: -2 }}
-              className="ast-card p-4 flex flex-col gap-3"
-              style={{ borderColor: "var(--border)", background: "var(--surface-1)" }}
-            >
-              <div className="flex items-baseline justify-between gap-2">
-                <span
-                  className="font-mono text-[12px] tabular px-2 py-0.5 rounded"
-                  style={{ background: "var(--surface-3)", color: "var(--status-watch)" }}
-                >
-                  {adv.id}
-                </span>
-                <span
-                  className="inline-flex items-center gap-1.5 text-[11px]"
-                  style={{ color: adv.outcomeAbstain ? "var(--brand-400)" : "var(--status-watch)" }}
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
-                  {adv.outcomeAbstain ? (ar ? "امتناع" : "abstain") : (ar ? "محظور" : "blocked")}
-                </span>
-              </div>
-              <h4 className="text-[14px] font-medium" style={{ color: "var(--text-hi)" }}>
-                {ar ? adv.labelAr : adv.label}
-              </h4>
-              <ul className="space-y-1 text-[11px]" style={{ color: "var(--text-mid)" }}>
-                {adv.cases.map((c, i) => (
-                  <li key={i} className="flex items-start gap-1.5">
-                    <span className="font-mono mt-0.5" style={{ color: "var(--text-lo)" }} dir="ltr">{i + 1}.</span>
-                    <span dir="ltr">{c}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="ast-card-2 p-2.5 text-[11px]" style={{ borderColor: "rgba(14,159,110,0.24)" }}>
-                <p className="uppercase tracking-[0.1em] mb-1" style={{ color: "var(--text-lo)" }}>
-                  {ar ? "متوقع" : "Expected"}
-                </p>
-                <p style={{ color: "var(--status-steady)" }} dir={ar ? "rtl" : "ltr"}>
-                  {ar ? adv.expectationAr : adv.expectation}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 text-[11px]" style={{ color: "var(--text-mid)" }}>
-                <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2} style={{ color: "var(--status-steady)" }} />
-                <span>{ar ? "تم اجتياز الحالة العدائية" : "Adversarial case passed"}</span>
-              </div>
-            </motion.li>
+            <AdversarialCard key={adv.id} adv={adv} />
           ))}
         </ul>
       </section>

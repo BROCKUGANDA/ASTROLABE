@@ -124,6 +124,11 @@ export function classifyIntent(question: string): Intent {
   if (/\b(salary\s+dispute|sue|lawsuit|medical|sick\s+leave\s+dispute|disciplin|warned|fired|about\s+(?:my\s+)?colleague|about\s+(?:mr|mrs|ms)\b)/.test(q)) {
     return "out_of_scope";
   }
+  // PRD §22 adversarial: "What's John's salary?" — asking about a named
+  // colleague's pay is `about_another_employee`, not a policy question.
+  if (/\b\w+'s\s+(salary|pay|compensation|raise|bonus)\b/i.test(q)) {
+    return "out_of_scope";
+  }
   if (/\b(salary|raise|increase\s+pay|pay\s+dispute|compensation\s+dispute)\b/.test(q) && /dispute|unfair|wrong|incorrect/.test(q)) {
     return "out_of_scope";
   }
@@ -166,7 +171,11 @@ export function composeExtractive(
       // Boost sentences with normative content (numbers, durations, amounts)
       const hasNormative = /\b(\d+|aed|days?|hours?|weeks?|months?|years?|must|shall|required|eligible)\b/i.test(s);
       const score = overlap + (hasNormative ? 0.5 : 0);
-      if (score > 0) candidates.push({ text: s, chunk: r.chunk, score });
+      // PRD §22 adversarial — only pick sentences that share at least one
+      // content token with the question. Without this, "What's the policy
+      // on quantum computing?" would fall back to quoting relocation text
+      // (only the title token "policy" matched), which is a hallucination.
+      if (overlap > 0) candidates.push({ text: s, chunk: r.chunk, score });
     }
   }
   candidates.sort((a, b) => b.score - a.score);
@@ -180,11 +189,8 @@ export function composeExtractive(
     picked.push(c);
     usedChunks.add(c.chunk.id);
   }
-  if (picked.length === 0 && chunks.length > 0) {
-    // Fallback: first sentence of top chunk
-    const fallback = chunks[0].chunk.text.split(/(?<=[.!?])\s+/)[0];
-    picked.push({ text: fallback, chunk: chunks[0].chunk, score: 0 });
-  }
+  // Fallback removed: if no sentence shared a token with the question, we
+  // abstain upstream rather than quote an unrelated sentence.
 
   const citations: Citation[] = picked.map((p, i) => ({
     docSlug: p.chunk.docSlug,
@@ -270,7 +276,13 @@ export function answer(
     const q = question.toLowerCase();
     let reasonCode: PolicyAnswer["abstainReasonCode"] = "compensation_legal_medical_disciplinary";
     let ownerKey = "default";
-    if (/medical|sick/.test(q)) { reasonCode = "compensation_legal_medical_disciplinary"; ownerKey = "medical"; }
+    // PRD §22 adversarial — "What's John's salary?" is about another
+    // employee, not a compensation dispute. Detect the possessive+
+    // pay pattern first so we route to about_another_employee.
+    if (/\b\w+'s\s+(salary|pay|compensation|raise|bonus)\b/i.test(q)) {
+      reasonCode = "about_another_employee";
+      ownerKey = "default";
+    } else if (/medical|sick/.test(q)) { reasonCode = "compensation_legal_medical_disciplinary"; ownerKey = "medical"; }
     else if (/salary|pay|compensation/.test(q)) { reasonCode = "compensation_legal_medical_disciplinary"; ownerKey = "compensation"; }
     else if (/visa|immigration/.test(q)) { reasonCode = "compensation_legal_medical_disciplinary"; ownerKey = "legal"; }
     else if (/colleague|mr|mrs|ms/.test(q)) { reasonCode = "about_another_employee"; }
@@ -281,8 +293,12 @@ export function answer(
       citations: [],
       followUps: [],
       abstainReasonCode: reasonCode,
-      abstainReasonEn: "I'm not certain, and I won't guess. This question needs a human who knows your case.",
-      abstainReasonAr: "لست متأكداً، ولن أخمن. هذا السؤال يحتاج إلى شخص يعرف حالتك.",
+      abstainReasonEn: reasonCode === "about_another_employee"
+        ? "I can't answer questions about another employee's pay or terms — that's private. Fatima in HR can help if you have a concern about a colleague."
+        : "I'm not certain, and I won't guess. This question needs a human who knows your case.",
+      abstainReasonAr: reasonCode === "about_another_employee"
+        ? "لا أستطيع الإجابة على أسئلة عن راتب أو شروط زميل — هذا أمر خاص. فاطمة في الموارد البشرية يمكنها المساعدة إذا كان لديك قلق بشأن زميل."
+        : "لست متأكداً، ولن أخمن. هذا السؤال يحتاج إلى شخص يعرف حالتك.",
       ownerHint: OUT_OF_SCOPE_HINTS[ownerKey] ?? OUT_OF_SCOPE_HINTS.default,
       groundingScore: 0,
       servedFrom: "extractive",
@@ -364,6 +380,30 @@ export function answer(
 
   // Compose extractive answer
   const composed = composeExtractive(question, retrieved, locale);
+
+  // PRD §22 adversarial — if retrieval matched only on generic tokens
+  // (e.g. "policy" in every title) and no sentence shared a content
+  // token with the question, we abstain rather than quote an unrelated
+  // sentence. This is what makes "What's the policy on quantum computing?"
+  // handoff to a human instead of quoting the relocation allowance.
+  if (composed.citations.length === 0) {
+    return {
+      answerId,
+      kind: "abstain",
+      citations: [],
+      followUps: [],
+      abstainReasonCode: "low_top_chunk",
+      abstainReasonEn: "I'm not certain I found the right policy. Let me hand you to someone who knows.",
+      abstainReasonAr: "لست متأكداً أنني وجدت السياسة الصحيحة. دعني أحيلك إلى من يعرف.",
+      ownerHint: OUT_OF_SCOPE_HINTS.default,
+      groundingScore: topScore,
+      servedFrom: "extractive",
+      degraded: [],
+      corpusVersion: CORPUS_VERSION,
+      usedEmployeeFields: [],
+    };
+  }
+
   const grounding = validateGrounding(composed.markdown, composed.citations);
 
   if (grounding.score < 0.95) {
