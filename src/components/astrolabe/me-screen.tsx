@@ -780,14 +780,12 @@ export function MeScreen() {
                         key={row.source}
                         open={isOpen}
                         onOpenChange={(o) => setExpandedRow(o ? row.source : null)}
-                        asChild
                       >
-                        <>
-                          <CollapsibleTrigger asChild>
-                            <TableRow
-                              className="cursor-pointer ast-focus"
-                              style={{ borderColor: "var(--border-soft)" }}
-                            >
+                        <CollapsibleTrigger asChild>
+                          <TableRow
+                            className="cursor-pointer ast-focus"
+                            style={{ borderColor: "var(--border-soft)" }}
+                          >
                               <TableCell className="font-medium text-[13px]" style={{ color: "var(--text-hi)" }}>
                                 <div className="flex items-center gap-2">
                                   {suppressed ? (
@@ -859,7 +857,6 @@ export function MeScreen() {
                               </td>
                             </tr>
                           </CollapsibleContent>
-                        </>
                       </Collapsible>
                     );
                   })}

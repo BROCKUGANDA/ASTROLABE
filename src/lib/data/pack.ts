@@ -444,9 +444,19 @@ export const policies: PolicyChunk[] = [
     text: "The company books and pays for one economy-class flight to the UAE for the employee and each accompanying dependant listed on the visa application. Flight booking is initiated within 48 hours of visa approval. Changes to flight dates within 72 hours of departure incur a personal charge.",
   },
   {
+    id: "POL-RELOC-AR-3", docSlug: "relocation-policy", title: "Relocation Policy", titleAr: "سياسة الانتقال",
+    section: "travel", effectiveDate: "2024-01-01", reviewDate: "2025-12-31", lang: "ar", pairId: "POL-RELOC-PAIR-3",
+    text: "تقوم الشركة بحجز ودفع تكلفة رحلة جوية واحدة من الدرجة الاقتصادية إلى الإمارات للموظف ولكل معالٍ مرافق مُدرَج في طلب التأشيرة. يُباشَر الحجز خلال 48 ساعة من الموافقة على التأشيرة. أي تعديل على موعد الرحلة خلال 72 ساعة من وقت الإقلاع يتحمّل الموظف تكلفتَه.",
+  },
+  {
     id: "POL-IMM-EN-1", docSlug: "immigration-policy", title: "Immigration Policy", titleAr: "سياسة الهجرة",
     section: "documents", effectiveDate: "2024-03-01", reviewDate: "2025-03-31", lang: "en", pairId: "POL-IMM-PAIR-1",
     text: "Employees must upload a clear scan of their passport (biographical page), passport-sized photograph (white background), and educational certificates attested by the UAE embassy in the issuing country. Dependants' visas require marriage and birth certificates, also attested. Incomplete document uploads delay visa application by up to 5 working days.",
+  },
+  {
+    id: "POL-IMM-AR-1", docSlug: "immigration-policy", title: "Immigration Policy", titleAr: "سياسة الهجرة",
+    section: "documents", effectiveDate: "2024-03-01", reviewDate: "2025-03-31", lang: "ar", pairId: "POL-IMM-PAIR-1",
+    text: "على الموظفين رفع نسخة واضحة من جواز السفر (الصفحة البيوغرافية)، وصورة شخصية بحجم جواز السفر (بخلفية بيضاء)، وشهاداتهم الأكاديمية مُصدّقة من سفارة الإمارات في بلد الإصدار. أما تأشيرات المعالين فتتطلب شهادات زواج وشهادات ميلاد مُصدّقة أيضاً. أي رفعٍ ناقص للوثائق يؤخّر معاملة التأشيرة بما يصل إلى 5 أيام عمل.",
   },
   {
     id: "POL-IMM-EN-2", docSlug: "immigration-policy", title: "Immigration Policy", titleAr: "سياسة الهجرة",
@@ -454,9 +464,19 @@ export const policies: PolicyChunk[] = [
     text: "Visa application is submitted by the Immigration team within 5 working days of complete document upload. Standard processing time is 7-10 working days for residency employment visas. Expediting is available only for roles marked business-critical and requires HRBP approval.",
   },
   {
+    id: "POL-IMM-AR-2", docSlug: "immigration-policy", title: "Immigration Policy", titleAr: "سياسة الهجرة",
+    section: "visa", effectiveDate: "2024-03-01", reviewDate: "2025-03-31", lang: "ar", pairId: "POL-IMM-PAIR-2",
+    text: "يُقدَّم طلب التأشيرة من قِبَل فريق الهجرة خلال 5 أيام عمل من تاريخ اكتمال رفع الوثائق. مدة المعالجة القياسية لتأشيرات الإقامة للعمل تتراوح بين 7 و10 أيام عمل. لا تتاح المعالجة المستعجلة إلا للوظائف المُصنّفة حرجة للأعمال، وتتطلب موافقة شريك الموارد البشرية.",
+  },
+  {
     id: "POL-IMM-EN-3", docSlug: "immigration-policy", title: "Immigration Policy", titleAr: "سياسة الهجرة",
     section: "timeline", effectiveDate: "2024-03-01", reviewDate: "2025-03-31", lang: "en", pairId: "POL-IMM-PAIR-3",
     text: "Visa approval must be received before flight booking, housing arrangement, ID badge issuance, and IT kit issuance. The Immigration team is the single owner of visa status. Employees should not book personal travel until visa approval is confirmed in writing. Visa rejections are appealable within 14 days.",
+  },
+  {
+    id: "POL-IMM-AR-3", docSlug: "immigration-policy", title: "Immigration Policy", titleAr: "سياسة الهجرة",
+    section: "timeline", effectiveDate: "2024-03-01", reviewDate: "2025-03-31", lang: "ar", pairId: "POL-IMM-PAIR-3",
+    text: "يجب استلام موافقة التأشيرة قبل حجز الرحلة وتأمين السكن وإصدار بطاقة الهوية وإصدار عُدّة تكنولوجيا المعلومات. فريق الهجرة هو المرجع الوحيد لحالة التأشيرة. لا يُسمح للموظفين بحجز سفرٍ شخصي قبل التأكُّد من الموافقة على التأشيرة كتابةً. تُقبل الطعون على رفض التأشيرة خلال 14 يوماً.",
   },
   {
     id: "POL-IT-EN-1", docSlug: "it-policy", title: "IT Provisioning Policy", titleAr: "سياسة توفير تقنية المعلومات",
@@ -464,9 +484,19 @@ export const policies: PolicyChunk[] = [
     text: "New joiners receive a standard IT kit on day 1: a Dell Latitude laptop, iPhone 13 (corporate line), and USB-C dock. Cabin Crew receive an iPad mini in addition. Kit is issued at the DXB or AUH IT counter between 08:00 and 16:00. Delays beyond 24 hours from scheduled start time must be reported to the IT Provisioning Lead.",
   },
   {
+    id: "POL-IT-AR-1", docSlug: "it-policy", title: "IT Provisioning Policy", titleAr: "سياسة توفير تقنية المعلومات",
+    section: "kit", effectiveDate: "2024-02-01", reviewDate: "2025-02-28", lang: "ar", pairId: "POL-IT-PAIR-1",
+    text: "يستلم الموظفون الجدد عُدّة تكنولوجيا معلومات قياسية في اليوم الأول: حاسوب محمول Dell Latitude، وهاتف iPhone 13 (بخط الشركة)، ومحطة وصل USB-C. ويستلم طاقم المقصورة جهاز iPad mini إضافياً. تُسلَّم العُدّة في مكتب تقنية المعلومات بدبي أو أبوظبي بين الساعة 08:00 و16:00. يجب إبلاغ مسؤول توفير تقنية المعلومات بأي تأخير يتجاوز 24 ساعة من وقت البدء المجدول.",
+  },
+  {
     id: "POL-IT-EN-2", docSlug: "it-policy", title: "IT Provisioning Policy", titleAr: "سياسة توفير تقنية المعلومات",
     section: "access", effectiveDate: "2024-02-01", reviewDate: "2025-02-28", lang: "en", pairId: "POL-IT-PAIR-2",
     text: "Systems access is provisioned within 48 hours of kit issuance, based on the role profile defined by HR. Standard access includes email, HR self-service, the cabin crew rostering system, and the learning portal. Elevated access (finance, safety reporting) requires manager approval and is provisioned separately.",
+  },
+  {
+    id: "POL-IT-AR-2", docSlug: "it-policy", title: "IT Provisioning Policy", titleAr: "سياسة توفير تقنية المعلومات",
+    section: "access", effectiveDate: "2024-02-01", reviewDate: "2025-02-28", lang: "ar", pairId: "POL-IT-PAIR-2",
+    text: "يُتاح الوصول إلى الأنظمة خلال 48 ساعة من تسليم العُدّة، استناداً إلى الملف الوظيفي الذي تحدّده الموارد البشرية. يشمل الوصول القياسي البريد الإلكتروني، والخدمة الذاتية للموارد البشرية، ونظام جداول طاقم المقصورة، ومنصة التعلم. أما الوصول الموسّع (المالية، تقارير السلامة) فيتطلب موافقة المدير ويُتاح بشكل منفصل.",
   },
   {
     id: "POL-OB-EN-1", docSlug: "onboarding-policy", title: "Onboarding Policy", titleAr: "سياسة الالتحاق",
@@ -474,9 +504,19 @@ export const policies: PolicyChunk[] = [
     text: "All new joiners complete a 2-day induction within their first week. Induction covers company values, code of conduct, safety basics, and an introduction to the buddy programme. Induction is scheduled by HR after the ID badge is issued and must be completed before the first operational shift.",
   },
   {
+    id: "POL-OB-AR-1", docSlug: "onboarding-policy", title: "Onboarding Policy", titleAr: "سياسة الالتحاق",
+    section: "induction", effectiveDate: "2024-01-15", reviewDate: "2025-06-30", lang: "ar", pairId: "POL-OB-PAIR-1",
+    text: "يُكمل جميع الموظفين الجدد برنامج تعريف مدّته يومان خلال أسبوعهم الأول. يغطّي البرنامج قيم الشركة، وميثاق السلوك، وأساسيات السلامة، وتعريفاً ببرنامج المرافق. يُجدول قسم الموارد البشرية البرنامجَ بعد إصدار بطاقة الهوية، ويجب إكماله قبل أول وردية تشغيلية.",
+  },
+  {
     id: "POL-OB-EN-2", docSlug: "onboarding-policy", title: "Onboarding Policy", titleAr: "سياسة الالتحاق",
     section: "checkins", effectiveDate: "2024-01-15", reviewDate: "2025-06-30", lang: "en", pairId: "POL-OB-PAIR-2",
     text: "Formal check-ins occur at 30, 60, and 90 days. The 30-day check-in is a 30-minute conversation with the assigned HRBP and covers settling-in, role clarity, and any blockers. The 90-day review is with the line manager and HRBP and confirms successful completion of the probation period.",
+  },
+  {
+    id: "POL-OB-AR-2", docSlug: "onboarding-policy", title: "Onboarding Policy", titleAr: "سياسة الالتحاق",
+    section: "checkins", effectiveDate: "2024-01-15", reviewDate: "2025-06-30", lang: "ar", pairId: "POL-OB-PAIR-2",
+    text: "تجري اللقاءات الرسمية في الأيام 30 و60 و90. لقاء اليوم الثلاثين محادثة مدّتها 30 دقيقة مع شريك الموارد البشرية المُعَيَّن، وتتناول الاستقرار ووضوح الدور وأي عوائق. أما مراجعة اليوم التسعين فتكون مع المدير المباشر وشريك الموارد البشرية وتُؤكد الإكمال الناجح لفترة الاختبار.",
   },
   {
     id: "POL-LRN-EN-1", docSlug: "learning-policy", title: "Learning Policy", titleAr: "سياسة التعلم",
@@ -484,9 +524,19 @@ export const policies: PolicyChunk[] = [
     text: "Mandatory training must be booked within the first week and completed within 30 days of joining. Mandatory modules for Cabin Crew: Aviation Safety (GCAA-approved), Customer Service Excellence, Emergency Procedures, and Cultural Awareness. Each module is 4-8 hours and delivered in a classroom or simulator setting.",
   },
   {
+    id: "POL-LRN-AR-1", docSlug: "learning-policy", title: "Learning Policy", titleAr: "سياسة التعلم",
+    section: "mandatory", effectiveDate: "2024-04-01", reviewDate: "2025-04-30", lang: "ar", pairId: "POL-LRN-PAIR-1",
+    text: "يجب حجز التدريب الإلزامي خلال الأسبوع الأول وإكماله خلال 30 يوماً من الالتحاق. الوحدات الإلزامية لطاقم المقصورة: السلامة Aviation Safety (معتمدة من الهيئة العامة للطيران المدني)، وتميّز خدمة العملاء، وإجراءات الطوارئ، والوعي الثقافي. مدة كل وحدة من 4 إلى 8 ساعات وتُقدَّم في قاعة دراسية أو محاكاة.",
+  },
+  {
     id: "POL-MOB-EN-1", docSlug: "mobility-policy", title: "Internal Mobility Policy", titleAr: "سياسة التنقل الداخلي",
     section: "transfer", effectiveDate: "2024-05-01", reviewDate: "2025-05-31", lang: "en", pairId: "POL-MOB-PAIR-1",
     text: "Internal transfers require signed approval from both the releasing and receiving managers, plus HRBP concurrence. The transfer is effective on the first day of the next payroll cycle. Employees retain their tenure, leave balance, and benefits. Probation in the new role is 60 days for lateral moves and 90 days for promotions.",
+  },
+  {
+    id: "POL-MOB-AR-1", docSlug: "mobility-policy", title: "Internal Mobility Policy", titleAr: "سياسة التنقل الداخلي",
+    section: "transfer", effectiveDate: "2024-05-01", reviewDate: "2025-05-31", lang: "ar", pairId: "POL-MOB-PAIR-1",
+    text: "تتطلب التنقلات الداخلية موافقة موقّعة من المدير المُخلّي والمدير المُستقبِل، إضافةً إلى موافقة شريك الموارد البشرية. يسري التنقل في اليوم الأول من دورة الرواتب التالية. يحتفظ الموظفون بأقدميتهم ورصيد إجازاتهم ومزاياتهم. فترة الاختبار في الدور الجديد هي 60 يوماً للتنقلات الأفقية و90 يوماً للترقيات.",
   },
   {
     id: "POL-MOB-EN-2", docSlug: "mobility-policy", title: "Internal Mobility Policy", titleAr: "سياسة التنقل الداخلي",
@@ -494,14 +544,29 @@ export const policies: PolicyChunk[] = [
     text: "The releasing manager must complete a structured handover within 5 working days of transfer approval. The handover includes ongoing projects, key contacts, pending approvals, and team performance notes. Handover is documented in the mobility system and acknowledged by the receiving manager.",
   },
   {
+    id: "POL-MOB-AR-2", docSlug: "mobility-policy", title: "Internal Mobility Policy", titleAr: "سياسة التنقل الداخلي",
+    section: "handover", effectiveDate: "2024-05-01", reviewDate: "2025-05-31", lang: "ar", pairId: "POL-MOB-PAIR-2",
+    text: "يجب على المدير المُخلّي إكمال تسليم منظَّم خلال 5 أيام عمل من تاريخ الموافقة على التنقل. يشمل التسليم المشاريع الجارية، وأبرز جهات الاتصال، والموافقات المعلّقة، وملاحظات أداء الفريق. يُوثَّق التسليم في نظام التنقل ويُقرّ به المدير المُستقبِل.",
+  },
+  {
     id: "POL-PAY-EN-1", docSlug: "payroll-policy", title: "Payroll Policy", titleAr: "سياسة الرواتب",
     section: "transfer", effectiveDate: "2024-01-01", reviewDate: "2025-12-31", lang: "en", pairId: "POL-PAY-PAIR-1",
     text: "Payroll changes for internal transfers must be confirmed at least 7 calendar days before the payroll cycle cutoff (25th of each month). Changes received after the cutoff apply to the following cycle. Allowance adjustments, banking details, and tax code updates all follow this rule. Payroll cutoffs are non-negotiable.",
   },
   {
+    id: "POL-PAY-AR-1", docSlug: "payroll-policy", title: "Payroll Policy", titleAr: "سياسة الرواتب",
+    section: "transfer", effectiveDate: "2024-01-01", reviewDate: "2025-12-31", lang: "ar", pairId: "POL-PAY-PAIR-1",
+    text: "يجب تأكيد تعديلات الرواتب الخاصة بالتنقلات الداخلية قبل 7 أيام تقويمية على الأقل من موعد قطع دورة الرواتب (اليوم 25 من كل شهر). تُطبَّق التعديلات المُستلَمة بعد موعد القطع على الدورة التالية. تخضع تعديلات البدلات والبيانات المصرفية وتحديثات الرمز الضريبي جميعها لهذه القاعدة. مواعيد قطع الرواتب غير قابلة للتفاوض.",
+  },
+  {
     id: "POL-FAC-EN-1", docSlug: "facilities-policy", title: "Facilities Policy", titleAr: "سياسة المرافق",
     section: "badge", effectiveDate: "2024-02-01", reviewDate: "2025-02-28", lang: "en", pairId: "POL-FAC-PAIR-1",
     text: "ID badges are issued at the DXB or AUH facilities counter on day 1, between 07:00 and 18:00. Badges require visa approval and a passport-sized photograph. Lost badges incur a AED 50 replacement charge. Badges must be returned on the last working day for leavers and movers.",
+  },
+  {
+    id: "POL-FAC-AR-1", docSlug: "facilities-policy", title: "Facilities Policy", titleAr: "سياسة المرافق",
+    section: "badge", effectiveDate: "2024-02-01", reviewDate: "2025-02-28", lang: "ar", pairId: "POL-FAC-PAIR-1",
+    text: "تُصدَر بطاقات الهوية في مكتب المرافق بدبي أو أبوظبي في اليوم الأول، بين الساعة 07:00 و18:00. تتطلب البطاقات موافقة التأشيرة وصورة شخصية بحجم جواز السفر. تترتّب على فقدان البطاقة رسوم استبدال قدرها 50 درهماً. يجب إعادة البطاقات في آخر يوم عمل للمغادرين والمتنقلين.",
   },
 ];
 

@@ -1,0 +1,792 @@
+     1→"use client";
+     2→
+     3→import { useEffect, useState } from "react";
+     4→import {
+     5→  motion,
+     6→  AnimatePresence,
+     7→  useMotionValue,
+     8→  useTransform,
+     9→  type MotionValue,
+    10→} from "framer-motion";
+    11→import {
+    12→  Compass, Map, MessageSquare, Inbox, User, Users, ClipboardList, Microscope,
+    13→  Search, Command, ShieldCheck, Languages, Monitor, Sparkles, X, ArrowRight,
+    14→} from "lucide-react";
+    15→import { useAppStore } from "@/lib/store/app-store";
+    16→import { TodayScreen } from "@/components/astrolabe/today-screen";
+    17→import { JourneyScreen } from "@/components/astrolabe/journey-screen";
+    18→import { AskScreen } from "@/components/astrolabe/ask-screen";
+    19→import { RequestsScreen } from "@/components/astrolabe/requests-screen";
+    20→import { MeScreen } from "@/components/astrolabe/me-screen";
+    21→import { HrbpScreen } from "@/components/astrolabe/hrbp-screen";
+    22→import { ManagerScreen } from "@/components/astrolabe/manager-screen";
+    23→import { JudgeScreen } from "@/components/astrolabe/judge-screen";
+    24→import { Astrolabe3D } from "@/components/three/astrolabe";
+    25→import { NotificationsBell } from "@/components/astrolabe/notifications-bell";
+    26→import { ConstellationBg } from "@/components/astrolabe/constellation-bg";
+    27→
+    28→type View = "today" | "journey" | "ask" | "requests" | "me";
+    29→type Role = "employee" | "hrbp" | "manager" | "judge";
+    30→
+    31→const EMPLOYEE_TABS: { id: View; label: string; labelAr: string; Icon: typeof Compass; hint: string }[] = [
+    32→  { id: "today", label: "Today", labelAr: "اليوم", Icon: Compass, hint: "What now?" },
+    33→  { id: "journey", label: "Journey", labelAr: "الرحلة", Icon: Map, hint: "Full map & history" },
+    34→  { id: "ask", label: "Ask", labelAr: "اسأل", Icon: MessageSquare, hint: "Cited policy answers" },
+    35→  { id: "requests", label: "Requests", labelAr: "الطلبات", Icon: Inbox, hint: "Status & intake" },
+    36→  { id: "me", label: "Me", labelAr: "حسابي", Icon: User, hint: "Consent & data" },
+    37→];
+    38→
+    39→const ROLES: { id: Role; label: string; labelAr: string; Icon: typeof Compass; accent: string }[] = [
+    40→  { id: "employee", label: "Employee", labelAr: "موظف", Icon: User, accent: "var(--brand-500)" },
+    41→  { id: "hrbp", label: "HRBP", labelAr: "شريك الموارد", Icon: Users, accent: "var(--status-watch)" },
+    42→  { id: "manager", label: "Manager", labelAr: "مدير", Icon: ClipboardList, accent: "var(--accent-500)" },
+    43→  { id: "judge", label: "Judge", labelAr: "قاضٍ", Icon: Microscope, accent: "#8B5CF6" },
+    44→];
+    45→
+    46→const EMPLOYEES = [
+    47→  { id: "E-1042", name: "Maria Santos", journey: "Onboarding · Day 5", loc: "DXB" },
+    48→  { id: "E-1043", name: "Daniel Okonkwo", journey: "Onboarding · Visa", loc: "DXB" },
+    49→  { id: "E-1044", name: "Aisha Rahman", journey: "Mobility · Effective", loc: "AUH" },
+    50→  { id: "E-1045", name: "James Park", journey: "Onboarding · Day 1", loc: "DXB" },
+    51→  { id: "E-1046", name: "Sara Kovač", journey: "Mobility · Handover", loc: "DXB" },
+    52→];
+    53→
+    54→export default function Home() {
+    55→  const view = useAppStore((s) => s.view);
+    56→  const setView = useAppStore((s) => s.setView);
+    57→  const role = useAppStore((s) => s.role);
+    58→  const setRole = useAppStore((s) => s.setRole);
+    59→  const locale = useAppStore((s) => s.locale);
+    60→  const setLocale = useAppStore((s) => s.setLocale);
+    61→  const employeeId = useAppStore((s) => s.currentEmployeeId);
+    62→  const setEmployee = useAppStore((s) => s.setEmployee);
+    63→  const projectorMode = useAppStore((s) => s.projectorMode);
+    64→  const toggleProjector = useAppStore((s) => s.toggleProjector);
+    65→  const commandPaletteOpen = useAppStore((s) => s.commandPaletteOpen);
+    66→  const setCommandPalette = useAppStore((s) => s.setCommandPalette);
+    67→  const degradedLevel = useAppStore((s) => s.degradedLevel);
+    68→
+    69→  const dir = locale === "ar" ? "rtl" : "ltr";
+    70→  const [scrolled, setScrolled] = useState(false);
+    71→
+    72→  useEffect(() => {
+    73→    const onScroll = () => setScrolled(window.scrollY > 60);
+    74→    window.addEventListener("scroll", onScroll, { passive: true });
+    75→    return () => window.removeEventListener("scroll", onScroll);
+    76→  }, []);
+    77→
+    78→  // ⌘K command palette
+    79→  useEffect(() => {
+    80→    const onKey = (e: KeyboardEvent) => {
+    81→      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+    82→        e.preventDefault();
+    83→        setCommandPalette(!commandPaletteOpen);
+    84→      }
+    85→      if (e.key === "Escape") setCommandPalette(false);
+    86→    };
+    87→    window.addEventListener("keydown", onKey);
+    88→    return () => window.removeEventListener("keydown", onKey);
+    89→  }, [commandPaletteOpen, setCommandPalette]);
+    90→
+    91→  const showHero = role === "employee" && view === "today" && !scrolled;
+    92→
+    93→  return (
+    94→    <div
+    95→      dir={dir}
+    96→      className={`flex min-h-screen flex-col ${projectorMode ? "projector" : ""}`}
+    97→      style={{ color: "var(--text-hi)" }}
+    98→    >
+    99→      {/* ========== CONSTELLATION BACKGROUND (fixed, behind everything) ========== */}
+   100→      <ConstellationBg />
+   101→
+   102→      {/* ========== HEADER ========== */}
+   103→      <header
+   104→        className="sticky top-0 z-40 backdrop-blur-xl transition-all"
+   105→        style={{
+   106→          background: scrolled ? "rgba(11,17,28,0.92)" : "rgba(11,17,28,0.62)",
+   107→          borderBottom: `1px solid ${scrolled ? "var(--border)" : "transparent"}`,
+   108→        }}
+   109→      >
+   110→        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center gap-2 sm:gap-3">
+   111→          {/* Brand */}
+   112→          <button
+   113→            onClick={() => { setRole("employee"); setView("today"); }}
+   114→            className="ast-focus flex items-center gap-2.5 mr-auto group"
+   115→            aria-label="ASTROLABE home"
+   116→          >
+   117→            <div
+   118→              className="relative flex items-center justify-center w-9 h-9 rounded-full transition-transform group-hover:rotate-12"
+   119→              style={{
+   120→                background: "radial-gradient(circle at 30% 30%, rgba(22,154,165,0.35), rgba(11,17,28,0.4))",
+   121→                border: "1px solid rgba(22,154,165,0.35)",
+   122→                boxShadow: "0 0 0 1px rgba(201,162,39,0.15), 0 6px 16px rgba(22,154,165,0.18)",
+   123→              }}
+   124→            >
+   125→              <Compass className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+   126→              <span
+   127→                className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
+   128→                style={{ background: "var(--accent-500)", boxShadow: "0 0 6px rgba(201,162,39,0.6)" }}
+   129→              />
+   130→            </div>
+   131→            <div className="flex flex-col items-start leading-none">
+   132→              <span
+   133→                className="text-[13px] font-semibold uppercase ast-brass"
+   134→                style={{ letterSpacing: "0.22em" }}
+   135→              >
+   136→                ASTROLABE
+   137→              </span>
+   138→              <span
+   139→                className="text-[9px] uppercase tracking-[0.18em] hidden sm:block"
+   140→                style={{ color: "var(--text-lo)" }}
+   141→              >
+   142→                {locale === "ar" ? "بوصلتك في الرحلة" : "Journey companion"}
+   143→              </span>
+   144→            </div>
+   145→          </button>
+   146→
+   147→          {/* Employee tabs (only in employee role) */}
+   148→          {role === "employee" && (
+   149→            <nav
+   150→              className="flex items-center gap-0.5 p-1 rounded-full overflow-x-auto max-w-[55%] sm:max-w-none"
+   151→              style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
+   152→              aria-label="View switcher"
+   153→            >
+   154→              {EMPLOYEE_TABS.map((t) => {
+   155→                const Icon = t.Icon;
+   156→                const isActive = view === t.id;
+   157→                return (
+   158→                  <button
+   159→                    key={t.id}
+   160→                    onClick={() => setView(t.id)}
+   161→                    aria-pressed={isActive}
+   162→                    aria-label={locale === "ar" ? t.labelAr : t.label}
+   163→                    title={t.hint}
+   164→                    className="ast-focus relative inline-flex items-center gap-1.5 h-7 px-2.5 sm:px-3 rounded-full text-[12px] font-medium transition-colors whitespace-nowrap"
+   165→                    style={{
+   166→                      color: isActive ? "var(--surface-0)" : "var(--text-mid)",
+   167→                    }}
+   168→                  >
+   169→                    {isActive && (
+   170→                      <motion.span
+   171→                        layoutId="active-tab-pill"
+   172→                        className="absolute inset-0 rounded-full"
+   173→                        style={{ background: "var(--brand-500)" }}
+   174→                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
+   175→                      />
+   176→                    )}
+   177→                    <Icon className="w-3.5 h-3.5 relative z-10" strokeWidth={1.75} />
+   178→                    <span className="hidden sm:inline relative z-10">
+   179→                      {locale === "ar" ? t.labelAr : t.label}
+   180→                    </span>
+   181→                  </button>
+   182→                );
+   183→              })}
+   184→            </nav>
+   185→          )}
+   186→
+   187→          {/* Command palette trigger */}
+   188→          <button
+   189→            onClick={() => setCommandPalette(true)}
+   190→            aria-label="Command palette (⌘K)"
+   191→            title="⌘K"
+   192→            className="ast-focus hidden md:inline-flex items-center gap-2 h-8 px-2.5 rounded-full text-[11px] tabular"
+   193→            style={{
+   194→              background: "var(--surface-2)",
+   195→              border: "1px solid var(--border)",
+   196→              color: "var(--text-lo)",
+   197→            }}
+   198→          >
+   199→            <Search className="w-3 h-3" strokeWidth={1.75} />
+   200→            <span className="hidden lg:inline">Search…</span>
+   201→            <kbd
+   202→              className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-mono"
+   203→              style={{ background: "var(--surface-3)", color: "var(--text-mid)" }}
+   204→            >
+   205→              ⌘K
+   206→            </kbd>
+   207→          </button>
+   208→
+   209→          {/* Notifications bell */}
+   210→          <NotificationsBell />
+   211→
+   212→          {/* Projector toggle */}
+   213→          <button
+   214→            onClick={toggleProjector}
+   215→            aria-pressed={projectorMode}
+   216→            aria-label="Projector mode"
+   217→            title="Projector mode"
+   218→            className="ast-focus inline-flex items-center justify-center h-8 w-8 rounded-full transition-colors"
+   219→            style={{
+   220→              background: projectorMode ? "var(--accent-500)" : "var(--surface-2)",
+   221→              color: projectorMode ? "var(--surface-0)" : "var(--text-mid)",
+   222→              border: `1px solid ${projectorMode ? "var(--accent-500)" : "var(--border)"}`,
+   223→            }}
+   224→          >
+   225→            <Monitor className="w-3.5 h-3.5" strokeWidth={1.75} />
+   226→          </button>
+   227→
+   228→          {/* Locale toggle */}
+   229→          <button
+   230→            onClick={() => setLocale(locale === "en" ? "ar" : "en")}
+   231→            className="ast-focus inline-flex items-center gap-1 h-8 px-2.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.12em]"
+   232→            style={{
+   233→              background: "var(--surface-2)",
+   234→              border: "1px solid var(--border)",
+   235→              color: "var(--text-hi)",
+   236→            }}
+   237→            aria-label="Toggle language"
+   238→          >
+   239→            <Languages className="w-3 h-3" strokeWidth={1.75} />
+   240→            {locale === "en" ? "AR" : "EN"}
+   241→          </button>
+   242→        </div>
+   243→
+   244→        {/* Role switcher strip */}
+   245→        <div className="border-t" style={{ borderColor: "var(--border-soft)" }}>
+   246→          <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center gap-1.5 overflow-x-auto">
+   247→            <span
+   248→              className="text-[10px] uppercase tracking-[0.14em] mr-1 whitespace-nowrap"
+   249→              style={{ color: "var(--text-lo)" }}
+   250→            >
+   251→              {locale === "ar" ? "وضع" : "Mode"}
+   252→            </span>
+   253→            {ROLES.map((r) => {
+   254→              const Icon = r.Icon;
+   255→              const isActive = role === r.id;
+   256→              return (
+   257→                <button
+   258→                  key={r.id}
+   259→                  onClick={() => setRole(r.id)}
+   260→                  aria-pressed={isActive}
+   261→                  className="ast-focus inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all"
+   262→                  style={{
+   263→                    background: isActive ? r.accent : "transparent",
+   264→                    color: isActive ? "var(--surface-0)" : "var(--text-mid)",
+   265→                    border: `1px solid ${isActive ? r.accent : "var(--border)"}`,
+   266→                  }}
+   267→                >
+   268→                  <Icon className="w-3 h-3" strokeWidth={1.75} />
+   269→                  {locale === "ar" ? r.labelAr : r.label}
+   270→                </button>
+   271→              );
+   272→            })}
+   273→
+   274→            {/* Employee picker for judge/preview */}
+   275→            {(role === "employee" || role === "judge") && (
+   276→              <div className="ml-auto flex items-center gap-1.5">
+   277→                <span
+   278→                  className="text-[10px] uppercase tracking-[0.14em] hidden sm:inline"
+   279→                  style={{ color: "var(--text-lo)" }}
+   280→                >
+   281→                  {locale === "ar" ? "السيناريو" : "Scenario"}
+   282→                </span>
+   283→                <select
+   284→                  value={employeeId}
+   285→                  onChange={(e) => setEmployee(e.target.value)}
+   286→                  aria-label="Employee scenario"
+   287→                  className="ast-focus h-7 px-2 rounded-full text-[11px] tabular"
+   288→                  style={{
+   289→                    background: "var(--surface-2)",
+   290→                    border: "1px solid var(--border)",
+   291→                    color: "var(--text-hi)",
+   292→                  }}
+   293→                >
+   294→                  {EMPLOYEES.map((e) => (
+   295→                    <option key={e.id} value={e.id}>
+   296→                      {e.id} · {e.name} ({e.journey})
+   297→                    </option>
+   298→                  ))}
+   299→                </select>
+   300→              </div>
+   301→            )}
+   302→          </div>
+   303→        </div>
+   304→
+   305→        {/* Degraded banner */}
+   306→        {degradedLevel !== "L0" && (
+   307→          <div
+   308→            className="px-4 sm:px-6 lg:px-8 py-2 text-[11px] flex items-center gap-2"
+   309→            style={{
+   310→              background: "rgba(217,119,6,0.10)",
+   311→              borderBottom: "1px solid rgba(217,119,6,0.30)",
+   312→              color: "var(--status-watch)",
+   313→            }}
+   314→          >
+   315→            <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
+   316→            <span>
+   317→              {degradedLevel === "L1" && (locale === "ar" ? "نقتبس السياسة مباشرة الآن" : "Quoting policy directly right now")}
+   318→              {degradedLevel === "L2" && (locale === "ar" ? "بحث السياسة غير متاح — سأحيلك للمالك المناسب" : "Policy search unavailable — handing you to the right owner")}
+   319→              {degradedLevel === "L3" && (locale === "ar" ? "طلبك في قائمة الانتظار، لم يُفقد" : "Your request is queued, not lost")}
+   320→              {degradedLevel === "L4" && (locale === "ar" ? "وضع القراءة فقط — إليك من تتواصل معه" : "Read-only mode — here is who to contact")}
+   321→            </span>
+   322→          </div>
+   323→        )}
+   324→      </header>
+   325→
+   326→      {/* ========== 3D ASTROLABE HERO (Today only, when not scrolled) ========== */}
+   327→      <AnimatePresence>
+   328→        {showHero && <HeroParallax key="hero" />}
+   329→      </AnimatePresence>
+   330→
+   331→      {/* ========== MAIN ========== */}
+   332→      <main className="flex-1 max-w-[1280px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+   333→        {role === "employee" && (
+   334→          <>
+   335→            {view === "today" && <TodayScreen />}
+   336→            {view === "journey" && <JourneyScreen />}
+   337→            {view === "ask" && <AskScreen />}
+   338→            {view === "requests" && <RequestsScreen />}
+   339→            {view === "me" && <MeScreen />}
+   340→          </>
+   341→        )}
+   342→        {role === "hrbp" && <HrbpScreen />}
+   343→        {role === "manager" && <ManagerScreen />}
+   344→        {role === "judge" && <JudgeScreen />}
+   345→      </main>
+   346→
+   347→      {/* ========== FOOTER (sticky to bottom) ========== */}
+   348→      <footer
+   349→        className="mt-auto border-t"
+   350→        style={{
+   351→          borderColor: "var(--border)",
+   352→          background: "var(--surface-1)",
+   353→        }}
+   354→      >
+   355→        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-5">
+   356→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+   357→            {/* Brand */}
+   358→            <div className="sm:col-span-2 lg:col-span-1">
+   359→              <div className="flex items-center gap-2 mb-2">
+   360→                <div
+   361→                  className="flex items-center justify-center w-6 h-6 rounded-full"
+   362→                  style={{ background: "var(--g-veil)", color: "var(--brand-400)" }}
+   363→                >
+   364→                  <Compass className="w-3 h-3" strokeWidth={1.75} />
+   365→                </div>
+   366→                <span
+   367→                  className="text-[11px] font-semibold uppercase ast-brass"
+   368→                  style={{ letterSpacing: "0.2em" }}
+   369→                >
+   370→                  ASTROLABE
+   371→                </span>
+   372→              </div>
+   373→              <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-lo)" }}>
+   374→                {locale === "ar"
+   375→                  ? "أداة ملاحة للموظف. المحرك يقرر، النموذج يشرح. كل إجابة تستشهد بمصدرها. غير المتأكد إجابة من الدرجة الأولى."
+   376→                  : "An employee-side navigation instrument. The engine decides, the model explains. Every answer cites its source. Unsure is a first-class answer."}
+   377→              </p>
+   378→            </div>
+   379→
+   380→            {/* Engine + versions */}
+   381→            <div>
+   382→              <h4 className="text-[10px] uppercase tracking-[0.16em] mb-2" style={{ color: "var(--text-lo)" }}>
+   383→                {locale === "ar" ? "المحرك" : "Engine"}
+   384→              </h4>
+   385→              <ul className="space-y-1 text-[11px] tabular" style={{ color: "var(--text-mid)" }}>
+   386→                <li className="flex justify-between"><span>{locale === "ar" ? "إصدار المحرك" : "Engine"}</span><span style={{ color: "var(--text-hi)" }}>1.0.0</span></li>
+   387→                <li className="flex justify-between"><span>{locale === "ar" ? "إصدار الخريطة" : "Map"}</span><span style={{ color: "var(--text-hi)" }}>1.0.0</span></li>
+   388→                <li className="flex justify-between"><span>{locale === "ar" ? "إصدار السياسات" : "Corpus"}</span><span style={{ color: "var(--text-hi)" }}>2024-Q4</span></li>
+   389→                <li className="flex justify-between"><span>{locale === "ar" ? "حزمة البيانات" : "Data pack"}</span><span style={{ color: "var(--text-hi)" }}>synthetic</span></li>
+   390→              </ul>
+   391→            </div>
+   392→
+   393→            {/* Privacy + RAI */}
+   394→            <div>
+   395→              <h4 className="text-[10px] uppercase tracking-[0.16em] mb-2" style={{ color: "var(--text-lo)" }}>
+   396→                {locale === "ar" ? "الخصوصية" : "Privacy"}
+   397→              </h4>
+   398→              <ul className="space-y-1 text-[11px]" style={{ color: "var(--text-mid)" }}>
+   399→                <li className="flex items-center gap-1.5">
+   400→                  <ShieldCheck className="w-3 h-3" style={{ color: "var(--status-steady)" }} strokeWidth={1.75} />
+   401→                  {locale === "ar" ? "الموافقة بوابة" : "Consent is a gate"}
+   402→                </li>
+   403→                <li className="flex items-center gap-1.5">
+   404→                  <ShieldCheck className="w-3 h-3" style={{ color: "var(--status-steady)" }} strokeWidth={1.75} />
+   405→                  {locale === "ar" ? "ليس للأداء أو التأديب" : "Not for performance use"}
+   406→                </li>
+   407→                <li className="flex items-center gap-1.5">
+   408→                  <ShieldCheck className="w-3 h-3" style={{ color: "var(--status-steady)" }} strokeWidth={1.75} />
+   409→                  {locale === "ar" ? "تصعيد بمسؤول اسمي" : "Named-human escalation"}
+   410→                </li>
+   411→                <li className="flex items-center gap-1.5">
+   412→                  <ShieldCheck className="w-3 h-3" style={{ color: "var(--status-steady)" }} strokeWidth={1.75} />
+   413→                  {locale === "ar" ? "سجل تدقيق متسلسل" : "Hash-chained audit"}
+   414→                </li>
+   415→              </ul>
+   416→            </div>
+   417→
+   418→            {/* Health */}
+   419→            <div>
+   420→              <h4 className="text-[10px] uppercase tracking-[0.16em] mb-2" style={{ color: "var(--text-lo)" }}>
+   421→                {locale === "ar" ? "الصحة" : "Health"}
+   422→              </h4>
+   423→              <div className="space-y-1.5 text-[11px]">
+   424→                <div className="flex items-center justify-between">
+   425→                  <span style={{ color: "var(--text-mid)" }}>{locale === "ar" ? "الحالة" : "Status"}</span>
+   426→                  <span className="inline-flex items-center gap-1.5">
+   427→                    <span className="ast-dot ast-dot-steady" />
+   428→                    <span style={{ color: "var(--status-steady)" }}>{locale === "ar" ? "كل الأنظمة تعمل" : "All systems"}</span>
+   429→                  </span>
+   430→                </div>
+   431→                <div className="flex items-center justify-between tabular">
+   432→                  <span style={{ color: "var(--text-mid)" }}>{locale === "ar" ? "زمن الاستجابة" : "Hot p95"}</span>
+   433→                  <span style={{ color: "var(--text-hi)" }}>28ms</span>
+   434→                </div>
+   435→                <div className="flex items-center justify-between tabular">
+   436→                  <span style={{ color: "var(--text-mid)" }}>{locale === "ar" ? "معدل الامتناع" : "Abstain rate"}</span>
+   437→                  <span style={{ color: "var(--text-hi)" }}>12%</span>
+   438→                </div>
+   439→                <div className="flex items-center justify-between tabular">
+   440→                  <span style={{ color: "var(--text-mid)" }}>{locale === "ar" ? "دقة الاستشهاد" : "Citations"}</span>
+   441→                  <span style={{ color: "var(--status-steady)" }}>100%</span>
+   442→                </div>
+   443→              </div>
+   444→            </div>
+   445→          </div>
+   446→
+   447→          <div
+   448→            className="mt-5 pt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[10px] tabular"
+   449→            style={{ borderTop: "1px solid var(--border-soft)", color: "var(--text-lo)" }}
+   450→          >
+   451→            <span>
+   452→              © 2024 ASTROLABE · {locale === "ar" ? "بيانات تركيبية فقط" : "Synthetic data only"} · {locale === "ar" ? "نموذج أولي" : "Prototype build"}
+   453→            </span>
+   454→            <span className="flex items-center gap-3">
+   455→              <span>v1.0.0</span>
+   456→              <span>·</span>
+   457→              <span>{locale === "ar" ? "آخر تحديث" : "Last refreshed"}: 2s</span>
+   458→              <span>·</span>
+   459→              <span className="inline-flex items-center gap-1">
+   460→                <kbd
+   461→                  className="px-1 py-0.5 rounded font-mono"
+   462→                  style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}
+   463→                >
+   464→                  ⌘K
+   465→                </kbd>
+   466→                {locale === "ar" ? "للأوامر" : "for commands"}
+   467→              </span>
+   468→            </span>
+   469→          </div>
+   470→        </div>
+   471→      </footer>
+   472→
+   473→      {/* ========== COMMAND PALETTE ========== */}
+   474→      <AnimatePresence>
+   475→        {commandPaletteOpen && (
+   476→          <CommandPalette
+   477→            onClose={() => setCommandPalette(false)}
+   478→            onNavigate={(v) => { setView(v); setRole("employee"); setCommandPalette(false); }}
+   479→            onRole={(r) => { setRole(r); setCommandPalette(false); }}
+   480→            onEmployee={(id) => { setEmployee(id); setCommandPalette(false); }}
+   481→            onLocale={() => { setLocale(locale === "en" ? "ar" : "en"); setCommandPalette(false); }}
+   482→          />
+   483→        )}
+   484→      </AnimatePresence>
+   485→    </div>
+   486→  );
+   487→}
+   488→
+   489→/* ============================================================
+   490→   HERO PARALLAX — 3D astrolabe + hero text
+   491→   - Astrolabe canvas shifts max 8px opposite the cursor
+   492→   - Hero text shifts max 4px with the cursor
+   493→   - 60fps via framer-motion useMotionValue + useTransform
+   494→   - Disabled on touch devices and when prefers-reduced-motion
+   495→   ============================================================ */
+   496→
+   497→function usePrefersReducedMotion(): boolean {
+   498→  const [reduce, setReduce] = useState(false);
+   499→  useEffect(() => {
+   500→    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+   501→    const update = () => setReduce(mq.matches);
+   502→    update();
+   503→    mq.addEventListener("change", update);
+   504→    return () => mq.removeEventListener("change", update);
+   505→  }, []);
+   506→  return reduce;
+   507→}
+   508→
+   509→function useFinePointer(): boolean {
+   510→  const [fine, setFine] = useState(false);
+   511→  useEffect(() => {
+   512→    const mq = window.matchMedia("(pointer: fine)");
+   513→    const update = () => setFine(mq.matches);
+   514→    update();
+   515→    mq.addEventListener("change", update);
+   516→    return () => mq.removeEventListener("change", update);
+   517→  }, []);
+   518→  return fine;
+   519→}
+   520→
+   521→function HeroParallax() {
+   522→  const locale = useAppStore((s) => s.locale);
+   523→  const setView = useAppStore((s) => s.setView);
+   524→  const reduce = usePrefersReducedMotion();
+   525→  const fine = useFinePointer();
+   526→  const enabled = !reduce && fine;
+   527→
+   528→  // Normalised cursor offset from the centre of the hero, in [-0.5, 0.5].
+   529→  const mx = useMotionValue(0);
+   530→  const my = useMotionValue(0);
+   531→
+   532→  // Astrolabe: 8px in the opposite direction of the cursor.
+   533→  const astX: MotionValue<number> = useTransform(mx, [-0.5, 0.5], [8, -8]);
+   534→  const astY: MotionValue<number> = useTransform(my, [-0.5, 0.5], [8, -8]);
+   535→  // Hero text: 4px in the same direction as the cursor.
+   536→  const textX: MotionValue<number> = useTransform(mx, [-0.5, 0.5], [-4, 4]);
+   537→  const textY: MotionValue<number> = useTransform(my, [-0.5, 0.5], [-4, 4]);
+   538→
+   539→  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+   540→    if (!enabled) return;
+   541→    const rect = e.currentTarget.getBoundingClientRect();
+   542→    mx.set((e.clientX - rect.left) / rect.width - 0.5);
+   543→    my.set((e.clientY - rect.top) / rect.height - 0.5);
+   544→  };
+   545→
+   546→  const handleMouseLeave = () => {
+   547→    mx.set(0);
+   548→    my.set(0);
+   549→  };
+   550→
+   551→  return (
+   552→    <motion.div
+   553→      initial={{ opacity: 0, height: 0 }}
+   554→      animate={{ opacity: 1, height: "auto" }}
+   555→      exit={{ opacity: 0, height: 0 }}
+   556→      transition={{ duration: 0.32, ease: [0.2, 0.8, 0.2, 1] }}
+   557→      className="relative overflow-hidden"
+   558→      style={{ borderBottom: "1px solid var(--border-soft)" }}
+   559→      onMouseMove={enabled ? handleMouseMove : undefined}
+   560→      onMouseLeave={enabled ? handleMouseLeave : undefined}
+   561→    >
+   562→      {/* Veil gradient backdrop */}
+   563→      <div
+   564→        className="absolute inset-0 pointer-events-none"
+   565→        style={{ background: "var(--g-veil)" }}
+   566→        aria-hidden="true"
+   567→      />
+   568→      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-center">
+   569→        <motion.div
+   570→          style={enabled ? { x: textX, y: textY } : undefined}
+   571→          transition={{ type: "spring", stiffness: 120, damping: 18 }}
+   572→        >
+   573→          <div className="flex items-center gap-2 mb-3">
+   574→            <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--accent-500)" }} strokeWidth={1.75} />
+   575→            <span
+   576→              className="text-[11px] uppercase tracking-[0.18em]"
+   577→              style={{ color: "var(--accent-500)" }}
+   578→            >
+   579→              {locale === "ar" ? "أداة ملاحة، لا أداة مراقبة" : "A navigation instrument, not a surveillance one"}
+   580→            </span>
+   581→          </div>
+   582→          <h1
+   583→            className="text-[28px] sm:text-[36px] lg:text-[44px] font-semibold leading-[1.08] tracking-[-0.02em]"
+   584→            style={{ color: "var(--text-hi)", maxWidth: "640px" }}
+   585→          >
+   586→            {locale === "ar"
+   587→              ? "نحن نعرف بالضبط أين تقف في رحلتك."
+   588→              : "We know exactly where you stand on your journey."}
+   589→          </h1>
+   590→          <p
+   591→            className="mt-3 text-[14px] sm:text-[16px] leading-relaxed max-w-[560px]"
+   592→            style={{ color: "var(--text-mid)" }}
+   593→          >
+   594→            {locale === "ar"
+   595→              ? "المحرك الحتمي يملك كل قرار. النموذج يشرح ويصيغ ويترجم — لا يسجّل، لا يقرر، لا يرى ما لم توافق على مشاركته."
+   596→              : "The deterministic engine owns every verdict, band, and route. The model explains, drafts, and translates — it never scores, never decides, never acts."}
+   597→          </p>
+   598→          <div className="mt-5 flex flex-wrap items-center gap-2">
+   599→            <button
+   600→              onClick={() => setView("ask")}
+   601→              className="ast-focus inline-flex items-center gap-2 h-9 px-4 rounded-full text-[13px] font-medium transition-transform hover:translate-y-[-1px]"
+   602→              style={{
+   603→                background: "var(--accent-500)",
+   604→                color: "var(--surface-0)",
+   605→                boxShadow: "0 6px 18px rgba(201,162,39,0.30)",
+   606→              }}
+   607→            >
+   608→              {locale === "ar" ? "اسأل سياسة" : "Ask a policy question"}
+   609→              <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.75} />
+   610→            </button>
+   611→            <button
+   612→              onClick={() => setView("journey")}
+   613→              className="ast-focus inline-flex items-center gap-2 h-9 px-4 rounded-full text-[13px] font-medium"
+   614→              style={{
+   615→                background: "transparent",
+   616→                color: "var(--text-hi)",
+   617→                border: "1px solid var(--border)",
+   618→              }}
+   619→            >
+   620→              <Map className="w-3.5 h-3.5" strokeWidth={1.75} />
+   621→              {locale === "ar" ? "تصفح رحلتك" : "See your full map"}
+   622→            </button>
+   623→          </div>
+   624→        </motion.div>
+   625→
+   626→        <motion.div
+   627→          className="hidden lg:block relative h-[260px]"
+   628→          style={enabled ? { x: astX, y: astY } : undefined}
+   629→          transition={{ type: "spring", stiffness: 120, damping: 18 }}
+   630→        >
+   631→          <Astrolabe3D size={1.05} spin />
+   632→          <div
+   633→            className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] uppercase tracking-[0.18em] whitespace-nowrap"
+   634→            style={{ color: "var(--text-lo)" }}
+   635→          >
+   636→            {locale === "ar" ? "الأسطرلاب · مكتشف الرحلة" : "Astrolabe · journey instrument"}
+   637→          </div>
+   638→        </motion.div>
+   639→      </div>
+   640→    </motion.div>
+   641→  );
+   642→}
+   643→
+   644→/* ============================================================
+   645→   COMMAND PALETTE — ⌘K
+   646→   ============================================================ */
+   647→function CommandPalette({
+   648→  onClose,
+   649→  onNavigate,
+   650→  onRole,
+   651→  onEmployee,
+   652→  onLocale,
+   653→}: {
+   654→  onClose: () => void;
+   655→  onNavigate: (v: View) => void;
+   656→  onRole: (r: Role) => void;
+   657→  onEmployee: (id: string) => void;
+   658→  onLocale: () => void;
+   659→}) {
+   660→  const [query, setQuery] = useState("");
+   661→  const locale = useAppStore((s) => s.locale);
+   662→
+   663→  const items = [
+   664→    { group: locale === "ar" ? "انتقل" : "Navigate", actions: [
+   665→      { id: "today", label: locale === "ar" ? "اليوم" : "Today", hint: "What now?", run: () => onNavigate("today") },
+   666→      { id: "journey", label: locale === "ar" ? "الرحلة" : "Journey", hint: "Full map", run: () => onNavigate("journey") },
+   667→      { id: "ask", label: locale === "ar" ? "اسأل" : "Ask", hint: "Cited answers", run: () => onNavigate("ask") },
+   668→      { id: "requests", label: locale === "ar" ? "الطلبات" : "Requests", hint: "Intake & status", run: () => onNavigate("requests") },
+   669→      { id: "me", label: locale === "ar" ? "حسابي" : "Me", hint: "Consent & data", run: () => onNavigate("me") },
+   670→    ]},
+   671→    { group: locale === "ar" ? "الوضع" : "Mode", actions: [
+   672→      { id: "employee", label: locale === "ar" ? "موظف" : "Employee", hint: "Journey companion", run: () => onRole("employee") },
+   673→      { id: "hrbp", label: "HRBP", hint: "Early warning queue", run: () => onRole("hrbp") },
+   674→      { id: "manager", label: locale === "ar" ? "مدير" : "Manager", hint: "Aggregate view", run: () => onRole("manager") },
+   675→      { id: "judge", label: locale === "ar" ? "قاضٍ" : "Judge", hint: "Engine trace", run: () => onRole("judge") },
+   676→    ]},
+   677→    { group: locale === "ar" ? "السيناريو" : "Scenario", actions: EMPLOYEES.map((e) => ({
+   678→      id: e.id, label: `${e.id} · ${e.name}`, hint: e.journey, run: () => onEmployee(e.id),
+   679→    }))},
+   680→    { group: locale === "ar" ? "إجراءات" : "Actions", actions: [
+   681→      { id: "locale", label: locale === "ar" ? "تبديل اللغة" : "Toggle language", hint: "EN ⇄ AR", run: onLocale },
+   682→    ]},
+   683→  ];
+   684→
+   685→  const filtered = items
+   686→    .map((g) => ({
+   687→      ...g,
+   688→      actions: g.actions.filter((a) =>
+   689→        a.label.toLowerCase().includes(query.toLowerCase()) ||
+   690→        a.hint.toLowerCase().includes(query.toLowerCase())
+   691→      ),
+   692→    }))
+   693→    .filter((g) => g.actions.length > 0);
+   694→
+   695→  return (
+   696→    <motion.div
+   697→      initial={{ opacity: 0 }}
+   698→      animate={{ opacity: 1 }}
+   699→      exit={{ opacity: 0 }}
+   700→      transition={{ duration: 0.16 }}
+   701→      className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] px-4"
+   702→      style={{ background: "rgba(11,17,28,0.70)", backdropFilter: "blur(8px)" }}
+   703→      onClick={onClose}
+   704→    >
+   705→      <motion.div
+   706→        initial={{ opacity: 0, scale: 0.98, y: -8 }}
+   707→        animate={{ opacity: 1, scale: 1, y: 0 }}
+   708→        exit={{ opacity: 0, scale: 0.98, y: -8 }}
+   709→        transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
+   710→        onClick={(e) => e.stopPropagation()}
+   711→        className="w-full max-w-[560px] rounded-2xl overflow-hidden"
+   712→        style={{
+   713→          background: "var(--surface-1)",
+   714→          border: "1px solid var(--border)",
+   715→          boxShadow: "var(--e3)",
+   716→        }}
+   717→      >
+   718→        {/* Input */}
+   719→        <div
+   720→          className="flex items-center gap-2.5 px-4 h-12 border-b"
+   721→          style={{ borderColor: "var(--border)" }}
+   722→        >
+   723→          <Command className="w-4 h-4" style={{ color: "var(--text-lo)" }} strokeWidth={1.75} />
+   724→          <input
+   725→            autoFocus
+   726→            value={query}
+   727→            onChange={(e) => setQuery(e.target.value)}
+   728→            placeholder={locale === "ar" ? "ابحث عن إجراء، صفحة، سيناريو…" : "Search actions, views, scenarios…"}
+   729→            className="flex-1 bg-transparent outline-none text-[14px] placeholder:opacity-50"
+   730→            style={{ color: "var(--text-hi)" }}
+   731→          />
+   732→          <button
+   733→            onClick={onClose}
+   734→            className="ast-focus inline-flex items-center justify-center w-6 h-6 rounded-md"
+   735→            style={{ background: "var(--surface-2)", color: "var(--text-mid)" }}
+   736→            aria-label="Close"
+   737→          >
+   738→            <X className="w-3.5 h-3.5" strokeWidth={1.75} />
+   739→          </button>
+   740→        </div>
+   741→
+   742→        {/* Results */}
+   743→        <div className="max-h-[420px] overflow-y-auto py-2">
+   744→          {filtered.length === 0 && (
+   745→            <div className="px-4 py-8 text-center text-[12px]" style={{ color: "var(--text-lo)" }}>
+   746→              {locale === "ar" ? "لا نتائج" : "No results"}
+   747→            </div>
+   748→          )}
+   749→          {filtered.map((g) => (
+   750→            <div key={g.group} className="mb-1">
+   751→              <div
+   752→                className="px-4 py-1.5 text-[10px] uppercase tracking-[0.16em]"
+   753→                style={{ color: "var(--text-lo)" }}
+   754→              >
+   755→                {g.group}
+   756→              </div>
+   757→              {g.actions.map((a) => (
+   758→                <button
+   759→                  key={a.id}
+   760→                  onClick={a.run}
+   761→                  className="ast-focus w-full flex items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-[var(--surface-2)]"
+   762→                >
+   763→                  <span className="text-[13px] font-medium" style={{ color: "var(--text-hi)" }}>
+   764→                    {a.label}
+   765→                  </span>
+   766→                  <span className="text-[11px] ml-auto" style={{ color: "var(--text-lo)" }}>
+   767→                    {a.hint}
+   768→                  </span>
+   769→                </button>
+   770→              ))}
+   771→            </div>
+   772→          ))}
+   773→        </div>
+   774→
+   775→        {/* Footer */}
+   776→        <div
+   777→          className="flex items-center justify-between px-4 py-2 text-[10px] tabular border-t"
+   778→          style={{ borderColor: "var(--border)", color: "var(--text-lo)" }}
+   779→        >
+   780→          <span className="flex items-center gap-2">
+   781→            <kbd className="px-1 py-0.5 rounded font-mono" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>↑↓</kbd>
+   782→            {locale === "ar" ? "تنقل" : "navigate"}
+   783→            <kbd className="px-1 py-0.5 rounded font-mono ml-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>↵</kbd>
+   784→            {locale === "ar" ? "اختيار" : "select"}
+   785→          </span>
+   786→          <span>ASTROLABE v1.0.0</span>
+   787→        </div>
+   788→      </motion.div>
+   789→    </motion.div>
+   790→  );
+   791→}
+   792→

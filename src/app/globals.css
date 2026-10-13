@@ -340,6 +340,7 @@
   .ast-rail-seg[data-state="done"] { background: var(--brand-500); }
   .ast-rail-seg[data-state="active"] {
     background: linear-gradient(90deg, var(--brand-500), var(--accent-500));
+    box-shadow: 0 0 8px rgba(22, 154, 165, 0.4);
   }
   .ast-rail-seg[data-state="blocked"] { background: var(--status-blocked); }
 

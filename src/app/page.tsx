@@ -10,7 +10,7 @@ import {
 } from "framer-motion";
 import {
   Compass, Map, MessageSquare, Inbox, User, Users, ClipboardList, Microscope,
-  Search, Command, ShieldCheck, Languages, Monitor, Sparkles, X, ArrowRight,
+  Search, Command, ShieldCheck, Languages, Monitor, Sparkles, X, ArrowRight, Server,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
 import { TodayScreen } from "@/components/astrolabe/today-screen";
@@ -21,12 +21,13 @@ import { MeScreen } from "@/components/astrolabe/me-screen";
 import { HrbpScreen } from "@/components/astrolabe/hrbp-screen";
 import { ManagerScreen } from "@/components/astrolabe/manager-screen";
 import { JudgeScreen } from "@/components/astrolabe/judge-screen";
+import { AdminScreen } from "@/components/astrolabe/admin-screen";
 import { Astrolabe3D } from "@/components/three/astrolabe";
 import { NotificationsBell } from "@/components/astrolabe/notifications-bell";
 import { ConstellationBg } from "@/components/astrolabe/constellation-bg";
 
 type View = "today" | "journey" | "ask" | "requests" | "me";
-type Role = "employee" | "hrbp" | "manager" | "judge";
+type Role = "employee" | "hrbp" | "manager" | "judge" | "admin";
 
 const EMPLOYEE_TABS: { id: View; label: string; labelAr: string; Icon: typeof Compass; hint: string }[] = [
   { id: "today", label: "Today", labelAr: "اليوم", Icon: Compass, hint: "What now?" },
@@ -41,6 +42,7 @@ const ROLES: { id: Role; label: string; labelAr: string; Icon: typeof Compass; a
   { id: "hrbp", label: "HRBP", labelAr: "شريك الموارد", Icon: Users, accent: "var(--status-watch)" },
   { id: "manager", label: "Manager", labelAr: "مدير", Icon: ClipboardList, accent: "var(--accent-500)" },
   { id: "judge", label: "Judge", labelAr: "قاضٍ", Icon: Microscope, accent: "#8B5CF6" },
+  { id: "admin", label: "Admin", labelAr: "إدارة", Icon: Server, accent: "var(--brand-400)" },
 ];
 
 const EMPLOYEES = [
@@ -342,6 +344,7 @@ export default function Home() {
         {role === "hrbp" && <HrbpScreen />}
         {role === "manager" && <ManagerScreen />}
         {role === "judge" && <JudgeScreen />}
+        {role === "admin" && <AdminScreen />}
       </main>
 
       {/* ========== FOOTER (sticky to bottom) ========== */}
@@ -673,6 +676,7 @@ function CommandPalette({
       { id: "hrbp", label: "HRBP", hint: "Early warning queue", run: () => onRole("hrbp") },
       { id: "manager", label: locale === "ar" ? "مدير" : "Manager", hint: "Aggregate view", run: () => onRole("manager") },
       { id: "judge", label: locale === "ar" ? "قاضٍ" : "Judge", hint: "Engine trace", run: () => onRole("judge") },
+      { id: "admin", label: locale === "ar" ? "إدارة" : "Admin", hint: "Operability console", run: () => onRole("admin") },
     ]},
     { group: locale === "ar" ? "السيناريو" : "Scenario", actions: EMPLOYEES.map((e) => ({
       id: e.id, label: `${e.id} · ${e.name}`, hint: e.journey, run: () => onEmployee(e.id),
@@ -708,10 +712,8 @@ function CommandPalette({
         exit={{ opacity: 0, scale: 0.98, y: -8 }}
         transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[560px] rounded-2xl overflow-hidden"
+        className="ast-card-glass w-full max-w-[560px] overflow-hidden"
         style={{
-          background: "var(--surface-1)",
-          border: "1px solid var(--border)",
           boxShadow: "var(--e3)",
         }}
       >

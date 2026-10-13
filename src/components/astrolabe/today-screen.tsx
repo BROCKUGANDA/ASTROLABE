@@ -29,7 +29,6 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
 import {
-  BandChip,
   SlaChip,
   CitationChip,
   type Band as BandT,
@@ -40,6 +39,7 @@ import {
   Tilt3D,
 } from "@/components/astrolabe/micro-interactions";
 import { Astrolabe3D } from "@/components/three/astrolabe";
+import { VerdictCard, type VerdictSignal } from "@/components/astrolabe/verdict-card";
 import { stages as ALL_STAGES, owners as ALL_OWNERS, NOW as PACK_NOW } from "@/lib/data/pack";
 import { generateIcs, type IcsEvent } from "@/lib/utils/ics";
 import { cn } from "@/lib/utils";
@@ -116,7 +116,7 @@ interface JourneyMeData {
   dayInStage: number;
   band: BandT;
   score: number;
-  signals: unknown[];
+  signals: VerdictSignal[];
   suppressedFamilies: string[];
   nextBestStep: NextBestStep | null;
   steps: Step[];
@@ -321,7 +321,6 @@ function HeroStrip({ data }: { data: JourneyMeData }) {
                 {locale === "ar" ? `اليوم ${data.dayInStage} · ${stageLbl}` : `Day ${data.dayInStage} of ${stageLbl}`}
               </span>
             </span>
-            <BandChip band={data.band} score={data.score} locale={locale} size="md" />
             <span
               className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] tabular"
               style={{
@@ -1319,6 +1318,15 @@ export function TodayScreen() {
         ) : data ? (
           <>
             <HeroStrip data={data} />
+
+            {/* Verdict card — first thing after the hero: "Here's where you stand." */}
+            <VerdictCard
+              band={data.band}
+              score={data.score}
+              signals={data.signals}
+              suppressedFamilies={data.suppressedFamilies}
+              locale={locale}
+            />
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
               <Tilt3D maxDeg={3} className="lg:col-span-7">

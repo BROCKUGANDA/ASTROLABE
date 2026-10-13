@@ -395,11 +395,11 @@ export function NotificationsBell() {
               exit={{ x: isAr ? "-100%" : "100%" }}
               transition={{ type: "spring", stiffness: 360, damping: 36 }}
               onClick={(e) => e.stopPropagation()}
-              className="absolute top-0 bottom-0 w-full sm:w-[420px] flex flex-col"
+              className="ast-card-glass absolute top-0 bottom-0 w-full sm:w-[420px] flex flex-col"
               style={{
                 [isAr ? "left" : "right"]: 0,
-                background: "var(--surface-1)",
-                borderInlineStart: "1px solid var(--border)",
+                borderRadius: 0,
+                borderInlineStart: "1px solid rgba(22, 154, 165, 0.18)",
                 boxShadow: "var(--e3)",
               }}
               role="dialog"

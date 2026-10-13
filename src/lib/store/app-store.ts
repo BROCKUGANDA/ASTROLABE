@@ -5,7 +5,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type Role = "employee" | "hrbp" | "manager" | "judge";
+export type Role = "employee" | "hrbp" | "manager" | "judge" | "admin";
 export type View = "today" | "journey" | "ask" | "requests" | "me";
 export type Locale = "en" | "ar";
 export type DegradedLevel = "L0" | "L1" | "L2" | "L3" | "L4";
@@ -18,7 +18,7 @@ export interface AppState {
   view: View;
   hrbpView: "queue" | "employee" | "stalls";
   managerView: "cohort" | "my_steps";
-  judgeView: "scenarios" | "trace" | "degraded";
+  judgeView: "scenarios" | "trace" | "degraded" | "backtest";
 
   // Display prefs
   projectorMode: boolean;
