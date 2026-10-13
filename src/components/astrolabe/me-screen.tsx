@@ -7,7 +7,7 @@
    and revoke-all-optional modal.
    ============================================================ */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { format, formatDistance } from "date-fns";
 import {
@@ -55,10 +55,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { PrivacyPage } from "@/components/astrolabe/privacy-page";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -300,6 +301,7 @@ export function MeScreen() {
   const [pendingPurpose, setPendingPurpose] = useState<Purpose | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [revokeOpen, setRevokeOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -514,6 +516,7 @@ export function MeScreen() {
             </p>
             <a
               href="#"
+              onClick={(e) => { e.preventDefault(); setPrivacyOpen(true); }}
               className="ast-focus inline-flex items-center gap-1.5 mt-3 text-[13px] font-medium"
               style={{ color: "var(--brand-400)" }}
             >
@@ -523,6 +526,17 @@ export function MeScreen() {
           </div>
         </div>
       </motion.section>
+
+      {/* Privacy page modal */}
+      <Dialog open={privacyOpen} onOpenChange={setPrivacyOpen}>
+        <DialogContent
+          className="sm:max-w-[820px] max-h-[88vh] overflow-y-auto"
+          style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+        >
+          <DialogTitle className="sr-only">{locale === "ar" ? "الخصوصية بالكامل" : "Privacy in full"}</DialogTitle>
+          <PrivacyPage />
+        </DialogContent>
+      </Dialog>
 
       {/* Loading / error */}
       {loading ? (
@@ -776,16 +790,12 @@ export function MeScreen() {
                     const isOpen = expandedRow === row.source;
                     const suppressed = row.hidden;
                     return (
-                      <Collapsible
-                        key={row.source}
-                        open={isOpen}
-                        onOpenChange={(o) => setExpandedRow(o ? row.source : null)}
-                      >
-                        <CollapsibleTrigger asChild>
-                          <TableRow
-                            className="cursor-pointer ast-focus"
-                            style={{ borderColor: "var(--border-soft)" }}
-                          >
+                      <Fragment key={row.source}>
+                        <TableRow
+                          className="cursor-pointer ast-focus"
+                          style={{ borderColor: "var(--border-soft)" }}
+                          onClick={() => setExpandedRow(isOpen ? null : row.source)}
+                        >
                               <TableCell className="font-medium text-[13px]" style={{ color: "var(--text-hi)" }}>
                                 <div className="flex items-center gap-2">
                                   {suppressed ? (
@@ -823,10 +833,9 @@ export function MeScreen() {
                                   />
                                 )}
                               </TableCell>
-                            </TableRow>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent asChild>
-                            <tr style={{ background: "var(--surface-2)" }}>
+                        </TableRow>
+                        {isOpen && (
+                          <tr style={{ background: "var(--surface-2)" }}>
                               <td colSpan={6} className="p-0">
                                 <motion.div
                                   initial={reducedMotion ? false : { opacity: 0 }}
@@ -856,8 +865,8 @@ export function MeScreen() {
                                 </motion.div>
                               </td>
                             </tr>
-                          </CollapsibleContent>
-                      </Collapsible>
+                        )}
+                      </Fragment>
                     );
                   })}
                 </TableBody>

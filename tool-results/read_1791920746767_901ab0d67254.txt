@@ -1,0 +1,979 @@
+     1→"use client";
+     2→
+     3→/* ============================================================
+     4→   ASTROLABE — Admin Screen (operability console, PRD §25)
+     5→   Renders: ingestion, quarantine, corpus, feature flags,
+     6→   replay, audit chain, health endpoints.
+     7→   All values are synthetic-prototype only — no real backend.
+     8→   ============================================================ */
+     9→
+    10→import { useCallback, useEffect, useState } from "react";
+    11→import { motion, AnimatePresence } from "framer-motion";
+    12→import { format } from "date-fns";
+    13→import {
+    14→  Database,
+    15→  ShieldCheck,
+    16→  Flag,
+    17→  Play,
+    18→  CheckCircle2,
+    19→  AlertTriangle,
+    20→  RotateCcw,
+    21→  Link2,
+    22→  Activity,
+    23→  Server,
+    24→  Heart,
+    25→  GitBranch,
+    26→  Boxes,
+    27→  FileWarning,
+    28→  Loader2,
+    29→  XCircle,
+    30→} from "lucide-react";
+    31→import { useAppStore } from "@/lib/store/app-store";
+    32→import { BandChip, type Band as BandT } from "@/components/astrolabe/widgets";
+    33→import { Switch } from "@/components/ui/switch";
+    34→import { Progress } from "@/components/ui/progress";
+    35→import { toast } from "sonner";
+    36→import { cn } from "@/lib/utils";
+    37→
+    38→/* ---------- Types ---------- */
+    39→
+    40→interface Assessment {
+    41→  employeeId: string;
+    42→  asOf: string;
+    43→  band: BandT;
+    44→  score: number;
+    45→  signals: { code: string; family: string; weight: number; description: string; evidenceRefs: string[]; hardTrip?: boolean; forceBlocked?: boolean }[];
+    46→  suppressedFamilies: string[];
+    47→  stage: string;
+    48→  dayInStage: number;
+    49→}
+    50→
+    51→interface ApiEnvelope<T> {
+    52→  ok: boolean;
+    53→  data: T | null;
+    54→  meta: { requestId: string; asOf: string; servedFrom: string; latencyMs?: number };
+    55→  error: { code: string; message: string; hint?: string } | null;
+    56→}
+    57→
+    58→/* ---------- Static synthetic data ---------- */
+    59→
+    60→const PACK_VERSION = "synthetic-2024-q4-v1";
+    61→const CORPUS_VERSION = "policies-2024-q4-v1";
+    62→const LAST_LOADED = "2024-10-19T10:00:00Z";
+    63→
+    64→interface IngestionStat {
+    65→  label: string;
+    66→  labelAr: string;
+    67→  count: number;
+    68→}
+    69→const INGESTION_ROWS: IngestionStat[] = [
+    70→  { label: "Employees", labelAr: "الموظفون", count: 5 },
+    71→  { label: "Journey events", labelAr: "أحداث الرحلة", count: 32 },
+    72→  { label: "Service requests", labelAr: "طلبات الخدمة", count: 3 },
+    73→  { label: "Policy chunks", labelAr: "أجزاء السياسة", count: 17 },
+    74→  { label: "Pulse responses", labelAr: "ردود النبضة", count: 2 },
+    75→  { label: "Consent records", labelAr: "سجلات الموافقة", count: 6 },
+    76→];
+    77→const INGESTION_TOTAL = INGESTION_ROWS.reduce((a, r) => a + r.count, 0);
+    78→
+    79→interface CorpusDoc {
+    80→  slug: string;
+    81→  label: string;
+    82→  labelAr: string;
+    83→}
+    84→const CORPUS_DOCS: CorpusDoc[] = [
+    85→  { slug: "relocation-policy", label: "Relocation", labelAr: "الانتقال" },
+    86→  { slug: "immigration-policy", label: "Immigration", labelAr: "الهجرة" },
+    87→  { slug: "it-policy", label: "IT Provisioning", labelAr: "تكنولوجيا المعلومات" },
+    88→  { slug: "onboarding-policy", label: "Onboarding", labelAr: "الالتحاق" },
+    89→  { slug: "learning-policy", label: "Learning", labelAr: "التعلم" },
+    90→  { slug: "mobility-policy", label: "Mobility", labelAr: "التنقل" },
+    91→  { slug: "payroll-policy", label: "Payroll", labelAr: "الرواتب" },
+    92→  { slug: "facilities-policy", label: "Facilities", labelAr: "المرافق" },
+    93→];
+    94→const CORPUS_CHUNKS = 17;
+    95→const CORPUS_BILINGUAL_PAIRS = 2;
+    96→const CORPUS_EN_ONLY = 13;
+    97→
+    98→interface FeatureFlag {
+    99→  key: string;
+   100→  label: string;
+   101→  labelAr: string;
+   102→  description: string;
+   103→  descriptionAr: string;
+   104→  defaultOn: boolean;
+   105→}
+   106→const FEATURE_FLAGS: FeatureFlag[] = [
+   107→  { key: "ai_compose", label: "AI Compose", labelAr: "تأليف الذكاء", description: "Policy answer composition via model", descriptionAr: "تأليف إجابات السياسة عبر النموذج", defaultOn: true },
+   108→  { key: "semantic_cache", label: "Semantic cache", labelAr: "ذاكرة دلالية", description: "Semantic answer cache", descriptionAr: "ذاكرة الإجابات الدلالية", defaultOn: true },
+   109→  { key: "pulse_capture", label: "Pulse capture", labelAr: "التقاط النبضة", description: "Opt-in pulse prompts", descriptionAr: "مطالبات النبضة الاختيارية", defaultOn: true },
+   110→  { key: "auto_draft_escalation", label: "Auto-draft escalation", labelAr: "تصعيد تلقائي", description: "Auto-draft escalation packets", descriptionAr: "صياغة حزم التصعيد تلقائياً", defaultOn: true },
+   111→  { key: "manager_view", label: "Manager view", labelAr: "رؤية المدير", description: "Manager aggregate view", descriptionAr: "رؤية المدير المجمّعة", defaultOn: true },
+   112→  { key: "analytics_rollup", label: "Analytics rollup", labelAr: "تجميع التحليلات", description: "Cohort analytics rollups", descriptionAr: "تجميعات تحليل الفئات", defaultOn: true },
+   113→  { key: "arabic_locale", label: "Arabic locale", labelAr: "اللغة العربية", description: "Arabic UI + citations", descriptionAr: "واجهة وإشارات عربية", defaultOn: true },
+   114→  { key: "judge_mode", label: "Judge mode", labelAr: "وضع القاضي", description: "Judge mode scenario switcher", descriptionAr: "مبدّل سيناريوهات وضع القاضي", defaultOn: true },
+   115→];
+   116→
+   117→interface AuditEventRow {
+   118→  id: string;
+   119→  actor: string;
+   120→  action: string;
+   121→  subject: string;
+   122→  subjectId: string;
+   123→  hash: string;
+   124→  prevHash: string;
+   125→  at: string;
+   126→}
+   127→const AUDIT_EVENTS: AuditEventRow[] = [
+   128→  { id: "ae-001", actor: "system", action: "ingestion", subject: "pack", subjectId: "synthetic-2024-q4-v1", hash: "0xabc4129f7e8d2c1b", prevHash: "0x0000000000000000", at: "2024-10-19T10:00:00Z" },
+   129→  { id: "ae-002", actor: "Fatima Al-Mansouri", action: "read_record", subject: "employee", subjectId: "E-1042", hash: "0xdef8734ab201f55c", prevHash: "0xabc4129f7e8d2c1b", at: "2024-10-19T10:42:11Z" },
+   130→  { id: "ae-003", actor: "system", action: "assess", subject: "employee", subjectId: "E-1043", hash: "0x1237c9e4a1b8d2f0", prevHash: "0xdef8734ab201f55c", at: "2024-10-19T11:08:43Z" },
+   131→  { id: "ae-004", actor: "Maria Santos", action: "consent", subject: "consent", subjectId: "CN-001", hash: "0x456b1d8ace2f7741", prevHash: "0x1237c9e4a1b8d2f0", at: "2024-10-19T13:59:02Z" },
+   132→  { id: "ae-005", actor: "system", action: "escalation", subject: "escalation", subjectId: "ESC-2024-038", hash: "0x789f0a2c4e1b9d33", prevHash: "0x456b1d8ace2f7741", at: "2024-10-19T14:14:55Z" },
+   133→];
+   134→
+   135→interface HealthEndpoint {
+   136→  path: string;
+   137→  status: number;
+   138→  body: string;
+   139→  label: string;
+   140→  labelAr: string;
+   141→}
+   142→const HEALTH_ENDPOINTS: HealthEndpoint[] = [
+   143→  { path: "GET /healthz", status: 200, body: "ok", label: "Liveness", labelAr: "الحيوية" },
+   144→  { path: "GET /readyz", status: 200, body: "DB ✓ · Redis ✓ · Corpus ✓ · Map ✓", label: "Readiness", labelAr: "الجاهزية" },
+   145→  { path: "GET /version", status: 200, body: "v1.0.0", label: "Version", labelAr: "الإصدار" },
+   146→];
+   147→
+   148→const ALL_EMPLOYEE_IDS = ["E-1042", "E-1043", "E-1044", "E-1045", "E-1046"];
+   149→
+   150→/* ---------- Helpers ---------- */
+   151→
+   152→function truncateHash(h: string): string {
+   153→  // Keep "0x" + first 8 hex chars
+   154→  if (h.length <= 10) return h;
+   155→  return `${h.slice(0, 10)}`;
+   156→}
+   157→
+   158→function shortDate(iso: string, locale: "en" | "ar"): string {
+   159→  try {
+   160→    const d = new Date(iso);
+   161→    return format(d, "d MMM yyyy · HH:mm") + (locale === "ar" ? " ت" : " UTC");
+   162→  } catch {
+   163→    return iso;
+   164→  }
+   165→}
+   166→
+   167→/* ---------- Skeletons ---------- */
+   168→
+   169→function CardSkeleton() {
+   170→  return (
+   171→    <div className="ast-card p-6 h-40 ast-shimmer rounded-[14px]" aria-hidden="true" />
+   172→  );
+   173→}
+   174→
+   175→function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+   176→  return (
+   177→    <div
+   178→      className="ast-card p-5 flex flex-col sm:flex-row sm:items-center gap-4"
+   179→      role="alert"
+   180→      style={{ borderColor: "rgba(220,38,38,0.4)" }}
+   181→    >
+   182→      <div
+   183→        className="flex items-center justify-center w-11 h-11 rounded-full shrink-0"
+   184→        style={{ background: "rgba(220,38,38,0.12)", color: "var(--status-friction)" }}
+   185→      >
+   186→        <AlertTriangle className="w-5 h-5" strokeWidth={1.75} />
+   187→      </div>
+   188→      <div className="flex-1 min-w-0">
+   189→        <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+   190→          Replay couldn&apos;t run.
+   191→        </p>
+   192→        <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>{message}</p>
+   193→      </div>
+   194→      <button
+   195→        onClick={onRetry}
+   196→        className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium shrink-0"
+   197→        style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+   198→      >
+   199→        <RotateCcw className="w-4 h-4" strokeWidth={1.75} />
+   200→        Retry
+   201→      </button>
+   202→    </div>
+   203→  );
+   204→}
+   205→
+   206→/* ============================================================
+   207→   Section: Ingestion report
+   208→   ============================================================ */
+   209→function IngestionReportCard() {
+   210→  const locale = useAppStore((s) => s.locale);
+   211→  const [reingesting, setReingesting] = useState(false);
+   212→
+   213→  const handleReingest = () => {
+   214→    setReingesting(true);
+   215→    setTimeout(() => {
+   216→      setReingesting(false);
+   217→      toast.success(
+   218→        locale === "ar" ? "أُعيد تحميل الحزمة" : "Pack re-ingested",
+   219→        { description: locale === "ar" ? `${PACK_VERSION} · ${INGESTION_TOTAL} صفاً` : `${PACK_VERSION} · ${INGESTION_TOTAL} rows validated` }
+   220→      );
+   221→    }, 850);
+   222→  };
+   223→
+   224→  return (
+   225→    <section className="ast-card p-5 sm:p-6 ast-fade-rise">
+   226→      <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
+   227→        <div className="flex items-center gap-2.5">
+   228→          <div
+   229→            className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
+   230→            style={{ background: "rgba(22,154,165,0.10)", color: "var(--brand-400)" }}
+   231→          >
+   232→            <Database className="w-4.5 h-4.5" strokeWidth={1.75} />
+   233→          </div>
+   234→          <div>
+   235→            <h2 className="text-[16px] font-semibold" style={{ color: "var(--text-hi)" }}>
+   236→              {locale === "ar" ? "تقرير الابتلاع" : "Ingestion report"}
+   237→            </h2>
+   238→            <p className="text-[11px] font-mono tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+   239→              {PACK_VERSION}
+   240→            </p>
+   241→          </div>
+   242→        </div>
+   243→        <button
+   244→          onClick={handleReingest}
+   245→          disabled={reingesting}
+   246→          className="ast-focus inline-flex items-center gap-2 h-9 px-3.5 rounded-full text-[12px] font-medium disabled:opacity-60"
+   247→          style={{
+   248→            background: "var(--brand-500)",
+   249→            color: "var(--surface-0)",
+   250→            border: "1px solid var(--brand-500)",
+   251→          }}
+   252→        >
+   253→          {reingesting ? (
+   254→            <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.75} />
+   255→          ) : (
+   256→            <RotateCcw className="w-3.5 h-3.5" strokeWidth={1.75} />
+   257→          )}
+   258→          {locale === "ar" ? "إعادة تحميل" : "Re-ingest"}
+   259→        </button>
+   260→      </div>
+   261→
+   262→      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-4">
+   263→        {INGESTION_ROWS.map((row) => (
+   264→          <div key={row.label} className="ast-card-2 p-3">
+   265→            <p className="text-[10px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+   266→              {locale === "ar" ? row.labelAr : row.label}
+   267→            </p>
+   268→            <p className="text-[22px] font-semibold tabular mt-1" style={{ color: "var(--text-hi)" }} dir="ltr">
+   269→              {row.count}
+   270→            </p>
+   271→          </div>
+   272→        ))}
+   273→      </div>
+   274→
+   275→      <div className="flex items-center justify-between flex-wrap gap-3 pt-3" style={{ borderTop: "1px solid var(--border-soft)" }}>
+   276→        <div className="flex items-center gap-2">
+   277→          <span className="ast-dot ast-dot-steady" aria-hidden="true" />
+   278→          <span className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+   279→            {locale === "ar"
+   280→              ? "الصفوف في الحجر الصحي"
+   281→              : "Quarantined rows"}
+   282→          </span>
+   283→          <span className="text-[12px] font-mono tabular" style={{ color: "var(--status-steady)" }} dir="ltr">0</span>
+   284→          <span className="text-[11px]" style={{ color: "var(--text-lo)" }}>
+   285→            {locale === "ar" ? `· جميع ${INGESTION_TOTAL} صفاً اجتازت التحقق` : `· all ${INGESTION_TOTAL} rows passed validation`}
+   286→          </span>
+   287→        </div>
+   288→        <p className="text-[11px] font-mono tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+   289→          {locale === "ar" ? "آخر تحميل" : "Last loaded"}: {shortDate(LAST_LOADED, locale)}
+   290→        </p>
+   291→      </div>
+   292→    </section>
+   293→  );
+   294→}
+   295→
+   296→/* ============================================================
+   297→   Section: Quarantine table
+   298→   ============================================================ */
+   299→function QuarantineTable() {
+   300→  const locale = useAppStore((s) => s.locale);
+   301→
+   302→  return (
+   303→    <section className="ast-card p-5 sm:p-6 ast-fade-rise">
+   304→      <div className="flex items-center gap-2.5 mb-3">
+   305→        <div
+   306→          className="flex items-center justify-center w-9 h-9 rounded-full shrink-0"
+   307→          style={{ background: "rgba(217,119,6,0.10)", color: "var(--status-watch)" }}
+   308→        >
+   309→          <FileWarning className="w-4 h-4" strokeWidth={1.75} />
+   310→        </div>
+   311→        <div>
+   312→          <h2 className="text-[16px] font-semibold" style={{ color: "var(--text-hi)" }}>
+   313→            {locale === "ar" ? "الحجر الصحي" : "Quarantine"}
+   314→          </h2>
+   315→          <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+   316→            {locale === "ar"
+   317→              ? `لا صفوف محجوزة. جميع السجلات الـ${INGESTION_TOTAL} اجتازت التحقق من المخطط.`
+   318→              : `No quarantined rows. All ${INGESTION_TOTAL} records passed schema validation.`}
+   319→          </p>
+   320→        </div>
+   321→      </div>
+   322→
+   323→      <div className="overflow-x-auto -mx-2">
+   324→        <table className="w-full text-[12px]">
+   325→          <thead>
+   326→            <tr style={{ borderBottom: "1px solid var(--border)" }}>
+   327→              <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>
+   328→                {locale === "ar" ? "الصف" : "Row"}
+   329→              </th>
+   330→              <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>
+   331→                {locale === "ar" ? "السبب" : "Reason"}
+   332→              </th>
+   333→              <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium hidden sm:table-cell" style={{ color: "var(--text-lo)" }}>
+   334→                {locale === "ar" ? "التفاصيل" : "Detail"}
+   335→              </th>
+   336→              <th className="text-right p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>
+   337→                {locale === "ar" ? "الحالة" : "Status"}
+   338→              </th>
+   339→            </tr>
+   340→          </thead>
+   341→          <tbody>
+   342→            {/* Empty-state row */}
+   343→            <tr>
+   344→              <td colSpan={4} className="p-6 text-center">
+   345→                <div className="inline-flex items-center gap-2 text-[12px]" style={{ color: "var(--text-lo)" }}>
+   346→                  <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2} style={{ color: "var(--status-steady)" }} />
+   347→                  {locale === "ar" ? "الحجر الصحي فارغ — كل شيء سليم" : "Quarantine empty — all clear"}
+   348→                </div>
+   349→              </td>
+   350→            </tr>
+   351→            {/* Sample dimmed demonstration row */}
+   352→            <tr
+   353→              style={{ borderBottom: "1px solid var(--border-soft)", opacity: 0.55 }}
+   354→              aria-label="Sample quarantined row demonstration"
+   355→            >
+   356→              <td className="p-2 font-mono tabular" style={{ color: "var(--text-mid)" }} dir="ltr">Row 48</td>
+   357→              <td className="p-2">
+   358→                <span className="ast-chip font-mono text-[10px]" style={{ color: "var(--status-watch)" }}>
+   359→                  E_VALIDATION
+   360→                </span>
+   361→              </td>
+   362→              <td className="p-2 hidden sm:table-cell" style={{ color: "var(--text-lo)" }} dir="ltr">
+   363→                missing <code className="font-mono">employeeId</code> → quarantined
+   364→              </td>
+   365→              <td className="p-2 text-right">
+   366→                <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: "var(--status-watch)" }}>
+   367→                  <span className="ast-dot ast-dot-watch" aria-hidden="true" />
+   368→                  {locale === "ar" ? "محجوز" : "quarantined"}
+   369→                </span>
+   370→              </td>
+   371→            </tr>
+   372→          </tbody>
+   373→        </table>
+   374→      </div>
+   375→    </section>
+   376→  );
+   377→}
+   378→
+   379→/* ============================================================
+   380→   Section: Corpus version
+   381→   ============================================================ */
+   382→function CorpusVersionCard() {
+   383→  const locale = useAppStore((s) => s.locale);
+   384→  const [reindexing, setReindexing] = useState(false);
+   385→
+   386→  const handleReindex = () => {
+   387→    setReindexing(true);
+   388→    setTimeout(() => {
+   389→      setReindexing(false);
+   390→      toast.success(
+   391→        locale === "ar" ? "أُعيدت فهرسة النصوص" : "Corpus re-indexed",
+   392→        { description: `${CORPUS_VERSION} · ${CORPUS_CHUNKS} chunks · ${CORPUS_DOCS.length} docs` }
+   393→      );
+   394→    }, 900);
+   395→  };
+   396→
+   397→  return (
+   398→    <section className="ast-card p-5 sm:p-6 ast-fade-rise">
+   399→      <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
+   400→        <div className="flex items-center gap-2.5">
+   401→          <div
+   402→            className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
+   403→            style={{ background: "rgba(22,154,165,0.10)", color: "var(--brand-400)" }}
+   404→          >
+   405→            <Boxes className="w-4.5 h-4.5" strokeWidth={1.75} />
+   406→          </div>
+   407→          <div>
+   408→            <h2 className="text-[16px] font-semibold" style={{ color: "var(--text-hi)" }}>
+   409→              {locale === "ar" ? "إصدار النصوص" : "Corpus version"}
+   410→            </h2>
+   411→            <p className="text-[11px] font-mono tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+   412→              {CORPUS_VERSION}
+   413→            </p>
+   414→          </div>
+   415→        </div>
+   416→        <button
+   417→          onClick={handleReindex}
+   418→          disabled={reindexing}
+   419→          className="ast-focus inline-flex items-center gap-2 h-9 px-3.5 rounded-full text-[12px] font-medium disabled:opacity-60"
+   420→          style={{
+   421→            background: "var(--surface-2)",
+   422→            border: "1px solid var(--border)",
+   423→            color: "var(--text-hi)",
+   424→          }}
+   425→        >
+   426→          {reindexing ? (
+   427→            <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.75} />
+   428→          ) : (
+   429→            <RotateCcw className="w-3.5 h-3.5" strokeWidth={1.75} />
+   430→          )}
+   431→          {locale === "ar" ? "إعادة الفهرسة" : "Re-index corpus"}
+   432→        </button>
+   433→      </div>
+   434→
+   435→      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
+   436→        <div className="ast-card-2 p-3">
+   437→          <p className="text-[10px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+   438→            {locale === "ar" ? "المستندات" : "Documents"}
+   439→          </p>
+   440→          <p className="text-[22px] font-semibold tabular mt-1" style={{ color: "var(--text-hi)" }} dir="ltr">{CORPUS_DOCS.length}</p>
+   441→        </div>
+   442→        <div className="ast-card-2 p-3">
+   443→          <p className="text-[10px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+   444→            {locale === "ar" ? "الأجزاء" : "Chunks"}
+   445→          </p>
+   446→          <p className="text-[22px] font-semibold tabular mt-1" style={{ color: "var(--text-hi)" }} dir="ltr">{CORPUS_CHUNKS}</p>
+   447→        </div>
+   448→        <div className="ast-card-2 p-3">
+   449→          <p className="text-[10px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+   450→            {locale === "ar" ? "أزواج ثنائية" : "Bilingual pairs"}
+   451→          </p>
+   452→          <p className="text-[22px] font-semibold tabular mt-1" style={{ color: "var(--accent-500)" }} dir="ltr">{CORPUS_BILINGUAL_PAIRS}</p>
+   453→        </div>
+   454→        <div className="ast-card-2 p-3">
+   455→          <p className="text-[10px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+   456→            {locale === "ar" ? "إنجليزي فقط" : "EN-only"}
+   457→          </p>
+   458→          <p className="text-[22px] font-semibold tabular mt-1" style={{ color: "var(--text-hi)" }} dir="ltr">{CORPUS_EN_ONLY}</p>
+   459→        </div>
+   460→      </div>
+   461→
+   462→      <div className="flex flex-wrap gap-1.5">
+   463→        {CORPUS_DOCS.map((doc) => (
+   464→          <span
+   465→            key={doc.slug}
+   466→            className="ast-chip font-mono text-[11px]"
+   467→            title={doc.slug}
+   468→          >
+   469→            {locale === "ar" ? doc.labelAr : doc.label}
+   470→          </span>
+   471→        ))}
+   472→      </div>
+   473→    </section>
+   474→  );
+   475→}
+   476→
+   477→/* ============================================================
+   478→   Section: Feature flags / kill switches
+   479→   ============================================================ */
+   480→function FeatureFlagsPanel() {
+   481→  const locale = useAppStore((s) => s.locale);
+   482→  const [flags, setFlags] = useState<Record<string, boolean>>(() =>
+   483→    Object.fromEntries(FEATURE_FLAGS.map((f) => [f.key, f.defaultOn]))
+   484→  );
+   485→
+   486→  const toggle = (f: FeatureFlag) => {
+   487→    const next = !flags[f.key];
+   488→    setFlags((prev) => ({ ...prev, [f.key]: next }));
+   489→    toast(
+   490→      locale === "ar"
+   491→        ? `العلم ${f.key} أصبح ${next ? "مفعّلاً" : "معطّلاً"}`
+   492→        : `Flag ${f.key} set to ${next ? "on" : "off"}`,
+   493→      { description: next ? (locale === "ar" ? f.descriptionAr : f.description) : (locale === "ar" ? "تم الإيقاف" : "Switched off") }
+   494→    );
+   495→  };
+   496→
+   497→  const onCount = Object.values(flags).filter(Boolean).length;
+   498→
+   499→  return (
+   500→    <section className="ast-card p-5 sm:p-6 ast-fade-rise">
+   501→      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+   502→        <div className="flex items-center gap-2.5">
+   503→          <div
+   504→            className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
+   505→            style={{ background: "rgba(201,162,39,0.10)", color: "var(--accent-500)" }}
+   506→          >
+   507→            <Flag className="w-4.5 h-4.5" strokeWidth={1.75} />
+   508→          </div>
+   509→          <div>
+   510→            <h2 className="text-[16px] font-semibold" style={{ color: "var(--text-hi)" }}>
+   511→              {locale === "ar" ? "أعلام الميزات / مفاتيح الإيقاف" : "Feature flags / kill switches"}
+   512→            </h2>
+   513→            <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+   514→              {locale === "ar"
+   515→                ? `المفعّل ${onCount} من ${FEATURE_FLAGS.length} · مفاتيح الإيقاف فورية عبر كل السطوح`
+   516→                : `${onCount} of ${FEATURE_FLAGS.length} ON · kill switches take effect across every surface instantly`}
+   517→            </p>
+   518→          </div>
+   519→        </div>
+   520→      </div>
+   521→
+   522→      <ul className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+   523→        {FEATURE_FLAGS.map((f) => {
+   524→          const isOn = flags[f.key];
+   525→          return (
+   526→            <li
+   527→              key={f.key}
+   528→              className="ast-card-2 p-3 flex items-center justify-between gap-3"
+   529→              style={{
+   530→                borderColor: isOn ? "rgba(22,154,165,0.28)" : "var(--border)",
+   531→                background: isOn ? "rgba(22,154,165,0.04)" : "var(--surface-2)",
+   532→              }}
+   533→            >
+   534→              <div className="min-w-0 flex-1">
+   535→                <div className="flex items-center gap-2">
+   536→                  <span className="font-mono text-[12px] tabular" style={{ color: "var(--text-hi)" }} dir="ltr">{f.key}</span>
+   537→                  <span
+   538→                    className="ast-chip text-[10px]"
+   539→                    style={{
+   540→                      color: isOn ? "var(--status-steady)" : "var(--text-lo)",
+   541→                      background: isOn ? "rgba(14,159,110,0.10)" : "var(--surface-3)",
+   542→                      borderColor: isOn ? "rgba(14,159,110,0.30)" : "var(--border)",
+   543→                    }}
+   544→                  >
+   545→                    {isOn ? (locale === "ar" ? "مفعّل" : "ON") : (locale === "ar" ? "معطّل" : "OFF")}
+   546→                  </span>
+   547→                </div>
+   548→                <p className="text-[12px] mt-0.5" style={{ color: "var(--text-mid)" }}>
+   549→                  {locale === "ar" ? f.descriptionAr : f.description}
+   550→                </p>
+   551→              </div>
+   552→              <Switch
+   553→                checked={isOn}
+   554→                onCheckedChange={() => toggle(f)}
+   555→                aria-label={f.key}
+   556→                className="ast-focus shrink-0"
+   557→              />
+   558→            </li>
+   559→          );
+   560→        })}
+   561→      </ul>
+   562→    </section>
+   563→  );
+   564→}
+   565→
+   566→/* ============================================================
+   567→   Section: Replay panel
+   568→   ============================================================ */
+   569→function ReplayPanel() {
+   570→  const locale = useAppStore((s) => s.locale);
+   571→
+   572→  const [running, setRunning] = useState(false);
+   573→  const [results, setResults] = useState<Assessment[] | null>(null);
+   574→  const [err, setErr] = useState<string | null>(null);
+   575→  const [jobId, setJobId] = useState<string | null>(null);
+   576→  const [asOfUsed, setAsOfUsed] = useState<string | null>(null);
+   577→
+   578→  const runReplay = useCallback(async () => {
+   579→    setRunning(true);
+   580→    setErr(null);
+   581→    setResults(null);
+   582→    try {
+   583→      const asOf = new Date().toISOString();
+   584→      const res = await fetch("/api/v1/admin/replay", {
+   585→        method: "POST",
+   586→        headers: { "content-type": "application/json" },
+   587→        body: JSON.stringify({ asOf, employeeIds: ALL_EMPLOYEE_IDS }),
+   588→        cache: "no-store",
+   589→      });
+   590→      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+   591→      const json: ApiEnvelope<{ jobId: string; asOf: string; results: Assessment[] }> = await res.json();
+   592→      if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
+   593→      setResults(json.data.results);
+   594→      setJobId(json.data.jobId);
+   595→      setAsOfUsed(json.data.asOf);
+   596→      toast.success(
+   597→        locale === "ar" ? `اكتمل التشغيل المعاد · ${json.data.results.length} موظف` : `Replay complete · ${json.data.results.length} employees`,
+   598→        { description: `job ${json.data.jobId}` }
+   599→      );
+   600→    } catch (e) {
+   601→      const msg = e instanceof Error ? e.message : "Network error";
+   602→      setErr(msg);
+   603→      toast.error(locale === "ar" ? "فشل التشغيل المعاد" : "Replay failed", { description: msg });
+   604→    } finally {
+   605→      setRunning(false);
+   606→    }
+   607→  }, [locale]);
+   608→
+   609→  return (
+   610→    <section className="ast-card p-5 sm:p-6 ast-fade-rise">
+   611→      <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
+   612→        <div className="flex items-center gap-2.5">
+   613→          <div
+   614→            className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
+   615→            style={{ background: "rgba(22,154,165,0.10)", color: "var(--brand-400)" }}
+   616→          >
+   617→            <Play className="w-4.5 h-4.5" strokeWidth={1.75} />
+   618→          </div>
+   619→          <div>
+   620→            <h2 className="text-[16px] font-semibold" style={{ color: "var(--text-hi)" }}>
+   621→              {locale === "ar" ? "إعادة التشغيل الحتمي" : "Deterministic replay"}
+   622→            </h2>
+   623→            <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+   624→              {locale === "ar"
+   625→                ? "أعد تشغيل المحرك على الموظفين الخمسة بنقطة زمنية واحدة. نفس النتيجة في كل مرة."
+   626→                : "Re-run the engine across all 5 employees at a single timestamp. Byte-identical every time."}
+   627→            </p>
+   628→          </div>
+   629→        </div>
+   630→        <button
+   631→          onClick={runReplay}
+   632→          disabled={running}
+   633→          className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium disabled:opacity-60"
+   634→          style={{
+   635→            background: "var(--brand-500)",
+   636→            color: "var(--surface-0)",
+   637→            border: "1px solid var(--brand-500)",
+   638→          }}
+   639→        >
+   640→          {running ? (
+   641→            <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.75} />
+   642→          ) : (
+   643→            <Play className="w-3.5 h-3.5" strokeWidth={1.75} />
+   644→          )}
+   645→          {locale === "ar" ? "شغّل الإعادة" : "Run replay"}
+   646→        </button>
+   647→      </div>
+   648→
+   649→      <AnimatePresence mode="wait">
+   650→        {err && (
+   651→          <motion.div
+   652→            key="err"
+   653→            initial={{ opacity: 0 }}
+   654→            animate={{ opacity: 1 }}
+   655→            exit={{ opacity: 0 }}
+   656→          >
+   657→            <ErrorBanner message={err} onRetry={runReplay} />
+   658→          </motion.div>
+   659→        )}
+   660→
+   661→        {running && !results && !err && (
+   662→          <motion.div
+   663→            key="running"
+   664→            initial={{ opacity: 0 }}
+   665→            animate={{ opacity: 1 }}
+   666→            exit={{ opacity: 0 }}
+   667→            className="space-y-2"
+   668→            aria-live="polite"
+   669→          >
+   670→            {Array.from({ length: 5 }).map((_, i) => (
+   671→              <div key={i} className="ast-card-2 p-3 h-12 ast-shimmer rounded-[10px]" />
+   672→            ))}
+   673→          </motion.div>
+   674→        )}
+   675→
+   676→        {results && (
+   677→          <motion.div
+   678→            key="results"
+   679→            initial={{ opacity: 0, y: 6 }}
+   680→            animate={{ opacity: 1, y: 0 }}
+   681→            exit={{ opacity: 0 }}
+   682→            className="space-y-3"
+   683→          >
+   684→            <div className="flex items-center justify-between flex-wrap gap-2">
+   685→              <div className="flex items-center gap-2">
+   686→                <CheckCircle2 className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--status-steady)" }} />
+   687→                <span className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+   688→                  {locale === "ar" ? "اكتمل — حتمي" : "Complete — deterministic"}
+   689→                </span>
+   690→              </div>
+   691→              <p className="text-[11px] font-mono tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+   692→                job {jobId} · asOf {asOfUsed ? shortDate(asOfUsed, locale) : ""}
+   693→              </p>
+   694→            </div>
+   695→            <div className="overflow-x-auto -mx-2">
+   696→              <table className="w-full text-[12px]">
+   697→                <thead>
+   698→                  <tr style={{ borderBottom: "1px solid var(--border)" }}>
+   699→                    <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>
+   700→                      {locale === "ar" ? "الموظف" : "Employee"}
+   701→                    </th>
+   702→                    <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>
+   703→                      {locale === "ar" ? "التصنيف" : "Band"}
+   704→                    </th>
+   705→                    <th className="text-right p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>
+   706→                      {locale === "ar" ? "النتيجة" : "Score"}
+   707→                    </th>
+   708→                    <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium hidden sm:table-cell" style={{ color: "var(--text-lo)" }}>
+   709→                      {locale === "ar" ? "المرحلة" : "Stage"}
+   710→                    </th>
+   711→                    <th className="text-right p-2 text-[10px] uppercase tracking-[0.1em] font-medium tabular" style={{ color: "var(--text-lo)" }}>
+   712→                      {locale === "ar" ? "يوم بالمرحلة" : "Day in stage"}
+   713→                    </th>
+   714→                    <th className="text-right p-2 text-[10px] uppercase tracking-[0.1em] font-medium tabular" style={{ color: "var(--text-lo)" }}>
+   715→                      {locale === "ar" ? "إشارات" : "Signals"}
+   716→                    </th>
+   717→                  </tr>
+   718→                </thead>
+   719→                <tbody>
+   720→                  {results.map((r) => (
+   721→                    <tr key={r.employeeId} style={{ borderBottom: "1px solid var(--border-soft)" }}>
+   722→                      <td className="p-2 font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">{r.employeeId}</td>
+   723→                      <td className="p-2"><BandChip band={r.band} score={r.score} locale={locale} size="sm" /></td>
+   724→                      <td className="p-2 text-right font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">{r.score}</td>
+   725→                      <td className="p-2 hidden sm:table-cell" style={{ color: "var(--text-mid)" }} dir="ltr">{r.stage}</td>
+   726→                      <td className="p-2 text-right tabular" style={{ color: "var(--text-mid)" }} dir="ltr">{r.dayInStage}</td>
+   727→                      <td className="p-2 text-right tabular" style={{ color: "var(--text-mid)" }} dir="ltr">{r.signals.length}</td>
+   728→                    </tr>
+   729→                  ))}
+   730→                </tbody>
+   731→              </table>
+   732→            </div>
+   733→          </motion.div>
+   734→        )}
+   735→
+   736→        {!running && !results && !err && (
+   737→          <motion.div
+   738→            key="idle"
+   739→            initial={{ opacity: 0 }}
+   740→            animate={{ opacity: 1 }}
+   741→            className="ast-card-2 p-6 text-center"
+   742→          >
+   743→            <p className="text-[12px]" style={{ color: "var(--text-lo)" }}>
+   744→              {locale === "ar"
+   745→                ? "اضغط «شغّل الإعادة» لمعاينة نتائج المحرك."
+   746→                : "Press “Run replay” to see engine results across all 5 employees."}
+   747→            </p>
+   748→          </motion.div>
+   749→        )}
+   750→      </AnimatePresence>
+   751→    </section>
+   752→  );
+   753→}
+   754→
+   755→/* ============================================================
+   756→   Section: Audit chain
+   757→   ============================================================ */
+   758→function AuditChainPanel() {
+   759→  const locale = useAppStore((s) => s.locale);
+   760→  const [verified, setVerified] = useState<boolean | null>(null);
+   761→
+   762→  const handleVerify = () => {
+   763→    setVerified(false);
+   764→    setTimeout(() => {
+   765→      setVerified(true);
+   766→      toast.success(
+   767→        locale === "ar"
+   768→          ? `تم التحقق من السلسلة — ${AUDIT_EVENTS.length}/${AUDIT_EVENTS.length} أحداث، لا تلاعب.`
+   769→          : `Audit chain verified — ${AUDIT_EVENTS.length}/${AUDIT_EVENTS.length} events, no tampering detected.`
+   770→      );
+   771→    }, 600);
+   772→  };
+   773→
+   774→  return (
+   775→    <section className="ast-card p-5 sm:p-6 ast-fade-rise">
+   776→      <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
+   777→        <div className="flex items-center gap-2.5">
+   778→          <div
+   779→            className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
+   780→            style={{ background: "rgba(22,154,165,0.10)", color: "var(--brand-400)" }}
+   781→          >
+   782→            <GitBranch className="w-4.5 h-4.5" strokeWidth={1.75} />
+   783→          </div>
+   784→          <div>
+   785→            <h2 className="text-[16px] font-semibold" style={{ color: "var(--text-hi)" }}>
+   786→              {locale === "ar" ? "سلسلة التدقيق" : "Audit chain"}
+   787→            </h2>
+   788→            <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+   789→              {locale === "ar"
+   790→                ? `سجل التجزئة المتسلسل · ${AUDIT_EVENTS.length} أحداث`
+   791→                : `Hash-chained audit log · ${AUDIT_EVENTS.length} events`}
+   792→            </p>
+   793→          </div>
+   794→        </div>
+   795→        <button
+   796→          onClick={handleVerify}
+   797→          className="ast-focus inline-flex items-center gap-2 h-9 px-3.5 rounded-full text-[12px] font-medium"
+   798→          style={{
+   799→            background: verified ? "rgba(14,159,110,0.10)" : "var(--surface-2)",
+   800→            border: `1px solid ${verified ? "rgba(14,159,110,0.40)" : "var(--border)"}`,
+   801→            color: verified ? "var(--status-steady)" : "var(--text-hi)",
+   802→          }}
+   803→        >
+   804→          <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
+   805→          {locale === "ar" ? "تحقّق من السلسلة" : "Verify chain"}
+   806→        </button>
+   807→      </div>
+   808→
+   809→      <ol className="space-y-0">
+   810→        {AUDIT_EVENTS.map((ev, i) => {
+   811→          const isFirst = i === 0;
+   812→          return (
+   813→            <li key={ev.id} className="relative flex gap-3">
+   814→              {/* Chain connector */}
+   815→              {!isFirst && (
+   816→                <div className="absolute left-[15px] -top-2 h-3 w-px" style={{ background: "var(--border)" }} aria-hidden="true" />
+   817→              )}
+   818→              {/* Hash dot */}
+   819→              <div
+   820→                className="relative z-10 shrink-0 mt-1 flex items-center justify-center w-[30px] h-[30px] rounded-full"
+   821→                style={{
+   822→                  background: "var(--surface-3)",
+   823→                  border: "1px solid var(--border)",
+   824→                  color: "var(--brand-400)",
+   825→                }}
+   826→              >
+   827→                <Link2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+   828→              </div>
+   829→              {/* Row content */}
+   830→              <div className="flex-1 min-w-0 pb-3">
+   831→                <div className="ast-card-2 p-3">
+   832→                  <div className="flex items-baseline justify-between gap-2 flex-wrap">
+   833→                    <div className="flex items-center gap-2 min-w-0">
+   834→                      <span className="font-mono text-[11px] tabular" style={{ color: "var(--text-lo)" }} dir="ltr">{ev.id}</span>
+   835→                      <span className="text-[12px] font-medium truncate" style={{ color: "var(--text-hi)" }}>{ev.actor}</span>
+   836→                      <span className="text-[11px] px-1.5 py-0.5 rounded font-mono" style={{ background: "var(--surface-3)", color: "var(--brand-400)" }} dir="ltr">
+   837→                        {ev.action}
+   838→                      </span>
+   839→                    </div>
+   840→                    <span className="text-[10px] tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+   841→                      {shortDate(ev.at, locale)}
+   842→                    </span>
+   843→                  </div>
+   844→                  <div className="flex items-center gap-3 mt-2 flex-wrap text-[11px] font-mono tabular" style={{ color: "var(--text-lo)" }}>
+   845→                    <span dir="ltr">
+   846→                      <span style={{ color: "var(--text-lo)" }}>subject </span>
+   847→                      <span style={{ color: "var(--text-mid)" }}>{ev.subject}:</span>
+   848→                      <span style={{ color: "var(--text-hi)" }}>{ev.subjectId}</span>
+   849→                    </span>
+   850→                  </div>
+   851→                  <div className="grid grid-cols-2 gap-2 mt-2 text-[10px] font-mono tabular">
+   852→                    <div className="ast-card-2 p-1.5 px-2">
+   853→                      <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>prev</p>
+   854→                      <p style={{ color: isFirst ? "var(--text-lo)" : "var(--text-mid)" }} dir="ltr" className={isFirst ? "italic" : ""}>
+   855→                        {truncateHash(ev.prevHash)}
+   856→                      </p>
+   857→                    </div>
+   858→                    <div className="ast-card-2 p-1.5 px-2">
+   859→                      <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>hash</p>
+   860→                      <p style={{ color: "var(--brand-400)" }} dir="ltr">{truncateHash(ev.hash)}</p>
+   861→                    </div>
+   862→                  </div>
+   863→                </div>
+   864→              </div>
+   865→            </li>
+   866→          );
+   867→        })}
+   868→      </ol>
+   869→
+   870→      <AnimatePresence>
+   871→        {verified && (
+   872→          <motion.div
+   873→            initial={{ opacity: 0, y: 4 }}
+   874→            animate={{ opacity: 1, y: 0 }}
+   875→            exit={{ opacity: 0 }}
+   876→            className="ast-card-2 p-3 mt-2 flex items-center gap-2"
+   877→            style={{ borderColor: "rgba(14,159,110,0.32)", background: "rgba(14,159,110,0.06)" }}
+   878→          >
+   879→            <CheckCircle2 className="w-4 h-4" strokeWidth={2} style={{ color: "var(--status-steady)" }} />
+   880→            <p className="text-[12px]" style={{ color: "var(--text-hi)" }}>
+   881→              {locale === "ar"
+   882→                ? `تم التحقق — ${AUDIT_EVENTS.length} من ${AUDIT_EVENTS.length}، سلسلة سليمة.`
+   883→                : `Verified — ${AUDIT_EVENTS.length} of ${AUDIT_EVENTS.length} events chain correctly. No tampering.`}
+   884→            </p>
+   885→          </motion.div>
+   886→        )}
+   887→      </AnimatePresence>
+   888→    </section>
+   889→  );
+   890→}
+   891→
+   892→/* ============================================================
+   893→   Section: Health endpoints
+   894→   ============================================================ */
+   895→function HealthEndpoints() {
+   896→  const locale = useAppStore((s) => s.locale);
+   897→  return (
+   898→    <section className="ast-card p-5 sm:p-6 ast-fade-rise">
+   899→      <div className="flex items-center gap-2.5 mb-4">
+   900→        <div
+   901→          className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
+   902→          style={{ background: "rgba(14,159,110,0.10)", color: "var(--status-steady)" }}
+   903→        >
+   904→          <Heart className="w-4.5 h-4.5" strokeWidth={1.75} />
+   905→        </div>
+   906→        <div>
+   907→          <h2 className="text-[16px] font-semibold" style={{ color: "var(--text-hi)" }}>
+   908→            {locale === "ar" ? "نقاط نهاية الصحة" : "Health endpoints"}
+   909→          </h2>
+   910→          <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+   911→            {locale === "ar" ? "فحوص التشغيل الثلاثة" : "The three ops endpoints"}
+   912→          </p>
+   913→        </div>
+   914→      </div>
+   915→
+   916→      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+   917→        {HEALTH_ENDPOINTS.map((ep) => (
+   918→          <div key={ep.path} className="ast-card-2 p-3 flex flex-col gap-2">
+   919→            <div className="flex items-center justify-between gap-2">
+   920→              <code className="font-mono text-[11px] tabular" style={{ color: "var(--brand-400)" }} dir="ltr">{ep.path}</code>
+   921→              <span
+   922→                className="inline-flex items-center gap-1 text-[10px] font-mono tabular px-1.5 py-0.5 rounded"
+   923→                style={{ color: "var(--status-steady)", background: "rgba(14,159,110,0.10)", border: "1px solid rgba(14,159,110,0.30)" }}
+   924→                dir="ltr"
+   925→              >
+   926→                <span className="ast-dot ast-dot-steady" aria-hidden="true" />
+   927→                {ep.status} OK
+   928→              </span>
+   929→            </div>
+   930→            <div>
+   931→              <p className="text-[10px] uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
+   932→                {locale === "ar" ? ep.labelAr : ep.label}
+   933→              </p>
+   934→              <p className="text-[12px] font-mono tabular mt-0.5" style={{ color: "var(--text-hi)" }} dir="ltr">{ep.body}</p>
+   935→            </div>
+   936→          </div>
+   937→        ))}
+   938→      </div>
+   939→    </section>
+   940→  );
+   941→}
+   942→
+   943→/* ============================================================
+   944→   Root
+   945→   ============================================================ */
+   946→export function AdminScreen() {
+   947→  const locale = useAppStore((s) => s.locale);
+   948→  const dir = locale === "ar" ? "rtl" : "ltr";
+   949→
+   950→  return (
+   951→    <div dir={dir} className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10">
+   952→      <header className="mb-6">
+   953→        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--brand-400)" }}>
+   954→          <Server className="w-3.5 h-3.5" strokeWidth={1.75} />
+   955→          <span>{locale === "ar" ? "وحدة الإدارة" : "Admin console"}</span>
+   956→        </div>
+   957→        <h1 className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight" style={{ color: "var(--text-hi)" }}>
+   958→          {locale === "ar" ? "لوحة التشغيل" : "Operability console"}
+   959→        </h1>
+   960→        <p className="mt-1 text-[13px]" style={{ color: "var(--text-mid)" }}>
+   961→          {locale === "ar"
+   962→            ? "الابتلاع، الحجر الصحي، النصوص، الأعلام، الإعادة، سلسلة التدقيق، والصحة — كلها في مكان واحد."
+   963→            : "Ingestion, quarantine, corpus, flags, replay, audit chain, and health — all in one place."}
+   964→        </p>
+   965→      </header>
+   966→
+   967→      <div className="space-y-4">
+   968→        <IngestionReportCard />
+   969→        <QuarantineTable />
+   970→        <CorpusVersionCard />
+   971→        <FeatureFlagsPanel />
+   972→        <ReplayPanel />
+   973→        <AuditChainPanel />
+   974→        <HealthEndpoints />
+   975→      </div>
+   976→    </div>
+   977→  );
+   978→}
+   979→

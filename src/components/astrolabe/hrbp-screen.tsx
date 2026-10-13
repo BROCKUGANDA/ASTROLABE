@@ -42,6 +42,12 @@ import {
   type Band as BandT,
 } from "@/components/astrolabe/widgets";
 import {
+  Tilt3D,
+  NumberTicker,
+} from "@/components/astrolabe/micro-interactions";
+import { SignalWeightBar } from "@/components/astrolabe/signal-weight-bar";
+import { TimelineSparkline } from "@/components/astrolabe/timeline-sparkline";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -74,6 +80,8 @@ interface QueueItem {
   band: BandT;
   score: number;
   topSignals: { code: string; weight: number; description: string }[];
+  /** Last 10 events for the hover-expand preview sparkline. */
+  recentEvents?: { occurredAt: string; type: string }[];
   leadTimeHours: number;
   suggestedOwner: { id: string; name: string; role: string; email: string } | null;
 }
@@ -342,6 +350,7 @@ function QueueView({ onOpenPacket }: { onOpenPacket: (employeeId: string) => voi
               key={item.employeeId}
               item={item}
               rank={i + 1}
+              index={i}
               claiming={claiming === item.employeeId}
               onClaim={() => handleClaim(item)}
               onOpen={() => onOpenPacket(item.employeeId)}
@@ -365,6 +374,7 @@ function QueueView({ onOpenPacket }: { onOpenPacket: (employeeId: string) => voi
                 key={item.employeeId}
                 item={item}
                 rank={active.length + i + 1}
+                index={i}
                 claiming={claiming === item.employeeId}
                 onClaim={() => handleClaim(item)}
                 onOpen={() => onOpenPacket(item.employeeId)}
@@ -381,6 +391,7 @@ function QueueView({ onOpenPacket }: { onOpenPacket: (employeeId: string) => voi
 function QueueRow({
   item,
   rank,
+  index,
   claiming,
   onClaim,
   onOpen,
@@ -388,98 +399,300 @@ function QueueRow({
 }: {
   item: QueueItem;
   rank: number;
+  index: number;
   claiming: boolean;
   onClaim: () => void;
   onOpen: () => void;
   compact?: boolean;
 }) {
   const locale = useAppStore((s) => s.locale);
+  const reducedMotion = useAppStore((s) => s.reducedMotion);
   const leadDays = Math.max(0, Math.round(item.leadTimeHours / 24));
+
+  // Hover-expand state.
+  // Desktop (pointer: fine) → hover reveals preview.
+  // Mobile  (pointer: coarse) → tap chevron toggles preview.
+  const [isHover, setIsHover] = useState(false);
+  const [isTapped, setIsTapped] = useState(false);
+
+  // Band → accent colour (left bar + glow).
+  const bandAccent: Record<BandT, string> = {
+    steady: "var(--status-steady)",
+    watch: "var(--status-watch)",
+    friction: "var(--status-friction)",
+    blocked: "var(--status-blocked)",
+  };
+  const accent = bandAccent[item.band];
+
+  // Spring drop-in stagger (40ms per item, capped at 0.3s = ~8 items).
+  const springDelay = reducedMotion ? 0 : Math.min(index * 0.04, 0.3);
+
+  const isPreviewOpen = isHover || isTapped;
+
   return (
     <motion.li
-      initial={false}
-      className={cn("ast-card p-4 sm:p-5", compact && "p-3")}
+      initial={reducedMotion ? false : { opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={
+        reducedMotion
+          ? { duration: 0 }
+          : { type: "spring", stiffness: 220, damping: 26, delay: springDelay }
+      }
     >
-      <div className="flex items-start gap-3 sm:gap-4 flex-wrap">
-        {/* Rank + band */}
-        <div className="flex items-center gap-3 shrink-0">
-          <span className="text-[12px] tabular font-mono" style={{ color: "var(--text-lo)" }}>
-            #{rank}
-          </span>
-          <BandChip band={item.band} score={item.score} locale={locale} size="lg" />
-        </div>
+      <Tilt3D maxDeg={2}>
+        <div
+          className={cn(
+            "relative ast-card",
+            compact ? "p-3" : "p-4 sm:p-5",
+          )}
+          style={{
+            // Depth shadow on hover / preview-open (180ms).
+            boxShadow: isPreviewOpen ? "var(--e3)" : "var(--e2)",
+            borderColor: isPreviewOpen ? "rgba(22,154,165,0.35)" : undefined,
+            transition:
+              "box-shadow 180ms var(--ease-standard), border-color 180ms var(--ease-standard)",
+          }}
+          onMouseEnter={() => setIsHover(true)}
+          onMouseLeave={() => {
+            setIsHover(false);
+          }}
+        >
+          {/* Band-coloured left accent bar — at-a-glance scanning */}
+          <div
+            aria-hidden="true"
+            className="absolute left-0 top-0 bottom-0 rounded-l-[14px] pointer-events-none"
+            style={{
+              width: 3,
+              background: accent,
+              boxShadow: `0 0 10px ${accent}55`,
+            }}
+          />
 
-        {/* Name + stage */}
-        <div className="flex-1 min-w-0">
-          <p className="text-[15px] font-medium truncate" style={{ color: "var(--text-hi)" }}>
-            {item.employeeName}
-          </p>
-          <p className="text-[12px] mt-0.5" style={{ color: "var(--text-mid)" }}>
-            {stageLabel(item.stage, locale)}
-            <span className="mx-1.5">·</span>
-            <span className="tabular">
-              {locale === "ar"
-                ? `أول إشارة قبل ${leadDays} يوم`
-                : `first signal ${leadDays} day${leadDays === 1 ? "" : "s"} ago`}
-            </span>
-          </p>
+          <div className="flex items-start gap-3 sm:gap-4 flex-wrap pl-1">
+            {/* Rank + band + score */}
+            <div className="flex items-center gap-3 shrink-0">
+              <span
+                className="text-[12px] tabular font-mono"
+                style={{ color: "var(--text-lo)" }}
+              >
+                #{rank}
+              </span>
+              <BandChip
+                band={item.band}
+                score={item.score}
+                locale={locale}
+                size="lg"
+              />
+            </div>
 
-          {/* Top signals */}
-          {item.topSignals.length > 0 && (
-            <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-              {item.topSignals.map((s, i) => (
-                <SignalBadge
-                  key={`${s.code}-${i}`}
-                  code={s.code}
-                  weight={s.weight}
-                  hardTrip={s.code.startsWith("DP") || s.code.startsWith("MB")}
+            {/* Name + stage */}
+            <div className="flex-1 min-w-0">
+              <p
+                className="text-[15px] font-medium truncate"
+                style={{ color: "var(--text-hi)" }}
+              >
+                {item.employeeName}
+              </p>
+              <p
+                className="text-[12px] mt-0.5"
+                style={{ color: "var(--text-mid)" }}
+              >
+                {stageLabel(item.stage, locale)}
+                <span className="mx-1.5">·</span>
+                <span className="tabular">
+                  {locale === "ar"
+                    ? `أول إشارة قبل ${leadDays} يوم`
+                    : `first signal ${leadDays} day${leadDays === 1 ? "" : "s"} ago`}
+                </span>
+                <span className="mx-1.5">·</span>
+                <span className="tabular" style={{ color: "var(--text-lo)" }}>
+                  {locale === "ar" ? "النتيجة " : "score "}
+                  <NumberTicker value={item.score} />
+                </span>
+              </p>
+
+              {/* Top signals */}
+              {item.topSignals.length > 0 && (
+                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                  {item.topSignals.map((s, i) => (
+                    <SignalBadge
+                      key={`${s.code}-${i}`}
+                      code={s.code}
+                      weight={s.weight}
+                      hardTrip={s.code.startsWith("DP") || s.code.startsWith("MB")}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Suggested owner + actions */}
+            <div className="flex items-center gap-2 shrink-0 ml-auto">
+              {item.suggestedOwner && (
+                <div className="hidden md:flex flex-col items-end text-right">
+                  <span
+                    className="text-[11px] uppercase tracking-[0.1em]"
+                    style={{ color: "var(--text-lo)" }}
+                  >
+                    {locale === "ar" ? "المقترح" : "Suggested"}
+                  </span>
+                  <span
+                    className="text-[12px] font-medium"
+                    style={{ color: "var(--text-hi)" }}
+                  >
+                    {item.suggestedOwner.name}
+                  </span>
+                </div>
+              )}
+              {/* Mobile-only tap-to-expand chevron (coarse pointer) */}
+              <button
+                onClick={() => setIsTapped((v) => !v)}
+                aria-expanded={isTapped}
+                aria-label={
+                  isTapped
+                    ? locale === "ar"
+                      ? "إخفاء المعاينة"
+                      : "Hide preview"
+                    : locale === "ar"
+                    ? "إظهار المعاينة"
+                    : "Show preview"
+                }
+                className="ast-focus md:hidden inline-flex items-center justify-center w-9 h-9 rounded-full"
+                style={{
+                  background: "var(--surface-2)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text-mid)",
+                }}
+              >
+                <ChevronRight
+                  className="w-4 h-4 transition-transform"
+                  strokeWidth={1.75}
+                  style={{
+                    transform: isTapped ? "rotate(90deg)" : "rotate(0deg)",
+                  }}
                 />
-              ))}
+              </button>
+              <button
+                onClick={onClaim}
+                disabled={claiming}
+                className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium transition-colors disabled:opacity-50"
+                style={{
+                  background: "var(--surface-2)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text-hi)",
+                }}
+              >
+                <Hand className="w-3.5 h-3.5" strokeWidth={1.75} />
+                {claiming
+                  ? (locale === "ar" ? "..." : "Claiming…")
+                  : (locale === "ar" ? "تولّى" : "Claim")}
+              </button>
+              <button
+                onClick={onOpen}
+                className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium transition-colors"
+                style={{
+                  background: "var(--brand-500)",
+                  color: "var(--surface-0)",
+                  border: "1px solid var(--brand-500)",
+                }}
+              >
+                {locale === "ar" ? "افتح الطرد" : "Open packet"}
+                <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.75} />
+              </button>
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* Suggested owner + actions */}
-        <div className="flex items-center gap-2 shrink-0 ml-auto">
-          {item.suggestedOwner && (
-            <div className="hidden md:flex flex-col items-end text-right">
-              <span className="text-[11px] uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
-                {locale === "ar" ? "المقترح" : "Suggested"}
-              </span>
-              <span className="text-[12px] font-medium" style={{ color: "var(--text-hi)" }}>
-                {item.suggestedOwner.name}
-              </span>
-            </div>
-          )}
-          <button
-            onClick={onClaim}
-            disabled={claiming}
-            className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium transition-colors disabled:opacity-50"
-            style={{
-              background: "var(--surface-2)",
-              border: "1px solid var(--border)",
-              color: "var(--text-hi)",
-            }}
-          >
-            <Hand className="w-3.5 h-3.5" strokeWidth={1.75} />
-            {claiming
-              ? (locale === "ar" ? "..." : "Claiming…")
-              : (locale === "ar" ? "تولّى" : "Claim")}
-          </button>
-          <button
-            onClick={onOpen}
-            className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium transition-colors"
-            style={{
-              background: "var(--brand-500)",
-              color: "var(--surface-0)",
-              border: "1px solid var(--brand-500)",
-            }}
-          >
-            {locale === "ar" ? "افتح الطرد" : "Open packet"}
-            <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.75} />
-          </button>
+          {/* Hover-expand preview panel (desktop hover / mobile tap). */}
+          <AnimatePresence initial={false}>
+            {isPreviewOpen && (
+              <motion.div
+                key="preview"
+                initial={reducedMotion ? false : { height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={reducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                transition={
+                  reducedMotion
+                    ? { duration: 0 }
+                    : {
+                        type: "spring",
+                        stiffness: 240,
+                        damping: 28,
+                        duration: 0.24,
+                      }
+                }
+                className="overflow-hidden"
+              >
+                <div className="ast-card-glass p-4 mt-3 ml-1 space-y-3">
+                  {/* Top 3 signals with weight bars */}
+                  <div>
+                    <h5
+                      className="text-[10px] uppercase tracking-[0.14em] font-medium mb-2"
+                      style={{ color: "var(--text-lo)" }}
+                    >
+                      {locale === "ar" ? "أبرز الإشارات" : "Top signals"}
+                    </h5>
+                    <ul className="space-y-2.5">
+                      {item.topSignals.length === 0 && (
+                        <li
+                          className="text-[12px]"
+                          style={{ color: "var(--text-mid)" }}
+                        >
+                          {locale === "ar" ? "لا إشارات." : "No signals."}
+                        </li>
+                      )}
+                      {item.topSignals.map((s, i) => (
+                        <li key={`${s.code}-${i}`}>
+                          <SignalWeightBar
+                            code={s.code}
+                            weight={s.weight}
+                            family={s.code.split("-")[0]}
+                            hardTrip={
+                              s.code.startsWith("DP") || s.code.startsWith("MB")
+                            }
+                            variant="detailed"
+                            description={s.description}
+                            locale={locale}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Timeline sparkline */}
+                  <div>
+                    <h5
+                      className="text-[10px] uppercase tracking-[0.14em] font-medium mb-2"
+                      style={{ color: "var(--text-lo)" }}
+                    >
+                      {locale === "ar" ? "آخر 10 أحداث" : "Recent activity"}
+                    </h5>
+                    <TimelineSparkline
+                      events={item.recentEvents ?? []}
+                      locale={locale}
+                    />
+                  </div>
+
+                  {/* Open full packet */}
+                  <div className="pt-1">
+                    <button
+                      onClick={onOpen}
+                      className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium transition-colors"
+                      style={{
+                        background: "rgba(22,154,165,0.10)",
+                        color: "var(--brand-400)",
+                        border: "1px solid rgba(22,154,165,0.30)",
+                      }}
+                    >
+                      {locale === "ar" ? "افتح الطرد الكامل" : "Open full packet"}
+                      <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.75} />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-      </div>
+      </Tilt3D>
     </motion.li>
   );
 }
@@ -838,6 +1051,16 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
                           {s.evidenceRefs.join(" · ")}
                         </p>
                       )}
+                      <div className="mt-2">
+                        <SignalWeightBar
+                          code={s.code}
+                          weight={s.weight}
+                          family={s.code.split("-")[0]}
+                          hardTrip={s.code.startsWith("DP") || s.code.startsWith("MB")}
+                          variant="compact"
+                          locale={locale}
+                        />
+                      </div>
                     </div>
                   </li>
                 ))}

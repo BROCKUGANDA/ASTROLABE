@@ -49,6 +49,7 @@ import {
   type Band as BandT,
 } from "@/components/astrolabe/widgets";
 import { BandSphere3D } from "@/components/three/astrolabe";
+import { SignalWeightBar } from "@/components/astrolabe/signal-weight-bar";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { NOW as PACK_NOW, stages as ALL_STAGES } from "@/lib/data/pack";
@@ -623,7 +624,7 @@ function TraceView({ employeeId, onBack }: { employeeId: string; onBack: () => v
                     <tr style={{ borderBottom: "1px solid var(--border)" }}>
                       <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>{locale === "ar" ? "الكود" : "Code"}</th>
                       <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>{locale === "ar" ? "العائلة" : "Family"}</th>
-                      <th className="text-right p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>{locale === "ar" ? "الوزن" : "Weight"}</th>
+                      <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>{locale === "ar" ? "الوزن" : "Weight"}</th>
                       <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium hidden sm:table-cell" style={{ color: "var(--text-lo)" }}>{locale === "ar" ? "الأدلة" : "Evidence"}</th>
                       <th className="text-center p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>{locale === "ar" ? "صلبة" : "Hard"}</th>
                     </tr>
@@ -638,7 +639,16 @@ function TraceView({ employeeId, onBack }: { employeeId: string; onBack: () => v
                           <tr key={`${s.code}-${i}`} style={{ borderBottom: "1px solid var(--border-soft)" }}>
                             <td className="p-2"><SignalBadge code={s.code} weight={s.weight} hardTrip={hard} /></td>
                             <td className="p-2 font-mono text-[11px]" style={{ color: "var(--text-mid)" }} dir="ltr">{s.family}</td>
-                            <td className="p-2 text-right tabular font-mono" style={{ color: "var(--text-hi)" }}>{s.weight}</td>
+                            <td className="p-2 min-w-[160px]">
+                              <SignalWeightBar
+                                code={s.code}
+                                weight={s.weight}
+                                family={s.family}
+                                hardTrip={hard}
+                                variant="compact"
+                                locale={locale}
+                              />
+                            </td>
                             <td className="p-2 hidden sm:table-cell">
                               <div className="flex flex-wrap gap-1">
                                 {s.evidence.slice(0, 3).map((e, i) => (

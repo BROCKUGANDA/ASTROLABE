@@ -22,12 +22,13 @@ import { HrbpScreen } from "@/components/astrolabe/hrbp-screen";
 import { ManagerScreen } from "@/components/astrolabe/manager-screen";
 import { JudgeScreen } from "@/components/astrolabe/judge-screen";
 import { AdminScreen } from "@/components/astrolabe/admin-screen";
+import { ServiceOwnerScreen } from "@/components/astrolabe/service-owner-screen";
 import { Astrolabe3D } from "@/components/three/astrolabe";
 import { NotificationsBell } from "@/components/astrolabe/notifications-bell";
 import { ConstellationBg } from "@/components/astrolabe/constellation-bg";
 
 type View = "today" | "journey" | "ask" | "requests" | "me";
-type Role = "employee" | "hrbp" | "manager" | "judge" | "admin";
+type Role = "employee" | "hrbp" | "manager" | "judge" | "admin" | "service_owner";
 
 const EMPLOYEE_TABS: { id: View; label: string; labelAr: string; Icon: typeof Compass; hint: string }[] = [
   { id: "today", label: "Today", labelAr: "اليوم", Icon: Compass, hint: "What now?" },
@@ -43,6 +44,7 @@ const ROLES: { id: Role; label: string; labelAr: string; Icon: typeof Compass; a
   { id: "manager", label: "Manager", labelAr: "مدير", Icon: ClipboardList, accent: "var(--accent-500)" },
   { id: "judge", label: "Judge", labelAr: "قاضٍ", Icon: Microscope, accent: "#8B5CF6" },
   { id: "admin", label: "Admin", labelAr: "إدارة", Icon: Server, accent: "var(--brand-400)" },
+  { id: "service_owner", label: "Service owner", labelAr: "مالك الخدمة", Icon: Inbox, accent: "var(--brand-500)" },
 ];
 
 const EMPLOYEES = [
@@ -345,6 +347,7 @@ export default function Home() {
         {role === "manager" && <ManagerScreen />}
         {role === "judge" && <JudgeScreen />}
         {role === "admin" && <AdminScreen />}
+        {role === "service_owner" && <ServiceOwnerScreen />}
       </main>
 
       {/* ========== FOOTER (sticky to bottom) ========== */}
@@ -677,6 +680,7 @@ function CommandPalette({
       { id: "manager", label: locale === "ar" ? "مدير" : "Manager", hint: "Aggregate view", run: () => onRole("manager") },
       { id: "judge", label: locale === "ar" ? "قاضٍ" : "Judge", hint: "Engine trace", run: () => onRole("judge") },
       { id: "admin", label: locale === "ar" ? "إدارة" : "Admin", hint: "Operability console", run: () => onRole("admin") },
+      { id: "service_owner", label: locale === "ar" ? "مالك الخدمة" : "Service owner", hint: "Intake queue + payload", run: () => onRole("service_owner") },
     ]},
     { group: locale === "ar" ? "السيناريو" : "Scenario", actions: EMPLOYEES.map((e) => ({
       id: e.id, label: `${e.id} · ${e.name}`, hint: e.journey, run: () => onEmployee(e.id),

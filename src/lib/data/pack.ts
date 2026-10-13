@@ -394,6 +394,22 @@ export const serviceRequests: ServiceRequest[] = [
     returnCount: 1,
     idempotencyKey: "idm-E1044-payroll-20241015",
   },
+  {
+    // A fresh IT request in `submitted` state — lets the service owner
+    // demonstrate the Acknowledge → Start work flow on a real request.
+    id: "SR-2024-099",
+    ref: "SR-2024-099",
+    employeeId: "E-1045",
+    type: "it_kit",
+    ownerGroup: "IT",
+    assignee: "O-IT-1",
+    status: "submitted",
+    openedAt: hoursAgo(6),
+    slaHours: 24,
+    reassignCount: 0,
+    returnCount: 0,
+    idempotencyKey: "idm-E1045-it_kit-20241019",
+  },
 ];
 
 export const pulseResponses: PulseResponse[] = [

@@ -5,7 +5,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type Role = "employee" | "hrbp" | "manager" | "judge" | "admin";
+export type Role = "employee" | "hrbp" | "manager" | "judge" | "admin" | "service_owner";
 export type View = "today" | "journey" | "ask" | "requests" | "me";
 export type Locale = "en" | "ar";
 export type DegradedLevel = "L0" | "L1" | "L2" | "L3" | "L4";

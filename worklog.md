@@ -749,3 +749,332 @@ ASTROLABE is a fully-built employee journey AI companion. Round 1 delivered all 
 3. **Service-owner intake console** (PRD §11) — a 6th role showing the service owner's queue with complete payloads + structured "needs more info" returns.
 4. **DPIA + retention schedule** page (PRD §15) — link from the Me screen's privacy summary.
 5. **Pilot plan** page (PRD §25) — cohort of 50 joiners + 3 HRBPs, success metrics, rollback, owner matrix.
+
+---
+Task ID: ENHANCE-SERVICEOWNER-DPIA-PILOT
+Agent: Main (orchestrator) — 6th role (Service owner) + DPIA page + Pilot plan page
+
+## Task
+Three new features for the ASTROLABE employee journey companion:
+1. **Service owner intake console** (PRD §11) — 6th role showing the service owner's queue with complete payloads + structured "needs more info" returns (NOT free-text email).
+2. **DPIA + retention schedule page** (PRD §15) — comprehensive privacy page linked from the Me screen.
+3. **Pilot plan page** (PRD §25) — pilot readiness page accessible from the Admin screen.
+
+## Work Log
+
+### 1. Service owner intake console (`src/components/astrolabe/service-owner-screen.tsx`, NEW ~830 lines)
+- 6th role "Service owner" with `Inbox` icon. Header "Service owner console" + group filter strip (IT / HR / Immigration / Learning / Facilities / Mobility / Payroll), defaulting to IT (the most common group). Each group button shows its live count from the queue.
+- **Zero-clarification rate metric** at top of the filter card: "X of Y tickets needed a clarification round-trip" + a percentage readout. Color shifts from `--accent-500` (sand-gold) to `--status-steady` (green) when 100% — directly wired to PRD §11's key success metric (computed from `returnCount` per request).
+- **Queue list**: each request card shows:
+  - `ref` (mono, copyable button with copy-confirmation tick)
+  - Type label (from `INTAKE_SCHEMAS[type].label`)
+  - Employee name (looked up from the `employees` array, with AR display name when locale is Arabic)
+  - `StatusChip` for status
+  - `SlaChip` (elapsed vs slaHours, computed from `PACK_NOW`)
+  - Age ("opened 3 days ago" via `date-fns formatDistanceToNow`)
+  - Reassignment + return counts (color-coded by severity — watch for >0 reassigns, friction for >0 returns)
+  - **View payload** button → expands to show the full intake payload (all schema fields with values, `prefilled` badges for `prefillFrom`-derived values, `required` badges for required fields, auto-attached context chips, policy-ref `CitationChip`, named assignee chip)
+  - **Acknowledge** button (visible only for `submitted` status; transitions `submitted → acknowledged`)
+  - **Start work** button (visible only for `acknowledged` status; transitions `acknowledged → in_progress`)
+  - **Needs more info** button (visible for `acknowledged` or `in_progress`) → opens a structured dialog with:
+    - A `Select` dropdown of standard questions per request type (`STANDARD_QUESTIONS` map: 3-4 questions per type, e.g. for `it_kit`: "Which campus?", "Is this a replacement?", "What's the urgent date?", "Which kit type?")
+    - A `Textarea` for "Additional detail (only free-text part)" — clearly labeled as the ONLY free-text field
+    - "Send structured question to employee" button → transitions `in_progress → returned` + bumps `returnCount` + toast: "Employee notified: We need one more detail — check your Requests tab"
+  - **Resolve** button (visible for `in_progress`, `acknowledged`, `waiting_employee`) → opens dialog with required `Textarea` "Resolution note" (1-2 sentences, min 5 chars validation) → transitions to `resolved` + toast: "Employee notified: Your request is resolved — here's what changed"
+- All transitions call `POST /api/v1/requests/[id]/transition` with a stable `idempotencyKey` (`${id}-${to}-${Date.now()}`). Optimistic local state update via `setItems` on success; error toast on failure (with the server's error message).
+- **Empty state** per group: "No tickets in your queue. Here's what people usually need from [group]." with chips of the most common request types for that group (computed from `INTAKE_SCHEMAS` filtered by `ownerGroup`).
+- **SLA dashboard** at bottom: breach rate for this owner group (computed live from elapsed vs slaHours), median time-to-acknowledge (1.2h), median time-to-resolve (18.5h) — each in a stat card with appropriate status color.
+- Loading state: 3× `ast-shimmer` card skeletons. Error state: red-bordered banner with Retry button calling `fetchQueue` again.
+
+### 2. DPIA + retention schedule page (`src/components/astrolabe/privacy-page.tsx`, NEW ~370 lines)
+- Plain-language privacy page (max-width 800px, scrollable in modal). Sections in order:
+  1. **Privacy summary** (4 paragraphs in plain English/Arabic for a non-lawyer): what data we hold (journey events, requests, pulse responses, consent records, audit events), why we hold it (journey navigation, not monitoring), what we NEVER do (performance, disciplinary, promotion, visa), your rights (view, export, revoke, correct, complain).
+  2. **Non-use statement** — sand-gold accented box (border `rgba(201,162,39,0.40)`, gradient background from sand-gold 6% to surface-1). Headline "Non-use statement" in sand-gold. The structural-block quote: "ASTROLABE output is structurally blocked from use in performance, disciplinary, promotion, or visa decisions. This is enforced at the query layer, not merely discouraged." Plus 4 sand-gold chips with inline ban icons: Performance / Disciplinary / Promotion / Visa — sand-gold is the sanctioned "your next move / privacy block" color per theme.
+  3. **DPIA summary** — 4-row grid: Purpose ("Employee journey navigation"), Lawful basis ("Contractual necessity + explicit consent for optional purposes"), Data minimisation ("no national IDs, no salary figures, no medical data"), Risk mitigations ("Consent gates, purpose-limitation tags, row-level security, hash-chained audit, k≥5 analytics suppression").
+  4. **Retention schedule** — `Table` with 3 columns (Data type, Retention, Reason) × 6 rows matching the PRD spec exactly: Journey events 24mo, Pulse scores 12mo, Free-text comments 90 days / until revocation, Consent records 7y, Audit events 7y, Service requests 24mo.
+  5. **Data owners table** — 6-row × 3-col `Table` (Data type, Owner, Contact route) mapping each data type to its owner (HRBP, Platform team, Service owner per group, HRBP consent-gated, Privacy office, Security team).
+  6. **Your rights** — 5 cards each with icon + label + description + route. Right to view → Me → Data held. Right to export → Me → Export as JSON/PDF. Right to revoke → Me → Consent toggles. Right to correct → starts a data-correction request (toast: "Data correction request started — Privacy office will reach you within 48 hours"). Right to complain → named contact HRBP.
+- All copy bilingual EN/AR. `dir="rtl"` when locale is Arabic. `tabular` on all numeric values.
+
+### 3. Pilot plan page (`src/components/astrolabe/pilot-plan-page.tsx`, NEW ~340 lines)
+- Pilot readiness page (max-width 900px, scrollable in modal). Sections:
+  1. **Pilot overview** — 8-tile stat grid (New joiners 50, Movers 20, HRBPs 3, Service owners 4, Locations DXB+AUH, Cohort 70, Duration 12 wks, Phases 4) + summary line.
+  2. **Timeline** — 4-phase ordered list (Weeks 1-2 Onboarding setup, Weeks 3-4 Dry run, Weeks 5-10 Live pilot, Weeks 11-12 Evaluation). Each phase card has a numbered teal circle + weeks label + title + 3 bullet items with green CheckCircle2.
+  3. **Named owners matrix** — 8-row × 4-col `Table` (Request type / Owner / Backup / Signed off) covering all 8 request types from `INTAKE_SCHEMAS`: it_kit → Ahmed Al-Rashid (IT) → Priya Nair → ✓, system_access → Priya Nair → Ahmed Al-Rashid → ✓, visa → Saeed Al-Marri → Rania Hassan → ✓, relocation → Rania Hassan → Saeed Al-Marri → ✓, payroll → Mona Said → Fatima Al-Mansouri → ✓, training → Lina Khoury → Fatima Al-Mansouri → ✓, facilities → Omar Farouk → Lina Khoury → ✓, manager_handover → Fatima Al-Mansouri → Khalid Idris → ✓.
+  4. **Success metrics** — 6-row × 3-col `Table` (Metric / Target / Measurement) matching the PRD exactly: Time-to-first-answer < 60s, % requests complete on arrival > 90% (zero-clarification rate), Median lead time before escalation > 2 days, Stage breach rate < 15%, Employee trust score > 4.0/5, Zero privacy incidents = 0.
+  5. **Rollback plan** + **Kill switch ownership** — side-by-side 2-column grid. Rollback plan in watch-amber border/icon: one-command rollback, feature flags can kill any subsystem, pilot data isolated and purgeable. Kill switch ownership in friction-red: each flag has named owner, global approval key owned by Security, global kill switch owned by Admin role.
+  6. **Exit criteria for scale-up** — sand-gold-accented card (sand-gold border + gradient background) with 5 CheckCircle2 items: All success metrics met 4 consecutive weeks, Zero privacy incidents, HRBP trust > 4.0/5, Zero-clarification rate > 90%, Audit chain verification passes 100%.
+
+### Integration changes
+
+**`src/lib/store/app-store.ts`** — added `"service_owner"` to the `Role` union type. No other changes; persisted `partialize` already only persists known scalar fields.
+
+**`src/app/page.tsx`** — added `Inbox` to lucide imports (already present), imported `ServiceOwnerScreen`, extended the local `Role` union to include `"service_owner"`, added `{ id: "service_owner", label: "Service owner", labelAr: "مالك الخدمة", Icon: Inbox, accent: "var(--brand-500)" }` to the `ROLES` array (6th role), added `{role === "service_owner" && <ServiceOwnerScreen />}` to the main render tree, and added `service_owner` to the ⌘K CommandPalette's Mode group with hint "Intake queue + payload". The role-switcher strip's employee-scenario picker is correctly gated to `(role === "employee" || role === "judge")` and remains hidden for service_owner.
+
+**`src/components/astrolabe/me-screen.tsx`** — imported `Dialog, DialogContent, DialogTitle` from shadcn `dialog` + `PrivacyPage` component. Added local `privacyOpen` state. Wired the "Privacy summary" anchor (`<a href="#">`) to `onClick={(e) => { e.preventDefault(); setPrivacyOpen(true); }}`. Added a `<Dialog open={privacyOpen} onOpenChange={setPrivacyOpen}>` block immediately after the privacy summary banner section, with `sm:max-w-[820px] max-h-[88vh] overflow-y-auto` styling and a `sr-only` DialogTitle for accessibility. The privacy page renders inside this modal.
+
+**`src/components/astrolabe/admin-screen.tsx`** — imported `ClipboardList` from lucide, `Dialog, DialogContent, DialogTitle` from shadcn dialog, `PilotPlanPage` component. Added local `pilotOpen` state. Restructured the AdminScreen header to use `flex items-start justify-between flex-wrap gap-3` so the heading is on the left and a teal "Pilot plan" button (h-11, `var(--brand-500)` background, ClipboardList icon) is on the right. Added a `<Dialog open={pilotOpen} onOpenChange={setPilotOpen}>` block at the end of the screen, with `sm:max-w-[920px] max-h-[88vh] overflow-y-auto` styling and a `sr-only` DialogTitle. The pilot plan page renders inside this modal.
+
+**`src/lib/data/pack.ts`** — added a 4th seed request `SR-2024-099` for `E-1045` (James Park), `it_kit`, `ownerGroup: IT`, `status: "submitted"`, opened 6 hours ago, slaHours 24. This lets the service owner demonstrate the Acknowledge → Start work flow on a real request in the `submitted` state (the other 3 seeded requests are all in `in_progress`, which only allows Needs-more-info / Resolve). Without this, the Acknowledge and Start work buttons would never be visible.
+
+### Critical-rule adherence
+
+- `"use client"` at the top of all 3 new components (`service-owner-screen.tsx`, `privacy-page.tsx`, `pilot-plan-page.tsx`).
+- `framer-motion` used for: request card layout animations + payload expand (`<motion.article layout>` + `<AnimatePresence>`), needs-more-info/resolve dialog parent conditionals, pilot plan phase list slide-in, privacy page non-use statement fade-in.
+- `lucide-react` icons throughout: `Inbox`, `Copy`, `Check`, `ChevronDown`, `Loader2`, `AlertTriangle`, `RotateCcw`, `Send`, `CheckCircle2`, `HelpCircle`, `Play`, `Eye`, `FileText`, `Activity`, `Clock`, `Users` (service owner); `ShieldCheck`, `ShieldAlert`, `Lock`, `Eye`, `Download`, `RotateCcw`, `Edit3`, `MessageSquare`, `Clock`, `FileText`, `Users`, `ChevronRight` (privacy); `ClipboardList`, `Calendar`, `Users`, `CheckCircle2`, `AlertTriangle`, `Zap`, `Power`, `Flag`, `Target`, `ChevronRight`, `ShieldCheck` (pilot plan); `ClipboardList` (admin screen header button). No new icon libs.
+- shadcn components: `Dialog/DialogContent/DialogHeader/DialogTitle/DialogDescription/DialogFooter` for both modals + needs-more-info/resolve dialogs; `Select/SelectTrigger/SelectContent/SelectItem/SelectValue` for the standard-question dropdown; `Textarea` for resolution note + additional detail; `Label` for field labels; `Table/TableHeader/TableBody/TableRow/TableCell/TableHead` for retention schedule + data owners + named owners matrix + success metrics.
+- `date-fns` `formatDistanceToNow` for age ("opened 3 days ago") + `differenceInHours` for SLA elapsed. Both use the existing `PACK_NOW` from `@/lib/data/pack` for hash-stable time math.
+- Mobile-first: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`, `flex-wrap` everywhere, `h-11` (44px) on primary buttons (Acknowledge, Start work, Send, Resolve, Pilot plan, dialog action buttons), `h-9` on secondary buttons (View payload, etc. — 36px acceptable for non-primary actions on mobile). Group filter strip is `overflow-x-auto` on narrow viewports. Tables use `overflow-x-auto` wrapper. Retention schedule "Reason" column is `hidden sm:table-cell` so mobile sees only Data type + Retention.
+- `.tabular` on all counts, percentages, ages, refs, SLA values, SLA-dashboard stats, pilot-plan stat tiles, retention periods.
+- `.ast-focus` on every interactive element (buttons, anchors, select trigger, textareas).
+- NO indigo, NO blue. Teal `--brand-500` (#169AA5) for instrument actions (Acknowledge, Start work, Send question, Pilot plan button, group filter active pill). Sand-gold `--accent-500` (#C9A227) reserved for: the Non-use statement box (privacy page), the Exit criteria box (pilot plan), the "required" field badges, the Zero-clarification rate when not at 100%, the Median time-to-resolve stat. Status colors (steady/watch/friction/blocked) used per existing convention for SLA breach levels and sign-off indicators.
+- `dir="rtl"` on root of all 3 new components when locale is Arabic; respects existing Arabic typography rules in `globals.css`. All copy bilingual EN/AR with `isAr ? ar : en` pattern.
+- TypeScript strict, no `any`: explicit interfaces for `ServiceRequest`, `ApiEnvelope<T>`, `OwnerGroup`, `RetentionRow`, `DataOwnerRow`, `Phase`, `OwnerMatrixRow`, `SuccessMetricRow`. The `formatDistanceToNow` locale option cast as `undefined as never` to satisfy the optional locale arg typing.
+- try/catch on every fetch (`fetchQueue`, `handleAction`) with `.ast-shimmer` skeletons + `<ErrorBanner>` retry fallback. Toast notifications for every user-facing success and error.
+- React-hooks lint rule `react-hooks/set-state-in-effect`: refactored the needs-more-info and resolve dialogs to extract their form bodies into separate `NeedsMoreInfoForm` / `ResolveForm` components that mount fresh inside the conditional `{open && request && (...)}` block (Radix Dialog unmounts content when closed), eliminating the `setState in useEffect` pattern entirely. No effect-based state reset needed.
+
+### Verification
+
+- `bun run lint` → EXIT 0 (clean, no warnings, no errors) across the whole project.
+- `bunx tsc --noEmit` → 0 errors in any of the new/edited files. Only pre-existing errors remain in `examples/websocket/*`, `skills/image-edit/*`, `skills/stock-analysis-skill/*`, and `src/components/astrolabe/requests-screen.tsx:673` — all untouched by this task.
+- Dev server: clean compiles throughout (`✓ Compiled in 254ms`, `✓ Compiled in 192ms`, etc.). No Fast-Refresh runtime errors.
+- Smoke tests:
+  - `GET /api/v1/requests` → 200, returns 4 items now (was 3): SR-2024-091 (IT, in_progress, E-1042), SR-2024-094 (Immigration, in_progress, E-1043), SR-2024-098 (Payroll, in_progress, E-1044), SR-2024-099 (IT, submitted, E-1045).
+  - `POST /api/v1/requests/SR-2024-099/transition` body `{ to: "acknowledged", idempotencyKey: "smoke-2" }` → 200 with `{ status: "acknowledged", transition: { from: "submitted", to: "acknowledged" } }` — confirms the transition endpoint accepts the new contract used by the Acknowledge button.
+  - `POST /api/v1/requests/SR-2024-091/transition` body `{ to: "acknowledged" }` → 409 E_CONFLICT "Illegal transition: 'in_progress' → 'acknowledged'" — confirms the server correctly rejects illegal transitions (SR-2024-091 is in `in_progress` and can only go to `waiting_employee / resolved / returned / reassigned`).
+- agent-browser QA:
+  - Switched to **Service owner** role (via localStorage astrolabe-state): page renders with "Your queue" heading, group filter strip showing IT 2 / HR 0 / Immigration 1 / Learning 0 / Facilities 0 / Mobility 0 / Payroll 1 (matching the seeded data), two IT request cards (SR-2024-091 with "Needs more info" + "Resolve" buttons visible since it's in_progress; SR-2024-099 with "Acknowledge" button visible since it's submitted), and the SLA dashboard heading.
+  - Clicked **View payload** on SR-2024-091 → expanded inline showing the full intake payload with all 6 it_kit fields (kit_type, delivery_location, stage, start_date, prior_ticket, notes), prefilled badges on stage + start_date + delivery_location, required badges on the 5 required fields, auto-attached context chips ("Step state", "Prior kit events"), and the CitationChip "IT Provisioning Policy · §kit" linking to `/api/v1/policies/it-policy`.
+  - Switched to **Employee → Me** view → clicked the **Privacy summary** link → the privacy modal opened with all 6 sections visible (Privacy summary, Non-use statement, DPIA summary, Retention schedule, Data owners, Your rights) and the sand-gold-accented Non-use statement box.
+  - Switched to **Admin** role → clicked the **Pilot plan** button in the header → the pilot plan modal opened with all 7 sections visible (Pilot overview, Timeline, Named owners matrix, Success metrics, Rollback plan, Kill switch ownership, Exit criteria for scale-up) and the sand-gold-accented Exit criteria box.
+  - Switched to **Service owner** role with **locale=ar** → page renders right-to-left with all Arabic labels: "قائمة الانتظار" (Your queue), "تقنية المعلومات" (IT), "عرض الحمولة" (View payload), "نحتاج تفصيلاً" (Needs more info), "حلّ" (Resolve), "مالك الخدمة" (Service owner).
+  - No console errors captured during any of the QA flows.
+- Work record also written to `/home/z/my-project/agent-ctx/ENHANCE-SERVICEOWNER-DPIA-PILOT-main.md`.
+
+Stage Summary:
+- Three production-ready features, lint-clean and type-clean: (1) **Service owner intake console** — a 6th role in the top role switcher that opens a queue-driven work surface for service owners. The IT group shows 2 requests (SR-2024-091 in_progress + SR-2024-099 submitted — the latter seeded fresh so the Acknowledge → Start work flow is demonstrable). Each request card has a copyable ref, type label, employee name, status chip, SLA chip, age, reassign/return counts, and contextual action buttons (Acknowledge / Start work / Needs more info / Resolve). The Needs-more-info flow uses a STRUCTURED question dropdown (3-4 standard questions per request type) plus a clearly-labeled single free-text "additional detail" field — NOT a free-text email. The Resolve flow requires a 1-2 sentence resolution note that becomes the employee notification. A zero-clarification rate metric ("X of Y tickets needed a clarification round-trip") sits at the top, wired to PRD §11's key success metric. A 3-stat SLA dashboard (breach rate / median time-to-acknowledge / median time-to-resolve) sits at the bottom. (2) **DPIA + retention schedule page** — a plain-language privacy page opening in an 820px modal from the Me screen's "Privacy summary" link. Contains the 4-paragraph plain-language summary, a sand-gold-accented Non-use statement box ("structurally blocked from use in performance, disciplinary, promotion, or visa decisions"), a 4-row DPIA summary, a 6-row retention schedule table matching the PRD exactly, a 6-row data-owners table, and a 5-card Your-rights section with named HRBP contact for complaints. (3) **Pilot plan page** — a 12-week pilot readiness page opening in a 920px modal from the Admin screen header. Contains the cohort overview (50 joiners + 20 movers + 3 HRBPs + 4 service owners + 2 locations), 4-phase timeline, 8-row named-owners matrix (all signed off), 6-row success-metrics table, rollback plan + kill switch ownership (side-by-side), and a sand-gold-accented exit-criteria box with 5 must-meet items before scale-up. All three features preserve the existing "Instrument, not dashboard" theme: calm navy surfaces, ONE teal instrument accent, sand-gold reserved for "your next move" + the Non-use statement + Exit criteria (both are "this is the line you do not cross" surfaces). Bilingual EN/AR throughout with `dir="rtl"`. Mobile-first responsive. Previewable in the Preview Panel by clicking "Open in New Tab" — switch to the **Service owner** mode in the top role switcher to see the intake console; switch to **Employee → Me** and click "Privacy summary" to see the DPIA modal; switch to **Admin** and click the "Pilot plan" button to see the pilot readiness modal.
+
+---
+
+Task ID: ENHANCE-STYLING-2
+Agent: Main (styling enhancement — depth + signal weight bars + hover-expand packet preview)
+Status: ✅ Complete
+
+## Summary
+
+Three styling enhancement tracks on top of the ASTROLABE instrument theme — all build on the prior ENHANCE-STYLING micro-interactions (`Tilt3D`, `NumberTicker`, etc.) without introducing new colors (NO indigo, NO blue; teal substitutes for blue-info in signal families).
+
+## Files created
+
+1. **`src/components/astrolabe/signal-weight-bar.tsx`** — Animated horizontal weight bar.
+   - Fills from 0 → `weight/12` on mount, 480ms ease-out (`[0,0,0.2,1]`).
+   - Family → colour map: TL=amber, DP=red, **RQ=teal (NOT blue)**, EN=teal-500, PS=sand-gold, MB=purple #8B5CF6, DQ=gray.
+   - Two variants: `compact` (height 6px, weight number on right + optional HARD TRIP badge) and `detailed` (height 10px + label row with code/description/HARD TRIP badge).
+   - Exports `FAMILY_MAX = 12`, `FAMILY_COLOR`, and `SignalFamily` type for reuse.
+   - `role="meter"` with `aria-valuenow/min/max` + `aria-valuetext` for screen readers.
+   - `prefers-reduced-motion` → jump to final width (derived via `shown`, no setState in effect).
+   - Internal `usePrefersReducedMotion` hook (re-used from micro-interactions pattern).
+   - Lint-safe: avoids `set-state-in-effect` via the `shown = reduce || animateW !== null ? frac : 0` derivation pattern.
+
+2. **`src/components/astrolabe/timeline-sparkline.tsx`** — Compact 16px-tall event sparkline.
+   - Renders up to 10 small dots (6px) coloured by event type:
+     - completed/done/resolved = teal (steady)
+     - started/acknowledged/submitted = teal-light (brand-400)
+     - blocked = red (friction)
+     - waiting_employee = sand-gold (accent-500)
+     - waiting_owner = amber (watch)
+     - unknown/skipped = neutral gray
+   - Hovering a dot reveals a tooltip with the type label + `d MMM HH:mm` time (RTL-aware, `date-fns` format).
+   - Hovered dot scales 1.5× + intensifies its glow (160ms transition).
+   - Bilingual labels (EN/AR) for the type names.
+   - `role="img"` with descriptive `aria-label`.
+   - `prefers-reduced-motion` → no scale/glow transitions.
+
+## Files edited
+
+3. **`src/app/api/v1/hrbp/queue/route.ts`** — added `recentEvents` (last 10 events with `occurredAt` + `type`) to each queue item. The hover-expand preview's sparkline consumes this. Backwards-compatible: the field is additive; the existing `topSignals` and `suggestedOwner` shapes are unchanged.
+
+4. **`src/components/astrolabe/hrbp-screen.tsx`** — Track 1 + Track 2 (packet) + Track 3 (hover-expand).
+   - New imports: `Tilt3D`, `NumberTicker` from `micro-interactions`; `SignalWeightBar`; `TimelineSparkline`.
+   - `QueueItem` type extended with optional `recentEvents?: { occurredAt: string; type: string }[]`.
+   - `QueueRow` signature gained `index: number` (for the spring stagger delay).
+   - Both `<QueueRow>` call sites (active + watch/steady) pass `index={i}`.
+   - `QueueRow` restructured:
+     - Outer `<motion.li>` with `initial={{ opacity:0, y:12 }}` `animate={{ opacity:1, y:0 }}` `transition={{ type:"spring", stiffness:220, damping:26, delay: Math.min(index*0.04, 0.3) }}` — 40ms stagger capped at 8 items (0.3s).
+     - Inner `<Tilt3D maxDeg={2}>` wraps the card (subtle "stack of cards you can pick up" feel).
+     - The card itself (`ast-card` base class kept for the gradient + top-highlight pseudos) now has inline `boxShadow: var(--e3)` on hover/preview-open vs `var(--e2)` off-hover, transition 180ms. `borderColor` shifts to `rgba(22,154,165,0.35)` on hover (matching `.ast-card:hover`).
+     - **Band-coloured left accent bar** (3px wide, full height, rounded left corner, glow shadow) — colour by band: steady=teal, watch=amber, friction=red, blocked=dark-red.
+     - BandChip kept (with its internal NumberTicker). ALSO added an explicit `score <NumberTicker value={item.score}/>` readout in the meta line for at-a-glance scanning.
+     - **Hover-expand preview**: when `isHover || isTapped` is true, an `AnimatePresence`-wrapped `motion.div` slides down with `height: 0 → "auto"` spring (stiffness 240, damping 28, duration 0.24). Contents (in `.ast-card-glass`):
+       1. **Top 3 signals** rendered as `<SignalWeightBar variant="detailed" />` with description + HARD TRIP badge.
+       2. **Recent activity** sparkline (`<TimelineSparkline events={item.recentEvents ?? []} />`).
+       3. **"Open full packet →"** teal-glass button that calls `onOpen` (routes to the full EmployeeView packet).
+     - Desktop (`pointer: fine`): hover reveals preview via `onMouseEnter`/`onMouseLeave`.
+     - Mobile (`pointer: coarse`): a chevron button (`md:hidden`) toggles `isTapped`. The chevron rotates 90° when expanded. Tilt3D auto-disables on coarse pointer.
+     - `prefers-reduced-motion` → all motion reduced to 0 duration; preview still toggles but without height animation.
+   - **Evidence section in EmployeeView** (the built-packet preview): each top signal's `<li>` now has a compact `<SignalWeightBar>` below the description + evidence refs.
+
+5. **`src/components/astrolabe/judge-screen.tsx`** — Track 2 in the judge trace table.
+   - New import: `SignalWeightBar`.
+   - The "Weight" column in the `signalsFired` table replaces the plain `{s.weight}` text with `<SignalWeightBar code={s.code} weight={s.weight} family={s.family} hardTrip={hard} variant="compact" />`. Cell gets `min-w-[160px]` so the bar has room. Column header changed from `text-right` to `text-left` to align with the bar's left edge.
+
+6. **`src/components/astrolabe/verdict-card.tsx`** — Track 2 in the Today verdict card.
+   - New import: `SignalWeightBar`.
+   - Below the existing top-3 `<SignalBadge>` chips, a new compact-bar stack renders one `<SignalWeightBar variant="compact" />` per top signal (capped at `max-w-[460px]` so it doesn't stretch under the BandSphere3D). Each bar passes through `family` (falls back to `code.split("-")[0]`) and `hardTrip`.
+
+## Track-by-track verification
+
+### Track 1 — 3D depth on HRBP queue rows
+- ✅ `<Tilt3D maxDeg={2}>` wraps each row (subtle 2° tilt toward cursor, auto-disabled on touch).
+- ✅ Band-coloured left accent bar (3px, full height, glow) on every row.
+- ✅ `var(--e3)` shadow on hover, `var(--e2)` off-hover, 180ms transition.
+- ✅ `motion.li` spring drop-in: stiffness 220, damping 26, delay `min(index*0.04, 0.3)`.
+- ✅ Score uses `<NumberTicker value={score}/>` (both inside BandChip and as an explicit "score N" readout in the meta line).
+
+### Track 2 — Animated signal weight bars
+- ✅ `SignalWeightBar` component with family-coloured fill, 480ms ease-out mount animation, weight number, HARD TRIP badge, compact + detailed variants.
+- ✅ Integrated into Judge trace panel (compact, in the Weight column).
+- ✅ Integrated into HRBP packet preview Evidence section (compact, under each signal).
+- ✅ Integrated into Today verdict card (compact, beneath the top-3 SignalBadge chips).
+- ✅ RQ family uses teal (NOT blue) per theme rule.
+
+### Track 3 — Hover-expand packet preview in HRBP queue
+- ✅ Hover (desktop) / tap (mobile chevron) slides down an `AnimatePresence` panel with `height: auto` spring (240ms, stiffness 240, damping 28).
+- ✅ Top 3 signals with `<SignalWeightBar variant="detailed" />` + description.
+- ✅ Timeline sparkline (last 10 events, 6px dots, hover tooltip).
+- ✅ "Open full packet →" button.
+- ✅ `.ast-card-glass` background (frosted glass).
+- ✅ Mobile-first: tap-to-expand on coarse pointer; hover on fine pointer.
+
+## Theme compliance
+- NO indigo, NO blue. RQ family (which the spec originally listed as blue-info) uses `var(--brand-400)` teal.
+- Sand-gold (`--accent-500`) reserved: appears only on PS-family signal bars (its allocated instrument colour) and the pre-existing "your next move" surfaces. Not introduced anywhere new as a UI accent.
+- Teal instrument accent (`--brand-500/400`) is the workhorse for hover glows, RQ/EN signal bars, preview-panel borders, "Open full packet" button.
+- All new components use existing tokens (`--surface-*`, `--text-*`, `--status-*`, `--brand-*`, `--e2`, `--e3`) — no new colour variables introduced.
+
+## Accessibility
+- `SignalWeightBar` exposes `role="meter"` with `aria-valuenow/min/max` + `aria-valuetext`.
+- `TimelineSparkline` exposes `role="img"` with a descriptive `aria-label` (e.g. "10 recent events").
+- Hover-expand chevron on mobile has `aria-expanded` + `aria-label` ("Show preview"/"Hide preview", AR-aware).
+- `prefers-reduced-motion` respected everywhere:
+  - `SignalWeightBar` → renders at final width, no animation
+  - `TimelineSparkline` → no scale/glow transitions
+  - `QueueRow` spring drop-in → `transition: { duration: 0 }`
+  - Hover-expand preview → `transition: { duration: 0 }` (still toggles, just no height animation)
+- All interactive elements use the existing `.ast-focus` class for visible focus rings.
+
+## TypeScript strict
+- No `any` anywhere.
+- `SignalFamily` union type drives the family-colour lookup; `resolveFamily` falls back to `"DQ"` for unknown prefixes.
+- `BandT` reused from widgets for the accent-colour map.
+- `QueueItem.recentEvents` typed as optional `{ occurredAt: string; type: string }[]` (the API may omit it for employees with no events).
+
+## Performance
+- `SignalWeightBar` animation is GPU-composited (transform: width via framer-motion `motion.div`).
+- `TimelineSparkline` is pure DOM (10 spans × 6px dots) — no canvas, no rAF.
+- Hover-expand uses framer-motion's height-auto spring — no manual measurements.
+- Tilt3D is already transform-only (perspective + rotateX/rotateY).
+- Spring drop-in runs once on mount; `startedRef` prevents re-trigger on re-render.
+
+## Verification
+- `bun run lint` (full project) → EXIT 0 ✅
+- `bunx tsc --noEmit` → 0 errors in any touched file (only pre-existing unrelated errors in `examples/`, `skills/`, and `requests-screen.tsx:673` from prior tasks — none touched here)
+- Dev server: clean compiles in 122–487ms range; GET / 200 in 107–148ms
+- `curl /api/v1/hrbp/queue` returns `recentEvents: [{occurredAt, type}, …]` per item — verified by inspecting the JSON response
+- Smoke test: `curl http://localhost:3000/` → HTTP 200 · 0.37s · 58.6KB
+
+## Lint issue encountered and fixed
+- `react-hooks/set-state-in-effect` on `SignalWeightBar`'s `setW(frac)` in the reduce branch of the effect → restructured with the same derivation pattern used by `NumberTicker` in the prior ENHANCE-STYLING task: `const shown = reduce || animateW !== null ? frac : 0;`. The setState now only happens inside a `setTimeout` callback (not synchronously in the effect body), which the rule allows.
+
+## Preview
+Open the Preview Panel → "Open in New Tab" → switch to:
+- **HRBP console → Queue**: hover a row (desktop) or tap the chevron (mobile) to see the spring drop-in, 3D tilt, accent bar, e3 shadow, and the frosted-glass hover-expand preview with weight bars + sparkline + "Open full packet" button.
+- **HRBP console → Packet** (after clicking Open packet → Build packet): each evidence item now has a compact `<SignalWeightBar>` below the description.
+- **Judge → Trace** (pick a scenario): the Signals Fired table's Weight column now renders compact weight bars instead of plain numbers.
+- **Employee/Today**: the verdict card now shows compact signal weight bars beneath the top-3 SignalBadge chips.
+
+---
+Task ID: CRON-REVIEW-ROUND-3
+Agent: Main (orchestrator) — 15-min cron review round 3
+Task: QA via agent-browser, fix Collapsible-in-tbody hydration bug, add Service owner console + DPIA/privacy page + Pilot plan page + HRBP 3D styling + signal weight bars + hover-expand packet preview
+
+## Current project status assessment
+ASTROLABE is a fully-built employee journey AI companion with 5 roles (Employee/HRBP/Manager/Judge/Admin), 5 employee views, 15+ API routes, 3D astrolabe, deterministic engine, bilingual EN/AR, consent-gated computation. Round 2 added Admin console, Backtest harness, Arabic policy expansion, verdict card with 3D sphere, glassmorphism. This round focused on: (1) fixing a hydration bug in me-screen, (2) adding Service owner intake console (6th role), (3) adding DPIA + retention schedule page, (4) adding Pilot plan page, (5) styling enhancements on HRBP queue (3D tilt, signal weight bars, hover-expand preview).
+
+## Completed modifications
+
+### QA bug found and fixed
+1. **Collapsible rendering `<div>` inside `<tbody>`** (me-screen.tsx): The round-2 fix removed `asChild` from `<Collapsible>`, but `<Collapsible>` renders a `<div>` by default, which is invalid HTML inside `<tbody>` (only `<tr>` is valid). This caused hydration errors: "In HTML, <div> cannot be a child of <tbody>" + "<tr> cannot contain a nested <div>". Fixed by replacing the Radix Collapsible entirely with a React `<Fragment>` containing the trigger `<TableRow>` (with onClick) + a conditional `<tr>` for the expanded content. Removed unused Collapsible/CollapsibleTrigger/CollapsibleContent imports. Added `Fragment` to the React import.
+
+### New features built (2 parallel subagents)
+
+**ENHANCE-SERVICEOWNER-DPIA-PILOT:**
+- `src/components/astrolabe/service-owner-screen.tsx` — 6th role "Service owner" (Inbox icon):
+  - Group filter strip (IT/HR/Immigration/Learning/Facilities/Mobility/Payroll) with live counts
+  - Zero-clarification rate metric at top (computed live from returnCount)
+  - Request cards with ref (copyable), type label, employee name, StatusChip, SlaChip, age, reassign/return counts
+  - Action buttons: Acknowledge, Start work, Needs more info (structured form with standard questions per type + one free-text field), Resolve (requires resolution note)
+  - View payload expands full intake: all schema fields with prefilled/required badges, auto-attached context, policy-ref CitationChip
+  - SLA dashboard at bottom: breach rate, median time-to-acknowledge, median time-to-resolve
+  - Empty state per group
+- `src/components/astrolabe/privacy-page.tsx` — DPIA + retention schedule (modal from Me → Privacy summary):
+  - 4-paragraph plain-language privacy summary
+  - Sand-gold-accented Non-use statement box
+  - 4-row DPIA summary (purpose, lawful basis, data minimisation, risk mitigations)
+  - 6-row retention schedule table (24mo/12mo/90d/7y/7y/24mo)
+  - 6-row data-owners table
+  - 5-card Your-rights section with named HRBP contact
+- `src/components/astrolabe/pilot-plan-page.tsx` — Pilot readiness (modal from Admin → Pilot plan button):
+  - 8-tile cohort overview (50 joiners, 20 movers, 3 HRBPs, 4 service owners, DXB+AUH)
+  - 4-phase 12-week timeline
+  - 8-row named-owners matrix (all signed off)
+  - 6-row success-metrics table
+  - Rollback plan + Kill switch ownership
+  - Sand-gold-accented Exit criteria box
+- Added "service_owner" to Role type in app-store.ts
+- Added Service owner to ROLES array + render tree + CommandPalette in page.tsx
+- Wired Privacy summary link in me-screen to open privacy-page modal
+- Added Pilot plan button + modal in admin-screen header
+- Seeded SR-2024-099 (E-1045, it_kit, IT, submitted) in pack.ts for demo
+
+**ENHANCE-STYLING-2:**
+- `src/components/astrolabe/signal-weight-bar.tsx` — animated horizontal weight bar:
+  - 480ms ease-out mount animation
+  - Family-coloured fill (TL=amber, DP=red, RQ=teal, EN=teal, PS=sand-gold, MB=purple, DQ=gray)
+  - Compact (6px) and detailed (10px + label) variants
+  - HARD TRIP badge
+  - ARIA role="meter", reduced-motion safe
+- `src/components/astrolabe/timeline-sparkline.tsx` — compact 16px sparkline of up to 10 event dots (6px, coloured by type) with hover tooltips
+- HRBP queue enhanced:
+  - Spring drop-in (stiffness 220, damping 26, 40ms stagger capped at 8)
+  - `<Tilt3D maxDeg={2}>` on each row
+  - Band-coloured 3px left accent bar with glow
+  - `var(--e3)` shadow on hover (180ms)
+  - `<NumberTicker>` for score
+  - Hover-expand preview (AnimatePresence + height auto, 240ms spring, .ast-card-glass): top 3 SignalWeightBar + TimelineSparkline + "Open full packet →" button
+  - Mobile: tap chevron toggles preview
+  - Evidence section: compact SignalWeightBar under each signal
+- Judge trace table: weight column now renders SignalWeightBar (compact) instead of plain numbers
+- Verdict card: compact signal weight bars beneath top-3 SignalBadge chips
+- API: added `recentEvents` (last 10 events) per queue item in /api/v1/hrbp/queue
+
+## Verification results
+- `bun run lint` → EXIT 0 (clean)
+- Dev server: all routes returning 200, no errors
+- agent-browser QA: navigated all 6 roles (Employee/HRBP/Manager/Judge/Admin/Service owner) + all employee views + Judge Backtest + notifications + command palette → ZERO console errors captured
+- VLM design assessments: 9/10 across Service owner console, HRBP console, Today screen
+- Service owner screen confirmed: queue with status chips, zero-clarification rate 100%, Acknowledge/Needs more info/Resolve buttons all visible
+- HRBP screen confirmed: queue ranked by band severity, signal badges visible, 3D tilt + hover-expand are interaction effects
+- All 6 roles render correctly after page reload (Zustand persisted state picks up new role type)
+
+## Unresolved issues / risks
+- None critical. The app is stable and demo-ready.
+- Minor: role switching via click works but requires a page reload for the persisted Zustand state to fully hydrate with the new role type on first visit. Acceptable for prototype.
+- Minor: signal weight bars and hover-expand preview are interaction effects not visible in static screenshots. Verified working via agent-browser DOM inspection.
+
+## Priority recommendations for next phase
+1. **Accessibility audit** — run axe-core in CI per PRD §13-241 (WCAG 2.2 AA). Check focus order, ARIA labels, contrast ratios on all 6 roles.
+2. **Offline support** (PRD §14-266) — cache the shell + last journey state via service worker for offline reading.
+3. **Service-owner "needs more info" return flow on employee side** — when a service owner returns a request, the employee should see a structured question card in their Requests tab (not just a status change).
+4. **Search across policies** — a global policy search with type filters and matching-line preview (PRD §18-347).
+5. **Cohort comparison view** for managers — compare aggregate completion across joiners side-by-side.

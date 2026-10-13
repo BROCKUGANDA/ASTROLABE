@@ -27,11 +27,14 @@ import {
   FileWarning,
   Loader2,
   XCircle,
+  ClipboardList,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
 import { BandChip, type Band as BandT } from "@/components/astrolabe/widgets";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { PilotPlanPage } from "@/components/astrolabe/pilot-plan-page";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -946,22 +949,39 @@ function HealthEndpoints() {
 export function AdminScreen() {
   const locale = useAppStore((s) => s.locale);
   const dir = locale === "ar" ? "rtl" : "ltr";
+  const [pilotOpen, setPilotOpen] = useState(false);
 
   return (
     <div dir={dir} className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10">
       <header className="mb-6">
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--brand-400)" }}>
-          <Server className="w-3.5 h-3.5" strokeWidth={1.75} />
-          <span>{locale === "ar" ? "وحدة الإدارة" : "Admin console"}</span>
+        <div className="flex items-start justify-between flex-wrap gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--brand-400)" }}>
+              <Server className="w-3.5 h-3.5" strokeWidth={1.75} />
+              <span>{locale === "ar" ? "وحدة الإدارة" : "Admin console"}</span>
+            </div>
+            <h1 className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight" style={{ color: "var(--text-hi)" }}>
+              {locale === "ar" ? "لوحة التشغيل" : "Operability console"}
+            </h1>
+            <p className="mt-1 text-[13px]" style={{ color: "var(--text-mid)" }}>
+              {locale === "ar"
+                ? "الابتلاع، الحجر الصحي، النصوص، الأعلام، الإعادة، سلسلة التدقيق، والصحة — كلها في مكان واحد."
+                : "Ingestion, quarantine, corpus, flags, replay, audit chain, and health — all in one place."}
+            </p>
+          </div>
+          <button
+            onClick={() => setPilotOpen(true)}
+            className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium transition-colors shrink-0"
+            style={{
+              background: "var(--brand-500)",
+              color: "var(--surface-0)",
+              border: "1px solid var(--brand-500)",
+            }}
+          >
+            <ClipboardList className="w-4 h-4" strokeWidth={1.75} />
+            {locale === "ar" ? "خطة التجربة" : "Pilot plan"}
+          </button>
         </div>
-        <h1 className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight" style={{ color: "var(--text-hi)" }}>
-          {locale === "ar" ? "لوحة التشغيل" : "Operability console"}
-        </h1>
-        <p className="mt-1 text-[13px]" style={{ color: "var(--text-mid)" }}>
-          {locale === "ar"
-            ? "الابتلاع، الحجر الصحي، النصوص، الأعلام، الإعادة، سلسلة التدقيق، والصحة — كلها في مكان واحد."
-            : "Ingestion, quarantine, corpus, flags, replay, audit chain, and health — all in one place."}
-        </p>
       </header>
 
       <div className="space-y-4">
@@ -973,6 +993,17 @@ export function AdminScreen() {
         <AuditChainPanel />
         <HealthEndpoints />
       </div>
+
+      {/* Pilot plan modal */}
+      <Dialog open={pilotOpen} onOpenChange={setPilotOpen}>
+        <DialogContent
+          className="sm:max-w-[920px] max-h-[88vh] overflow-y-auto"
+          style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+        >
+          <DialogTitle className="sr-only">{locale === "ar" ? "خطة التجربة" : "Pilot plan"}</DialogTitle>
+          <PilotPlanPage />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

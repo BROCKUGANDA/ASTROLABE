@@ -45,6 +45,12 @@ export async function GET(req: NextRequest) {
         description: s.description,
       }));
 
+    // Last 10 events for the hover-expand preview sparkline (oldest → newest).
+    const recentEvents = employeeEvents.slice(-10).map((e) => ({
+      occurredAt: e.occurredAt,
+      type: e.type,
+    }));
+
     const hrbp = getOwner(employee.hrbpId);
     const suggestedOwner = hrbp
       ? { id: hrbp.id, name: hrbp.name, role: hrbp.role, email: hrbp.email }
@@ -58,6 +64,7 @@ export async function GET(req: NextRequest) {
       band: assessment.band,
       score: assessment.score,
       topSignals,
+      recentEvents,
       leadTimeHours: Math.round(leadTimeHours),
       suggestedOwner,
     };

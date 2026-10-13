@@ -16,6 +16,7 @@ import { motion } from "framer-motion";
 import { BandSphere3D } from "@/components/three/astrolabe";
 import { NumberTicker } from "@/components/astrolabe/micro-interactions";
 import { SignalBadge, type Band } from "@/components/astrolabe/widgets";
+import { SignalWeightBar } from "@/components/astrolabe/signal-weight-bar";
 
 export interface VerdictSignal {
   code: string;
@@ -161,6 +162,24 @@ export function VerdictCard({
                   code={s.code}
                   weight={s.weight}
                   hardTrip={s.hardTrip}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Compact signal weight bars beneath the badges — instrument readout
+              for "how heavy is each top signal relative to its family's max?". */}
+          {topSignals.length > 0 && (
+            <div className="flex flex-col gap-1.5 mt-2 max-w-[460px]">
+              {topSignals.map((s) => (
+                <SignalWeightBar
+                  key={`bar-${s.code}`}
+                  code={s.code}
+                  weight={s.weight}
+                  family={s.family ?? s.code.split("-")[0]}
+                  hardTrip={s.hardTrip}
+                  variant="compact"
+                  locale={locale}
                 />
               ))}
             </div>
