@@ -161,7 +161,7 @@ open the manager console and look at the network payload.
   self-assign a production key, so the API returns 500 on `/api/v1/auth/sign-in` until you set one.
   This is intentional fail-closed behaviour, not a bug to work around — but it means `bun run dev`
   and `bun run start` are not equally turn-key.
-- **The interactive shell is not yet verified in a browser.** In both dev and production the route's
+- **A route-level `loading.tsx` strands the shell.** With one present, React 19 leaves the streamed
   `loading.tsx` boundary stays on screen while the app renders at zero height: no console errors, all
   chunks 200, sessions and APIs correct. The API surface and the 134 tests are verified; a
   click-through walkthrough is not, and it should be done before recording the demo.
