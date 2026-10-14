@@ -1,9 +1,21 @@
 "use client";
 
-import { useRef, useMemo, Suspense, Component, type ReactNode } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { Float, Sparkles, Torus, Ring, OrbitControls } from "@react-three/drei";
+import { useRef, useMemo, useLayoutEffect, Component, type ReactNode } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { useReducedMotion } from "framer-motion";
+import { Float, Sparkles, Torus } from "@react-three/drei";
 import * as THREE from "three";
+import {
+  fitDistance,
+  orbitNodePosition,
+  Crown,
+  Mater,
+  INSTRUMENT_FIT_RADIUS,
+  MOTION_MARGIN,
+  ORBIT_FIT_RADIUS,
+  ORBIT_RADIUS,
+  BAND_RADIUS,
+} from "./fit";
 
 /* ============================================================
    ASTROLABE 3D INSTRUMENT
@@ -15,6 +27,33 @@ import * as THREE from "three";
 interface AstrolabeProps {
   size?: number;
   spin?: boolean;
+}
+
+/* ------------------------------------------------------------
+   FRAMING
+
+   The instrument is drawn in a fixed unit space, but every place it
+   appears gives the canvas a different box (the hero column, the Today
+   mini, the Journey card, the verdict dial). A hand-picked camera
+   distance therefore clipped the crown off the hero and the orbit nodes
+   off the Journey card. Instead the camera is fitted to the box — see
+   ./fit — and refitted whenever the canvas resizes, so on-screen size is
+   driven by the container, never by a scale that can overflow it.
+   ------------------------------------------------------------ */
+
+function FitCamera({ radius }: { radius: number }) {
+  const camera = useThree((s) => s.camera);
+  const { width, height } = useThree((s) => s.size);
+
+  useLayoutEffect(() => {
+    if (!width || !height) return; // R3F reports 0x0 before the first layout
+    const cam = camera as THREE.PerspectiveCamera;
+    cam.position.set(0, 0, fitDistance({ fovDeg: cam.fov, width, height, radius }));
+    cam.lookAt(0, 0, 0);
+    cam.updateProjectionMatrix();
+  }, [camera, width, height, radius]);
+
+  return null;
 }
 
 /* ============================================================
@@ -42,30 +81,29 @@ class Canvas3DErrorBoundary extends Component<
   }
 }
 
-/* CSS fallback — a spinning brass ring with compass icon */
-function AstrolabeCSSFallback({ size = 1 }: { size?: number }) {
-  const dim = 200 * size;
+/* CSS fallback — a spinning brass ring that fills whatever box the
+   instrument was given, so a WebGL failure cannot reflow the page. */
+function AstrolabeCSSFallback() {
   return (
-    <div
-      className="flex items-center justify-center ast-spin-slow rounded-full"
-      style={{
-        width: dim,
-        height: dim,
-        background: "radial-gradient(circle at 30% 30%, rgba(22,154,165,0.20), rgba(11,17,28,0.6))",
-        border: "2px solid rgba(201,162,39,0.35)",
-        boxShadow: "0 0 0 1px rgba(22,154,165,0.15), 0 8px 24px rgba(0,0,0,0.3)",
-      }}
-    >
+    <div className="flex h-full w-full items-center justify-center">
       <div
-        className="rounded-full"
+        className="ast-spin-slow aspect-square h-[72%] rounded-full"
         style={{
-          width: dim * 0.55,
-          height: dim * 0.55,
           background:
-            "radial-gradient(circle at 30% 30%, rgba(201,162,39,0.25), rgba(14,92,99,0.15))",
-          border: "1px solid rgba(22,154,165,0.30)",
+            "radial-gradient(circle at 30% 30%, rgba(22,154,165,0.20), rgba(11,17,28,0.6))",
+          border: "2px solid rgba(201,162,39,0.35)",
+          boxShadow: "0 0 0 1px rgba(22,154,165,0.15), 0 8px 24px rgba(0,0,0,0.3)",
         }}
-      />
+      >
+        <div
+          className="m-[22%] aspect-square rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle at 30% 30%, rgba(201,162,39,0.25), rgba(14,92,99,0.15))",
+            border: "1px solid rgba(22,154,165,0.30)",
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -97,25 +135,28 @@ function StarRing({ radius, count = 36 }: { radius: number; count?: number }) {
   useFrame((_, delta) => {
     if (ref.current) ref.current.rotation.z += delta * 0.08;
   });
+  /* A graduated scale laid out radially just outside the mater. The ticks used
+     to be un-rotated boxes, so every one of them stood upright no matter where
+     on the ring it sat — the marks read as debris floating off the rim. */
   const marks = useMemo(() => {
     return Array.from({ length: count }).map((_, i) => {
       const angle = (i / count) * Math.PI * 2;
       const isMain = i % 6 === 0;
-      const len = isMain ? 0.5 : 0.25;
-      return {
-        x: Math.cos(angle) * radius,
-        y: Math.sin(angle) * radius,
-        len,
-        isMain,
-      };
+      const len = isMain ? 0.2 : 0.11;
+      const start = isMain ? radius : radius + 0.025;
+      return { angle, r: start + len / 2, len, w: isMain ? 0.05 : 0.03, isMain };
     });
   }, [radius, count]);
 
   return (
     <group ref={ref}>
       {marks.map((m, i) => (
-        <mesh key={i} position={[m.x, m.y, 0]}>
-          <boxGeometry args={[m.isMain ? 0.06 : 0.04, m.len, 0.04]} />
+        <mesh
+          key={i}
+          position={[Math.cos(m.angle) * m.r, Math.sin(m.angle) * m.r, 0.02]}
+          rotation={[0, 0, m.angle]}
+        >
+          <boxGeometry args={[m.len, m.w, 0.04]} />
           <meshStandardMaterial
             color={m.isMain ? "#F6ECC9" : "#C9A227"}
             emissive={m.isMain ? "#C9A227" : "#5A4516"}
@@ -148,9 +189,11 @@ function InnerDial() {
           side={THREE.DoubleSide}
         />
       </mesh>
-      {/* inner dial face */}
-      <mesh>
-        <circleGeometry args={[1.0, 64]} />
+      {/* inner dial face — set behind the ring, and smaller than its inner
+          edge: two coplanar shapes sharing the r=1.0 boundary z-fight, which
+          showed up as the dial flickering as it turned. */}
+      <mesh position={[0, 0, -0.03]}>
+        <circleGeometry args={[0.99, 64]} />
         <meshStandardMaterial
           color="#0B111C"
           metalness={0.4}
@@ -166,7 +209,7 @@ function InnerDial() {
         return (
           <mesh
             key={i}
-            position={[Math.cos(angle) * 0.5, Math.sin(angle) * 0.5, 0.001]}
+            position={[Math.cos(angle) * 0.5, Math.sin(angle) * 0.5, 0.012]}
             rotation={[0, 0, angle]}
           >
             <boxGeometry args={[0.9, 0.012, 0.012]} />
@@ -181,7 +224,7 @@ function InnerDial() {
         );
       })}
       {/* center jewel */}
-      <mesh position={[0, 0, 0.01]}>
+      <mesh position={[0, 0, 0.03]}>
         <circleGeometry args={[0.12, 32]} />
         <meshStandardMaterial
           color="#C9A227"
@@ -191,7 +234,7 @@ function InnerDial() {
           roughness={0.1}
         />
       </mesh>
-      <mesh position={[0, 0, 0.02]}>
+      <mesh position={[0, 0, 0.045]}>
         <circleGeometry args={[0.05, 32]} />
         <meshStandardMaterial color="#F6ECC9" emissive="#F6ECC9" emissiveIntensity={1} />
       </mesh>
@@ -200,11 +243,12 @@ function InnerDial() {
 }
 
 function Pointer({ angle = Math.PI / 4 }: { angle?: number }) {
-  // The "rule" of the astrolabe — points to the next move
+  // The "rule" of the astrolabe — points to the next move. Raised above the
+  // dial layers so it reads as the top plate rather than z-fighting with them.
   return (
-    <group rotation={[0, 0, angle]}>
-      <mesh position={[0.5, 0, 0.03]}>
-        <boxGeometry args={[1.0, 0.05, 0.02]} />
+    <group rotation={[0, 0, angle]} position={[0, 0, 0.06]}>
+      <mesh position={[0.67, 0, 0]}>
+        <boxGeometry args={[1.34, 0.05, 0.02]} />
         <meshStandardMaterial
           color="#C9A227"
           emissive="#C9A227"
@@ -213,8 +257,8 @@ function Pointer({ angle = Math.PI / 4 }: { angle?: number }) {
           roughness={0.15}
         />
       </mesh>
-      {/* arrow tip */}
-      <mesh position={[1.05, 0, 0.03]} rotation={[0, 0, -Math.PI / 2]}>
+      {/* arrow tip, reaching the inner brass ring */}
+      <mesh position={[1.42, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
         <coneGeometry args={[0.08, 0.18, 4]} />
         <meshStandardMaterial
           color="#F6ECC9"
@@ -230,27 +274,31 @@ function Pointer({ angle = Math.PI / 4 }: { angle?: number }) {
 
 function Astrolabe({ size = 1, spin = true }: AstrolabeProps) {
   const group = useRef<THREE.Group>(null);
-  useFrame((_, delta) => {
-    if (group.current && spin) {
-      group.current.rotation.y += delta * 0.12;
-      group.current.rotation.x = Math.sin(performance.now() * 0.0003) * 0.08;
-    }
+  useFrame((state) => {
+    if (!group.current || !spin) return;
+    const t = state.clock.getElapsedTime();
+    // Bounded tilt, not a cumulative spin. Rotation used to accrue on y until
+    // the dial — a flat disc — turned edge-on to the camera and vanished for a
+    // beat each revolution, which is what read as the instrument glitching.
+    // Anything that should turn (rete, dial, rule) turns in its own plane.
+    group.current.rotation.y = Math.sin(t * 0.14) * 0.18;
+    group.current.rotation.x = Math.sin(t * 0.09) * 0.07;
   });
 
   return (
     <group ref={group} scale={size}>
       {/* outer brass ring (the "mater") */}
-      <BrassRing radius={1.65} tube={0.06} />
+      <BrassRing radius={Mater.radius} tube={Mater.tube} />
       <BrassRing radius={1.5} tube={0.025} />
-      {/* star tick marks on outer ring */}
-      <StarRing radius={1.58} count={48} />
+      {/* graduated scale just outside the mater */}
+      <StarRing radius={Mater.radius + Mater.tube} count={48} />
       {/* inner rotating dial */}
       <InnerDial />
       {/* pointer (the "alidade") — points to the next move */}
       <Pointer angle={Math.PI / 5} />
       {/* hanging crown at top */}
-      <mesh position={[0, 1.85, 0]}>
-        <torusGeometry args={[0.12, 0.025, 8, 24]} />
+      <mesh position={[0, Crown.y, 0]}>
+        <torusGeometry args={[Crown.radius, Crown.tube, 8, 24]} />
         <meshStandardMaterial
           color="#C9A227"
           metalness={1}
@@ -259,7 +307,7 @@ function Astrolabe({ size = 1, spin = true }: AstrolabeProps) {
           emissiveIntensity={0.4}
         />
       </mesh>
-      <mesh position={[0, 1.72, 0]}>
+      <mesh position={[0, Crown.y - 0.13, 0]}>
         <boxGeometry args={[0.04, 0.3, 0.04]} />
         <meshStandardMaterial color="#C9A227" metalness={1} roughness={0.2} />
       </mesh>
@@ -268,30 +316,39 @@ function Astrolabe({ size = 1, spin = true }: AstrolabeProps) {
 }
 
 function FloatingParticles() {
-  return <Sparkles count={80} scale={8} size={2} speed={0.3} opacity={0.5} color="#169AA5" />;
+  return <Sparkles count={80} scale={5} size={1.6} speed={0.3} opacity={0.45} color="#169AA5" />;
 }
 
-export function Astrolabe3D({
-  size = 1,
-  spin = true,
-  interactive = false,
-}: AstrolabeProps & { interactive?: boolean }) {
+/**
+ * The instrument fills whatever box it is given — sizing is the container's
+ * job (see FRAMING above), so a call site cannot ask for a scale that clips.
+ */
+export function Astrolabe3D({ spin = true }: { spin?: boolean }) {
+  const reduceMotion = useReducedMotion();
+  const animate = spin && !reduceMotion;
+  const fallback = <AstrolabeCSSFallback />;
+
   return (
-    <Canvas3DErrorBoundary fallback={<AstrolabeCSSFallback size={size} />}>
+    <Canvas3DErrorBoundary fallback={fallback}>
       <Canvas
         camera={{ position: [0, 0, 5], fov: 40 }}
         dpr={[1, 2]}
         gl={{ antialias: true, alpha: true }}
         style={{ background: "transparent" }}
       >
+        <FitCamera radius={INSTRUMENT_FIT_RADIUS + MOTION_MARGIN} />
         <ambientLight intensity={0.35} />
         <directionalLight position={[5, 5, 5]} intensity={1.2} color="#F6ECC9" />
         <pointLight position={[-3, -2, 2]} intensity={0.8} color="#169AA5" />
         <pointLight position={[3, 2, 2]} intensity={0.6} color="#C9A227" />
 
-        <Float speed={1.4} rotationIntensity={0.25} floatIntensity={0.6}>
-          <Astrolabe size={size} spin={spin} />
-        </Float>
+        {animate ? (
+          <Float speed={0.9} rotationIntensity={0.04} floatIntensity={0.18}>
+            <Astrolabe spin />
+          </Float>
+        ) : (
+          <Astrolabe spin={false} />
+        )}
 
         <FloatingParticles />
 
@@ -304,16 +361,6 @@ export function Astrolabe3D({
           intensity={0.4}
           color="#169AA5"
         />
-
-        {interactive && (
-          <OrbitControls
-            enablePan={false}
-            enableZoom={false}
-            minPolarAngle={Math.PI / 3}
-            maxPolarAngle={Math.PI / 1.6}
-            autoRotate={false}
-          />
-        )}
       </Canvas>
     </Canvas3DErrorBoundary>
   );
@@ -333,19 +380,16 @@ function OrbitNode({
   angle,
   radius,
   status,
-  label,
 }: {
   angle: number;
   radius: number;
   status: OrbitStep["status"];
-  label: string;
 }) {
   const ref = useRef<THREE.Group>(null);
   useFrame((state) => {
-    if (ref.current) {
-      const t = state.clock.getElapsedTime();
-      ref.current.position.y = Math.sin(t * 0.8 + angle) * 0.05;
-    }
+    if (!ref.current) return;
+    const { x, y } = orbitNodePosition(angle, radius, state.clock.getElapsedTime());
+    ref.current.position.set(x, y, 0);
   });
   const color =
     status === "done"
@@ -396,10 +440,10 @@ function OrbitNode({
 }
 
 function OrbitConnector({ from, to, active }: { from: number; to: number; active: boolean }) {
-  const x1 = Math.cos(from) * 2.4;
-  const y1 = Math.sin(from) * 2.4;
-  const x2 = Math.cos(to) * 2.4;
-  const y2 = Math.sin(to) * 2.4;
+  const x1 = Math.cos(from) * ORBIT_RADIUS;
+  const y1 = Math.sin(from) * ORBIT_RADIUS;
+  const x2 = Math.cos(to) * ORBIT_RADIUS;
+  const y2 = Math.sin(to) * ORBIT_RADIUS;
   const midX = (x1 + x2) / 2;
   const midY = (y1 + y2) / 2;
   const len = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
@@ -427,6 +471,7 @@ function OrbitScene({ journeySteps }: { journeySteps: OrbitStep[] }) {
   return (
     <>
       <ambientLight intensity={0.4} />
+      <directionalLight position={[4, 6, 6]} intensity={0.9} color="#F6ECC9" />
       <pointLight position={[0, 0, 3]} intensity={1.2} color="#169AA5" />
       <pointLight position={[3, 3, 2]} intensity={0.6} color="#C9A227" />
 
@@ -435,7 +480,7 @@ function OrbitScene({ journeySteps }: { journeySteps: OrbitStep[] }) {
         <Astrolabe size={0.55} spin={false} />
         {/* orbit ring guide */}
         <mesh>
-          <ringGeometry args={[2.35, 2.45, 128]} />
+          <ringGeometry args={[ORBIT_RADIUS - 0.05, ORBIT_RADIUS + 0.05, 128]} />
           <meshStandardMaterial
             color="#169AA5"
             emissive="#0E5C63"
@@ -448,7 +493,7 @@ function OrbitScene({ journeySteps }: { journeySteps: OrbitStep[] }) {
         {/* step nodes */}
         {journeySteps.map((s, i) => {
           const angle = (i / journeySteps.length) * Math.PI * 2;
-          return <OrbitNode key={i} angle={angle} radius={2.4} status={s.status} label={s.label} />;
+          return <OrbitNode key={i} angle={angle} radius={ORBIT_RADIUS} status={s.status} />;
         })}
         {/* connectors between adjacent active steps */}
         {journeySteps.map((s, i) => {
@@ -466,26 +511,21 @@ function OrbitScene({ journeySteps }: { journeySteps: OrbitStep[] }) {
         })}
       </group>
 
-      <Sparkles count={40} scale={7} size={1.5} speed={0.2} color="#C9A227" opacity={0.4} />
+      <Sparkles count={40} scale={5} size={1.5} speed={0.2} color="#C9A227" opacity={0.4} />
     </>
   );
 }
 
 export function JourneyOrbit3D({ steps: journeySteps }: { steps: OrbitStep[] }) {
   return (
-    <Canvas3DErrorBoundary
-      fallback={
-        <div className="flex items-center justify-center h-[280px]">
-          <AstrolabeCSSFallback size={0.7} />
-        </div>
-      }
-    >
+    <Canvas3DErrorBoundary fallback={<AstrolabeCSSFallback />}>
       <Canvas
         camera={{ position: [0, 0, 6], fov: 40 }}
         dpr={[1, 2]}
         gl={{ alpha: true, antialias: true }}
         style={{ background: "transparent" }}
       >
+        <FitCamera radius={ORBIT_FIT_RADIUS} />
         <OrbitScene journeySteps={journeySteps} />
       </Canvas>
     </Canvas3DErrorBoundary>
@@ -534,13 +574,14 @@ function BandSphereScene({ band }: { band: "steady" | "watch" | "friction" | "bl
 
 export function BandSphere3D({ band }: { band: "steady" | "watch" | "friction" | "blocked" }) {
   return (
-    <Canvas3DErrorBoundary fallback={<div className="w-[200px] h-[200px]" />}>
+    <Canvas3DErrorBoundary fallback={<AstrolabeCSSFallback />}>
       <Canvas
         camera={{ position: [0, 0, 3], fov: 40 }}
         dpr={[1, 2]}
         gl={{ alpha: true, antialias: true }}
         style={{ background: "transparent" }}
       >
+        <FitCamera radius={BAND_RADIUS + 0.05} />
         <BandSphereScene band={band} />
       </Canvas>
     </Canvas3DErrorBoundary>

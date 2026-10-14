@@ -870,19 +870,24 @@ function HeroParallax() {
           </div>
         </motion.div>
 
-        <motion.div
-          className="hidden lg:block relative h-[260px]"
-          style={enabled ? { x: astX, y: astY, rotate: astRotate } : undefined}
-          transition={{ type: "spring", stiffness: 120, damping: 18 }}
-        >
-          <Astrolabe3D size={1.05} spin />
-          <div
-            className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] uppercase tracking-[0.18em] whitespace-nowrap"
+        {/* The caption sits outside the parallax element: it used to be
+            absolutely positioned inside it, so the scroll-linked rotation
+            tilted the caption with the canvas and the ring ran under it. */}
+        <div className="hidden lg:flex lg:h-[272px] lg:flex-col">
+          <motion.div
+            className="relative min-h-0 flex-1"
+            style={enabled ? { x: astX, y: astY, rotate: astRotate } : undefined}
+            transition={{ type: "spring", stiffness: 120, damping: 18 }}
+          >
+            <Astrolabe3D spin />
+          </motion.div>
+          <p
+            className="pt-2 text-center text-[10px] uppercase tracking-[0.18em] whitespace-nowrap"
             style={{ color: "var(--text-lo)" }}
           >
             {locale === "ar" ? "الأسطرلاب · مكتشف الرحلة" : "Astrolabe · journey instrument"}
-          </div>
-        </motion.div>
+          </p>
+        </div>
       </div>
     </motion.div>
   );

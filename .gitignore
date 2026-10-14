@@ -75,3 +75,8 @@ server.log
 # Generated demo artifacts: the mp4 is a build output, not source.
 demo/.work/
 demo/*.mp4
+
+# Captured from a running app by scripts/make-demo-video.ts — regenerated, not source.
+demo/frames/
+# Headless-browser measurement scratch used to verify 3D framing.
+demo/verify/

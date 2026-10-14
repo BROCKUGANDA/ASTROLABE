@@ -391,12 +391,12 @@ function HeroStrip({ data }: { data: JourneyMeData }) {
           </div>
         </div>
 
-        {/* 3D mini-astrolabe — desktop only */}
+        {/* 3D mini-astrolabe — desktop only, sized by this box */}
         <div
-          className="hidden lg:block relative h-[200px] w-[200px] place-self-end"
+          className="hidden lg:block relative h-[168px] w-[168px] place-self-end"
           aria-hidden="true"
         >
-          <Astrolabe3D size={0.7} spin />
+          <Astrolabe3D spin />
         </div>
       </div>
     </section>

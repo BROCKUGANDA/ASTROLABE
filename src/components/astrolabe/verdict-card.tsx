@@ -4,7 +4,7 @@
    ASTROLABE — Verdict Card
    The premium "where you stand" readout, shown right after the
    hero strip on the Today screen. A glass card with:
-   - 3D BandSphere3D (icosahedron coloured by band) on the right
+   - InstrumentDial (precision band readout) on the right
    - Band name + score + 1-line plain-language summary on the left
    - Top 3 signal badges
    - Suppressed-families disclosure when pulse capture is off
@@ -13,7 +13,6 @@
    ============================================================ */
 
 import { motion } from "framer-motion";
-import { BandSphere3D } from "@/components/three/astrolabe";
 import { InstrumentDial, ScanLineOverlay } from "@/components/astrolabe/instrument-dial";
 import { NumberTicker } from "@/components/astrolabe/micro-interactions";
 import { SignalBadge, type Band } from "@/components/astrolabe/widgets";
