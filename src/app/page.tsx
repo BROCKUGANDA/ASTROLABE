@@ -15,7 +15,7 @@ import {
   HelpCircle, UserCircle,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
-import { ensureSession, type ConsoleRole } from "@/lib/session-client";
+import { ensureSession, invalidateSession, type ConsoleRole } from "@/lib/session-client";
 import { TodayScreen } from "@/components/astrolabe/today-screen";
 import { JourneyScreen } from "@/components/astrolabe/journey-screen";
 import { AskScreen } from "@/components/astrolabe/ask-screen";
@@ -91,9 +91,26 @@ export default function Home() {
 
   // Ask the server for a session for the console being shown. Every API call is
   // authorised from that signed session, not from this client's idea of a role.
+  // The screens must not fetch before it exists: they used to, and a 401 left
+  // them spinning behind a loading state with nothing on screen to explain it.
+  const [session, setSession] = useState<{ key: string; state: "pending" | "ready" | "failed" }>({
+    key: "",
+    state: "pending",
+  });
   useEffect(() => {
-    void ensureSession(role as ConsoleRole, employeeId);
+    const key = `${role}:${employeeId}`;
+    let cancelled = false;
+    invalidateSession();
+    void ensureSession(role as ConsoleRole, employeeId).then((ok) => {
+      if (!cancelled) setSession({ key, state: ok ? "ready" : "failed" });
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [role, employeeId]);
+  // Derived, so a role change reads as "pending" without a second render pass.
+  const sessionState =
+    session.key === `${role}:${employeeId}` ? session.state : "pending";
 
   // ⌘K command palette
   useEffect(() => {
@@ -363,20 +380,50 @@ export default function Home() {
       <main className="flex-1 max-w-[1280px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
         {role === "employee" && (
           <>
-            {view === "today" && <TodayScreen />}
-            {view === "journey" && <JourneyScreen />}
-            {view === "ask" && <AskScreen />}
-            {view === "requests" && <RequestsScreen />}
-            {view === "me" && <MeScreen />}
-            {view === "help" && <HelpScreen />}
-            {view === "profile" && <ProfileScreen />}
+            {sessionState === "pending" && (
+              <div className="rounded-[14px] border p-6" style={{ borderColor: "var(--border)" }}>
+                <div className="flex items-center gap-3">
+                  <Compass className="h-4 w-4 animate-spin" style={{ color: "var(--brand-500)" }} />
+                  <span className="text-sm">Signing you in as {employeeId}…</span>
+                </div>
+              </div>
+            )}
+            {sessionState === "failed" && (
+              <div className="rounded-[14px] border p-6" style={{ borderColor: "var(--status-friction)" }}>
+                <p className="text-sm font-semibold">We could not start your session.</p>
+                <p className="mt-1 text-sm" style={{ color: "var(--text-mid)" }}>
+                  Nothing was lost. The server did not accept the identity this console asked for, so
+                  no data was loaded.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    invalidateSession();
+                    void ensureSession(role as ConsoleRole, employeeId).then((ok) =>
+                      setSession({ key: `${role}:${employeeId}`, state: ok ? "ready" : "failed" })
+                    );
+                  }}
+                  className="mt-3 rounded-[10px] px-3 py-2 text-sm font-semibold"
+                  style={{ background: "var(--brand-600)", color: "#fff" }}
+                >
+                  Try again
+                </button>
+              </div>
+            )}
+            {sessionState === "ready" && view === "today" && <TodayScreen />}
+            {sessionState === "ready" && view === "journey" && <JourneyScreen />}
+            {sessionState === "ready" && view === "ask" && <AskScreen />}
+            {sessionState === "ready" && view === "requests" && <RequestsScreen />}
+            {sessionState === "ready" && view === "me" && <MeScreen />}
+            {sessionState === "ready" && view === "help" && <HelpScreen />}
+            {sessionState === "ready" && view === "profile" && <ProfileScreen />}
           </>
         )}
-        {role === "hrbp" && <HrbpScreen />}
-        {role === "manager" && <ManagerScreen />}
-        {role === "judge" && <JudgeScreen />}
-        {role === "admin" && <AdminScreen />}
-        {role === "service_owner" && <ServiceOwnerScreen />}
+        {sessionState === "ready" && role === "hrbp" && <HrbpScreen />}
+        {sessionState === "ready" && role === "manager" && <ManagerScreen />}
+        {sessionState === "ready" && role === "judge" && <JudgeScreen />}
+        {sessionState === "ready" && role === "admin" && <AdminScreen />}
+        {sessionState === "ready" && role === "service_owner" && <ServiceOwnerScreen />}
       </main>
 
       {/* ========== FLOATING QUICK-ACTION ORB (employee only) ========== */}

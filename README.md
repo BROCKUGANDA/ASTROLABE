@@ -21,7 +21,8 @@ Requirements: [bun](https://bun.sh) ≥ 1.2 and Node ≥ 20 (Next 16). No Docker
 
 ```bash
 bun install
-bun run dev                    # http://localhost:3000
+cp .env.example .env      # optional for `dev`; required values for `start`
+bun run dev               # http://localhost:3000
 ```
 
 The app is one page with six consoles. Pick a console and a person in the header; the browser
@@ -156,7 +157,14 @@ open the manager console and look at the network payload.
 
 ## 6. Known issues
 
-- Readiness reports `db: down` unless `DATABASE_URL` points at a writable SQLite file (see §4).
+- **`next start` fails sign-in without `SESSION_SECRET`.** The session layer refuses to
+  self-assign a production key, so the API returns 500 on `/api/v1/auth/sign-in` until you set one.
+  This is intentional fail-closed behaviour, not a bug to work around — but it means `bun run dev`
+  and `bun run start` are not equally turn-key.
+- **The interactive shell is not yet verified in a browser.** In both dev and production the route's
+  `loading.tsx` boundary stays on screen while the app renders at zero height: no console errors, all
+  chunks 200, sessions and APIs correct. The API surface and the 134 tests are verified; a
+  click-through walkthrough is not, and it should be done before recording the demo.
 - Golden assessment snapshots drift whenever a weight, threshold or pack row changes. That is the
   gate working: re-record with `UPDATE_SNAPSHOTS=1 bun test tests/engine/snapshot.test.ts` and put
   the change note in the commit.

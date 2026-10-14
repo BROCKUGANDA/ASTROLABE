@@ -4,17 +4,18 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
-    "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
-    "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
+    "build": "next build && bun run scripts/postbuild.ts",
+    "start": "next start -p 3000",
     "lint": "eslint .",
     "test": "bun test tests/",
     "typecheck": "tsc --noEmit",
     "backtest": "bun run scripts/backtest.ts",
-    "verify": "bun run typecheck && bun run lint && bun test tests/ && bun run build",
+    "verify": "bun run typecheck && bun run lint && bun test tests/ && bun run backtest && bun run build",
     "db:push": "prisma db push --accept-data-loss",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:reset": "prisma migrate reset"
+    "db:reset": "prisma migrate reset",
+    "start:standalone": "bun .next/standalone/server.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
