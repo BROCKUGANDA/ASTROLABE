@@ -120,12 +120,16 @@ jobs:
         # `bash scripts/ci-smoke.sh` runs the identical checks locally.
         run: bash scripts/ci-smoke.sh
 
-      - name: Attach the backtest scorecard
+      - name: Show the backtest scorecard in the run summary
         # So the numbers behind the gates travel with the run instead of living only
-        # in a log line.
+        # in a log line. This is a job summary, not an artifact: the account is at
+        # its Actions artifact-storage quota, so an upload here fails the run even
+        # when every gate above it passed.
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: backtest-scorecard
-          path: tool-results/backtest-scorecard.md
-          if-no-files-found: error
+        run: |
+          if [ -f tool-results/backtest-scorecard.md ]; then
+            cat tool-results/backtest-scorecard.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::no scorecard file was written"
+            echo "No backtest scorecard was written." >> "$GITHUB_STEP_SUMMARY"
+          fi
