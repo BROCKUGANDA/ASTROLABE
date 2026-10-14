@@ -83,6 +83,13 @@ bun run build && bun run start     # standalone production server on :3000
 and a writable directory for the SQLite file; there are no sticky sessions and no local state that
 is not rebuildable from the event log.
 
+> **Runner status.** Every workflow in this repo currently ends in `startup_failure` with zero jobs —
+> including an eight-line `runs-on: ubuntu-latest` control that only echoes, and with repo Actions
+> set to `allowed_actions: all`. That is the account being refused a GitHub-hosted runner (private
+> repo, no billable runner minutes), not a defect in `ci.yml`. Until it is resolved,
+> `bun run verify:prod` runs the same gates locally: typecheck, lint, 134 tests, the snapshot
+> guard, the backtest scorecard, the build, the bundle scan and the production smoke test.
+
 ## 3. How it is put together
 
 ```
