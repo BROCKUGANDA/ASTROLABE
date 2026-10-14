@@ -54,3 +54,7 @@ server.log
 /skills/
 # ...but the documented template must be committed.
 !.env.example
+
+# Generated demo artifacts: the mp4 is a build output, not source.
+demo/.work/
+demo/*.mp4

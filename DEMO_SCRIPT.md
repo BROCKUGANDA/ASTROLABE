@@ -165,3 +165,31 @@ recording is the second.
   — that is the feature.
 - Do not claim streaming, vector search or a PDF binary. The README lists what is not built; if a
   judge asks, say what is simulated and why.
+
+## Capturing the frames the video builder wants
+
+`bun run scripts/make-demo-video.ts` cuts the narration to these beats and expects a
+screenshot per beat at `demo/frames/<beat-id>.png` (names printed by
+`bun run scripts/make-demo-video.ts --list`). A beat with no frame is rendered as a
+labelled placeholder card and listed at the end, so an unfinished capture is visible
+rather than hidden.
+
+Capture at 1920×1080 against the built server (`bun run build && bun run start`), from
+the same state the live demo uses:
+
+| Beat | What must be on screen |
+| --- | --- |
+| `02-today` | Employee · Maria Santos · Today, next step card visible |
+| `03-blockers` | Journey · the blocked-by sentence and downstream count |
+| `04-ask` | Ask · a cited answer with the source panel open |
+| `05-abstain` | Ask · the promotion abstain card naming a human |
+| `06-request` | Requests · the confirm preview showing payload and recipient |
+| `07-visa` | Judge · Nadia with the engine trace expanded |
+| `08-escalation` | HRBP · the packet preview with named owner and backup |
+| `09-consent` | Me · consent toggles with the recomputed band, then the manager console |
+| `10-stalls` | HRBP · the stall heatmap, one cell suppressed |
+
+Then re-run the builder. Narration defaults to a speech rate that keeps the cut at
+about 2:51; override with `DEMO_RATE` / `DEMO_VOICE`. **A generated voice is a
+placeholder for the real thing — record the walkthrough over the live app before
+submitting**, and use this file only as the offline fallback the runbook asks for.
