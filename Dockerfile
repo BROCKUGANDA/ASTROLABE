@@ -19,7 +19,9 @@ WORKDIR /app
 ENV DATABASE_URL=file:/app/db/custom.db
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN bun run build
+# The generated Prisma client is a build product, not a package: without it the
+# standalone bundle cannot serve /api/readyz.
+RUN bun run db:generate && bun run build
 
 FROM oven/bun:1.4.2-alpine AS run
 WORKDIR /app

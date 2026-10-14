@@ -37,4 +37,17 @@ if (existsSync(dbSource)) {
   cpSync(dbSource, join(standalone, "db", "custom.db"));
 }
 
+// Next traces @prisma/client into the standalone bundle but not the *generated*
+// client or the query engine it loads at require-time, so /api/readyz — the one
+// route that touches the database — throws "Cannot find module
+// '.prisma/client/default'" when run from standalone alone. `next start` never
+// shows this because it has the full node_modules.
+for (const dir of ["node_modules/.prisma", "node_modules/@prisma/engines"]) {
+  if (!existsSync(dir)) continue;
+  const target = join(standalone, dir);
+  if (existsSync(target)) rmSync(target, { recursive: true, force: true });
+  mkdirSync(join(target, ".."), { recursive: true });
+  cpSync(dir, target, { recursive: true });
+}
+
 console.log("postbuild: standalone bundle assembled (.next/standalone)");
