@@ -1,0 +1,21 @@
+{
+  "$comment": "High/critical advisories that are knowingly accepted. Every entry must say why it is not reachable at runtime and what would remove it. The gate fails on anything NOT listed here, so a new high cannot land silently.",
+  "entries": [
+    {
+      "package": "deepmerge-ts",
+      "via": "prisma > @prisma/config",
+      "severity": "high",
+      "reason": "Build-time Prisma CLI configuration chain; not imported by the server or the client bundle. Removing it needs a Prisma major bump, which is not worth destabilising the prototype for.",
+      "reviewBy": "pilot kickoff",
+      "advisoryId": 1145093
+    },
+    {
+      "package": "effect",
+      "via": "prisma > @prisma/config",
+      "severity": "high",
+      "reason": "Same CLI-only chain as deepmerge-ts; the advisory concerns AsyncLocalStorage context under RPC concurrency, which does not apply to how this prototype uses prisma generate/db push.",
+      "reviewBy": "pilot kickoff",
+      "advisoryId": 1115356
+    }
+  ]
+}

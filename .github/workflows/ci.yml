@@ -87,6 +87,11 @@ jobs:
         # determinism, as-of isolation, hot-path latency, slice fairness.
         run: bun run backtest
 
+      - name: Dependency audit (blocks on unaccepted high/critical)
+        # Fails on a new high in the production tree unless audit-allowlist.json carries a
+        # reviewed reason for it (PRD 457). Dev-only chains are reported, not blocking.
+        run: bun run audit
+
       - name: Build
         # `next build` must not run against a .next a dev server is using; CI has no
         # dev server, so this is safe here in a way it is not locally.

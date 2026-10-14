@@ -18,7 +18,8 @@
     "start:standalone": "bun .next/standalone/server.js",
     "verify:prod": "bash scripts/ci-bundle-scan.sh && bash scripts/ci-smoke.sh",
     "scan": "bash scripts/ci-bundle-scan.sh",
-    "smoke": "bash scripts/ci-smoke.sh"
+    "smoke": "bash scripts/ci-smoke.sh",
+    "audit": "bun run scripts/audit-gate.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -80,7 +81,7 @@
     "react-resizable-panels": "^3.0.3",
     "react-syntax-highlighter": "^15.6.1",
     "recharts": "^2.15.4",
-    "sharp": "^0.34.3",
+    "sharp": "^0.35.5",
     "sonner": "^2.0.6",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
@@ -102,5 +103,10 @@
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.5",
     "typescript": "^5"
+  },
+  "overrides": {
+    "js-yaml": "^4.3.2",
+    "sharp": "$sharp",
+    "prismjs": "^1.30.0"
   }
 }
