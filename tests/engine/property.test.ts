@@ -76,6 +76,20 @@ describe("replay and leakage", () => {
     expect(after.signals.find((s) => s.code === "DQ-03")?.evidenceRefs.some((r) => r.startsWith("event:"))).toBe(true);
   });
 
+  test("a pulse answer, request or draft recorded after T cannot influence T", () => {
+    const employee = employees.find((e) => e.id === "E-1042")!;
+    const clean = assess(employee, CLOCK, data);
+    const polluted = assess(employee, CLOCK, {
+      ...data,
+      pulse: [...data.pulse, { id: "FUT-PULSE", employeeId: employee.id, stage: "first_week", score: 1, createdAt: daysAheadIso(30), consentId: "c" }],
+      requests: [...data.requests, { ...data.requests[0], id: "FUT-REQ", employeeId: employee.id, openedAt: daysAheadIso(30), status: "submitted" as const }],
+      answers: [...data.answers, { id: "FUT-ANS", employeeId: employee.id, question: "q", topicKey: "future", intent: "help_seeking" as const, kind: "abstain" as const, groundingScore: 0, chunkIds: [], askedAt: daysAheadIso(30), locale: "en" as const, corpusVersion: "x" }],
+      drafts: [...data.drafts, { id: "FUT-DRAFT", employeeId: employee.id, type: "it_kit" as const, status: "abandoned" as const, startedAt: daysAheadIso(30) }],
+    });
+    expect(JSON.stringify(polluted.signals)).toBe(JSON.stringify(clean.signals));
+    expect(polluted.band).toBe(clean.band);
+  });
+
   test("three runs of the same assessment are byte-identical", () => {
     for (const employee of employees) {
       const runs = [1, 2, 3].map(() => JSON.stringify(assess(employee, CLOCK, data)));

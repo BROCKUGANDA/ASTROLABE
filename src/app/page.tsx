@@ -15,6 +15,7 @@ import {
   HelpCircle, UserCircle,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
+import { ensureSession, type ConsoleRole } from "@/lib/session-client";
 import { TodayScreen } from "@/components/astrolabe/today-screen";
 import { JourneyScreen } from "@/components/astrolabe/journey-screen";
 import { AskScreen } from "@/components/astrolabe/ask-screen";
@@ -87,6 +88,12 @@ export default function Home() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Ask the server for a session for the console being shown. Every API call is
+  // authorised from that signed session, not from this client's idea of a role.
+  useEffect(() => {
+    void ensureSession(role as ConsoleRole, employeeId);
+  }, [role, employeeId]);
 
   // ⌘K command palette
   useEffect(() => {

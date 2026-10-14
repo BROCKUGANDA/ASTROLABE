@@ -16,15 +16,33 @@
 import { NextRequest } from "next/server";
 import { success, error } from "@/lib/api/envelope";
 import { employees, getOwner } from "@/lib/data/pack";
-import { assess, computeStepState, nextBestStep, eventsForEmployee } from "@/lib/engine/engine";
+import { assess, computeStepStates, nextBestSteps, eventsForEmployee, buildGraph, packData, resolveAsOf } from "@/lib/engine/engine";
+import { engineNow } from "@/lib/engine/clock";
 import { steps as ALL_STEPS } from "@/lib/data/pack";
+import { guard, subjectGuard } from "@/lib/privacy/guard";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const employeeId = req.nextUrl.searchParams.get("employeeId") ?? "E-1042";
+  // The actor comes from the session, not from the query string. An employee may
+  // only ask about themselves; a manager or HRBP may ask within their scope.
+  const auth = await guard(req, "journey.me");
+  if (!auth.ok) return auth.response;
+  const session = auth.session;
+
+  const requested = req.nextUrl.searchParams.get("employeeId");
+  const employeeId = requested ?? (session.role === "employee" ? session.sub : null);
+  if (!employeeId) {
+    return error("E_VALIDATION", "This role must name the employee it is asking about.", 400, {
+      hint: "?employeeId=E-1042",
+    });
+  }
+  const scoped = subjectGuard(session, employeeId, "journey.read", { requestId: undefined });
+  if (!scoped.ok) return scoped.response;
+
   const asOfParam = req.nextUrl.searchParams.get("asOf");
-  const asOf = asOfParam ? new Date(asOfParam) : new Date();
+  // One authoritative clock: an as-of when supplied, otherwise the engine's now.
+  const asOf = resolveAsOf(asOfParam ?? engineNow());
 
   const employee = employees.find((e) => e.id === employeeId);
   if (!employee) {
@@ -35,10 +53,10 @@ export async function GET(req: NextRequest) {
 
   const start = Date.now();
   const assessment = assess(employee, asOf);
-  const nbs = nextBestStep(employee, asOf);
+  const ranked = nextBestSteps(employee, asOf);
   const employeeEvents = eventsForEmployee(employee.id);
-  const journeySteps = ALL_STEPS.filter((s) => s.journeyType === employee.journeyType);
-  const stepStates = journeySteps.map((s) => computeStepState(employee, s, employeeEvents, asOf));
+  const engineData = packData();
+  const stepStates = [...computeStepStates(employee, ALL_STEPS, employeeEvents, asOf, buildGraph(engineData.steps)).values()];
 
   const manager = getOwner(employee.managerId);
   const hrbp = getOwner(employee.hrbpId);
@@ -66,7 +84,14 @@ export async function GET(req: NextRequest) {
     score: assessment.score,
     signals: assessment.signals,
     suppressedFamilies: assessment.suppressedFamilies,
-    nextBestStep: nbs,
+    familyArithmetic: assessment.familyArithmetic,
+    bandReason: assessment.bandReason,
+    hardTrips: assessment.hardTrips,
+    hrbpEligible: assessment.hrbpEligible,
+    unmappedActivity: assessment.unmappedActivity,
+    nextBestStep: ranked.primary,
+    secondarySteps: ranked.secondary,
+    nothingToDo: ranked.nothingToDo,
     steps: stepStates.map((s) => ({
       stepKey: s.stepKey,
       label: s.label,
@@ -79,11 +104,19 @@ export async function GET(req: NextRequest) {
       dueAt: s.dueAt,
       completedAt: s.completedAt,
       blockedBy: s.blockedBy,
+      rootBlockers: s.rootBlockers,
+      blockerChainLength: s.blockerChainLength,
       breachLevel: s.breachLevel,
       targetHours: s.targetHours,
       elapsedHours: s.elapsedHours,
+      workingElapsedHours: s.workingElapsedHours,
+      pausedHours: s.pausedHours,
+      untimed: s.untimed,
       remainingHours: s.remainingHours,
       downstreamAtRisk: s.downstreamAtRisk,
+      directlyBlocking: s.directlyBlocking,
+      evidenceEventIds: s.evidenceEventIds,
+      contradictions: s.contradictions,
       policyRefs: s.policyRefs,
       requestType: s.requestType,
       journeyType: s.journeyType,
@@ -91,6 +124,7 @@ export async function GET(req: NextRequest) {
     engineVersion: assessment.engineVersion,
     mapVersion: assessment.mapVersion,
     corpusVersion: assessment.corpusVersion,
+    signalPackVersion: assessment.signalPackVersion,
   };
 
   return success(data, {

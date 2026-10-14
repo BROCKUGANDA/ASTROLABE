@@ -13,6 +13,7 @@ import {
   type Owner,
 } from "@/lib/data/pack";
 import { INTAKE_SCHEMAS, resolveOwner } from "@/lib/actions/actions";
+import { engineNow } from "@/lib/engine/engine";
 import {
   rateLimit,
   getClientIp,
@@ -204,7 +205,7 @@ export async function POST(req: NextRequest) {
     return res;
   }
 
-  const now = new Date();
+  const now = engineNow();
   const newRequest: ServiceRequest = {
     id: `SR-2024-${now.getTime().toString(36)}`,
     ref: `SR-2024-${now.getTime().toString(36)}`,

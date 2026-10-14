@@ -236,16 +236,24 @@ export function assess(
   const states = computeStepStates(employee, data.steps, data.events, clock, graph);
   const employeeVisible = visibleEvents(data.events, employee.id, clock);
   const unmapped = unmappedFrom(data.steps, data.events, employee.id, clock);
+  // As-of filtering applies to every input family, not only the event log. A
+  // pulse answer, a request or an abandoned draft recorded after T must not
+  // influence an assessment made at T (PRD §22 replay-at-time, leakage test).
+  const notAfter = (iso?: string) => Boolean(iso) && new Date(iso as string) <= clock;
+  const requestsAtClock = data.requests.filter((r) => r.employeeId === employee.id && notAfter(r.openedAt));
+  const pulseAtClock = data.pulse.filter((p) => p.employeeId === employee.id && notAfter(p.createdAt));
+  const answersAtClock = data.answers.filter((a) => a.employeeId === employee.id && notAfter(a.askedAt));
+  const draftsAtClock = data.drafts.filter((d) => d.employeeId === employee.id && notAfter(d.startedAt));
   const { fired, suppressed } = computeSignals({
     employee,
     states,
     steps: data.steps,
     visibleEvents: employeeVisible,
     futureEventIds: futureEvents(data.events, employee.id, clock).map((e) => e.id),
-    requests: data.requests.filter((r) => r.employeeId === employee.id),
-    pulse: data.pulse.filter((p) => p.employeeId === employee.id),
-    answers: data.answers.filter((a) => a.employeeId === employee.id),
-    drafts: data.drafts.filter((d) => d.employeeId === employee.id),
+    requests: requestsAtClock,
+    pulse: pulseAtClock,
+    answers: answersAtClock,
+    drafts: draftsAtClock,
     consents: data.consents,
     unmapped,
     graph,

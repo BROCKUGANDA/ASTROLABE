@@ -22,7 +22,9 @@ import {
   serviceRequests as ALL_REQUESTS,
   type Owner,
 } from "@/lib/data/pack";
-import { computeStepState } from "@/lib/engine/engine";
+import { computeStepState, engineNow } from "@/lib/engine/engine";
+import { guard } from "@/lib/privacy/guard";
+import { appendAudit } from "@/lib/privacy/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -53,9 +55,21 @@ function median(values: number[]): number {
     : sorted[mid];
 }
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   const start = Date.now();
-  const asOf = new Date();
+  // Aggregates are an HRBP/platform surface, and the read is declared and logged
+  // like any other access to people's data.
+  const auth = await guard(req, "insights.stalls");
+  if (!auth.ok) return auth.response;
+  appendAudit({
+    actor: auth.session.sub,
+    actorRole: auth.session.role,
+    action: "insights.stalls.read",
+    subject: auth.session.sub,
+    lawfulBasis: "legitimate_interests",
+    purpose: "aggregate_analytics",
+  });
+  const asOf = engineNow();
 
   // Build the (stage × ownerGroup) grid from the step definitions.
   const cellKeys = new Set<string>();

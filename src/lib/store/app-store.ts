@@ -4,6 +4,7 @@
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { ensureSession, type ConsoleRole } from "../session-client";
 
 export type Role = "employee" | "hrbp" | "manager" | "judge" | "admin" | "service_owner";
 export type View = "today" | "journey" | "ask" | "requests" | "me" | "help" | "profile";
@@ -82,7 +83,7 @@ export interface AppState {
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       role: "employee",
       currentEmployeeId: "E-1042",
       locale: "en",
@@ -100,8 +101,16 @@ export const useAppStore = create<AppState>()(
       policySearchOpen: false,
       globalSearchOpen: false,
 
-      setRole: (r) => set({ role: r }),
-      setEmployee: (id) => set({ currentEmployeeId: id }),
+      setRole: (r) => {
+        set({ role: r });
+        // Ask the server for that console's session. The role picker requests an
+        // identity; the server decides the scope, and every route re-checks it.
+        void ensureSession(r as ConsoleRole, get().currentEmployeeId);
+      },
+      setEmployee: (id) => {
+        set({ currentEmployeeId: id });
+        void ensureSession(get().role as ConsoleRole, id);
+      },
       setLocale: (l) => set({ locale: l }),
       setView: (v) => set({ view: v }),
       setHrbpView: (v) => set({ hrbpView: v }),

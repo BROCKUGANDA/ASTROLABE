@@ -1,0 +1,3799 @@
+{
+  "cases": [
+    {
+      "asOf": "2024-10-19T10:00:00.000Z",
+      "assessment": {
+        "asOf": "2024-10-19T10:00:00.000Z",
+        "band": "friction",
+        "bandReason": "Score 17 from capped family totals → friction.",
+        "corpusVersion": "policies-2024-q4-v1",
+        "dataQualityOnly": false,
+        "dayInStage": 4,
+        "employeeId": "E-1042",
+        "engineVersion": "engine-1.0.0",
+        "familyArithmetic": [
+          {
+            "cap": 12,
+            "capped": 10,
+            "family": "TL",
+            "raw": 10,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DP",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 3,
+            "family": "RQ",
+            "raw": 3,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "EN",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 4,
+            "family": "PS",
+            "raw": 4,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "MB",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DQ",
+            "raw": 0,
+            "suppressed": false
+          }
+        ],
+        "forcedBlocked": false,
+        "hardTrips": [],
+        "hrbpEligible": true,
+        "mapVersion": "map-1.0.0",
+        "score": 17,
+        "signalPackVersion": "signals-1.1.0",
+        "signals": [
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "PS-01",
+            "dataQuality": false,
+            "description": "You told us at first_week that you felt unsure (2/5).",
+            "descriptionAr": "أخبرتنا في first_week بأنك غير متأكد (2/5).",
+            "evidenceRefs": [
+              "pulse:PS-001",
+              "stage:first_week",
+              "score:2"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 4
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "RQ-01",
+            "dataQuality": false,
+            "description": "Request SR-2024-091 has been open 3 days against a 24h target.",
+            "descriptionAr": "الطلب SR-2024-091 مفتوح منذ 3 يوماً مقابل 24 ساعة.",
+            "evidenceRefs": [
+              "request:SR-2024-091",
+              "ref:SR-2024-091",
+              "ageHours:72",
+              "sla:24"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-01",
+            "dataQuality": false,
+            "description": "Laptop and phone issued is past its 24h target.",
+            "descriptionAr": "إصدار الكمبيوتر والهاتف تجاوز هدفه البالغ 24 ساعة.",
+            "evidenceRefs": [
+              "step:ob_kit_issued",
+              "event:EV-008"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-03",
+            "dataQuality": false,
+            "description": "We said laptop and phone by day 2. It has been 5 days and it is not done.",
+            "descriptionAr": "قلنا laptop and phone by day 2. مضت 5 أيام ولم يكتمل.",
+            "evidenceRefs": [
+              "step:ob_kit_issued",
+              "day:5",
+              "promise:laptop and phone by day 2"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 5
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-06",
+            "dataQuality": false,
+            "description": "Laptop and phone issued is still late after working days and holidays are taken into account.",
+            "descriptionAr": "إصدار الكمبيوتر والهاتف ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
+            "evidenceRefs": [
+              "step:ob_kit_issued",
+              "workingHours:38.0"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          }
+        ],
+        "stage": "first_day",
+        "stageReason": "Earliest stage with activity that is not fully complete (conservative tie-break).",
+        "suppressedFamilies": [],
+        "unmappedActivity": []
+      },
+      "employeeId": "E-1042",
+      "id": "E-1042@2024-10-19T10:00:00.000Z"
+    },
+    {
+      "asOf": "2024-10-19T10:00:00.000Z",
+      "assessment": {
+        "asOf": "2024-10-19T10:00:00.000Z",
+        "band": "blocked",
+        "bandReason": "Score 18 would read friction; DP-02 forces Blocked.",
+        "corpusVersion": "policies-2024-q4-v1",
+        "dataQualityOnly": false,
+        "dayInStage": 9,
+        "employeeId": "E-1043",
+        "engineVersion": "engine-1.0.0",
+        "familyArithmetic": [
+          {
+            "cap": 12,
+            "capped": 3,
+            "family": "TL",
+            "raw": 3,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 12,
+            "family": "DP",
+            "raw": 12,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 3,
+            "family": "RQ",
+            "raw": 3,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "EN",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "PS",
+            "raw": 0,
+            "suppressed": true
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "MB",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DQ",
+            "raw": 0,
+            "suppressed": false
+          }
+        ],
+        "forcedBlocked": true,
+        "hardTrips": [
+          "DP-02"
+        ],
+        "hrbpEligible": true,
+        "mapVersion": "map-1.0.0",
+        "score": 18,
+        "signalPackVersion": "signals-1.1.0",
+        "signals": [
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "DP-01",
+            "dataQuality": false,
+            "description": "Visa approved is not finished and it holds up 4 later steps.",
+            "descriptionAr": "الموافقة على التأشيرة غير مكتمل ويحجب 4 خطوات لاحقة.",
+            "evidenceRefs": [
+              "step:ob_visa_approval",
+              "blocks:ob_flight_booked",
+              "blocks:ob_housing_arranged",
+              "blocks:ob_kit_issued",
+              "blocks:ob_badge_issued",
+              "downstream:10"
+            ],
+            "family": "DP",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 5
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "DP-02",
+            "dataQuality": false,
+            "description": "The visa step Visa approved has been open for 8 days. Nothing else can finish until it does.",
+            "descriptionAr": "خطوة التأشيرة الموافقة على التأشيرة مفتوحة منذ 8 يوماً.",
+            "evidenceRefs": [
+              "step:ob_visa_approval",
+              "event:EV-105",
+              "stalledDays:8.0"
+            ],
+            "family": "DP",
+            "forceBlocked": true,
+            "hardTrip": true,
+            "nudgeOnly": false,
+            "weight": 7
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "PS-04",
+            "dataQuality": true,
+            "description": "Feedback answers are switched off, so this view uses journey and request data only.",
+            "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
+            "evidenceRefs": [
+              "employee:E-1043",
+              "purpose:pulse_capture",
+              "granted:false"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 0
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "RQ-01",
+            "dataQuality": false,
+            "description": "Request SR-2024-094 has been open 7 days against a 72h target.",
+            "descriptionAr": "الطلب SR-2024-094 مفتوح منذ 7 يوماً مقابل 72 ساعة.",
+            "evidenceRefs": [
+              "request:SR-2024-094",
+              "ref:SR-2024-094",
+              "ageHours:168",
+              "sla:72"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-05",
+            "dataQuality": false,
+            "description": "Nothing has happened on this journey for 7 days.",
+            "descriptionAr": "لم يحدث شيء على هذه الرحلة منذ 7 يوماً.",
+            "evidenceRefs": [
+              "event:EV-103",
+              "lastOccurredAt:2024-10-12T10:00:00.000Z"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          }
+        ],
+        "stage": "pre_boarding",
+        "stageReason": "Earliest stage with activity that is not fully complete (conservative tie-break).",
+        "suppressedFamilies": [
+          "PS"
+        ],
+        "unmappedActivity": []
+      },
+      "employeeId": "E-1043",
+      "id": "E-1043@2024-10-19T10:00:00.000Z"
+    },
+    {
+      "asOf": "2024-10-19T10:00:00.000Z",
+      "assessment": {
+        "asOf": "2024-10-19T10:00:00.000Z",
+        "band": "blocked",
+        "bandReason": "Score 24 from capped family totals → blocked.",
+        "corpusVersion": "policies-2024-q4-v1",
+        "dataQualityOnly": false,
+        "dayInStage": 5,
+        "employeeId": "E-1044",
+        "engineVersion": "engine-1.0.0",
+        "familyArithmetic": [
+          {
+            "cap": 12,
+            "capped": 11,
+            "family": "TL",
+            "raw": 11,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DP",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 3,
+            "family": "RQ",
+            "raw": 3,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "EN",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "PS",
+            "raw": 0,
+            "suppressed": true
+          },
+          {
+            "cap": 12,
+            "capped": 10,
+            "family": "MB",
+            "raw": 10,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DQ",
+            "raw": 0,
+            "suppressed": false
+          }
+        ],
+        "forcedBlocked": true,
+        "hardTrips": [
+          "MB-04"
+        ],
+        "hrbpEligible": true,
+        "mapVersion": "map-1.0.0",
+        "score": 24,
+        "signalPackVersion": "signals-1.1.0",
+        "signals": [
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "MB-01",
+            "dataQuality": false,
+            "description": "Your start date in the new role passed 4 days ago and the access profile has not changed.",
+            "descriptionAr": "تاريخ السريان مضى عليه 4 يوماً وملف الوصول لم يتغير.",
+            "evidenceRefs": [
+              "step:mb_role_access",
+              "status:in_progress",
+              "daysSinceEffective:4"
+            ],
+            "family": "MB",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 4
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "MB-04",
+            "dataQuality": false,
+            "description": "The pay change is not confirmed and the payroll cutoff is in 6 days. If it slips you are paid wrong for a month.",
+            "descriptionAr": "تغيير الراتب غير مؤكد وتقطع الرواتب بعد 6 يوماً.",
+            "evidenceRefs": [
+              "step:mb_payroll_change",
+              "status:in_progress",
+              "cutoff:2024-10-25T00:00:00.000Z"
+            ],
+            "family": "MB",
+            "forceBlocked": true,
+            "hardTrip": true,
+            "nudgeOnly": false,
+            "weight": 6
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "PS-04",
+            "dataQuality": true,
+            "description": "Feedback answers are switched off, so this view uses journey and request data only.",
+            "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
+            "evidenceRefs": [
+              "employee:E-1044",
+              "purpose:pulse_capture",
+              "granted:false"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 0
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "RQ-01",
+            "dataQuality": false,
+            "description": "Request SR-2024-098 has been open 4 days against a 48h target.",
+            "descriptionAr": "الطلب SR-2024-098 مفتوح منذ 4 يوماً مقابل 48 ساعة.",
+            "evidenceRefs": [
+              "request:SR-2024-098",
+              "ref:SR-2024-098",
+              "ageHours:96",
+              "sla:48"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-01",
+            "dataQuality": false,
+            "description": "New role access profile is past its 72h target.",
+            "descriptionAr": "ملف الوصول للدور الجديد تجاوز هدفه البالغ 72 ساعة.",
+            "evidenceRefs": [
+              "step:mb_role_access",
+              "event:EV-204"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-01",
+            "dataQuality": false,
+            "description": "Payroll change confirmed is past its 48h target.",
+            "descriptionAr": "تأكيد تغيير الرواتب تجاوز هدفه البالغ 48 ساعة.",
+            "evidenceRefs": [
+              "step:mb_payroll_change",
+              "event:EV-205"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-05",
+            "dataQuality": false,
+            "description": "Nothing has happened on this journey for 4 days.",
+            "descriptionAr": "لم يحدث شيء على هذه الرحلة منذ 4 يوماً.",
+            "evidenceRefs": [
+              "event:EV-206",
+              "lastOccurredAt:2024-10-15T10:00:00.000Z"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-06",
+            "dataQuality": false,
+            "description": "Payroll change confirmed is still late after working days and holidays are taken into account.",
+            "descriptionAr": "تأكيد تغيير الرواتب ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
+            "evidenceRefs": [
+              "step:mb_payroll_change",
+              "workingHours:62.0"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          }
+        ],
+        "stage": "effective_date",
+        "stageReason": "Earliest stage with activity that is not fully complete (conservative tie-break).",
+        "suppressedFamilies": [
+          "PS"
+        ],
+        "unmappedActivity": []
+      },
+      "employeeId": "E-1044",
+      "id": "E-1044@2024-10-19T10:00:00.000Z"
+    },
+    {
+      "asOf": "2024-10-19T10:00:00.000Z",
+      "assessment": {
+        "asOf": "2024-10-19T10:00:00.000Z",
+        "band": "friction",
+        "bandReason": "Score 17 from capped family totals → friction.",
+        "corpusVersion": "policies-2024-q4-v1",
+        "dataQualityOnly": false,
+        "dayInStage": 19,
+        "employeeId": "E-1045",
+        "engineVersion": "engine-1.0.0",
+        "familyArithmetic": [
+          {
+            "cap": 12,
+            "capped": 3,
+            "family": "TL",
+            "raw": 3,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 5,
+            "family": "DP",
+            "raw": 5,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "RQ",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 2,
+            "family": "EN",
+            "raw": 2,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 7,
+            "family": "PS",
+            "raw": 7,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "MB",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DQ",
+            "raw": 0,
+            "suppressed": false
+          }
+        ],
+        "forcedBlocked": false,
+        "hardTrips": [],
+        "hrbpEligible": true,
+        "mapVersion": "map-1.0.0",
+        "score": 17,
+        "signalPackVersion": "signals-1.1.0",
+        "signals": [
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "DP-06",
+            "dataQuality": false,
+            "description": "The relocation allowance is not settled and the housing deadline is 0 days away.",
+            "descriptionAr": "بدل الانتقال غير محسم وموعد السكن بعد 0 يوماً.",
+            "evidenceRefs": [
+              "step:ob_relocation_allowance",
+              "status:not_started",
+              "deadline:2024-10-17T00:00:00.000Z"
+            ],
+            "family": "DP",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 5
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "EN-03",
+            "dataQuality": false,
+            "description": "Your checklist has not been opened in 16 days.",
+            "descriptionAr": "لم تُفتح قائمتك منذ 16 يوماً.",
+            "evidenceRefs": [
+              "event:EV-302",
+              "idleDays:16.0"
+            ],
+            "family": "EN",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "PS-01",
+            "dataQuality": false,
+            "description": "You told us at first_week that you felt unsure (2/5).",
+            "descriptionAr": "أخبرتنا في first_week بأنك غير متأكد (2/5).",
+            "evidenceRefs": [
+              "pulse:PS-004",
+              "stage:first_week",
+              "score:2"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 4
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "PS-03",
+            "dataQuality": false,
+            "description": "Your words match \"ignored or blocked\". We do not score how you feel; this is a keyword match you can read.",
+            "descriptionAr": "كلامك يطابق \"تم تجاهلي\". هذه مطابقة كلمات وليست تقييماً.",
+            "evidenceRefs": [
+              "pulse:PS-004",
+              "lexicon:blocked_or_ignored",
+              "comment:PC-002"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-01",
+            "dataQuality": false,
+            "description": "Systems access provisioned is past its 48h target.",
+            "descriptionAr": "توفير الوصول للأنظمة تجاوز هدفه البالغ 48 ساعة.",
+            "evidenceRefs": [
+              "step:ob_access_provisioned",
+              "event:EV-308"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          }
+        ],
+        "stage": "pre_boarding",
+        "stageReason": "Earliest stage with activity that is not fully complete (conservative tie-break).",
+        "suppressedFamilies": [],
+        "unmappedActivity": []
+      },
+      "employeeId": "E-1045",
+      "id": "E-1045@2024-10-19T10:00:00.000Z"
+    },
+    {
+      "asOf": "2024-10-19T10:00:00.000Z",
+      "assessment": {
+        "asOf": "2024-10-19T10:00:00.000Z",
+        "band": "blocked",
+        "bandReason": "Score 18 would read friction; MB-04 forces Blocked.",
+        "corpusVersion": "policies-2024-q4-v1",
+        "dataQualityOnly": false,
+        "dayInStage": 7,
+        "employeeId": "E-1046",
+        "engineVersion": "engine-1.0.0",
+        "familyArithmetic": [
+          {
+            "cap": 12,
+            "capped": 6,
+            "family": "TL",
+            "raw": 6,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 4,
+            "family": "DP",
+            "raw": 4,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "RQ",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 2,
+            "family": "EN",
+            "raw": 2,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "PS",
+            "raw": 0,
+            "suppressed": true
+          },
+          {
+            "cap": 12,
+            "capped": 6,
+            "family": "MB",
+            "raw": 6,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DQ",
+            "raw": 0,
+            "suppressed": false
+          }
+        ],
+        "forcedBlocked": true,
+        "hardTrips": [
+          "MB-04"
+        ],
+        "hrbpEligible": true,
+        "mapVersion": "map-1.0.0",
+        "score": 18,
+        "signalPackVersion": "signals-1.1.0",
+        "signals": [
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "DP-05",
+            "dataQuality": false,
+            "description": "The transfer is approved and the releasing manager has not started the handover for 6 days.",
+            "descriptionAr": "النقل معتمد ولم يبدأ تسليم المدير السابق منذ 6 يوماً.",
+            "evidenceRefs": [
+              "step:mb_release_handover",
+              "stalledDays:6.0"
+            ],
+            "family": "DP",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 4
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "EN-03",
+            "dataQuality": false,
+            "description": "Your checklist has not been opened in 34 days.",
+            "descriptionAr": "لم تُفتح قائمتك منذ 34 يوماً.",
+            "evidenceRefs": [
+              "employee:E-1046",
+              "idleDays:34.1"
+            ],
+            "family": "EN",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "MB-04",
+            "dataQuality": false,
+            "description": "The pay change is not confirmed and the payroll cutoff is in 6 days. If it slips you are paid wrong for a month.",
+            "descriptionAr": "تغيير الراتب غير مؤكد وتقطع الرواتب بعد 6 يوماً.",
+            "evidenceRefs": [
+              "step:mb_payroll_change",
+              "status:not_started",
+              "cutoff:2024-10-25T00:00:00.000Z"
+            ],
+            "family": "MB",
+            "forceBlocked": true,
+            "hardTrip": true,
+            "nudgeOnly": false,
+            "weight": 6
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "PS-04",
+            "dataQuality": true,
+            "description": "Feedback answers are switched off, so this view uses journey and request data only.",
+            "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
+            "evidenceRefs": [
+              "employee:E-1046",
+              "purpose:pulse_capture",
+              "granted:false"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 0
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-01",
+            "dataQuality": false,
+            "description": "Releasing manager handover is past its 120h target.",
+            "descriptionAr": "تسليم المدير السابق تجاوز هدفه البالغ 120 ساعة.",
+            "evidenceRefs": [
+              "step:mb_release_handover",
+              "event:EV-402"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-05",
+            "dataQuality": false,
+            "description": "Nothing has happened on this journey for 6 days.",
+            "descriptionAr": "لم يحدث شيء على هذه الرحلة منذ 6 يوماً.",
+            "evidenceRefs": [
+              "event:EV-402",
+              "lastOccurredAt:2024-10-13T10:00:00.000Z"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          }
+        ],
+        "stage": "handover",
+        "stageReason": "Earliest stage with activity that is not fully complete (conservative tie-break).",
+        "suppressedFamilies": [
+          "PS"
+        ],
+        "unmappedActivity": []
+      },
+      "employeeId": "E-1046",
+      "id": "E-1046@2024-10-19T10:00:00.000Z"
+    },
+    {
+      "asOf": "2024-10-19T10:00:00.000Z",
+      "assessment": {
+        "asOf": "2024-10-19T10:00:00.000Z",
+        "band": "blocked",
+        "bandReason": "Score 51 from capped family totals → blocked.",
+        "corpusVersion": "policies-2024-q4-v1",
+        "dataQualityOnly": false,
+        "dayInStage": 11,
+        "employeeId": "E-1047",
+        "engineVersion": "engine-1.0.0",
+        "familyArithmetic": [
+          {
+            "cap": 12,
+            "capped": 11,
+            "family": "TL",
+            "raw": 11,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 12,
+            "family": "DP",
+            "raw": 12,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 12,
+            "family": "RQ",
+            "raw": 31,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 10,
+            "family": "EN",
+            "raw": 10,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "PS",
+            "raw": 0,
+            "suppressed": true
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "MB",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 6,
+            "family": "DQ",
+            "raw": 6,
+            "suppressed": false
+          }
+        ],
+        "forcedBlocked": true,
+        "hardTrips": [
+          "DP-02"
+        ],
+        "hrbpEligible": true,
+        "mapVersion": "map-1.0.0",
+        "score": 51,
+        "signalPackVersion": "signals-1.1.0",
+        "signals": [
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "DP-02",
+            "dataQuality": false,
+            "description": "The visa step Visa application submitted has been open for 9 days. Nothing else can finish until it does.",
+            "descriptionAr": "خطوة التأشيرة تقديم طلب التأشيرة مفتوحة منذ 9 يوماً.",
+            "evidenceRefs": [
+              "step:ob_visa_application",
+              "event:EV-504",
+              "stalledDays:9.0"
+            ],
+            "family": "DP",
+            "forceBlocked": true,
+            "hardTrip": true,
+            "nudgeOnly": false,
+            "weight": 7
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "DP-06",
+            "dataQuality": false,
+            "description": "The relocation allowance is not settled and the housing deadline is 13 days away.",
+            "descriptionAr": "بدل الانتقال غير محسم وموعد السكن بعد 13 يوماً.",
+            "evidenceRefs": [
+              "step:ob_relocation_allowance",
+              "status:in_progress",
+              "deadline:2024-11-01T08:00:00Z"
+            ],
+            "family": "DP",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 5
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "DQ-03",
+            "dataQuality": true,
+            "description": "1 event(s) are dated in the future. They are excluded from your status.",
+            "descriptionAr": "1 حدث بتاريخ مستقبلي، مستبعد من حالتك.",
+            "evidenceRefs": [
+              "event:EV-507"
+            ],
+            "family": "DQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 1
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "DQ-04",
+            "dataQuality": true,
+            "description": "You appear in two journeys at once. We run both and put the nearer deadline first.",
+            "descriptionAr": "تظهر في رحلتين في وقت واحد.",
+            "evidenceRefs": [
+              "employee:E-1047",
+              "journeys:onboarding,mobility",
+              "secondary:mobility"
+            ],
+            "family": "DQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "DQ-05",
+            "dataQuality": true,
+            "description": "1 activity record(s) refer to steps not in your journey map. We list them as unmapped instead of dropping them.",
+            "descriptionAr": "1 نشاط يشير إلى خطوات غير موجودة في الخريطة.",
+            "evidenceRefs": [
+              "unmapped_step:ob_payroll_setup",
+              "event:EV-506"
+            ],
+            "family": "DQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "EN-01",
+            "dataQuality": false,
+            "description": "We could not answer 3 questions in the last day. That is on us, not on you.",
+            "descriptionAr": "لم نتمكن من الإجابة على 3 أسئلة خلال يوم.",
+            "evidenceRefs": [
+              "answer:ANS-9001",
+              "answer:ANS-9002",
+              "answer:ANS-9003"
+            ],
+            "family": "EN",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "EN-02",
+            "dataQuality": false,
+            "description": "You have asked about the same thing 3 times this week (visa:dependants).",
+            "descriptionAr": "سألت عن نفس الشيء 3 مرات هذا الأسبوع.",
+            "evidenceRefs": [
+              "answer:ANS-9001",
+              "answer:ANS-9002",
+              "answer:ANS-9003"
+            ],
+            "family": "EN",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "EN-04",
+            "dataQuality": false,
+            "description": "You have asked for a person 2 times. A human should already be on this.",
+            "descriptionAr": "طلبت شخصاً 2 مرات.",
+            "evidenceRefs": [
+              "answer:ANS-9004",
+              "answer:ANS-9005"
+            ],
+            "family": "EN",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "EN-05",
+            "dataQuality": false,
+            "description": "The visa form was started and left 2 times — it is asking for something you do not have.",
+            "descriptionAr": "نموذج visa بدأ وغادر 2 مرات.",
+            "evidenceRefs": [
+              "draft:DRAFT-7001",
+              "draft:DRAFT-7002"
+            ],
+            "family": "EN",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "PS-04",
+            "dataQuality": true,
+            "description": "Feedback answers are switched off, so this view uses journey and request data only.",
+            "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
+            "evidenceRefs": [
+              "employee:E-1047",
+              "purpose:pulse_capture",
+              "granted:false"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 0
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "RQ-01",
+            "dataQuality": false,
+            "description": "Request SR-2024-101 has been open 1 days against a 24h target.",
+            "descriptionAr": "الطلب SR-2024-101 مفتوح منذ 1 يوماً مقابل 24 ساعة.",
+            "evidenceRefs": [
+              "request:SR-2024-101",
+              "ref:SR-2024-101",
+              "ageHours:40",
+              "sla:24"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "RQ-01",
+            "dataQuality": false,
+            "description": "Request SR-2024-103 has been open 6 days against a 72h target.",
+            "descriptionAr": "الطلب SR-2024-103 مفتوح منذ 6 يوماً مقابل 72 ساعة.",
+            "evidenceRefs": [
+              "request:SR-2024-103",
+              "ref:SR-2024-103",
+              "ageHours:144",
+              "sla:72"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "RQ-01",
+            "dataQuality": false,
+            "description": "Request SR-2024-104 has been open 4 days against a 24h target.",
+            "descriptionAr": "الطلب SR-2024-104 مفتوح منذ 4 يوماً مقابل 24 ساعة.",
+            "evidenceRefs": [
+              "request:SR-2024-104",
+              "ref:SR-2024-104",
+              "ageHours:96",
+              "sla:24"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "RQ-01",
+            "dataQuality": false,
+            "description": "Request SR-2024-105 has been open 7 days against a 48h target.",
+            "descriptionAr": "الطلب SR-2024-105 مفتوح منذ 7 يوماً مقابل 48 ساعة.",
+            "evidenceRefs": [
+              "request:SR-2024-105",
+              "ref:SR-2024-105",
+              "ageHours:168",
+              "sla:48"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "RQ-02",
+            "dataQuality": false,
+            "description": "Request SR-2024-104 has been passed between queues 3 times.",
+            "descriptionAr": "الطلب SR-2024-104 نُقل بين الطوابير 3 مرات.",
+            "evidenceRefs": [
+              "request:SR-2024-104",
+              "ref:SR-2024-104",
+              "reassignCount:3"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 4
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "RQ-03",
+            "dataQuality": false,
+            "description": "Request SR-2024-104 was sent back 2 times as incomplete.",
+            "descriptionAr": "الطلب SR-2024-104 أُرجع 2 مرات كغير مكتمل.",
+            "evidenceRefs": [
+              "request:SR-2024-104",
+              "ref:SR-2024-104",
+              "returnCount:2"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 4
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "RQ-04",
+            "dataQuality": false,
+            "description": "You asked for \"it_kit\" twice within 72 hours (SR-2024-101 and SR-2024-102).",
+            "descriptionAr": "طلبت \"it_kit\" مرتين خلال 72 ساعة.",
+            "evidenceRefs": [
+              "request:SR-2024-102",
+              "duplicate_of:SR-2024-101",
+              "type:it_kit"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "RQ-05",
+            "dataQuality": false,
+            "description": "Request SR-2024-103 has no owner we can reach (O-LEFT-9). We will tell you who we told instead.",
+            "descriptionAr": "الطلب SR-2024-103 لا مالك له يمكن الوصول إليه.",
+            "evidenceRefs": [
+              "request:SR-2024-103",
+              "ref:SR-2024-103",
+              "assignee:O-LEFT-9"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 5
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "RQ-06",
+            "dataQuality": false,
+            "description": "Request SR-2024-104 was closed and had to be reopened.",
+            "descriptionAr": "الطلب SR-2024-104 أُغلق وأعيد فتحه.",
+            "evidenceRefs": [
+              "request:SR-2024-104",
+              "ref:SR-2024-104",
+              "status:reopened"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "RQ-07",
+            "dataQuality": false,
+            "description": "Request SR-2024-105 is waiting on you, not on the company.",
+            "descriptionAr": "الطلب SR-2024-105 ينتظرك أنت.",
+            "evidenceRefs": [
+              "request:SR-2024-105",
+              "ref:SR-2024-105",
+              "waitingDays:7.0"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": true,
+            "weight": 1
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-01",
+            "dataQuality": false,
+            "description": "Relocation allowance confirmed is past its 72h target.",
+            "descriptionAr": "تأكيد بدل الانتقال تجاوز هدفه البالغ 72 ساعة.",
+            "evidenceRefs": [
+              "step:ob_relocation_allowance",
+              "event:EV-510"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-01",
+            "dataQuality": false,
+            "description": "Visa application submitted is past its 168h target.",
+            "descriptionAr": "تقديم طلب التأشيرة تجاوز هدفه البالغ 168 ساعة.",
+            "evidenceRefs": [
+              "step:ob_visa_application",
+              "event:EV-503",
+              "event:EV-504"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-06",
+            "dataQuality": false,
+            "description": "Relocation allowance confirmed is still late after working days and holidays are taken into account.",
+            "descriptionAr": "تأكيد بدل الانتقال ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
+            "evidenceRefs": [
+              "step:ob_relocation_allowance",
+              "workingHours:86.0"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-07",
+            "dataQuality": false,
+            "description": "ID badge issued was completed before the step it depends on. We show both, and we do not rewrite history.",
+            "descriptionAr": "إصدار بطاقة الهوية اكتمل قبل الخطوة التي يعتمد عليها.",
+            "evidenceRefs": [
+              "step:ob_badge_issued",
+              "completed_before_prerequisite:ob_visa_approval",
+              "event:EV-505"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          }
+        ],
+        "stage": "pre_boarding",
+        "stageReason": "Earliest stage with activity that is not fully complete (conservative tie-break).",
+        "suppressedFamilies": [
+          "PS"
+        ],
+        "unmappedActivity": [
+          {
+            "eventIds": [
+              "EV-506"
+            ],
+            "latestOccurredAt": "2024-10-17T10:00:00.000Z",
+            "stepKey": "ob_payroll_setup"
+          }
+        ]
+      },
+      "employeeId": "E-1047",
+      "id": "E-1047@2024-10-19T10:00:00.000Z"
+    },
+    {
+      "asOf": "2024-10-19T10:00:00.000Z",
+      "assessment": {
+        "asOf": "2024-10-19T10:00:00.000Z",
+        "band": "blocked",
+        "bandReason": "Score 26 from capped family totals → blocked.",
+        "corpusVersion": "policies-2024-q4-v1",
+        "dataQualityOnly": false,
+        "dayInStage": 26,
+        "employeeId": "E-1048",
+        "engineVersion": "engine-1.0.0",
+        "familyArithmetic": [
+          {
+            "cap": 12,
+            "capped": 12,
+            "family": "TL",
+            "raw": 24,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DP",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "RQ",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 2,
+            "family": "EN",
+            "raw": 2,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "PS",
+            "raw": 0,
+            "suppressed": true
+          },
+          {
+            "cap": 12,
+            "capped": 12,
+            "family": "MB",
+            "raw": 20,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DQ",
+            "raw": 0,
+            "suppressed": false
+          }
+        ],
+        "forcedBlocked": true,
+        "hardTrips": [
+          "MB-04",
+          "TL-02"
+        ],
+        "hrbpEligible": true,
+        "mapVersion": "map-1.0.0",
+        "score": 26,
+        "signalPackVersion": "signals-1.1.0",
+        "signals": [
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "EN-03",
+            "dataQuality": false,
+            "description": "Your checklist has not been opened in 25 days.",
+            "descriptionAr": "لم تُفتح قائمتك منذ 25 يوماً.",
+            "evidenceRefs": [
+              "event:EV-603",
+              "idleDays:25.0"
+            ],
+            "family": "EN",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "MB-01",
+            "dataQuality": false,
+            "description": "Your start date in the new role passed 9 days ago and the access profile has not changed.",
+            "descriptionAr": "تاريخ السريان مضى عليه 9 يوماً وملف الوصول لم يتغير.",
+            "evidenceRefs": [
+              "step:mb_role_access",
+              "status:in_progress",
+              "daysSinceEffective:9"
+            ],
+            "family": "MB",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 4
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "MB-02",
+            "dataQuality": false,
+            "description": "You moved from DXB to AUH and nobody has opened a relocation case.",
+            "descriptionAr": "انتقلت من DXB إلى AUH دون ملف انتقال.",
+            "evidenceRefs": [
+              "employee:E-1048",
+              "from:DXB",
+              "to:AUH",
+              "relocation_request:none"
+            ],
+            "family": "MB",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 5
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "MB-03",
+            "dataQuality": false,
+            "description": "Two managers still think they have you, 9 days after your effective date.",
+            "descriptionAr": "مديران ما يزالان يظنان أنك معهما.",
+            "evidenceRefs": [
+              "step:mb_dual_reporting",
+              "status:waiting_owner",
+              "daysSinceEffective:9"
+            ],
+            "family": "MB",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "MB-04",
+            "dataQuality": false,
+            "description": "The pay change is not confirmed and the payroll cutoff is in 6 days. If it slips you are paid wrong for a month.",
+            "descriptionAr": "تغيير الراتب غير مؤكد وتقطع الرواتب بعد 6 يوماً.",
+            "evidenceRefs": [
+              "step:mb_payroll_change",
+              "status:in_progress",
+              "cutoff:2024-10-25T00:00:00.000Z"
+            ],
+            "family": "MB",
+            "forceBlocked": true,
+            "hardTrip": true,
+            "nudgeOnly": false,
+            "weight": 6
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "MB-05",
+            "dataQuality": false,
+            "description": "Previous-team equipment is 11 days overdue for return.",
+            "descriptionAr": "معدات الفريق السابق متأخرة 11 يوماً.",
+            "evidenceRefs": [
+              "step:mb_asset_return",
+              "dueAt:2024-10-08T10:00:00.000Z",
+              "overdueDays:11"
+            ],
+            "family": "MB",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "PS-04",
+            "dataQuality": true,
+            "description": "Feedback answers are switched off, so this view uses journey and request data only.",
+            "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
+            "evidenceRefs": [
+              "employee:E-1048",
+              "purpose:pulse_capture",
+              "granted:false"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 0
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-01",
+            "dataQuality": false,
+            "description": "Previous team assets returned is past its 240h target.",
+            "descriptionAr": "إرجاع أصول الفريق السابق تجاوز هدفه البالغ 240 ساعة.",
+            "evidenceRefs": [
+              "step:mb_asset_return",
+              "event:EV-603"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-01",
+            "dataQuality": false,
+            "description": "New role access profile is past its 72h target.",
+            "descriptionAr": "ملف الوصول للدور الجديد تجاوز هدفه البالغ 72 ساعة.",
+            "evidenceRefs": [
+              "step:mb_role_access",
+              "event:EV-604"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-01",
+            "dataQuality": false,
+            "description": "Payroll change confirmed is past its 48h target.",
+            "descriptionAr": "تأكيد تغيير الرواتب تجاوز هدفه البالغ 48 ساعة.",
+            "evidenceRefs": [
+              "step:mb_payroll_change",
+              "event:EV-605"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-01",
+            "dataQuality": false,
+            "description": "Dual reporting resolved is past its 168h target.",
+            "descriptionAr": "حل التقارير المزدوج تجاوز هدفه البالغ 168 ساعة.",
+            "evidenceRefs": [
+              "step:mb_dual_reporting",
+              "event:EV-606"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-02",
+            "dataQuality": false,
+            "description": "Payroll change confirmed has taken more than double its target time.",
+            "descriptionAr": "تأكيد تغيير الرواتب استغرق أكثر من ضعف الوقت المستهدف.",
+            "evidenceRefs": [
+              "step:mb_payroll_change",
+              "workingHours:134.0",
+              "target:48"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": true,
+            "nudgeOnly": false,
+            "weight": 6
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-06",
+            "dataQuality": false,
+            "description": "Previous team assets returned is still late after working days and holidays are taken into account.",
+            "descriptionAr": "إرجاع أصول الفريق السابق ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
+            "evidenceRefs": [
+              "step:mb_asset_return",
+              "workingHours:422.0"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-06",
+            "dataQuality": false,
+            "description": "New role access profile is still late after working days and holidays are taken into account.",
+            "descriptionAr": "ملف الوصول للدور الجديد ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
+            "evidenceRefs": [
+              "step:mb_role_access",
+              "workingHours:134.0"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-06",
+            "dataQuality": false,
+            "description": "Payroll change confirmed is still late after working days and holidays are taken into account.",
+            "descriptionAr": "تأكيد تغيير الرواتب ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
+            "evidenceRefs": [
+              "step:mb_payroll_change",
+              "workingHours:134.0"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          }
+        ],
+        "stage": "handover",
+        "stageReason": "Earliest stage with activity that is not fully complete (conservative tie-break).",
+        "suppressedFamilies": [
+          "PS"
+        ],
+        "unmappedActivity": []
+      },
+      "employeeId": "E-1048",
+      "id": "E-1048@2024-10-19T10:00:00.000Z"
+    },
+    {
+      "asOf": "2024-10-19T10:00:00.000Z",
+      "assessment": {
+        "asOf": "2024-10-19T10:00:00.000Z",
+        "band": "steady",
+        "bandReason": "Score 0 from capped family totals → steady.",
+        "corpusVersion": "policies-2024-q4-v1",
+        "dataQualityOnly": true,
+        "dayInStage": 7,
+        "employeeId": "E-1050",
+        "engineVersion": "engine-1.0.0",
+        "familyArithmetic": [
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "TL",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DP",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "RQ",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "EN",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "PS",
+            "raw": 0,
+            "suppressed": true
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "MB",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DQ",
+            "raw": 0,
+            "suppressed": false
+          }
+        ],
+        "forcedBlocked": false,
+        "hardTrips": [],
+        "hrbpEligible": false,
+        "mapVersion": "map-1.0.0",
+        "score": 0,
+        "signalPackVersion": "signals-1.1.0",
+        "signals": [
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "PS-04",
+            "dataQuality": true,
+            "description": "Feedback answers are switched off, so this view uses journey and request data only.",
+            "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
+            "evidenceRefs": [
+              "employee:E-1050",
+              "purpose:pulse_capture",
+              "granted:false"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 0
+          }
+        ],
+        "stage": "visa_processing",
+        "stageReason": "Earliest stage with activity that is not fully complete (conservative tie-break).",
+        "suppressedFamilies": [
+          "PS"
+        ],
+        "unmappedActivity": []
+      },
+      "employeeId": "E-1050",
+      "id": "E-1050@2024-10-19T10:00:00.000Z"
+    },
+    {
+      "asOf": "2024-10-19T10:00:00.000Z",
+      "assessment": {
+        "asOf": "2024-10-19T10:00:00.000Z",
+        "band": "friction",
+        "bandReason": "Score 17 from capped family totals → friction.",
+        "corpusVersion": "policies-2024-q4-v1",
+        "dataQualityOnly": false,
+        "dayInStage": 10,
+        "employeeId": "E-1051",
+        "engineVersion": "engine-1.0.0",
+        "familyArithmetic": [
+          {
+            "cap": 12,
+            "capped": 7,
+            "family": "TL",
+            "raw": 7,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 5,
+            "family": "DP",
+            "raw": 5,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 3,
+            "family": "RQ",
+            "raw": 3,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 2,
+            "family": "EN",
+            "raw": 2,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "PS",
+            "raw": 0,
+            "suppressed": true
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "MB",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DQ",
+            "raw": 0,
+            "suppressed": false
+          }
+        ],
+        "forcedBlocked": false,
+        "hardTrips": [],
+        "hrbpEligible": true,
+        "mapVersion": "map-1.0.0",
+        "score": 17,
+        "signalPackVersion": "signals-1.1.0",
+        "signals": [
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "DP-06",
+            "dataQuality": false,
+            "description": "The relocation allowance is not settled and the housing deadline is 3 days away.",
+            "descriptionAr": "بدل الانتقال غير محسم وموعد السكن بعد 3 يوماً.",
+            "evidenceRefs": [
+              "step:ob_relocation_allowance",
+              "status:not_started",
+              "deadline:2024-10-22T08:00:00Z"
+            ],
+            "family": "DP",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 5
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "EN-03",
+            "dataQuality": false,
+            "description": "Your checklist has not been opened in 9 days.",
+            "descriptionAr": "لم تُفتح قائمتك منذ 9 يوماً.",
+            "evidenceRefs": [
+              "event:EV-711",
+              "idleDays:9.0"
+            ],
+            "family": "EN",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "PS-04",
+            "dataQuality": true,
+            "description": "Feedback answers are switched off, so this view uses journey and request data only.",
+            "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
+            "evidenceRefs": [
+              "employee:E-1051",
+              "purpose:pulse_capture",
+              "granted:false"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 0
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "RQ-01",
+            "dataQuality": false,
+            "description": "Request SR-2024-106 has been open 3 days against a 24h target.",
+            "descriptionAr": "الطلب SR-2024-106 مفتوح منذ 3 يوماً مقابل 24 ساعة.",
+            "evidenceRefs": [
+              "request:SR-2024-106",
+              "ref:SR-2024-106",
+              "ageHours:72",
+              "sla:24"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-04",
+            "dataQuality": false,
+            "description": "The first day is in 3 day(s) and 33% of the before-you-arrive steps are done.",
+            "descriptionAr": "اليوم الأول بعد 3 يوم و33% من الخطوات السابقة مكتمل.",
+            "evidenceRefs": [
+              "step:ob_offer_signed:done",
+              "step:ob_passport_upload:not_started",
+              "step:ob_relocation_allowance:not_started"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 4
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-05",
+            "dataQuality": false,
+            "description": "Nothing has happened on this journey for 9 days.",
+            "descriptionAr": "لم يحدث شيء على هذه الرحلة منذ 9 يوماً.",
+            "evidenceRefs": [
+              "event:EV-711",
+              "lastOccurredAt:2024-10-10T10:00:00.000Z"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          }
+        ],
+        "stage": "pre_boarding",
+        "stageReason": "Earliest stage with activity that is not fully complete (conservative tie-break).",
+        "suppressedFamilies": [
+          "PS"
+        ],
+        "unmappedActivity": []
+      },
+      "employeeId": "E-1051",
+      "id": "E-1051@2024-10-19T10:00:00.000Z"
+    },
+    {
+      "asOf": "2024-10-19T10:00:00.000Z",
+      "assessment": {
+        "asOf": "2024-10-19T10:00:00.000Z",
+        "band": "steady",
+        "bandReason": "Score 0 from capped family totals → steady.",
+        "corpusVersion": "policies-2024-q4-v1",
+        "dataQualityOnly": true,
+        "dayInStage": 16,
+        "employeeId": "E-1052",
+        "engineVersion": "engine-1.0.0",
+        "familyArithmetic": [
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "TL",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DP",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "RQ",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "EN",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "PS",
+            "raw": 0,
+            "suppressed": true
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "MB",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DQ",
+            "raw": 0,
+            "suppressed": false
+          }
+        ],
+        "forcedBlocked": false,
+        "hardTrips": [],
+        "hrbpEligible": false,
+        "mapVersion": "map-1.0.0",
+        "score": 0,
+        "signalPackVersion": "signals-1.1.0",
+        "signals": [
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "PS-04",
+            "dataQuality": true,
+            "description": "Feedback answers are switched off, so this view uses journey and request data only.",
+            "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
+            "evidenceRefs": [
+              "employee:E-1052",
+              "purpose:pulse_capture",
+              "granted:false"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 0
+          }
+        ],
+        "stage": "settle_new_role",
+        "stageReason": "Every stage is complete; the journey is at its end.",
+        "suppressedFamilies": [
+          "PS"
+        ],
+        "unmappedActivity": []
+      },
+      "employeeId": "E-1052",
+      "id": "E-1052@2024-10-19T10:00:00.000Z"
+    },
+    {
+      "asOf": "2024-10-19T10:00:00.000Z",
+      "assessment": {
+        "asOf": "2024-10-19T10:00:00.000Z",
+        "band": "friction",
+        "bandReason": "Score 15 from capped family totals → friction.",
+        "corpusVersion": "policies-2024-q4-v1",
+        "dataQualityOnly": false,
+        "dayInStage": 11,
+        "employeeId": "E-1053",
+        "engineVersion": "engine-1.0.0",
+        "familyArithmetic": [
+          {
+            "cap": 12,
+            "capped": 8,
+            "family": "TL",
+            "raw": 8,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 5,
+            "family": "DP",
+            "raw": 5,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "RQ",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 2,
+            "family": "EN",
+            "raw": 2,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "PS",
+            "raw": 0,
+            "suppressed": true
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "MB",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DQ",
+            "raw": 0,
+            "suppressed": false
+          }
+        ],
+        "forcedBlocked": false,
+        "hardTrips": [],
+        "hrbpEligible": true,
+        "mapVersion": "map-1.0.0",
+        "score": 15,
+        "signalPackVersion": "signals-1.1.0",
+        "signals": [
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "DP-06",
+            "dataQuality": false,
+            "description": "The relocation allowance is not settled and the housing deadline is 0 days away.",
+            "descriptionAr": "بدل الانتقال غير محسم وموعد السكن بعد 0 يوماً.",
+            "evidenceRefs": [
+              "step:ob_relocation_allowance",
+              "status:not_started",
+              "deadline:2024-10-15T08:00:00Z"
+            ],
+            "family": "DP",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 5
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "EN-03",
+            "dataQuality": false,
+            "description": "Your checklist has not been opened in 9 days.",
+            "descriptionAr": "لم تُفتح قائمتك منذ 9 يوماً.",
+            "evidenceRefs": [
+              "event:EV-732",
+              "idleDays:9.0"
+            ],
+            "family": "EN",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "PS-04",
+            "dataQuality": true,
+            "description": "Feedback answers are switched off, so this view uses journey and request data only.",
+            "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
+            "evidenceRefs": [
+              "employee:E-1053",
+              "purpose:pulse_capture",
+              "granted:false"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 0
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-03",
+            "dataQuality": false,
+            "description": "We said laptop and phone by day 2. It has been 4 days and it is not done.",
+            "descriptionAr": "قلنا laptop and phone by day 2. مضت 4 أيام ولم يكتمل.",
+            "evidenceRefs": [
+              "step:ob_kit_issued",
+              "day:4",
+              "promise:laptop and phone by day 2"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 5
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-05",
+            "dataQuality": false,
+            "description": "Nothing has happened on this journey for 4 days.",
+            "descriptionAr": "لم يحدث شيء على هذه الرحلة منذ 4 يوماً.",
+            "evidenceRefs": [
+              "event:EV-735",
+              "lastOccurredAt:2024-10-15T10:00:00.000Z"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          }
+        ],
+        "stage": "pre_boarding",
+        "stageReason": "Earliest stage with activity that is not fully complete (conservative tie-break).",
+        "suppressedFamilies": [
+          "PS"
+        ],
+        "unmappedActivity": []
+      },
+      "employeeId": "E-1053",
+      "id": "E-1053@2024-10-19T10:00:00.000Z"
+    },
+    {
+      "asOf": "2024-10-19T10:00:00.000Z",
+      "assessment": {
+        "asOf": "2024-10-19T10:00:00.000Z",
+        "band": "blocked",
+        "bandReason": "Score 21 from capped family totals → blocked.",
+        "corpusVersion": "policies-2024-q4-v1",
+        "dataQualityOnly": false,
+        "dayInStage": 27,
+        "employeeId": "E-1054",
+        "engineVersion": "engine-1.0.0",
+        "familyArithmetic": [
+          {
+            "cap": 12,
+            "capped": 8,
+            "family": "TL",
+            "raw": 8,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DP",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "RQ",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 2,
+            "family": "EN",
+            "raw": 2,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "PS",
+            "raw": 0,
+            "suppressed": true
+          },
+          {
+            "cap": 12,
+            "capped": 11,
+            "family": "MB",
+            "raw": 11,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DQ",
+            "raw": 0,
+            "suppressed": false
+          }
+        ],
+        "forcedBlocked": false,
+        "hardTrips": [],
+        "hrbpEligible": true,
+        "mapVersion": "map-1.0.0",
+        "score": 21,
+        "signalPackVersion": "signals-1.1.0",
+        "signals": [
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "EN-03",
+            "dataQuality": false,
+            "description": "Your checklist has not been opened in 26 days.",
+            "descriptionAr": "لم تُفتح قائمتك منذ 26 يوماً.",
+            "evidenceRefs": [
+              "event:EV-743",
+              "idleDays:26.0"
+            ],
+            "family": "EN",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "MB-02",
+            "dataQuality": false,
+            "description": "You moved from DXB to SHJ and nobody has opened a relocation case.",
+            "descriptionAr": "انتقلت من DXB إلى SHJ دون ملف انتقال.",
+            "evidenceRefs": [
+              "employee:E-1054",
+              "from:DXB",
+              "to:SHJ",
+              "relocation_request:none"
+            ],
+            "family": "MB",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 5
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "MB-03",
+            "dataQuality": false,
+            "description": "Two managers still think they have you, 14 days after your effective date.",
+            "descriptionAr": "مديران ما يزالان يظنان أنك معهما.",
+            "evidenceRefs": [
+              "step:mb_dual_reporting",
+              "status:not_started",
+              "daysSinceEffective:14"
+            ],
+            "family": "MB",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "MB-06",
+            "dataQuality": false,
+            "description": "Mandatory training for the new role has not been booked, 14 days after your start date.",
+            "descriptionAr": "التدريب الإلزامي لم يُحجز منذ 14 يوماً.",
+            "evidenceRefs": [
+              "step:mb_training_booked",
+              "status:not_started",
+              "daysSinceEffective:14"
+            ],
+            "family": "MB",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "PS-04",
+            "dataQuality": true,
+            "description": "Feedback answers are switched off, so this view uses journey and request data only.",
+            "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
+            "evidenceRefs": [
+              "employee:E-1054",
+              "purpose:pulse_capture",
+              "granted:false"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 0
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-01",
+            "dataQuality": false,
+            "description": "Previous team assets returned is past its 240h target.",
+            "descriptionAr": "إرجاع أصول الفريق السابق تجاوز هدفه البالغ 240 ساعة.",
+            "evidenceRefs": [
+              "step:mb_asset_return",
+              "event:EV-743"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-05",
+            "dataQuality": false,
+            "description": "Nothing has happened on this journey for 12 days.",
+            "descriptionAr": "لم يحدث شيء على هذه الرحلة منذ 12 يوماً.",
+            "evidenceRefs": [
+              "event:EV-745",
+              "lastOccurredAt:2024-10-07T10:00:00.000Z"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-06",
+            "dataQuality": false,
+            "description": "Previous team assets returned is still late after working days and holidays are taken into account.",
+            "descriptionAr": "إرجاع أصول الفريق السابق ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
+            "evidenceRefs": [
+              "step:mb_asset_return",
+              "workingHours:374.0"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          }
+        ],
+        "stage": "handover",
+        "stageReason": "Earliest stage with activity that is not fully complete (conservative tie-break).",
+        "suppressedFamilies": [
+          "PS"
+        ],
+        "unmappedActivity": []
+      },
+      "employeeId": "E-1054",
+      "id": "E-1054@2024-10-19T10:00:00.000Z"
+    },
+    {
+      "asOf": "2024-10-19T10:00:00.000Z",
+      "assessment": {
+        "asOf": "2024-10-19T10:00:00.000Z",
+        "band": "friction",
+        "bandReason": "Score 14 from capped family totals → friction.",
+        "corpusVersion": "policies-2024-q4-v1",
+        "dataQualityOnly": false,
+        "dayInStage": 6,
+        "employeeId": "E-1055",
+        "engineVersion": "engine-1.0.0",
+        "familyArithmetic": [
+          {
+            "cap": 12,
+            "capped": 10,
+            "family": "TL",
+            "raw": 10,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 4,
+            "family": "DP",
+            "raw": 4,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "RQ",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "EN",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "PS",
+            "raw": 0,
+            "suppressed": true
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "MB",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DQ",
+            "raw": 0,
+            "suppressed": false
+          }
+        ],
+        "forcedBlocked": false,
+        "hardTrips": [],
+        "hrbpEligible": true,
+        "mapVersion": "map-1.0.0",
+        "score": 14,
+        "signalPackVersion": "signals-1.1.0",
+        "signals": [
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "DP-03",
+            "dataQuality": false,
+            "description": "Systems access provisioned started and then stopped, waiting on a document or an asset.",
+            "descriptionAr": "توفير الوصول للأنظمة بدأ ثم توقف بانتظار مستند أو أصل.",
+            "evidenceRefs": [
+              "step:ob_access_provisioned",
+              "event:EV-763"
+            ],
+            "family": "DP",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 4
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "PS-04",
+            "dataQuality": true,
+            "description": "Feedback answers are switched off, so this view uses journey and request data only.",
+            "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
+            "evidenceRefs": [
+              "employee:E-1055",
+              "purpose:pulse_capture",
+              "granted:false"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 0
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-01",
+            "dataQuality": false,
+            "description": "Systems access provisioned is past its 48h target.",
+            "descriptionAr": "توفير الوصول للأنظمة تجاوز هدفه البالغ 48 ساعة.",
+            "evidenceRefs": [
+              "step:ob_access_provisioned",
+              "event:EV-763",
+              "event:EV-764"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-01",
+            "dataQuality": false,
+            "description": "Buddy assigned is past its 24h target.",
+            "descriptionAr": "تعيين المرافق تجاوز هدفه البالغ 24 ساعة.",
+            "evidenceRefs": [
+              "step:ob_buddy_assigned",
+              "event:EV-762"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-06",
+            "dataQuality": false,
+            "description": "Systems access provisioned is still late after working days and holidays are taken into account.",
+            "descriptionAr": "توفير الوصول للأنظمة ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
+            "evidenceRefs": [
+              "step:ob_access_provisioned",
+              "workingHours:62.0"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-06",
+            "dataQuality": false,
+            "description": "Buddy assigned is still late after working days and holidays are taken into account.",
+            "descriptionAr": "تعيين المرافق ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
+            "evidenceRefs": [
+              "step:ob_buddy_assigned",
+              "workingHours:38.0"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          }
+        ],
+        "stage": "first_day",
+        "stageReason": "Earliest stage with activity that is not fully complete (conservative tie-break).",
+        "suppressedFamilies": [
+          "PS"
+        ],
+        "unmappedActivity": []
+      },
+      "employeeId": "E-1055",
+      "id": "E-1055@2024-10-19T10:00:00.000Z"
+    },
+    {
+      "asOf": "2024-10-19T10:00:00.000Z",
+      "assessment": {
+        "asOf": "2024-10-19T10:00:00.000Z",
+        "band": "friction",
+        "bandReason": "Score 18 from capped family totals → friction.",
+        "corpusVersion": "policies-2024-q4-v1",
+        "dataQualityOnly": false,
+        "dayInStage": 12,
+        "employeeId": "E-1056",
+        "engineVersion": "engine-1.0.0",
+        "familyArithmetic": [
+          {
+            "cap": 12,
+            "capped": 12,
+            "family": "TL",
+            "raw": 16,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 3,
+            "family": "DP",
+            "raw": 3,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 3,
+            "family": "RQ",
+            "raw": 3,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "EN",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "PS",
+            "raw": 0,
+            "suppressed": true
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "MB",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DQ",
+            "raw": 0,
+            "suppressed": false
+          }
+        ],
+        "forcedBlocked": false,
+        "hardTrips": [
+          "TL-02"
+        ],
+        "hrbpEligible": true,
+        "mapVersion": "map-1.0.0",
+        "score": 18,
+        "signalPackVersion": "signals-1.1.0",
+        "signals": [
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "DP-04",
+            "dataQuality": false,
+            "description": "Mandatory training booked is in motion but Systems access provisioned is not ready.",
+            "descriptionAr": "حجز التدريب الإلزامي جارٍ لكن توفير الوصول للأنظمة غير جاهز.",
+            "evidenceRefs": [
+              "step:ob_training_booked",
+              "prereq:ob_access_provisioned"
+            ],
+            "family": "DP",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "PS-04",
+            "dataQuality": true,
+            "description": "Feedback answers are switched off, so this view uses journey and request data only.",
+            "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
+            "evidenceRefs": [
+              "employee:E-1056",
+              "purpose:pulse_capture",
+              "granted:false"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 0
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "RQ-01",
+            "dataQuality": false,
+            "description": "Request SR-2024-107 has been open 4 days against a 48h target.",
+            "descriptionAr": "الطلب SR-2024-107 مفتوح منذ 4 يوماً مقابل 48 ساعة.",
+            "evidenceRefs": [
+              "request:SR-2024-107",
+              "ref:SR-2024-107",
+              "ageHours:96",
+              "sla:48"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-01",
+            "dataQuality": false,
+            "description": "Mandatory training booked is past its 72h target.",
+            "descriptionAr": "حجز التدريب الإلزامي تجاوز هدفه البالغ 72 ساعة.",
+            "evidenceRefs": [
+              "step:ob_training_booked",
+              "event:EV-779",
+              "event:EV-781"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-01",
+            "dataQuality": false,
+            "description": "Buddy assigned is past its 24h target.",
+            "descriptionAr": "تعيين المرافق تجاوز هدفه البالغ 24 ساعة.",
+            "evidenceRefs": [
+              "step:ob_buddy_assigned",
+              "event:EV-780"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-02",
+            "dataQuality": false,
+            "description": "Buddy assigned has taken more than double its target time.",
+            "descriptionAr": "تعيين المرافق استغرق أكثر من ضعف الوقت المستهدف.",
+            "evidenceRefs": [
+              "step:ob_buddy_assigned",
+              "workingHours:110.0",
+              "target:24"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": true,
+            "nudgeOnly": false,
+            "weight": 6
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-06",
+            "dataQuality": false,
+            "description": "Mandatory training booked is still late after working days and holidays are taken into account.",
+            "descriptionAr": "حجز التدريب الإلزامي ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
+            "evidenceRefs": [
+              "step:ob_training_booked",
+              "workingHours:86.0"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          },
+          {
+            "asOf": "2024-10-19T10:00:00.000Z",
+            "code": "TL-06",
+            "dataQuality": false,
+            "description": "Buddy assigned is still late after working days and holidays are taken into account.",
+            "descriptionAr": "تعيين المرافق ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
+            "evidenceRefs": [
+              "step:ob_buddy_assigned",
+              "workingHours:110.0"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          }
+        ],
+        "stage": "visa_processing",
+        "stageReason": "Earliest stage with activity that is not fully complete (conservative tie-break).",
+        "suppressedFamilies": [
+          "PS"
+        ],
+        "unmappedActivity": []
+      },
+      "employeeId": "E-1056",
+      "id": "E-1056@2024-10-19T10:00:00.000Z"
+    },
+    {
+      "asOf": "2024-10-16T10:00:00.000Z",
+      "assessment": {
+        "asOf": "2024-10-16T10:00:00.000Z",
+        "band": "watch",
+        "bandReason": "Score 11 from capped family totals → watch.",
+        "corpusVersion": "policies-2024-q4-v1",
+        "dataQualityOnly": false,
+        "dayInStage": 1,
+        "employeeId": "E-1042",
+        "engineVersion": "engine-1.0.0",
+        "familyArithmetic": [
+          {
+            "cap": 12,
+            "capped": 10,
+            "family": "TL",
+            "raw": 10,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DP",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "RQ",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "EN",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "PS",
+            "raw": 0,
+            "suppressed": true
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "MB",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 1,
+            "family": "DQ",
+            "raw": 1,
+            "suppressed": false
+          }
+        ],
+        "forcedBlocked": false,
+        "hardTrips": [],
+        "hrbpEligible": false,
+        "mapVersion": "map-1.0.0",
+        "score": 11,
+        "signalPackVersion": "signals-1.1.0",
+        "signals": [
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "DQ-03",
+            "dataQuality": true,
+            "description": "2 event(s) are dated in the future. They are excluded from your status.",
+            "descriptionAr": "2 حدث بتاريخ مستقبلي، مستبعد من حالتك.",
+            "evidenceRefs": [
+              "event:EV-009",
+              "event:EV-010"
+            ],
+            "family": "DQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 1
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "PS-04",
+            "dataQuality": true,
+            "description": "Feedback answers are switched off, so this view uses journey and request data only.",
+            "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
+            "evidenceRefs": [
+              "employee:E-1042",
+              "purpose:pulse_capture",
+              "granted:false"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 0
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "TL-03",
+            "dataQuality": false,
+            "description": "We said badge on day 1. It has been 2 days and it is not done.",
+            "descriptionAr": "قلنا badge on day 1. مضت 2 أيام ولم يكتمل.",
+            "evidenceRefs": [
+              "step:ob_badge_issued",
+              "day:2",
+              "promise:badge on day 1"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 5
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "TL-03",
+            "dataQuality": false,
+            "description": "We said laptop and phone by day 2. It has been 2 days and it is not done.",
+            "descriptionAr": "قلنا laptop and phone by day 2. مضت 2 أيام ولم يكتمل.",
+            "evidenceRefs": [
+              "step:ob_kit_issued",
+              "day:2",
+              "promise:laptop and phone by day 2"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 5
+          }
+        ],
+        "stage": "first_day",
+        "stageReason": "Earliest stage with activity that is not fully complete (conservative tie-break).",
+        "suppressedFamilies": [
+          "PS"
+        ],
+        "unmappedActivity": []
+      },
+      "employeeId": "E-1042",
+      "id": "E-1042@2024-10-16T10:00:00.000Z"
+    },
+    {
+      "asOf": "2024-10-16T10:00:00.000Z",
+      "assessment": {
+        "asOf": "2024-10-16T10:00:00.000Z",
+        "band": "watch",
+        "bandReason": "Score 11 from capped family totals → watch.",
+        "corpusVersion": "policies-2024-q4-v1",
+        "dataQualityOnly": false,
+        "dayInStage": 6,
+        "employeeId": "E-1043",
+        "engineVersion": "engine-1.0.0",
+        "familyArithmetic": [
+          {
+            "cap": 12,
+            "capped": 3,
+            "family": "TL",
+            "raw": 3,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 5,
+            "family": "DP",
+            "raw": 5,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 3,
+            "family": "RQ",
+            "raw": 3,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "EN",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "PS",
+            "raw": 0,
+            "suppressed": true
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "MB",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DQ",
+            "raw": 0,
+            "suppressed": false
+          }
+        ],
+        "forcedBlocked": false,
+        "hardTrips": [],
+        "hrbpEligible": false,
+        "mapVersion": "map-1.0.0",
+        "score": 11,
+        "signalPackVersion": "signals-1.1.0",
+        "signals": [
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "DP-01",
+            "dataQuality": false,
+            "description": "Visa approved is not finished and it holds up 4 later steps.",
+            "descriptionAr": "الموافقة على التأشيرة غير مكتمل ويحجب 4 خطوات لاحقة.",
+            "evidenceRefs": [
+              "step:ob_visa_approval",
+              "blocks:ob_flight_booked",
+              "blocks:ob_housing_arranged",
+              "blocks:ob_kit_issued",
+              "blocks:ob_badge_issued",
+              "downstream:10"
+            ],
+            "family": "DP",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 5
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "PS-04",
+            "dataQuality": true,
+            "description": "Feedback answers are switched off, so this view uses journey and request data only.",
+            "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
+            "evidenceRefs": [
+              "employee:E-1043",
+              "purpose:pulse_capture",
+              "granted:false"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 0
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "RQ-01",
+            "dataQuality": false,
+            "description": "Request SR-2024-094 has been open 4 days against a 72h target.",
+            "descriptionAr": "الطلب SR-2024-094 مفتوح منذ 4 يوماً مقابل 72 ساعة.",
+            "evidenceRefs": [
+              "request:SR-2024-094",
+              "ref:SR-2024-094",
+              "ageHours:96",
+              "sla:72"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "TL-05",
+            "dataQuality": false,
+            "description": "Nothing has happened on this journey for 4 days.",
+            "descriptionAr": "لم يحدث شيء على هذه الرحلة منذ 4 يوماً.",
+            "evidenceRefs": [
+              "event:EV-103",
+              "lastOccurredAt:2024-10-12T10:00:00.000Z"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          }
+        ],
+        "stage": "pre_boarding",
+        "stageReason": "Earliest stage with activity that is not fully complete (conservative tie-break).",
+        "suppressedFamilies": [
+          "PS"
+        ],
+        "unmappedActivity": []
+      },
+      "employeeId": "E-1043",
+      "id": "E-1043@2024-10-16T10:00:00.000Z"
+    },
+    {
+      "asOf": "2024-10-16T10:00:00.000Z",
+      "assessment": {
+        "asOf": "2024-10-16T10:00:00.000Z",
+        "band": "steady",
+        "bandReason": "Score 0 from capped family totals → steady.",
+        "corpusVersion": "policies-2024-q4-v1",
+        "dataQualityOnly": true,
+        "dayInStage": 2,
+        "employeeId": "E-1044",
+        "engineVersion": "engine-1.0.0",
+        "familyArithmetic": [
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "TL",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DP",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "RQ",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "EN",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "PS",
+            "raw": 0,
+            "suppressed": true
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "MB",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DQ",
+            "raw": 0,
+            "suppressed": false
+          }
+        ],
+        "forcedBlocked": false,
+        "hardTrips": [],
+        "hrbpEligible": false,
+        "mapVersion": "map-1.0.0",
+        "score": 0,
+        "signalPackVersion": "signals-1.1.0",
+        "signals": [
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "PS-04",
+            "dataQuality": true,
+            "description": "Feedback answers are switched off, so this view uses journey and request data only.",
+            "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
+            "evidenceRefs": [
+              "employee:E-1044",
+              "purpose:pulse_capture",
+              "granted:false"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 0
+          }
+        ],
+        "stage": "effective_date",
+        "stageReason": "Earliest stage with activity that is not fully complete (conservative tie-break).",
+        "suppressedFamilies": [
+          "PS"
+        ],
+        "unmappedActivity": []
+      },
+      "employeeId": "E-1044",
+      "id": "E-1044@2024-10-16T10:00:00.000Z"
+    },
+    {
+      "asOf": "2024-10-16T10:00:00.000Z",
+      "assessment": {
+        "asOf": "2024-10-16T10:00:00.000Z",
+        "band": "watch",
+        "bandReason": "Score 9 from capped family totals → watch.",
+        "corpusVersion": "policies-2024-q4-v1",
+        "dataQualityOnly": false,
+        "dayInStage": 16,
+        "employeeId": "E-1045",
+        "engineVersion": "engine-1.0.0",
+        "familyArithmetic": [
+          {
+            "cap": 12,
+            "capped": 3,
+            "family": "TL",
+            "raw": 3,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 5,
+            "family": "DP",
+            "raw": 5,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "RQ",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "EN",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "PS",
+            "raw": 0,
+            "suppressed": true
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "MB",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 1,
+            "family": "DQ",
+            "raw": 1,
+            "suppressed": false
+          }
+        ],
+        "forcedBlocked": false,
+        "hardTrips": [],
+        "hrbpEligible": false,
+        "mapVersion": "map-1.0.0",
+        "score": 9,
+        "signalPackVersion": "signals-1.1.0",
+        "signals": [
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "DP-06",
+            "dataQuality": false,
+            "description": "The relocation allowance is not settled and the housing deadline is 1 days away.",
+            "descriptionAr": "بدل الانتقال غير محسم وموعد السكن بعد 1 يوماً.",
+            "evidenceRefs": [
+              "step:ob_relocation_allowance",
+              "status:not_started",
+              "deadline:2024-10-17T00:00:00.000Z"
+            ],
+            "family": "DP",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 5
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "DQ-03",
+            "dataQuality": true,
+            "description": "3 event(s) are dated in the future. They are excluded from your status.",
+            "descriptionAr": "3 حدث بتاريخ مستقبلي، مستبعد من حالتك.",
+            "evidenceRefs": [
+              "event:EV-307",
+              "event:EV-308",
+              "event:EV-309"
+            ],
+            "family": "DQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 1
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "PS-04",
+            "dataQuality": true,
+            "description": "Feedback answers are switched off, so this view uses journey and request data only.",
+            "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
+            "evidenceRefs": [
+              "employee:E-1045",
+              "purpose:pulse_capture",
+              "granted:false"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 0
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "TL-05",
+            "dataQuality": false,
+            "description": "Nothing has happened on this journey for 5 days.",
+            "descriptionAr": "لم يحدث شيء على هذه الرحلة منذ 5 يوماً.",
+            "evidenceRefs": [
+              "event:EV-306",
+              "lastOccurredAt:2024-10-11T10:00:00.000Z"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          }
+        ],
+        "stage": "pre_boarding",
+        "stageReason": "Earliest stage with activity that is not fully complete (conservative tie-break).",
+        "suppressedFamilies": [
+          "PS"
+        ],
+        "unmappedActivity": []
+      },
+      "employeeId": "E-1045",
+      "id": "E-1045@2024-10-16T10:00:00.000Z"
+    },
+    {
+      "asOf": "2024-10-16T10:00:00.000Z",
+      "assessment": {
+        "asOf": "2024-10-16T10:00:00.000Z",
+        "band": "steady",
+        "bandReason": "Score 2 from capped family totals → steady.",
+        "corpusVersion": "policies-2024-q4-v1",
+        "dataQualityOnly": false,
+        "dayInStage": 4,
+        "employeeId": "E-1046",
+        "engineVersion": "engine-1.0.0",
+        "familyArithmetic": [
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "TL",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DP",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "RQ",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 2,
+            "family": "EN",
+            "raw": 2,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "PS",
+            "raw": 0,
+            "suppressed": true
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "MB",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DQ",
+            "raw": 0,
+            "suppressed": false
+          }
+        ],
+        "forcedBlocked": false,
+        "hardTrips": [],
+        "hrbpEligible": false,
+        "mapVersion": "map-1.0.0",
+        "score": 2,
+        "signalPackVersion": "signals-1.1.0",
+        "signals": [
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "EN-03",
+            "dataQuality": false,
+            "description": "Your checklist has not been opened in 31 days.",
+            "descriptionAr": "لم تُفتح قائمتك منذ 31 يوماً.",
+            "evidenceRefs": [
+              "employee:E-1046",
+              "idleDays:31.1"
+            ],
+            "family": "EN",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "PS-04",
+            "dataQuality": true,
+            "description": "Feedback answers are switched off, so this view uses journey and request data only.",
+            "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
+            "evidenceRefs": [
+              "employee:E-1046",
+              "purpose:pulse_capture",
+              "granted:false"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 0
+          }
+        ],
+        "stage": "handover",
+        "stageReason": "Earliest stage with activity that is not fully complete (conservative tie-break).",
+        "suppressedFamilies": [
+          "PS"
+        ],
+        "unmappedActivity": []
+      },
+      "employeeId": "E-1046",
+      "id": "E-1046@2024-10-16T10:00:00.000Z"
+    },
+    {
+      "asOf": "2024-10-16T10:00:00.000Z",
+      "assessment": {
+        "asOf": "2024-10-16T10:00:00.000Z",
+        "band": "blocked",
+        "bandReason": "Score 26 from capped family totals → blocked.",
+        "corpusVersion": "policies-2024-q4-v1",
+        "dataQualityOnly": false,
+        "dayInStage": 8,
+        "employeeId": "E-1047",
+        "engineVersion": "engine-1.0.0",
+        "familyArithmetic": [
+          {
+            "cap": 12,
+            "capped": 8,
+            "family": "TL",
+            "raw": 8,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "DP",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 12,
+            "family": "RQ",
+            "raw": 19,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 2,
+            "family": "EN",
+            "raw": 2,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "PS",
+            "raw": 0,
+            "suppressed": true
+          },
+          {
+            "cap": 12,
+            "capped": 0,
+            "family": "MB",
+            "raw": 0,
+            "suppressed": false
+          },
+          {
+            "cap": 12,
+            "capped": 4,
+            "family": "DQ",
+            "raw": 4,
+            "suppressed": false
+          }
+        ],
+        "forcedBlocked": false,
+        "hardTrips": [],
+        "hrbpEligible": true,
+        "mapVersion": "map-1.0.0",
+        "score": 26,
+        "signalPackVersion": "signals-1.1.0",
+        "signals": [
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "DQ-03",
+            "dataQuality": true,
+            "description": "3 event(s) are dated in the future. They are excluded from your status.",
+            "descriptionAr": "3 حدث بتاريخ مستقبلي، مستبعد من حالتك.",
+            "evidenceRefs": [
+              "event:EV-506",
+              "event:EV-507",
+              "event:EV-509"
+            ],
+            "family": "DQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 1
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "DQ-04",
+            "dataQuality": true,
+            "description": "You appear in two journeys at once. We run both and put the nearer deadline first.",
+            "descriptionAr": "تظهر في رحلتين في وقت واحد.",
+            "evidenceRefs": [
+              "employee:E-1047",
+              "journeys:onboarding,mobility",
+              "secondary:mobility"
+            ],
+            "family": "DQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "EN-03",
+            "dataQuality": false,
+            "description": "Your checklist has not been opened in 6 days.",
+            "descriptionAr": "لم تُفتح قائمتك منذ 6 يوماً.",
+            "evidenceRefs": [
+              "event:EV-502",
+              "idleDays:6.0"
+            ],
+            "family": "EN",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "PS-04",
+            "dataQuality": true,
+            "description": "Feedback answers are switched off, so this view uses journey and request data only.",
+            "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
+            "evidenceRefs": [
+              "employee:E-1047",
+              "purpose:pulse_capture",
+              "granted:false"
+            ],
+            "family": "PS",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 0
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "RQ-01",
+            "dataQuality": false,
+            "description": "Request SR-2024-105 has been open 4 days against a 48h target.",
+            "descriptionAr": "الطلب SR-2024-105 مفتوح منذ 4 يوماً مقابل 48 ساعة.",
+            "evidenceRefs": [
+              "request:SR-2024-105",
+              "ref:SR-2024-105",
+              "ageHours:96",
+              "sla:48"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "RQ-02",
+            "dataQuality": false,
+            "description": "Request SR-2024-104 has been passed between queues 3 times.",
+            "descriptionAr": "الطلب SR-2024-104 نُقل بين الطوابير 3 مرات.",
+            "evidenceRefs": [
+              "request:SR-2024-104",
+              "ref:SR-2024-104",
+              "reassignCount:3"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 4
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "RQ-03",
+            "dataQuality": false,
+            "description": "Request SR-2024-104 was sent back 2 times as incomplete.",
+            "descriptionAr": "الطلب SR-2024-104 أُرجع 2 مرات كغير مكتمل.",
+            "evidenceRefs": [
+              "request:SR-2024-104",
+              "ref:SR-2024-104",
+              "returnCount:2"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 4
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "RQ-05",
+            "dataQuality": false,
+            "description": "Request SR-2024-103 has no owner we can reach (O-LEFT-9). We will tell you who we told instead.",
+            "descriptionAr": "الطلب SR-2024-103 لا مالك له يمكن الوصول إليه.",
+            "evidenceRefs": [
+              "request:SR-2024-103",
+              "ref:SR-2024-103",
+              "assignee:O-LEFT-9"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 5
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "RQ-06",
+            "dataQuality": false,
+            "description": "Request SR-2024-104 was closed and had to be reopened.",
+            "descriptionAr": "الطلب SR-2024-104 أُغلق وأعيد فتحه.",
+            "evidenceRefs": [
+              "request:SR-2024-104",
+              "ref:SR-2024-104",
+              "status:reopened"
+            ],
+            "family": "RQ",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "TL-01",
+            "dataQuality": false,
+            "description": "Relocation allowance confirmed is past its 72h target.",
+            "descriptionAr": "تأكيد بدل الانتقال تجاوز هدفه البالغ 72 ساعة.",
+            "evidenceRefs": [
+              "step:ob_relocation_allowance",
+              "event:EV-510"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "TL-06",
+            "dataQuality": false,
+            "description": "Relocation allowance confirmed is still late after working days and holidays are taken into account.",
+            "descriptionAr": "تأكيد بدل الانتقال ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
+            "evidenceRefs": [
+              "step:ob_relocation_allowance",
+              "workingHours:72.0"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 2
+          },
+          {
+            "asOf": "2024-10-16T10:00:00.000Z",
+            "code": "TL-07",
+            "dataQuality": false,
+            "description": "ID badge issued was completed before the step it depends on. We show both, and we do not rewrite history.",
+            "descriptionAr": "إصدار بطاقة الهوية اكتمل قبل الخطوة التي يعتمد عليها.",
+            "evidenceRefs": [
+              "step:ob_badge_issued",
+              "completed_before_prerequisite:ob_visa_approval",
+              "event:EV-505"
+            ],
+            "family": "TL",
+            "forceBlocked": false,
+            "hardTrip": false,
+            "nudgeOnly": false,
+            "weight": 3
+          }
+        ],
+        "stage": "pre_boarding",
+        "stageReason": "Earliest stage with activity that is not fully complete (conservative tie-break).",
+        "suppressedFamilies": [
+          "PS"
+        ],
+        "unmappedActivity": []
+      },
+      "employeeId": "E-1047",
+      "id": "E-1047@2024-10-16T10:00:00.000Z"
+    }
+  ]
+}

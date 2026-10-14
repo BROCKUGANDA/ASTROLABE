@@ -6,7 +6,10 @@
 import { NextRequest } from "next/server";
 import { success, error } from "@/lib/api/envelope";
 import { employees, events, getOwner } from "@/lib/data/pack";
-import { assess, type Band } from "@/lib/engine/engine";
+import { assess, engineNow, type Band } from "@/lib/engine/engine";
+import { guard, purposeHeader } from "@/lib/privacy/guard";
+import { appendAudit } from "@/lib/privacy/audit";
+import { isPulsePurpose } from "@/lib/privacy/access";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +22,27 @@ const BAND_SEVERITY: Record<Band, number> = {
 
 export async function GET(req: NextRequest) {
   const start = Date.now();
+  // The queue is an early-warning surface, so access is role-gated, scoped to
+  // the HRBP's own portfolio, and recorded in the audit chain with a purpose.
+  const auth = await guard(req, "hrbp.queue");
+  if (!auth.ok) return auth.response;
+  const session = auth.session;
+  const purpose = purposeHeader(req);
+  if (!isPulsePurpose(purpose)) {
+    return error("E_FORBIDDEN", "Reading the queue requires a declared purpose.", 403, {
+      hint: "Send X-Purpose: early_warning.",
+      retryable: false,
+    });
+  }
+  appendAudit({
+    actor: session.sub,
+    actorRole: session.role,
+    action: "hrbp.queue.read",
+    subject: session.sub,
+    lawfulBasis: "legitimate_interests",
+    purpose,
+  });
+
   const bandFilter = req.nextUrl.searchParams.get("band") as Band | null;
 
   if (bandFilter && !(bandFilter in BAND_SEVERITY)) {
@@ -27,14 +51,19 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const items = employees.map((employee) => {
-    const assessment = assess(employee);
+  const clock = engineNow();
+  const population = session.role === "hrbp"
+    ? employees.filter((e) => session.scope.length === 0 || session.scope.includes(e.id))
+    : employees;
+
+  const items = population.map((employee) => {
+    const assessment = assess(employee, clock);
     const employeeEvents = events
       .filter((e) => e.employeeId === employee.id)
       .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
     const firstEventAt = employeeEvents[0]?.occurredAt ?? employee.startDate;
     const leadTimeHours =
-      (Date.now() - new Date(firstEventAt).getTime()) / 3600000;
+      (clock.getTime() - new Date(firstEventAt).getTime()) / 3600000;
 
     const topSignals = [...assessment.signals]
       .sort((a, b) => b.weight - a.weight)

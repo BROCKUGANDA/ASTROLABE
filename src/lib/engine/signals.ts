@@ -106,8 +106,10 @@ const openStates = (input: SignalInput): StepState[] =>
   [...input.states.values()].filter((s) => s.status !== "done" && s.status !== "skipped");
 
 function hasConsent(input: SignalInput, purpose: ConsentRecord["purpose"]): boolean {
+  // Consent is also read as-of: a grant recorded after the clock in use does not
+  // authorise data at that clock, and a revocation before it is honoured.
   const rows = input.consents
-    .filter((c) => c.employeeId === input.employee.id && c.purpose === purpose)
+    .filter((c) => c.employeeId === input.employee.id && c.purpose === purpose && new Date(c.grantedAt) <= input.asOf)
     .sort((a, b) => b.grantedAt.localeCompare(a.grantedAt) || b.id.localeCompare(a.id));
   if (rows.length === 0) {
     // Defaults are the PRD §15 table: journey assistance is required for the
