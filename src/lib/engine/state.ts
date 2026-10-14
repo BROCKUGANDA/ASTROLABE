@@ -11,7 +11,7 @@ import type {
   JourneyStage,
   JourneyStep,
 } from "../data/pack";
-import { addWorkingHours, calendarFor, pausedMsBetween, workingHoursBetween, type PauseWindow } from "./calendar";
+import { addWorkingHours, calendarFor, elapsedSplit, type PauseWindow } from "./calendar";
 import { buildGraph, rootBlockers, type JourneyGraph } from "./graph";
 import { daysBetween } from "./clock";
 
@@ -222,14 +222,16 @@ export function computeStepStates(
       ? addWorkingHours(r.startedAt, s.targetHours, cal, pauses, asOf)
       : undefined;
 
-    let workingMs = 0;
+    let wallElapsedMs = 0;
+    let chargeableMs = 0;
     let pausedMs = 0;
     if (r.startedAt && status !== "done" && status !== "skipped") {
-      const span = workingHoursBetween(new Date(r.startedAt).getTime(), asOf.getTime(), cal, pauses, asOf);
-      workingMs = span.workingMs;
-      pausedMs = span.pausedMs;
+      const split = elapsedSplit(new Date(r.startedAt).getTime(), asOf.getTime(), cal, pauses, asOf);
+      wallElapsedMs = split.wallMs;
+      chargeableMs = split.chargeableMs;
+      pausedMs = split.pausedMs;
     }
-    const workingElapsedHours = workingMs / 3600000;
+    const workingElapsedHours = chargeableMs / 3600000;
     const remainingHours = dueAt
       ? Math.max(0, (new Date(dueAt).getTime() - asOf.getTime()) / 3600000)
       : 0;
@@ -271,9 +273,7 @@ export function computeStepStates(
         ? "none"
         : breachLevel(workingElapsedHours, s.targetHours),
       targetHours: s.targetHours,
-      elapsedHours: (r.startedAt && status !== "done")
-        ? Math.max(0, (asOf.getTime() - new Date(r.startedAt).getTime()) / 3600000) - pausedMs / 3600000
-        : 0,
+      elapsedHours: Math.max(0, (wallElapsedMs - pausedMs) / 3600000),
       workingElapsedHours,
       pausedHours: pausedMs / 3600000,
       remainingHours,

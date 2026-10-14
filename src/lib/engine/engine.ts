@@ -65,7 +65,7 @@ export { buildGraph, assertAcyclic, lintMap, rootBlockers, snapshotMap, diffMaps
 export type { JourneyGraph, MapLint } from "./graph";
 export { assess, packData, employeeById, fuse } from "./assess";
 export type { FamilyArithmetic } from "./assess";
-export { addWorkingHours, workingHoursBetween, calendarFor, isWorkingDay } from "./calendar";
+export { addWorkingHours, elapsedSplit, calendarFor, isWorkingDay, humanDuration, CALENDARS as LOCATION_CALENDARS } from "./calendar";
 
 /* ============================================================
    COMPATIBILITY SHIMS — call sites written before the split

@@ -146,10 +146,16 @@ export interface NextBestStepResult {
 const graphCache = new Map<string, JourneyGraph>();
 
 function graphFor(steps: JourneyStep[]): JourneyGraph {
-  const key = `${steps.length}:${steps.map((s) => s.key).join(",")}`;
+  // The key has to cover the topology, not just the step list: two maps with the
+  // same keys and different dependsOn edges are different maps, and a cycle added
+  // to one of them must not be hidden behind a cache hit.
+  const key = steps
+    .map((s) => `${s.key}>${[...s.dependsOn].sort().join("+")}`)
+    .sort()
+    .join("|");
   const cached = graphCache.get(key);
   if (cached) {
-    if (cached.cycles.length > 0) assertAcyclic(cached);
+    assertAcyclic(cached);
     return cached;
   }
   const g = buildGraph(steps);
@@ -178,18 +184,24 @@ export function fuse(
   const familyArithmetic: FamilyArithmetic[] = [];
   let score = 0;
 
+  // A suppressed family contributes nothing at all — including its hard trips.
+  // Without this, switching pulse consent off would still let an old pulse signal
+  // force the Blocked band, which is exactly the consent-as-a-banner failure the
+  // PRD forbids (§15, §29 018).
+  const admissible = signals.filter((s) => !suppressed.includes(s.family));
+
   for (const family of families) {
     const isSuppressed = suppressed.includes(family);
     const raw = isSuppressed
       ? 0
-      : signals.filter((s) => s.family === family).reduce((sum, s) => sum + s.weight, 0);
+      : admissible.filter((s) => s.family === family).reduce((sum, s) => sum + s.weight, 0);
     const capped = Math.min(raw, FAMILY_CAPS[family]);
     familyArithmetic.push({ family, raw, capped, cap: FAMILY_CAPS[family], suppressed: isSuppressed });
     score += capped;
   }
 
-  const hardTrips = signals.filter((s) => s.hardTrip).map((s) => s.code);
-  const forcedBlocked = signals.some((s) => s.forceBlocked);
+  const hardTrips = admissible.filter((s) => s.hardTrip).map((s) => s.code);
+  const forcedBlocked = admissible.some((s) => s.forceBlocked);
 
   let band: Band = "steady";
   if (score >= BAND_THRESHOLDS.blocked.min) band = "blocked";

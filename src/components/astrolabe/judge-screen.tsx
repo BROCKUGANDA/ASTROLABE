@@ -58,7 +58,7 @@ import {
   type QuartetResult,
   type AdversarialStatus,
   type AdversarialTraceStep,
-} from "@/lib/engine/adversarial";
+} from "@/lib/judge/adversarial";
 import {
   BandChip,
   BandDot,

@@ -1,22 +1,24 @@
 /**
- * Working calendars and SLA clock arithmetic (PRD §10 SLA clock, §3-041..060).
+ * Working calendars and SLA clock arithmetic (PRD §10 SLA clock, §29 041–060).
  *
- * Every calculation walks the timeline one day at a time and charges only
- * working minutes: weekends and public holidays for the location are skipped,
- * approved leave windows pause the clock, and a step that is waiting on the
- * employee pauses it too. All arithmetic is rounded to whole minutes so the
- * same inputs always produce byte-identical output (PRD §19-378).
+ * The model: a step accrues time only on its location's working days. A weekend
+ * or a public holiday is a full-day pause, not an 8-hour capacity budget — the
+ * targets in the map are calendar hours (168h is one week), so discounting whole
+ * days keeps "3 days late" readable by an HR person while still refusing to blame
+ * anyone for a Friday. Approved leave and a step waiting on the employee pause the
+ * clock the same way, and both are shown to the employee as paused time rather
+ * than silently subtracted.
+ *
+ * Arithmetic is rounded to whole minutes so two runs produce identical bytes.
  */
 
 import type { Employee } from "../data/pack";
 
 export interface WorkingCalendar {
-  /** 0 = Sunday. UAE government weekend is Friday/Saturday. */
+  /** 0 = Sunday. The UAE government weekend is Friday/Saturday. */
   weekendDays: number[];
   /** ISO dates (YYYY-MM-DD) that are public holidays in this location. */
   holidays: string[];
-  /** Working hours charged per working day. */
-  workHoursPerDay: number;
 }
 
 export interface PauseWindow {
@@ -25,48 +27,37 @@ export interface PauseWindow {
   reason: string;
 }
 
+export interface ElapsedSplit {
+  /** Wall-clock milliseconds between the two instants. */
+  wallMs: number;
+  /** Wall time that counts against the target (weekends, holidays and pauses removed). */
+  chargeableMs: number;
+  /** Time the clock was legitimately stopped, with the reason owned by the caller. */
+  pausedMs: number;
+}
+
 /**
- * Holiday sets cover the frozen pack clock (Oct 2024) and a full year beyond
- * it, because a live deployment reads the real clock (see clock.ts).
- * Source: UAE public holidays as published for 2024–2025; maintained by
- * Workplace Operations (PRD §3-060).
+ * Holiday sets cover the frozen pack clock and a year beyond it, because a live
+ * deployment reads the real clock (see clock.ts). Source: published UAE public
+ * holidays 2024–2025; maintained by Workplace Operations (PRD §3-060).
  */
+const UAE_HOLIDAYS = [
+  "2024-06-17", "2024-06-18", "2024-06-19", "2024-09-01", "2024-11-15",
+  "2024-12-01", "2024-12-02", "2024-12-03",
+  "2025-01-01", "2025-03-30", "2025-03-31", "2025-04-01", "2025-04-02",
+  "2025-05-31", "2025-06-01", "2025-06-02", "2025-06-03",
+  "2025-12-01", "2025-12-02", "2025-12-03",
+];
+
 export const CALENDARS: Record<string, WorkingCalendar> = {
-  DXB: {
-    weekendDays: [6, 5],
-    holidays: [
-      "2024-06-17", "2024-06-18", "2024-06-19", "2024-09-01",
-      "2024-11-15", "2024-12-01", "2024-12-02", "2024-12-03",
-      "2025-01-01", "2025-03-30", "2025-03-31", "2025-04-01", "2025-04-02",
-      "2025-05-31", "2025-06-01", "2025-06-02", "2025-06-03", "2025-12-01",
-      "2025-12-02", "2025-12-03",
-    ],
-    workHoursPerDay: 8,
-  },
-  AUH: {
-    weekendDays: [6, 5],
-    holidays: [
-      "2024-06-17", "2024-06-18", "2024-06-19", "2024-09-01",
-      "2024-11-15", "2024-12-01", "2024-12-02", "2024-12-03",
-      "2025-01-01", "2025-03-30", "2025-03-31", "2025-04-01", "2025-04-02",
-      "2025-05-31", "2025-06-01", "2025-06-02", "2025-06-03", "2025-12-01",
-      "2025-12-02", "2025-12-03",
-    ],
-    workHoursPerDay: 8,
-  },
-  SHJ: {
-    weekendDays: [0, 6],
-    holidays: [
-      "2024-09-01", "2024-12-02", "2024-12-03", "2025-01-01",
-      "2025-03-30", "2025-03-31", "2025-05-31", "2025-12-01",
-    ],
-    workHoursPerDay: 8,
-  },
-  REMOTE: { weekendDays: [0, 6], holidays: [], workHoursPerDay: 8 },
+  DXB: { weekendDays: [5, 6], holidays: UAE_HOLIDAYS },
+  AUH: { weekendDays: [5, 6], holidays: UAE_HOLIDAYS },
+  SHJ: { weekendDays: [0, 5, 6], holidays: UAE_HOLIDAYS },
+  REMOTE: { weekendDays: [0, 6], holidays: [] },
 };
 
 const MINUTE = 60 * 1000;
-const DAY = 24 * 60 * 60 * 1000;
+const DAY_MS = 86400000;
 
 export function calendarFor(location: string): WorkingCalendar {
   return CALENDARS[location] ?? CALENDARS.DXB;
@@ -76,73 +67,68 @@ function roundMinutes(ms: number): number {
   return Math.round(ms / MINUTE) * MINUTE;
 }
 
-/** A calendar day is chargeable when it is neither a weekend nor a holiday. */
 export function isWorkingDay(cal: WorkingCalendar, at: Date): boolean {
   if (cal.weekendDays.includes(at.getUTCDay())) return false;
   return !cal.holidays.includes(at.toISOString().slice(0, 10));
 }
 
-/**
- * Leave windows come from the employee record (PRD §3-042); a missing window
- * endpoint means the pause is still running at `asOf`.
- */
-export function pauseWindowsFor(employee: Employee, waits: PauseWindow[], asOf: Date): PauseWindow[] {
+/** Leave windows come from the employee record (PRD §3-042). */
+export function pauseWindowsFor(employee: Employee, waits: PauseWindow[]): PauseWindow[] {
   const leaves = (employee.leaveWindows ?? []).map((l) => ({ from: l.from, to: l.to, reason: l.reason }));
-  return [...leaves, ...waits].filter((w) => new Date(w.from) <= asOf);
+  return [...leaves, ...waits];
 }
 
-function overlaps(aFrom: number, aTo: number, bFrom: number, bTo: number): boolean {
-  return aFrom < bTo && bFrom < aTo;
+function overlap(from: number, to: number, aFrom: number, aTo: number): number {
+  const o = Math.min(to, aTo) - Math.max(from, aFrom);
+  return o > 0 ? o : 0;
 }
 
-/** Milliseconds of `pauses` that fall inside [from, to]. */
-export function pausedMsBetween(from: number, to: number, pauses: PauseWindow[], asOf: Date): number {
-  if (to <= from) return 0;
+function pausedInSlice(from: number, to: number, pauses: PauseWindow[], asOf: Date): number {
   let total = 0;
   for (const p of pauses) {
     const pFrom = new Date(p.from).getTime();
     const pTo = p.to ? new Date(p.to).getTime() : asOf.getTime();
-    if (!overlaps(from, to, pFrom, pTo)) continue;
-    total += Math.min(to, pTo) - Math.max(from, pFrom);
+    total += overlap(from, to, pFrom, pTo);
   }
-  return roundMinutes(Math.max(0, total));
+  return Math.max(0, Math.min(total, to - from));
 }
 
 /**
- * Working time inside [from, to], charging only working-day hours and
- * excluding pause windows. This is the honest denominator for a breach: a
- * delay that survives it cannot be blamed on a weekend or on approved leave.
+ * Split a span into wall time, chargeable time and paused time. Walking one day
+ * at a time keeps the cost proportional to the journey length, not its resolution.
  */
-export function workingHoursBetween(
-  from: number,
-  to: number,
-  cal: WorkingCalendar,
-  pauses: PauseWindow[],
-  asOf: Date
-): { workingMs: number; pausedMs: number } {
-  if (to <= from) return { workingMs: 0, pausedMs: 0 };
-  let workingMs = 0;
+export function elapsedSplit(from: number, to: number, cal: WorkingCalendar, pauses: PauseWindow[], asOf: Date): ElapsedSplit {
+  if (to <= from) return { wallMs: 0, chargeableMs: 0, pausedMs: 0 };
+  let chargeableMs = 0;
+  let pausedMs = 0;
   let cursor = from;
   let guard = 0;
-  while (cursor < to && guard < 3650) {
+  while (cursor < to && guard < 4000) {
     guard++;
     const day = new Date(cursor);
     const endOfDay = Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate() + 1);
     const sliceTo = Math.min(endOfDay, to);
-    if (isWorkingDay(cal, day)) {
-      const paused = pausedMsBetween(cursor, sliceTo, pauses, asOf);
-      const capacityMs = Math.min(cal.workHoursPerDay * 3600000, sliceTo - cursor);
-      workingMs += Math.max(0, capacityMs - Math.min(paused, capacityMs));
-    }
+    const paused = pausedInSlice(cursor, sliceTo, pauses, asOf);
+    if (isWorkingDay(cal, day)) chargeableMs += Math.max(0, sliceTo - cursor - paused);
+    pausedMs += paused;
     cursor = endOfDay;
   }
-  return { workingMs: roundMinutes(workingMs), pausedMs: pausedMsBetween(from, to, pauses, asOf) };
+  return {
+    wallMs: roundMinutes(to - from),
+    chargeableMs: roundMinutes(chargeableMs),
+    pausedMs: roundMinutes(pausedMs),
+  };
+}
+
+/** Total time spent inside the pause windows before `asOf`. */
+export function pausedMsBetween(from: number, to: number, pauses: PauseWindow[], asOf: Date): number {
+  return pausedInSlice(from, to, pauses, asOf);
 }
 
 /**
- * due_at = start + target hours charged through the working calendar with the
- * pause windows skipped (PRD §10). A target of zero or absent is untimed: the
- * caller must not claim a breach for it (PRD §3-053).
+ * due_at = start + target hours of chargeable time (PRD §3-043). A target that is
+ * absent or zero is untimed: the caller must not claim a breach for it
+ * (PRD §3-053), so the start instant is returned unchanged and flagged upstream.
  */
 export function addWorkingHours(
   startIso: string,
@@ -155,37 +141,28 @@ export function addWorkingHours(
   let remaining = targetHours * 3600000;
   let cursor = new Date(startIso).getTime();
   let guard = 0;
-  while (remaining > 0 && guard < 3650) {
+  while (remaining > 0 && guard < 4000) {
     guard++;
     const day = new Date(cursor);
     const endOfDay = Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate() + 1);
     if (isWorkingDay(cal, day)) {
-      const paused = pausedMsBetween(cursor, endOfDay, pauses, asOf);
-      const capacity = Math.min(cal.workHoursPerDay * 3600000, endOfDay - cursor) - paused;
+      const paused = pausedInSlice(cursor, endOfDay, pauses, asOf);
+      const capacity = Math.max(0, endOfDay - cursor - paused);
       if (capacity >= remaining) {
-        // Walk forward minute by minute inside the day so pauses are honoured.
-        let step = cursor;
-        let spent = 0;
-        while (spent < remaining && step < endOfDay) {
-          const inPause = pauses.some((p) => {
-            const pTo = p.to ? new Date(p.to).getTime() : asOf.getTime();
-            return step >= new Date(p.from).getTime() && step < pTo;
-          });
-          if (!inPause) spent += MINUTE;
-          step += MINUTE;
-        }
-        return new Date(roundMinutes(step)).toISOString();
+        return new Date(roundMinutes(cursor + remaining + paused)).toISOString();
       }
-      remaining -= Math.max(0, capacity);
+      remaining -= capacity;
     }
     cursor = endOfDay;
   }
   return new Date(roundMinutes(cursor)).toISOString();
 }
 
-export function formatWorkingHours(ms: number): string {
-  const hours = Math.floor(ms / 3600000);
-  const minutes = Math.round((ms % 3600000) / MINUTE);
-  if (hours === 0) return `${minutes}m`;
-  return `${hours}h ${minutes}m`;
+/** "3 days late", not "72h SLA breach" (PRD §29 010). */
+export function humanDuration(ms: number): string {
+  const days = Math.floor(ms / DAY_MS);
+  const hours = Math.floor((ms % DAY_MS) / 3600000);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h`;
+  return `${Math.floor(ms / MINUTE)}m`;
 }
