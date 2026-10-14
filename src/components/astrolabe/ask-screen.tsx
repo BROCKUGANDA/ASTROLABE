@@ -42,7 +42,7 @@ import {
   NumberTicker,
   Tilt3D,
 } from "@/components/astrolabe/micro-interactions";
-import { PolicySearchTriggerButton } from "@/components/astrolabe/policy-search";
+import { GlobalSearchTriggerButton } from "@/components/astrolabe/global-search";
 import { SourcePreviewModal } from "@/components/astrolabe/source-preview-modal";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -338,17 +338,18 @@ export function AskScreen() {
               : "Ask me anything about your journey or our policies. I answer from official documents only — and if I'm not sure, I hand you to the right person."}
           </p>
         </div>
-        {/* PRD §18-347 — "Search policies" trigger button. Opens the global
-            policy search modal. Sits next to the heading for parity with the
-            "Say it simply" toggle on each answer card. */}
+        {/* PRD §18-347 — "Search" trigger button. Opens the global
+            cross-corpus search modal (policies + steps + requests). Sits
+            next to the heading for parity with the "Say it simply" toggle
+            on each answer card. */}
         <div className="shrink-0 hidden sm:block">
-          <PolicySearchTriggerButton locale={locale} />
+          <GlobalSearchTriggerButton locale={locale} />
         </div>
       </div>
 
-      {/* Mobile: Search policies trigger (below header, above history) */}
+      {/* Mobile: Search trigger (below header, above history) */}
       <div className="sm:hidden mb-3">
-        <PolicySearchTriggerButton locale={locale} />
+        <GlobalSearchTriggerButton locale={locale} />
       </div>
 
       {/* History (last 5 turns) — scrollable */}

@@ -32,6 +32,7 @@ import { Astrolabe3D } from "@/components/three/astrolabe";
 import { NotificationsBell } from "@/components/astrolabe/notifications-bell";
 import { ConstellationBg } from "@/components/astrolabe/constellation-bg";
 import { PolicySearchModal } from "@/components/astrolabe/policy-search";
+import { GlobalSearchModal } from "@/components/astrolabe/global-search";
 
 type View = "today" | "journey" | "ask" | "requests" | "me" | "help" | "profile";
 type Role = "employee" | "hrbp" | "manager" | "judge" | "admin" | "service_owner";
@@ -510,12 +511,17 @@ export default function Home() {
             onEmployee={(id) => { setEmployee(id); setCommandPalette(false); }}
             onLocale={() => { setLocale(locale === "en" ? "ar" : "en"); setCommandPalette(false); }}
             onPolicySearch={() => { useAppStore.getState().setPolicySearchOpen(true); setCommandPalette(false); }}
+            onGlobalSearch={() => { useAppStore.getState().setGlobalSearchOpen(true); setCommandPalette(false); }}
           />
         )}
       </AnimatePresence>
 
       {/* ========== GLOBAL POLICY SEARCH MODAL (PRD §18-347) ========== */}
       <PolicySearchModal />
+
+      {/* ========== GLOBAL CROSS-CORPUS SEARCH MODAL (PRD §18-347) ==========
+          Policies + Steps + Requests — the default search surface. */}
+      <GlobalSearchModal />
     </div>
   );
 }
@@ -694,6 +700,7 @@ function CommandPalette({
   onEmployee,
   onLocale,
   onPolicySearch,
+  onGlobalSearch,
 }: {
   onClose: () => void;
   onNavigate: (v: View) => void;
@@ -701,6 +708,7 @@ function CommandPalette({
   onEmployee: (id: string) => void;
   onLocale: () => void;
   onPolicySearch: () => void;
+  onGlobalSearch: () => void;
 }) {
   const [query, setQuery] = useState("");
   const locale = useAppStore((s) => s.locale);
@@ -724,7 +732,8 @@ function CommandPalette({
       { id: "service_owner", label: locale === "ar" ? "مالك الخدمة" : "Service owner", hint: "Intake queue + payload", run: () => onRole("service_owner") },
     ]},
     { group: locale === "ar" ? "بحث" : "Search", actions: [
-      { id: "policy-search", label: locale === "ar" ? "ابحث في السياسات" : "Search policies", hint: locale === "ar" ? "عبر كل الوثائق" : "Across all docs", run: onPolicySearch },
+      { id: "global-search", label: locale === "ar" ? "ابحث في كل شيء" : "Search everything", hint: locale === "ar" ? "سياسات · خطوات · طلبات" : "Policies · steps · requests", run: onGlobalSearch },
+      { id: "policy-search", label: locale === "ar" ? "ابحث في السياسات فقط" : "Search policies only", hint: locale === "ar" ? "عبر كل الوثائق" : "Across all docs", run: onPolicySearch },
     ]},
     { group: locale === "ar" ? "السيناريو" : "Scenario", actions: EMPLOYEES.map((e) => ({
       id: e.id, label: `${e.id} · ${e.name}`, hint: e.journey, run: () => onEmployee(e.id),

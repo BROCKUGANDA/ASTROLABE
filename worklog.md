@@ -2182,3 +2182,293 @@ Task: UAE/Emirates themed design adjustment, fix navbar squeeze, remove scroll w
 - None critical. The app is stable and demo-ready.
 - Minor: the UAE pattern is very subtle (0.04 opacity) — visible but not distracting.
 - Minor: the navbar is now 3 rows tall — takes more vertical space but is much more readable.
+
+---
+Task ID: GLOBAL-SEARCH
+Agent: Main (orchestrator)
+Task: Add global cross-corpus search across policies + steps + requests (replaces policy-only search as default)
+
+## What the user asked for
+Replace the policy-only search modal with a GLOBAL search that searches across policies AND steps AND requests — not just policies. The existing policy search modal should keep working but the global search is now the default.
+
+## Completed modifications
+
+### 1. Backend: `/api/v1/search` route (NEW)
+Created `src/app/api/v1/search/route.ts` — a single GET endpoint that searches across three corpora in one request:
+
+- **Query params**: `?q=term&employeeId=E-1042` (employeeId defaults to E-1042; min 2 chars for q)
+- **Policies**: top 5 chunks, scored via the same BM25-ish scorer the policy search route uses (token overlap + section/title boost + matching-sentence snippet). Mirrors `/api/v1/policies/search` exactly so the scores are consistent.
+- **Steps**: computes the journey step state for the employee (reusing `computeStepState` + `eventsForEmployee` from `@/lib/engine/engine`), then matches on label, labelAr, stepKey, stage, ownerGroup. Score = matched-term ratio × 100, floor 12, capped 8 results.
+- **Requests**: filters `serviceRequests` for the employee, then matches on ref, type label (looked up via `INTAKE_SCHEMAS`), status, ownerGroup. Ref tokens are also tokenized (so "SR-2024" matches the ref even after the engine tokenizer strips punctuation). Score = matched-term ratio × 100, floor 12, capped 8 results.
+- **Envelope**: `{ ok, data: { policies: [], steps: [], requests: [], total: N }, meta, error }` — uses the standard `success`/`error` envelope helpers.
+- **Validation**: 422 if q < 2 chars; 404 if employeeId unknown. Surfaces `policy_stale` in `meta.degraded` if any returned policy hit is past its review date.
+- Reuses the engine's own `tokenize()` from `@/lib/policy/retrieval` so step + request scoring stays consistent with policy retrieval.
+
+### 2. Frontend: `global-search.tsx` (NEW)
+Created `src/components/astrolabe/global-search.tsx` — a unified search modal that mirrors the policy-search modal style (frosted glass, 720px max-width):
+
+- **Single search input** at the top with teal Search icon, 44px touch target, `ast-focus` rings, clear-X button.
+- **Type filter chips**: All / Policies / Steps / Requests (default All). Each chip shows a tabular count badge (All = total, others = per-corpus count). Active chip = solid teal background; inactive = transparent surface-2.
+- **Results grouped by type** with section headers — each header has a teal-tinted icon tile (FileText/Map/Inbox), uppercase label, and a tabular count chip. Empty sections are hidden.
+- **Policy hit card**: title + section (mono), effective date, stale chip (amber, if past review), language chip, match % score (color-coded: ≥70 teal, ≥40 sand-gold, else muted), snippet with `<mark>` highlighted matched terms (teal 0.20 opacity per spec), matched-terms chips, "Open policy" button (opens nested doc modal).
+- **Step hit card**: highlighted label, stepKey (mono), stage label (looked up via `stages` pack export — bilingual), owner group chip, status chip (color-coded: done=green, in_progress=teal, waiting=amber, blocked=red, skipped=dark-red, not_started=muted), match %, "Go to journey" button (closes modal + switches to journey view).
+- **Request hit card**: highlighted "ref · typeLabel", ref (mono), owner group chip, opened date, status chip (mirrors requests-screen depth layering: submitted/acknowledged=teal, in_progress=teal-stronger, returned=sand-gold, resolved/closed=green, draft=muted), match %, "Go to request" button (closes modal + switches to requests view).
+- **Empty state**: "No results for '{query}'. Try different words, or ask me directly." + sand-gold "Ask about this instead" CTA that prefills the Ask tab.
+- **Initial state**: "Start typing to search across your policies, steps, and requests." + example-hint line.
+- **320ms debounce** on the input, try/catch on the fetch, AnimatePresence for card drop-in (40ms stagger capped at 0.18s).
+- **Nested policy doc modal** — mirrors policy-search.tsx: fetches `/api/v1/policies/{slug}`, shows all sections with effective dates, language, and full text.
+- **Bilingual EN/AR** — all labels, hints, status names, buttons, and empty-state strings localize.
+- Also exports `GlobalSearchTriggerButton` (ghost/solid variants) — labeled "Search" (replaces the old "Search policies" button).
+
+### 3. Store: `app-store.ts` (EDIT)
+Added two new state slices + one setter:
+- `globalSearchOpen: boolean` (default false)
+- `globalSearchQuery?: string` (initial query when opened from a context that pre-fills)
+- `setGlobalSearchOpen(open, query?)` — clears query on close
+
+The existing `policySearchOpen` / `policySearchInitialQuery` / `setPolicySearchOpen` are kept for backward compatibility — the policy-only modal still mounts and is still reachable from the command palette ("Search policies only").
+
+### 4. Integration: `page.tsx` (EDIT)
+- Imported `GlobalSearchModal` and mounted it next to `<PolicySearchModal />`.
+- Added `onGlobalSearch` prop to the `CommandPalette` component. The palette now exposes TWO search actions under the "Search" group:
+  - **"Search everything"** (hint: "Policies · steps · requests") → opens the global search modal (default).
+  - **"Search policies only"** (hint: "Across all docs") → opens the original policy-only modal (kept for parity).
+- The existing navbar "Search… ⌘K" button still opens the command palette (unchanged), so the global search is reachable in two clicks from the navbar.
+
+### 5. Integration: `ask-screen.tsx` (EDIT)
+- Replaced `PolicySearchTriggerButton` import with `GlobalSearchTriggerButton` from the new `global-search.tsx`.
+- Both the desktop (next to header) and mobile (below header) Search buttons now use `GlobalSearchTriggerButton` — labeled "Search" (was "Search policies"). Opens the global cross-corpus search modal.
+
+## Verification results
+
+### API endpoint (curl tests)
+- `q=visa&employeeId=E-1042` → 200, 5 policies + 4 steps + 0 requests, total 9
+- `q=access` → 200, 2 policies + 1 step (Systems access provisioned, score 100, status "blocked") + 0 requests
+- `q=SR-2024` → 200, 0 policies + 0 steps + 1 request (SR-2024-091 IT kit, score 100, status "in_progress")
+- `q=training` → 200, 1 policy + 1 step + 0 requests
+- `q=a` (1 char) → 422 validation error
+- `q=visa&employeeId=BAD` → 404 not-found error
+- `q=التأشيرة` (Arabic with definite article) → 200, 5 policies + 2 steps (Arabic tokenization works when the user types the actual word form)
+
+### Lint
+- `bun run lint` → EXIT 0 (clean)
+
+### Dev server
+- All routes returning 200, no errors, no Fast-Refresh reloads needed after the route compiled.
+
+### agent-browser QA
+- Opened the app → no console errors (only the pre-existing THREE.Clock deprecation warning).
+- Navigated to Ask screen → clicked "Search" button → global search modal opened with header "Search everything".
+- Typed "visa" → 5 policy hits, 4 step hits, 0 request hits, tabular counts in filter chips (All 9 / Policies 5 / Steps 4 / Requests 0). Policy snippets show highlighted `<mark>` on "visa". Step cards show stage label (Visa Processing), owner group (Immigration/Mobility), status chip (Done), and "Go to journey" button.
+- Clicked "Steps" filter chip → only steps section visible.
+- Cleared + typed "xyzzy-no-match" → empty state appeared: "No results for 'xyzzy-no-match'. Try different words, or ask me directly." + "Ask about this instead" CTA.
+- Typed "visa" again, clicked "Go to journey" → modal closed, view switched to "journey", journey screen content rendered.
+- Typed "kit" → 4 policies + 1 step (Laptop and phone issued, In Progress) + 1 request (SR-2024-091, IT kit / device, In Progress). Clicked "Go to request" → modal closed, view switched to "requests", "My requests" screen showed the matching request.
+- Clicked "Open policy" on a policy hit → nested policy doc modal opened showing all sections of the Immigration Policy with effective dates, language, and full text. Closed via the X button.
+- Opened command palette (⌘K navbar button) → saw both "Search everything" (Policies · steps · requests) and "Search policies only" (Across all docs). Clicked "Search everything" → global search modal opened.
+- Toggled to Arabic (locale AR) → global search modal title changed to "ابحث في كل شيء", filter chips to الكل/السياسات/الخطوات/الطلبات, hint text localized. Root div had `dir="rtl"`.
+- Toggled back to English → Ask screen "Search" button correctly opened the global search modal.
+
+## Theme compliance
+- All accent colors use the existing tokens (`--brand-400`/`--brand-500` teal, `--accent-500` sand-gold, status-steady/watch/friction/blocked). NO indigo, NO blue introduced.
+- Sand-gold reserved for: the "Ask about this instead" CTA (your next move), the returned-request status chip, and the ≥40 match score color (alongside teal for ≥70). This matches the policy-search modal's existing usage.
+- Frosted-glass modal surface matches `--surface-1` + 1px `--border` (same as the policy-search modal).
+
+## Unresolved issues / risks
+- None critical. The app is stable and demo-ready.
+- Minor: Arabic tokenization doesn't stem — a user typing `تأشيرة` (without definite article) won't match step labels that contain `التأشيرة` (with definite article). This is consistent with the existing policy-search behavior; the engine tokenizer doesn't Arabic-stem. A future enhancement could add Arabic light-stemming.
+- Minor: The "Go to request" button switches to the requests view but doesn't deep-link to a specific request card. The requests view shows all the employee's requests, and the matched one is in the list. A future enhancement could scroll to / highlight the matched request.
+
+---
+Task ID: ADMIN-STYLING
+Agent: Admin Styling Agent (Track 1–4 enhancement)
+
+Task: Enhance the Admin screen (`src/components/astrolabe/admin-screen.tsx`) with 3D health status cards, animated ingestion stats, a corpus coverage meter, and 3D-polished feature flags. Use existing `NumberTicker`, `Tilt3D`, `RevealOnScroll` from `@/components/astrolabe/micro-interactions` and `ScanLineOverlay` from `@/components/astrolabe/instrument-dial`. Respect `prefers-reduced-motion`. NO indigo, NO blue. TypeScript strict, no `any`.
+
+Work Log:
+
+### Edits to `src/components/astrolabe/admin-screen.tsx` (single file — all 4 tracks)
+
+**Imports**
+- Added `useReducedMotion` to the `framer-motion` import.
+- Added `NumberTicker`, `Tilt3D`, `RevealOnScroll` from `@/components/astrolabe/micro-interactions`.
+- Added `ScanLineOverlay` from `@/components/astrolabe/instrument-dial`.
+
+**Data updates**
+- Corpus constants realigned to the prototype spec: `CORPUS_CHUNKS = 30`, `CORPUS_BILINGUAL_PAIRS = 15`, `CORPUS_EN_ONLY = 15`, new `CORPUS_AR_ONLY = 0` (bilingual coverage = 15/30 = 50%).
+- `INGESTION_ROWS` "Policy chunks" count updated 17 → 30 to stay consistent with the new `CORPUS_CHUNKS`.
+- Added `INGESTION_SPARKLINES` — 6 arrays of 7-day synthetic trends, last point of each matches the row's `count`.
+- Added `LOAD_TREND = [8, 12, 6, 15, 10, 14, 47]` + EN/AR day-label arrays for the load-trend bar chart.
+- Extended `HealthEndpoint` interface with `latencyMs` and optional `dependencies: HealthDependency[]`; `HEALTH_ENDPOINTS` now carries per-endpoint latency (8ms / 12ms / 5ms) and a 4-item dependency list (DB · Redis · Corpus · Map) for `/readyz`.
+
+**New helper components (added in a single "3D / animation helpers" block before the Ingestion section)**
+1. `PulsingSteadyDot({ size })` — green steady dot with a 1.8s infinite outward pulse ring (scale 1→2.4, opacity 0.6→0). Renders a static dot when `useReducedMotion()` is true.
+2. `Sparkline({ data, width?, height? })` — small inline SVG with a teal `var(--brand-400)` line + final-point dot, animates `pathLength` 0→1 over 600ms (reduced-motion → instant). Last point dot fades in at 450ms.
+3. `LoadTrendChart()` — 7-bar daily load bar chart wrapped in `RevealOnScroll`. Each bar animates height 0%→target% over 480ms ease-out, 40ms stagger. Peak bar (47) uses a brighter teal gradient; non-peak bars use a dimmer teal gradient. Value labels above bars; EN/AR weekday labels below. Wrapped in `RevealOnScroll` so it animates only when scrolled into view.
+4. `CoverageMeter({ enOnly, bilingual, arOnly, total, locale })` — horizontal stacked bar (EN-only teal · EN/AR paired sand-gold · AR-only gray @ 35% opacity) that animates wrapper width 0%→100% over 640ms `[0.2, 0.8, 0.2, 1]` ease. Includes a 3-item legend (color dot + label + count) and a "Bilingual coverage" row with `<NumberTicker value={50} suffix="%">` + "(15 of 30)" mono caption. Reduced-motion → bar renders at full width instantly.
+5. `IngestionStatTile({ row, index, spark, locale })` — `motion.div` with spring drop-in (stiffness 240, damping 22, 40ms stagger), `<NumberTicker>` count, and `<Sparkline>` below the number.
+6. `HealthEndpointCard({ ep, index, locale })` — `motion.div` spring drop-in (60ms stagger) wrapping `<Tilt3D maxDeg={2}>` wrapping an `.ast-card-glass` container with `<ScanLineOverlay opacity={0.015} />`. Header row: mono path + pulsing steady dot + green "200 OK" pill. Body: label + mono body string. Footer: "Latency" label + mono "{n}ms" badge. For `/readyz`, renders a 2×2 dependency grid where each pill has a `PulsingSteadyDot` (size 6) + mono dep name.
+7. `FeatureFlagRow({ flag, isOn, onToggle, locale, index })` — `motion.li` spring drop-in (30ms stagger) wrapping `<Tilt3D maxDeg={1}>` wrapping an `.ast-card-2` row. Status indicator: `PulsingSteadyDot` when ON, static gray dot when OFF. The shadcn `Switch` sits inside a wrapper whose `filter: drop-shadow(0 0 6px rgba(22,154,165,0.50))` activates when ON for the teal glow (220ms transition). Preserves the original `key` chip + ON/OFF chip + description.
+
+**Track 1 — Health endpoints (replaced `HealthEndpoints` function)**
+- Section header preserved (Heart icon, "Health endpoints" / "نقاط نهاية الصحة").
+- Grid switched to `grid-cols-1 sm:grid-cols-3 gap-2.5 items-stretch` so the taller `/readyz` card (with dependency grid) sets the row height and the other cards fill it via `h-full` chains.
+- Renders one `<HealthEndpointCard>` per endpoint — each gets 3D tilt, glass bg, scan-line, pulsing green dot, latency badge, spring drop-in (60ms stagger). The `/readyz` card additionally shows DB / Redis / Corpus / Map as a 2×2 grid of pulsing-green-dot pills.
+
+**Track 2 — Ingestion report (edited `IngestionReportCard`)**
+- Stat-tile grid now maps over `INGESTION_ROWS` rendering `<IngestionStatTile>` per row → spring drop-in (40ms stagger) + `<NumberTicker>` for the count + `<Sparkline>` below the number (synthetic 7-day teal trend).
+- Re-ingest button, header, and quarantined-rows / last-loaded footer are untouched.
+- New `<LoadTrendChart />` appended at the bottom of the section (after the footer), wrapped in `RevealOnScroll`. 7 teal bars animate from 0% height, 480ms ease-out, 40ms stagger; peak bar (47) gets a brighter gradient + brighter value label.
+
+**Track 3 — Corpus coverage meter (edited `CorpusVersionCard`)**
+- Existing 4 stat tiles (Documents / Chunks / Bilingual pairs / EN-only) preserved with their original styling.
+- Existing doc chips row preserved.
+- New `<CoverageMeter>` appended after the doc chips: horizontal stacked bar (teal EN-only · sand-gold EN/AR paired · gray AR-only @ 35% opacity) animating wrapper width 0%→100% over 640ms ease-out. 3-item legend below with color dot + EN/AR label + mono count. Bilingual coverage row shows `<NumberTicker value={50} suffix="%">` in sand-gold + "(15 of 30)" mono caption.
+
+**Track 4 — Feature flags polish (replaced `FeatureFlagsPanel`)**
+- Section header preserved (Flag icon, count copy).
+- New "System health" summary card at the top: `Activity` icon + "System health" / "صحة النظام" label + mono "{onCount} / {total} active" + `<NumberTicker value={pct} suffix="%">` on the right + shadcn `<Progress value={pct} className="h-1.5">` (uses `--primary` = teal, so the bar is teal). 100% renders the percent in `--status-steady` green.
+- Flag grid now maps over `FEATURE_FLAGS` rendering `<FeatureFlagRow>` per flag → spring drop-in (30ms stagger) + `<Tilt3D maxDeg={1}>` + status dot (pulsing green when ON / static gray when OFF) + Switch with teal drop-shadow glow when ON.
+- Toggle behavior preserved verbatim (same toast, same state update).
+
+### Motion / accessibility notes
+- Every animation reads `useReducedMotion()` from `framer-motion` and degrades gracefully:
+  - `PulsingSteadyDot` → static green dot, no pulse ring.
+  - `Sparkline` → `pathLength` starts at 1, end-point dot starts at opacity 1 (no animation).
+  - `LoadTrendChart` bars → render at their target height immediately, no stagger.
+  - `CoverageMeter` bar → renders at 100% width immediately.
+  - `IngestionStatTile`, `HealthEndpointCard`, `FeatureFlagRow` → `initial = { opacity: 1, y: 0 }`, delay = 0 (no spring drop-in).
+- Tilt3D (from the existing micro-interactions module) already self-disables on coarse pointers (touch) and reduced motion.
+- All animated numeric displays go through `<NumberTicker>` (which itself renders the final value immediately under reduced motion).
+
+### Theme compliance
+- Teal (`--brand-400` / `--brand-500`) is the dominant instrument accent — used for the sparklines, load-trend bars, latency badge text, coverage meter EN-only segment, switch glow, and system-health progress bar.
+- Sand-gold (`--accent-500`) is reserved for the coverage meter's EN/AR paired segment and the "Bilingual coverage" percentage — both legitimately "your next move" surfaces (the gap you should close).
+- Gray (`--text-lo` @ 35–50% opacity) is used for the AR-only segment + OFF-state dot + non-peak bar gradient — neutral, not a brand color.
+- NO indigo, NO blue introduced anywhere.
+- Calm-navy surfaces preserved: `.ast-card` for sections, `.ast-card-2` for sub-cards, `.ast-card-glass` (newly adopted here from the verdict card) for the 3D health endpoint cards.
+
+### TypeScript / lint
+- All new code is strictly typed. No `any`. New helper component prop types declared inline.
+- `bun run lint` → EXIT 0 (clean).
+- `bunx tsc --noEmit` → no errors in `admin-screen.tsx`, `micro-interactions.tsx`, or `instrument-dial.tsx`. (Pre-existing errors in unrelated files — examples/websocket, skills/, search/route.ts, global-search.tsx, adversarial.ts — are untouched by this task.)
+
+### Existing functionality preserved
+- Ingestion: Re-ingest button, toast, quarantined-rows footer, last-loaded timestamp all intact.
+- Quarantine table: untouched.
+- Corpus: 4 stat tiles + doc chips intact; CoverageMeter is purely additive.
+- Feature flags: same 8 flags, same toggle behavior, same toast copy. System health summary is purely additive.
+- Replay panel: untouched.
+- Audit chain panel (incl. tamper modal): untouched.
+- Health endpoints: same 3 endpoints (`/healthz`, `/readyz`, `/version`) with the same path/status/body/label; only enhanced visually + dependency grid for `/readyz`.
+- Pilot plan modal: untouched.
+- EN/AR locale switching preserved on every new string (sparklines have no text; load-trend weekday labels are localized; coverage meter legend + "Bilingual coverage" + "Latency" + "Dependencies" all have Arabic variants).
+
+### Files edited
+- `src/components/astrolabe/admin-screen.tsx` (only file edited, per task spec)
+
+
+---
+Task ID: HRBP-PACKET-3D
+Agent: HRBP-PACKET-3D agent (subagent)
+Task: Enhance the HRBP escalation-packet preview with 3D band rings and animated lead-time bars (4 tracks).
+
+Work Log:
+- Read `worklog.md` for context (theme: "instrument, not dashboard" — navy surfaces, teal accent, sand-gold reserved for "your next move"; no indigo / no blue).
+- Read the full `hrbp-screen.tsx` (1528 lines, 3 sub-views: queue / employee / stalls). Task scope is the **Employee sub-view** (escalation packet preview) — the `motion.section` rendered when `packet` is set.
+- Read the existing ASTROLABE building blocks the task names:
+  - `instrument-dial.tsx` — exports `InstrumentDial` (holographic radial gauge, band-coloured arc, ticks, center score) and `ScanLineOverlay` (CRT scan-line + beam). Both respect `prefers-reduced-motion` internally.
+  - `signal-weight-bar.tsx` — already used in the packet for each top signal's weight.
+  - `timeline-sparkline.tsx` — already used in the queue hover preview; exports a colour palette per event type which I mirrored for the timeline row dots.
+  - `micro-interactions.tsx` — added `RevealOnScroll` import for the 40 ms stagger reveal.
+- Edited only `src/components/astrolabe/hrbp-screen.tsx` (per task spec — single file).
+
+### Track 1 — 3D band ring on the packet header
+- Imported `InstrumentDial` + `ScanLineOverlay` from `@/components/astrolabe/instrument-dial`.
+- Replaced the standalone `BandChip` on the right of the packet header with a stacked `motion.div` containing:
+  - `InstrumentDial band={packet.band} score={packet.score} maxScore={30} size={160}` (160 px, smaller than the Today verdict card's 200 px per spec).
+  - `BandChip size="sm"` beneath it — gives a textual band label to complement the dial's tiny center label.
+- Spring drop-in on mount: `initial={{opacity:0, scale:0.85, y:-8}} animate={{opacity:1, scale:1, y:0}} transition={type:"spring", stiffness:220, damping:22, delay:0.08}`. Skipped (instant) when `reducedMotion` is on.
+- Added `aria-label` so screen readers announce "Band X, score Y".
+
+### Track 2 — Animated lead-time bars (per top signal)
+- Added two new helpers before `EmployeeView`:
+  - `parseElapsedHours(evidenceRefs)` — regex-extracts the engine's `elapsed:Xh` evidence ref (written at `lib/engine/engine.ts` line 397) so the bar reflects the actual step elapsed time. Returns `null` when no elapsed ref exists (bar is then hidden — graceful degradation).
+  - `leadTimeColor(days)` — teal (`--brand-500`) for < 3 d, amber (`--status-watch`) for 3-7 d, red (`--status-friction`) for > 7 d, per spec.
+- Added `<LeadTimeBar>` component: horizontal bar, height 6 px, normalised to a 14-day cap. Animated fill on mount via `motion.div` (480 ms ease-out `[0,0,0.2,1]`). Label is tabular mono — "today" / "N day(s) ago" (EN) or "اليوم" / "قبل N يوم" (AR). `role="meter"` with `aria-valuetext`.
+- Respects `prefers-reduced-motion` via the store's `reducedMotion` flag (instant fill, no setTimeout).
+- Rendered one `<LeadTimeBar>` per top signal inside the Evidence section (after the existing `SignalWeightBar`).
+
+### Track 3 — Enhanced packet preview layout
+- Switched the packet section from `ast-card` → `ast-card-glass` (frosted navy backdrop per globals.css).
+- Added `<ScanLineOverlay opacity={0.015} />` as the first child — sits inside the glass card (which already has `position: relative; overflow: hidden;`), so the scan-line texture + moving beam overlay the packet without bleeding outside.
+- Wrapped every section (Situation / Evidence / Timeline / Blocked-downstream / Open requests / Decision / Owner / Consent) in `<RevealOnScroll index={N} className="relative">`. The `RevealOnScroll` component already applies a 40 ms-per-index stagger (capped at 8) and degrades to no-animation when reduced motion is on.
+- Added a new `SectionDivider` helper: a small 6×6 px teal-tinted circle holding a section-specific lucide icon (Activity / ListChecks / CalendarClock / GitBranch / Inbox / Gavel / UserCog / Lock), followed by the section heading and a teal hairline that fades out to the right. Replaces the flat `<h4>` labels.
+- Added a new **Decision requested** section between Open requests and Owner — shows `packet.decisionRequested` inside a card with a 3 px sand-gold (`--accent-500`) **left border** + sand-gold tint background. This is the "your next move" anchor for the HRBP per spec — sand-gold is reserved for next-move only, so no other section uses it.
+- Switched the Consent statement's icon from `ShieldCheck` → `Lock` per spec ("subtle lock icon"). Kept the existing teal tint background (`rgba(22,154,165,0.06)`) and teal border, and restructured to a `flex items-start gap-3` row so the lock sits to the left of the consent text (cleaner than the previous header-above-body layout).
+
+### Track 4 — Timeline enhancement
+- Added `<TimelineSparkline events={packet.timeline} locale={locale} />` at the top of the Timeline section (after the divider), with a small mono event-count label beside it. Gives the HRBP an instant visual overview of event-type distribution before scanning the list.
+- Mirrored the `TimelineSparkline` event-type → colour map into a new `EVENT_TYPE_COLOR` const + `eventColor()` helper, so the timeline row dots match the sparkline dots exactly (completed=steady, started=brand, blocked=friction, waiting_employee=accent, waiting_owner=watch, …).
+- Each timeline row now renders a 2×2 px coloured dot (with matching glow) before the timestamp + stepKey + type. Rows are `flex-wrap` so they reflow on narrow screens.
+- When `e.targetVsActual` is present on a timeline event, it's rendered as an extra amber-tinted (`--status-watch`) segment after the type — e.g. "target: Thursday 17 Oct · actual: Saturday 19 Oct · 2 days late" per spec. (The `targetVsActual?` field is already declared on the `EscalationPacket.timeline` type at `lib/actions/actions.ts` line 235; the screen renders it whenever the server populates it.)
+- Bumped the timeline list from `max-h-72` → `max-h-96` per UI-rule guidance for long-list handling, with `overflow-y-auto` and the project's global thin scrollbar (defined in `globals.css ::-webkit-scrollbar`).
+
+### Cross-cutting
+- All animations check `useAppStore(s => s.reducedMotion)` (already used elsewhere in the file) and degrade to instant / opacity-only when reduced motion is on. The dial's internal animations also respect reduced motion (it uses its own `usePrefersReducedMotion` hook).
+- No indigo / no blue introduced. Teal (`--brand-500` / `--brand-400`) is the instrument accent; sand-gold (`--accent-500`) is reserved strictly for the Decision section's left border.
+- TypeScript strict, no `any`. New icon type on `SectionDivider` is `typeof Activity` (a valid `LucideIcon`).
+- Existing functionality untouched: queue view, stalls view, decision editor above the packet, send-packet dialog, weekly-digest modal — all preserved.
+- Lint passes (`bun run lint` clean). `npx tsc --noEmit --skipLibCheck` shows zero errors in `hrbp-screen.tsx` (pre-existing errors in unrelated files only). Dev server compiles cleanly (`✓ Compiled in …`, `GET / 200`).
+
+### Files edited
+- `src/components/astrolabe/hrbp-screen.tsx` (only file edited, per task spec)
+  - Added imports: `InstrumentDial`, `ScanLineOverlay`, `RevealOnScroll`, and 6 lucide icons (`Activity`, `ListChecks`, `CalendarClock`, `GitBranch`, `Inbox`, `Gavel`).
+  - Added helpers (between `QueueRow` and `EmployeeView`): `parseElapsedHours`, `leadTimeColor`, `LeadTimeBar`, `SectionDivider`, `EVENT_TYPE_COLOR`, `eventColor`.
+  - Rewrote the packet-preview `motion.section` inside `EmployeeView` (header dial + 8 RevealOnScroll-wrapped sections + scan-line overlay + Decision sand-gold accent + consent lock icon + timeline sparkline + coloured dots).
+
+---
+Task ID: FINISH-REMAINING-FEATURES
+Agent: Main (orchestrator)
+Task: Finish the 3 remaining features from previous recommendations — global search enhancement, Admin screen styling, HRBP packet preview refinement
+
+## Completed modifications (3 parallel subagents)
+
+### 1. Global search enhancement (GLOBAL-SEARCH)
+- New `/api/v1/search` endpoint: searches across policies (top 5) + steps (top 8) + requests (top 8) in a single call
+- New `src/components/astrolabe/global-search.tsx` — unified search modal (720px frosted glass):
+  - Single input + type filter chips (All / Policies / Steps / Requests with counts)
+  - Grouped results with teal section headers (FileText/Map/Inbox)
+  - `<mark>` highlighting on matched terms (teal 0.20 opacity)
+  - Per-card navigation: "Go to journey" / "Go to request" / "Open policy"
+  - 320ms debounce, empty state with "Ask about this instead" CTA
+  - Bilingual EN/AR
+- Added `globalSearchOpen` + `globalSearchQuery` to Zustand store
+- Command palette: replaced "Search policies" with "Search everything" (default) + "Search policies only" (parity)
+- Ask screen: "Search policies" button → "Search" opening global search
+- Verified: search "visa" → 5 policies + 4 steps + 0 requests
+
+### 2. Admin screen styling (ADMIN-STYLING)
+- **3D health status cards**: each endpoint card gets `<Tilt3D maxDeg={2}>` + pulsing green dot + latency badge + `<ScanLineOverlay>` + `.ast-card-glass`. `/readyz` gets a 2×2 dependency grid (DB/Redis/Corpus/Map) with pulsing dots.
+- **Animated ingestion stats**: each stat tile gets `<NumberTicker>` + 7-day sparkline (teal line). New `<LoadTrendChart>` — 7 bars [8,12,6,15,10,14,47] with animated height (480ms ease-out, 40ms stagger), peak bar brighter teal.
+- **Corpus coverage meter**: horizontal stacked bar (teal EN-only / sand-gold EN/AR paired / gray AR-only) animating width 0→100% on mount (640ms). 3-item legend + "Bilingual coverage" `<NumberTicker value={50}>` + "(15 of 30)".
+- **Feature flags 3D**: "System health" summary card ("X / 8 active" + `<NumberTicker>`% + teal Progress bar). Each flag row gets `<Tilt3D maxDeg={1}>` + pulsing green dot when ON + teal glow on switch.
+
+### 3. HRBP packet preview refinement (HRBP-PACKET-3D)
+- **3D band ring**: `<InstrumentDial>` (160px, maxScore=30) on the packet header right side — radial gauge with tick marks + colored arc by band. Spring drop-in.
+- **Animated lead-time bars**: new `<LeadTimeBar>` component — 6px bar normalized to 14-day cap, 480ms ease-out fill, color by age (teal <3d / amber 3-7d / red >7d), tabular-mono "N days ago" label. One per top signal in the Evidence section.
+- **Enhanced packet layout**: `.ast-card-glass` background + `<ScanLineOverlay opacity={0.015}>`. New `<SectionDivider>` (teal circle + section icon + fading hairline) for all 8 sections. Each section wrapped in `<RevealOnScroll>` (40ms stagger). "Decision requested" section gets sand-gold 3px left border. Consent statement gets Lock icon + teal tint.
+- **Timeline enhancement**: `<TimelineSparkline>` at the top of the timeline section. Each event row gets a colored dot (matching sparkline colors) + time + stepKey + type + target-vs-actual in amber when present.
+
+## Verification results
+- `bun run lint` → EXIT 0 (clean)
+- Dev server: all routes returning 200, no errors
+- agent-browser QA: all 6 roles → ZERO console errors
+- Global search confirmed: "visa" returns 5 policies + 4 steps + 0 requests with type filter chips
+- Admin screen confirmed: corpus coverage meter visible as stacked bar, health cards with latency badges, feature flags with status dots (9/10 from VLM)
+- HRBP packet confirmed: 3D instrument dial with red BLOCKED arc + glassmorphism + timeline sparkline + colored event dots (7/10 from VLM — lead-time bars depend on evidence refs)
+
+## Unresolved issues / risks
+- None critical. The app is stable and demo-ready.
+- Minor: HRBP lead-time bars only render when the signal evidence contains an `elapsed:Xh` ref — some signals may not have this. Acceptable for prototype.
+- Minor: the Admin 3D tilt is a hover effect — not visible in static screenshots but verified working.

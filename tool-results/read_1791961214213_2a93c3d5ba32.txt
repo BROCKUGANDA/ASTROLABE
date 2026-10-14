@@ -1,0 +1,775 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→/* ============================================================
+     4→     4→   ASTROLABE — Global Policy Search (PRD §18-347)
+     5→     5→   A cross-corpus search across all 30 policy chunks (15 EN + 15 AR
+     6→     6→   across 8 docs). Tokenises the query with the engine's own
+     7→     7→   tokenizer, scores by token overlap + section/title boost, and
+     8→     8→   returns the top 10 with a matching-sentence snippet.
+     9→     9→
+    10→    10→   Surfaced as a modal from:
+    11→    11→     - the Ask screen header ("Search policies" button)
+    12→    12→     - the ⌘K command palette ("Search policies" quick action)
+    13→    13→
+    14→    14→   When zero results, offers an "Ask about this instead →" CTA that
+    15→    15→   hands the query to the Ask tab as a prefilled question.
+    16→    16→   ============================================================ */
+    17→    17→
+    18→    18→import { useCallback, useEffect, useMemo, useState } from "react";
+    19→    19→import { motion, AnimatePresence } from "framer-motion";
+    20→    20→import { format } from "date-fns";
+    21→    21→import {
+    22→    22→  Search,
+    23→    23→  X,
+    24→    24→  FileText,
+    25→    25→  AlertTriangle,
+    26→    26→  CornerUpRight,
+    27→    27→  Loader2,
+    28→    28→  ChevronRight,
+    29→    29→  Languages,
+    30→    30→} from "lucide-react";
+    31→    31→import { useAppStore } from "@/lib/store/app-store";
+    32→    32→import {
+    33→    33→  Dialog,
+    34→    34→  DialogContent,
+    35→    35→  DialogHeader,
+    36→    36→  DialogTitle,
+    37→    37→  DialogDescription,
+    38→    38→} from "@/components/ui/dialog";
+    39→    39→import { cn } from "@/lib/utils";
+    40→    40→import { NOW as PACK_NOW } from "@/lib/data/pack";
+    41→    41→
+    42→    42→/* ---------- Types (mirror the API envelope) ---------- */
+    43→    43→
+    44→    44→interface PolicyHit {
+    45→    45→  chunkId: string;
+    46→    46→  docSlug: string;
+    47→    47→  title: string;
+    48→    48→  titleAr: string;
+    49→    49→  section: string;
+    50→    50→  effectiveDate: string;
+    51→    51→  reviewDate: string;
+    52→    52→  lang: "en" | "ar";
+    53→    53→  snippet: string;
+    54→    54→  score: number;
+    55→    55→  matchedTerms: string[];
+    56→    56→}
+    57→    57→
+    58→    58→interface PolicySection {
+    59→    59→  section: string;
+    60→    60→  effectiveDate: string;
+    61→    61→  reviewDate: string;
+    62→    62→  lang: "en" | "ar";
+    63→    63→  text: string;
+    64→    64→}
+    65→    65→
+    66→    66→interface PolicyDoc {
+    67→    67→  docSlug: string;
+    68→    68→  title: string;
+    69→    69→  titleAr: string;
+    70→    70→  sections: PolicySection[];
+    71→    71→}
+    72→    72→
+    73→    73→interface ApiEnvelope<T> {
+    74→    74→  ok: boolean;
+    75→    75→  data: T | null;
+    76→    76→  meta: { requestId: string; asOf: string; servedFrom: string };
+    77→    77→  error: { code: string; message: string; hint?: string } | null;
+    78→    78→}
+    79→    79→
+    80→    80→/* ---------- Constants ---------- */
+    81→    81→
+    82→    82→const DOC_FILTERS: {
+    83→    83→  id: string;
+    84→    84→  label: string;
+    85→    85→  labelAr: string;
+    86→    86→  slug: string | null;
+    87→    87→}[] = [
+    88→    88→  { id: "all", label: "All", labelAr: "الكل", slug: null },
+    89→    89→  { id: "relocation", label: "Relocation", labelAr: "الانتقال", slug: "relocation-policy" },
+    90→    90→  { id: "immigration", label: "Immigration", labelAr: "الهجرة", slug: "immigration-policy" },
+    91→    91→  { id: "it", label: "IT", labelAr: "تقنية", slug: "it-policy" },
+    92→    92→  { id: "onboarding", label: "Onboarding", labelAr: "الالتحاق", slug: "onboarding-policy" },
+    93→    93→  { id: "learning", label: "Learning", labelAr: "التعلم", slug: "learning-policy" },
+    94→    94→  { id: "mobility", label: "Mobility", labelAr: "التنقل", slug: "mobility-policy" },
+    95→    95→  { id: "payroll", label: "Payroll", labelAr: "الرواتب", slug: "payroll-policy" },
+    96→    96→  { id: "facilities", label: "Facilities", labelAr: "المرافق", slug: "facilities-policy" },
+    97→    97→];
+    98→    98→
+    99→    99→const LANG_FILTERS: {
+   100→   100→  id: "en" | "ar" | "all";
+   101→   101→  label: string;
+   102→   102→  labelAr: string;
+   103→   103→}[] = [
+   104→   104→  { id: "all", label: "Both", labelAr: "الإثنتان" },
+   105→   105→  { id: "en", label: "EN", labelAr: "إنجليزي" },
+   106→   106→  { id: "ar", label: "AR", labelAr: "عربي" },
+   107→   107→];
+   108→   108→
+   109→   109→/* ---------- Helpers ---------- */
+   110→   110→
+   111→   111→/** Escape regex metachars in a term so we can build a literal matcher. */
+   112→   112→function escapeRegex(s: string): string {
+   113→   113→  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+   114→   114→}
+   115→   115→
+   116→   116→/**
+   117→   117→ * Split a sentence into segments so matched terms render with a teal
+   118→   118→ * highlight (0.3 opacity background) and the rest renders as plain text.
+   119→   119→ * Match is case-insensitive but preserves the original text casing.
+   120→   120→ */
+   121→   121→function highlightMatches(text: string, terms: string[]): React.ReactNode {
+   122→   122→  if (terms.length === 0) return text;
+   123→   123→  const sorted = [...terms].sort((a, b) => b.length - a.length);
+   124→   124→  const pattern = new RegExp(`(${sorted.map(escapeRegex).join("|")})`, "gi");
+   125→   125→  const parts = text.split(pattern);
+   126→   126→  return parts.map((part, i) => {
+   127→   127→    if (i % 2 === 1) {
+   128→   128→      return (
+   129→   129→        <mark
+   130→   130→          key={i}
+   131→   131→          className="rounded-[3px] px-0.5"
+   132→   132→          style={{
+   133→   133→            background: "rgba(22,154,165,0.30)",
+   134→   134→            color: "inherit",
+   135→   135→            borderBottom: "1px solid rgba(22,154,165,0.50)",
+   136→   136→          }}
+   137→   137→        >
+   138→   138→          {part}
+   139→   139→        </mark>
+   140→   140→      );
+   141→   141→    }
+   142→   142→    return <span key={i}>{part}</span>;
+   143→   143→  });
+   144→   144→}
+   145→   145→
+   146→   146→function isStale(reviewDate: string): boolean {
+   147→   147→  return new Date(reviewDate) < PACK_NOW;
+   148→   148→}
+   149→   149→
+   150→   150→/* ============================================================
+   151→   151→   PolicySearchModal — controlled by Zustand `policySearchOpen`
+   152→   152→   ============================================================ */
+   153→   153→
+   154→   154→export function PolicySearchModal() {
+   155→   155→  const open = useAppStore((s) => s.policySearchOpen);
+   156→   156→  const initialQuery = useAppStore((s) => s.policySearchInitialQuery);
+   157→   157→  const setOpen = useAppStore((s) => s.setPolicySearchOpen);
+   158→   158→  const locale = useAppStore((s) => s.locale);
+   159→   159→
+   160→   160→  return (
+   161→   161→    <Dialog open={open} onOpenChange={(v) => setOpen(v)}>
+   162→   162→      <DialogContent
+   163→   163→        className="sm:max-w-[760px] max-h-[88vh] overflow-hidden flex flex-col"
+   164→   164→        style={{
+   165→   165→          background: "var(--surface-1)",
+   166→   166→          border: "1px solid var(--border)",
+   167→   167→          color: "var(--text-hi)",
+   168→   168→        }}
+   169→   169→      >
+   170→   170→        <DialogHeader className="pr-8">
+   171→   171→          <DialogTitle
+   172→   172→            className="flex items-center gap-2 text-[16px] font-semibold"
+   173→   173→            style={{ color: "var(--text-hi)" }}
+   174→   174→          >
+   175→   175→            <Search className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+   176→   176→            {locale === "ar" ? "البحث في السياسات" : "Search policies"}
+   177→   177→          </DialogTitle>
+   178→   178→          <DialogDescription style={{ color: "var(--text-mid)" }}>
+   179→   179→            {locale === "ar"
+   180→   180→              ? "أبحث في كل سياساتك الرسمية. كل نتيجة تستشهد بمدى مطابقتها."
+   181→   181→              : "I search every official policy. Each result cites how strongly it matches."}
+   182→   182→          </DialogDescription>
+   183→   183→        </DialogHeader>
+   184→   184→        <PolicySearchBody
+   185→   185→          initialQuery={initialQuery}
+   186→   186→          onAskInstead={(q) => {
+   187→   187→            setOpen(false);
+   188→   188→            useAppStore.getState().setAskPrefill(q);
+   189→   189→            useAppStore.getState().setRole("employee");
+   190→   190→            useAppStore.getState().setView("ask");
+   191→   191→          }}
+   192→   192→          locale={locale}
+   193→   193→        />
+   194→   194→      </DialogContent>
+   195→   195→    </Dialog>
+   196→   196→  );
+   197→   197→}
+   198→   198→
+   199→   199→/* ============================================================
+   200→   200→   PolicySearchBody — the actual search UI
+   201→   201→   ============================================================ */
+   202→   202→
+   203→   203→function PolicySearchBody({
+   204→   204→  initialQuery,
+   205→   205→  onAskInstead,
+   206→   206→  locale,
+   207→   207→}: {
+   208→   208→  initialQuery?: string;
+   209→   209→  onAskInstead: (q: string) => void;
+   210→   210→  locale: "en" | "ar";
+   211→   211→}) {
+   212→   212→  const [query, setQuery] = useState(initialQuery ?? "");
+   213→   213→  const [docFilter, setDocFilter] = useState<string>("all");
+   214→   214→  const [langFilter, setLangFilter] = useState<"en" | "ar" | "all">("all");
+   215→   215→  const [hits, setHits] = useState<PolicyHit[] | null>(null);
+   216→   216→  const [loading, setLoading] = useState(false);
+   217→   217→  const [error, setError] = useState<string | null>(null);
+   218→   218→  const [openDoc, setOpenDoc] = useState<PolicyDoc | null>(null);
+   219→   219→  const [docLoading, setDocLoading] = useState(false);
+   220→   220→
+   221→   221→  // Sync incoming initialQuery when the modal opens with a prefilled query.
+   222→   222→  useEffect(() => {
+   223→   223→    if (initialQuery !== undefined) {
+   224→   224→      setQuery(initialQuery);
+   225→   225→    }
+   226→   226→  }, [initialQuery]);
+   227→   227→
+   228→   228→  const docSlug = useMemo(() => {
+   229→   229→    const f = DOC_FILTERS.find((d) => d.id === docFilter);
+   230→   230→    return f?.slug ?? null;
+   231→   231→  }, [docFilter]);
+   232→   232→
+   233→   233→  const runSearch = useCallback(async () => {
+   234→   234→    const q = query.trim();
+   235→   235→    if (q.length < 2) {
+   236→   236→      setHits(null);
+   237→   237→      setError(null);
+   238→   238→      return;
+   239→   239→    }
+   240→   240→    setLoading(true);
+   241→   241→    setError(null);
+   242→   242→    try {
+   243→   243→      const params = new URLSearchParams({
+   244→   244→        q,
+   245→   245→        lang: langFilter,
+   246→   246→      });
+   247→   247→      if (docSlug) params.set("doc", docSlug);
+   248→   248→      const res = await fetch(`/api/v1/policies/search?${params.toString()}`);
+   249→   249→      const json: ApiEnvelope<{ items: PolicyHit[]; total: number }> = await res.json();
+   250→   250→      if (!json.ok || !json.data) {
+   251→   251→        throw new Error(json.error?.message ?? "Search failed");
+   252→   252→      }
+   253→   253→      setHits(json.data.items);
+   254→   254→    } catch (err) {
+   255→   255→      setError(err instanceof Error ? err.message : "Network error");
+   256→   256→      setHits([]);
+   257→   257→    } finally {
+   258→   258→      setLoading(false);
+   259→   259→    }
+   260→   260→  }, [query, langFilter, docSlug]);
+   261→   261→
+   262→   262→  // Debounced auto-search — fire 320ms after the user stops typing.
+   263→   263→  useEffect(() => {
+   264→   264→    const t = setTimeout(() => {
+   265→   265→      runSearch();
+   266→   266→    }, 320);
+   267→   267→    return () => clearTimeout(t);
+   268→   268→  }, [runSearch]);
+   269→   269→
+   270→   270→  const handleOpenPolicy = useCallback(async (docSlugToOpen: string) => {
+   271→   271→    setDocLoading(true);
+   272→   272→    setError(null);
+   273→   273→    try {
+   274→   274→      const res = await fetch(`/api/v1/policies/${docSlugToOpen}`);
+   275→   275→      const json: ApiEnvelope<PolicyDoc> = await res.json();
+   276→   276→      if (!json.ok || !json.data) {
+   277→   277→        throw new Error(json.error?.message ?? "Couldn't open policy");
+   278→   278→      }
+   279→   279→      setOpenDoc(json.data);
+   280→   280→    } catch (err) {
+   281→   281→      setError(err instanceof Error ? err.message : "Network error");
+   282→   282→    } finally {
+   283→   283→      setDocLoading(false);
+   284→   284→    }
+   285→   285→  }, []);
+   286→   286→
+   287→   287→  const hasQuery = query.trim().length >= 2;
+   288→   288→  const showEmptyState = hasQuery && !loading && !error && hits !== null && hits.length === 0;
+   289→   289→
+   290→   290→  return (
+   291→   291→    <div className="flex-1 min-h-0 flex flex-col">
+   292→   292→      {/* Search input */}
+   293→   293→      <div
+   294→   294→        className="flex items-center gap-2 px-3 h-12 rounded-md"
+   295→   295→        style={{
+   296→   296→          background: "var(--surface-2)",
+   297→   297→          border: "1px solid var(--border)",
+   298→   298→        }}
+   299→   299→      >
+   300→   300→        <Search className="w-4 h-4 shrink-0" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+   301→   301→        <input
+   302→   302→          type="text"
+   303→   303→          value={query}
+   304→   304→          onChange={(e) => setQuery(e.target.value)}
+   305→   305→          autoFocus
+   306→   306→          aria-label={locale === "ar" ? "ابحث في السياسات" : "Search policies"}
+   307→   307→          placeholder={
+   308→   308→            locale === "ar"
+   309→   309→              ? "ابحث عن بدل، فيزا، رواتب، تدريب…"
+   310→   310→              : "Search for allowance, visa, payroll, training…"
+   311→   311→          }
+   312→   312→          className="flex-1 bg-transparent outline-none text-[14px] placeholder:opacity-50"
+   313→   313→          style={{ color: "var(--text-hi)" }}
+   314→   314→        />
+   315→   315→        {query && (
+   316→   316→          <button
+   317→   317→            type="button"
+   318→   318→            onClick={() => {
+   319→   319→              setQuery("");
+   320→   320→              setHits(null);
+   321→   321→            }}
+   322→   322→            aria-label={locale === "ar" ? "مسح" : "Clear"}
+   323→   323→            className="ast-focus inline-flex items-center justify-center w-6 h-6 rounded-md"
+   324→   324→            style={{ color: "var(--text-lo)" }}
+   325→   325→          >
+   326→   326→            <X className="w-3.5 h-3.5" strokeWidth={1.75} />
+   327→   327→          </button>
+   328→   328→        )}
+   329→   329→      </div>
+   330→   330→
+   331→   331→      {/* Filter strips */}
+   332→   332→      <div className="mt-3 space-y-2">
+   333→   333→        {/* Doc filter chips */}
+   334→   334→        <div className="flex items-center gap-1.5 flex-wrap">
+   335→   335→          <span
+   336→   336→            className="text-[10px] uppercase tracking-[0.14em] mr-1 shrink-0"
+   337→   337→            style={{ color: "var(--text-lo)" }}
+   338→   338→          >
+   339→   339→            {locale === "ar" ? "النوع" : "Type"}
+   340→   340→          </span>
+   341→   341→          <div
+   342→   342→            className="flex items-center gap-1 p-1 rounded-full overflow-x-auto max-w-full"
+   343→   343→            style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
+   344→   344→          >
+   345→   345→            {DOC_FILTERS.map((d) => {
+   346→   346→              const active = docFilter === d.id;
+   347→   347→              return (
+   348→   348→                <button
+   349→   349→                  key={d.id}
+   350→   350→                  type="button"
+   351→   351→                  onClick={() => setDocFilter(d.id)}
+   352→   352→                  aria-pressed={active}
+   353→   353→                  className="ast-focus inline-flex items-center h-7 px-2.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-colors"
+   354→   354→                  style={{
+   355→   355→                    background: active ? "var(--brand-500)" : "transparent",
+   356→   356→                    color: active ? "var(--surface-0)" : "var(--text-mid)",
+   357→   357→                  }}
+   358→   358→                >
+   359→   359→                  {locale === "ar" ? d.labelAr : d.label}
+   360→   360→                </button>
+   361→   361→              );
+   362→   362→            })}
+   363→   363→          </div>
+   364→   364→        </div>
+   365→   365→
+   366→   366→        {/* Lang filter chips */}
+   367→   367→        <div className="flex items-center gap-1.5 flex-wrap">
+   368→   368→          <span
+   369→   369→            className="text-[10px] uppercase tracking-[0.14em] mr-1 shrink-0 inline-flex items-center gap-1"
+   370→   370→            style={{ color: "var(--text-lo)" }}
+   371→   371→          >
+   372→   372→            <Languages className="w-3 h-3" strokeWidth={1.75} />
+   373→   373→            {locale === "ar" ? "اللغة" : "Lang"}
+   374→   374→          </span>
+   375→   375→          <div
+   376→   376→            className="inline-flex items-center gap-1 p-1 rounded-full"
+   377→   377→            style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
+   378→   378→          >
+   379→   379→            {LANG_FILTERS.map((l) => {
+   380→   380→              const active = langFilter === l.id;
+   381→   381→              return (
+   382→   382→                <button
+   383→   383→                  key={l.id}
+   384→   384→                  type="button"
+   385→   385→                  onClick={() => setLangFilter(l.id)}
+   386→   386→                  aria-pressed={active}
+   387→   387→                  className="ast-focus inline-flex items-center h-7 px-2.5 rounded-full text-[11px] font-medium transition-colors"
+   388→   388→                  style={{
+   389→   389→                    background: active ? "var(--brand-500)" : "transparent",
+   390→   390→                    color: active ? "var(--surface-0)" : "var(--text-mid)",
+   391→   391→                  }}
+   392→   392→                >
+   393→   393→                  {locale === "ar" ? l.labelAr : l.label}
+   394→   394→                </button>
+   395→   395→              );
+   396→   396→            })}
+   397→   397→          </div>
+   398→   398→        </div>
+   399→   399→      </div>
+   400→   400→
+   401→   401→      {/* Results list / empty state */}
+   402→   402→      <div className="mt-3 flex-1 min-h-0 overflow-y-auto pr-1 -mr-1">
+   403→   403→        {/* Error */}
+   404→   404→        {error && (
+   405→   405→          <div
+   406→   406→            className="p-3 rounded-md flex items-start gap-2 text-[12px]"
+   407→   407→            style={{
+   408→   408→              background: "rgba(220,38,38,0.08)",
+   409→   409→              border: "1px solid rgba(220,38,38,0.30)",
+   410→   410→              color: "var(--status-friction)",
+   411→   411→            }}
+   412→   412→            role="alert"
+   413→   413→          >
+   414→   414→            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" strokeWidth={1.75} />
+   415→   415→            <span>{error}</span>
+   416→   416→          </div>
+   417→   417→        )}
+   418→   418→
+   419→   419→        {/* Loading */}
+   420→   420→        {loading && (
+   421→   421→          <div className="flex items-center justify-center py-10 gap-2 text-[13px]" style={{ color: "var(--text-mid)" }}>
+   422→   422→            <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+   423→   423→            {locale === "ar" ? "أبحث في السياسات…" : "Searching policies…"}
+   424→   424→          </div>
+   425→   425→        )}
+   426→   426→
+   427→   427→        {/* Empty state */}
+   428→   428→        {showEmptyState && (
+   429→   429→          <div className="py-8 px-4 text-center">
+   430→   430→            <div
+   431→   431→              className="inline-flex items-center justify-center w-12 h-12 rounded-full mb-3"
+   432→   432→              style={{ background: "rgba(22,154,165,0.08)", color: "var(--brand-400)" }}
+   433→   433→            >
+   434→   434→              <Search className="w-5 h-5" strokeWidth={1.75} />
+   435→   435→            </div>
+   436→   436→            <p className="text-[14px] font-medium" style={{ color: "var(--text-hi)" }}>
+   437→   437→              {locale === "ar"
+   438→   438→                ? `لا تطابق أي سياسة «${query.trim()}». جرّب كلمات أخرى، أو اسألني مباشرة — سأجد الشخص المناسب.`
+   439→   439→                : `No policies match '${query.trim()}'. Try different words, or ask me directly — I'll find the right person.`}
+   440→   440→            </p>
+   441→   441→            <button
+   442→   442→              type="button"
+   443→   443→              onClick={() => onAskInstead(query.trim())}
+   444→   444→              className="ast-focus mt-4 inline-flex items-center gap-2 h-10 px-4 rounded-[10px] text-[13px] font-semibold transition-transform hover:-translate-y-0.5"
+   445→   445→              style={{
+   446→   446→                background: "var(--accent-500)",
+   447→   447→                color: "var(--surface-0)",
+   448→   448→                boxShadow: "0 4px 14px rgba(201,162,39,0.28)",
+   449→   449→              }}
+   450→   450→            >
+   451→   451→              <CornerUpRight className="w-4 h-4" strokeWidth={1.75} />
+   452→   452→              {locale === "ar" ? "اسأل عن هذا بدلاً من ذلك" : "Ask about this instead"}
+   453→   453→            </button>
+   454→   454→          </div>
+   455→   455→        )}
+   456→   456→
+   457→   457→        {/* Results */}
+   458→   458→        {!loading && !error && hits !== null && hits.length > 0 && (
+   459→   459→          <ul className="space-y-2">
+   460→   460→            <AnimatePresence initial={false}>
+   461→   461→              {hits.map((hit, i) => (
+   462→   462→                <motion.li
+   463→   463→                  key={hit.chunkId}
+   464→   464→                  initial={{ opacity: 0, y: 6 }}
+   465→   465→                  animate={{ opacity: 1, y: 0 }}
+   466→   466→                  exit={{ opacity: 0, y: -6 }}
+   467→   467→                  transition={{ duration: 0.16, delay: Math.min(i * 0.03, 0.18) }}
+   468→   468→                >
+   469→   469→                  <PolicyHitCard
+   470→   470→                    hit={hit}
+   471→   471→                    onOpenPolicy={() => handleOpenPolicy(hit.docSlug)}
+   472→   472→                    docLoading={docLoading}
+   473→   473→                    locale={locale}
+   474→   474→                  />
+   475→   475→                </motion.li>
+   476→   476→              ))}
+   477→   477→            </AnimatePresence>
+   478→   478→          </ul>
+   479→   479→        )}
+   480→   480→
+   481→   481→        {/* Initial state — no query yet */}
+   482→   482→        {!hasQuery && !loading && (
+   483→   483→          <div className="py-10 px-4 text-center">
+   484→   484→            <div
+   485→   485→              className="inline-flex items-center justify-center w-12 h-12 rounded-full mb-3"
+   486→   486→              style={{ background: "rgba(22,154,165,0.08)", color: "var(--brand-400)" }}
+   487→   487→            >
+   488→   488→              <FileText className="w-5 h-5" strokeWidth={1.75} />
+   489→   489→            </div>
+   490→   490→            <p className="text-[14px] font-medium" style={{ color: "var(--text-hi)" }}>
+   491→   491→              {locale === "ar"
+   492→   492→                ? "ابدأ الكتابة لأبحث في 8 وثائق سياسة."
+   493→   493→                : "Start typing to search across 8 policy documents."}
+   494→   494→            </p>
+   495→   495→            <p className="text-[12px] mt-1" style={{ color: "var(--text-lo)" }}>
+   496→   496→              {locale === "ar"
+   497→   497→                ? "بدل، فيزا، توفير تقنية، وصول، تسليم، رواتب، مرافق، تدريب."
+   498→   498→                : "Relocation, immigration, IT, access, handover, payroll, facilities, training."}
+   499→   499→            </p>
+   500→   500→          </div>
+   501→   501→        )}
+   502→   502→      </div>
+   503→   503→
+   504→   504→      {/* Open-policy modal (nested) */}
+   505→   505→      <AnimatePresence>
+   506→   506→        {openDoc && (
+   507→   507→          <motion.div
+   508→   508→            initial={{ opacity: 0 }}
+   509→   509→            animate={{ opacity: 1 }}
+   510→   510→            exit={{ opacity: 0 }}
+   511→   511→            transition={{ duration: 0.16 }}
+   512→   512→            className="absolute inset-0 z-10 flex items-center justify-center p-4"
+   513→   513→            style={{ background: "rgba(11,17,28,0.78)", backdropFilter: "blur(8px)" }}
+   514→   514→            onClick={() => setOpenDoc(null)}
+   515→   515→          >
+   516→   516→            <motion.div
+   517→   517→              initial={{ opacity: 0, scale: 0.97, y: 8 }}
+   518→   518→              animate={{ opacity: 1, scale: 1, y: 0 }}
+   519→   519→              exit={{ opacity: 0, scale: 0.97, y: 8 }}
+   520→   520→              transition={{ duration: 0.18 }}
+   521→   521→              onClick={(e) => e.stopPropagation()}
+   522→   522→              className="ast-card w-full max-w-[640px] max-h-[80vh] flex flex-col"
+   523→   523→              style={{ background: "var(--surface-1)" }}
+   524→   524→            >
+   525→   525→              <div
+   526→   526→                className="flex items-center justify-between gap-3 p-4 border-b"
+   527→   527→                style={{ borderColor: "var(--border)" }}
+   528→   528→              >
+   529→   529→                <div className="min-w-0">
+   530→   530→                  <p
+   531→   531→                    className="text-[10px] uppercase tracking-[0.14em]"
+   532→   532→                    style={{ color: "var(--brand-400)" }}
+   533→   533→                  >
+   534→   534→                    {locale === "ar" ? "وثيقة سياسة" : "Policy document"}
+   535→   535→                  </p>
+   536→   536→                  <h3
+   537→   537→                    className="text-[16px] font-semibold truncate"
+   538→   538→                    style={{ color: "var(--text-hi)" }}
+   539→   539→                  >
+   540→   540→                    {locale === "ar" ? openDoc.titleAr : openDoc.title}
+   541→   541→                  </h3>
+   542→   542→                </div>
+   543→   543→                <button
+   544→   544→                  type="button"
+   545→   545→                  onClick={() => setOpenDoc(null)}
+   546→   546→                  aria-label={locale === "ar" ? "إغلاق" : "Close"}
+   547→   547→                  className="ast-focus inline-flex items-center justify-center w-8 h-8 rounded-full"
+   548→   548→                  style={{
+   549→   549→                    background: "var(--surface-2)",
+   550→   550→                    border: "1px solid var(--border)",
+   551→   551→                    color: "var(--text-mid)",
+   552→   552→                  }}
+   553→   553→                >
+   554→   554→                  <X className="w-4 h-4" strokeWidth={1.75} />
+   555→   555→                </button>
+   556→   556→              </div>
+   557→   557→              <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
+   558→   558→                {openDoc.sections.map((s, i) => (
+   559→   559→                  <div key={i} className="ast-card-2 p-3">
+   560→   560→                    <div className="flex items-center justify-between gap-2 mb-1.5">
+   561→   561→                      <p
+   562→   562→                        className="text-[11px] font-mono tabular"
+   563→   563→                        style={{ color: "var(--brand-400)" }}
+   564→   564→                        dir="ltr"
+   565→   565→                      >
+   566→   566→                        §{s.section}
+   567→   567→                      </p>
+   568→   568→                      <span
+   569→   569→                        className="text-[10px] uppercase tracking-[0.12em] tabular"
+   570→   570→                        style={{ color: "var(--text-lo)" }}
+   571→   571→                      >
+   572→   572→                        {s.lang.toUpperCase()} · {format(new Date(s.effectiveDate), "d MMM yyyy")}
+   573→   573→                      </span>
+   574→   574→                    </div>
+   575→   575→                    <p
+   576→   576→                      className="text-[13px] leading-relaxed"
+   577→   577→                      style={{ color: "var(--text-hi)" }}
+   578→   578→                      dir={s.lang === "ar" ? "rtl" : "ltr"}
+   579→   579→                    >
+   580→   580→                      {s.text}
+   581→   581→                    </p>
+   582→   582→                  </div>
+   583→   583→                ))}
+   584→   584→              </div>
+   585→   585→            </motion.div>
+   586→   586→          </motion.div>
+   587→   587→        )}
+   588→   588→      </AnimatePresence>
+   589→   589→    </div>
+   590→   590→  );
+   591→   591→}
+   592→   592→
+   593→   593→/* ============================================================
+   594→   594→   Single hit card
+   595→   595→   ============================================================ */
+   596→   596→
+   597→   597→function PolicyHitCard({
+   598→   598→  hit,
+   599→   599→  onOpenPolicy,
+   600→   600→  docLoading,
+   601→   601→  locale,
+   602→   602→}: {
+   603→   603→  hit: PolicyHit;
+   604→   604→  onOpenPolicy: () => void;
+   605→   605→  docLoading: boolean;
+   606→   606→  locale: "en" | "ar";
+   607→   607→}) {
+   608→   608→  const stale = isStale(hit.reviewDate);
+   609→   609→  return (
+   610→   610→    <article className="ast-card-2 p-3.5">
+   611→   611→      {/* Title row */}
+   612→   612→      <div className="flex items-start justify-between gap-3">
+   613→   613→        <div className="min-w-0 flex-1">
+   614→   614→          <p
+   615→   615→            className="text-[12px] font-semibold truncate"
+   616→   616→            style={{ color: "var(--text-hi)" }}
+   617→   617→          >
+   618→   618→            {locale === "ar" ? hit.titleAr : hit.title}
+   619→   619→            <span className="opacity-60"> · </span>
+   620→   620→            <span className="font-mono tabular" style={{ color: "var(--brand-400)" }}>
+   621→   621→              §{hit.section}
+   622→   622→            </span>
+   623→   623→          </p>
+   624→   624→          <div className="mt-1 flex items-center flex-wrap gap-2 text-[10px]">
+   625→   625→            <span
+   626→   626→              className="inline-flex items-center gap-1 tabular"
+   627→   627→              style={{ color: "var(--text-lo)" }}
+   628→   628→            >
+   629→   629→              {locale === "ar" ? "ساري منذ" : "Effective"}{" "}
+   630→   630→              {format(new Date(hit.effectiveDate), "d MMM yyyy")}
+   631→   631→            </span>
+   632→   632→            {stale && (
+   633→   633→              <span
+   634→   634→                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md tabular"
+   635→   635→                style={{
+   636→   636→                  color: "var(--status-watch)",
+   637→   637→                  background: "rgba(217,119,6,0.10)",
+   638→   638→                  border: "1px solid rgba(217,119,6,0.30)",
+   639→   639→                }}
+   640→   640→                title={
+   641→   641→                  locale === "ar"
+   642→   642→                    ? "تجاوزت مراجعة هذه السياسة — يُرجى التأكيد مع المالك"
+   643→   643→                    : "Past review date — confirm with the owner"
+   644→   644→                }
+   645→   645→              >
+   646→   646→                <AlertTriangle className="w-2.5 h-2.5" strokeWidth={1.75} />
+   647→   647→                {locale === "ar" ? "قديمة" : "stale"}
+   648→   648→              </span>
+   649→   649→            )}
+   650→   650→            <span
+   651→   651→              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md tabular"
+   652→   652→              style={{
+   653→   653→                color: "var(--text-lo)",
+   654→   654→                background: "var(--surface-2)",
+   655→   655→                border: "1px solid var(--border)",
+   656→   656→              }}
+   657→   657→            >
+   658→   658→              {hit.lang.toUpperCase()}
+   659→   659→            </span>
+   660→   660→          </div>
+   661→   661→        </div>
+   662→   662→        {/* Score */}
+   663→   663→        <div className="shrink-0 text-right">
+   664→   664→          <p
+   665→   665→            className="text-[9px] uppercase tracking-[0.12em]"
+   666→   666→            style={{ color: "var(--text-lo)" }}
+   667→   667→          >
+   668→   668→            {locale === "ar" ? "تطابق" : "Match"}
+   669→   669→          </p>
+   670→   670→          <p
+   671→   671→            className="text-[18px] font-semibold tabular leading-none mt-0.5"
+   672→   672→            style={{
+   673→   673→              color:
+   674→   674→                hit.score >= 70
+   675→   675→                  ? "var(--brand-400)"
+   676→   676→                  : hit.score >= 40
+   677→   677→                    ? "var(--accent-500)"
+   678→   678→                    : "var(--text-mid)",
+   679→   679→            }}
+   680→   680→            dir="ltr"
+   681→   681→          >
+   682→   682→            {hit.score}%
+   683→   683→          </p>
+   684→   684→        </div>
+   685→   685→      </div>
+   686→   686→
+   687→   687→      {/* Snippet — highlighted matching sentence */}
+   688→   688→      <p
+   689→   689→        className="mt-2.5 text-[13px] leading-relaxed"
+   690→   690→        style={{ color: "var(--text-mid)" }}
+   691→   691→        dir={hit.lang === "ar" ? "rtl" : "ltr"}
+   692→   692→      >
+   693→   693→        “{highlightMatches(hit.snippet, hit.matchedTerms)}”
+   694→   694→      </p>
+   695→   695→
+   696→   696→      {/* Matched terms + open-policy CTA */}
+   697→   697→      <div className="mt-3 pt-2.5 flex items-center justify-between gap-2 flex-wrap" style={{ borderTop: "1px solid var(--border-soft)" }}>
+   698→   698→        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+   699→   699→          {hit.matchedTerms.slice(0, 5).map((t) => (
+   700→   700→            <span
+   701→   701→              key={t}
+   702→   702→              className="ast-chip"
+   703→   703→              style={{
+   704→   704→                color: "var(--brand-400)",
+   705→   705→                background: "rgba(22,154,165,0.06)",
+   706→   706→                borderColor: "rgba(22,154,165,0.22)",
+   707→   707→                height: 20,
+   708→   708→                fontSize: 10,
+   709→   709→                paddingInline: 6,
+   710→   710→              }}
+   711→   711→            >
+   712→   712→              {t}
+   713→   713→            </span>
+   714→   714→          ))}
+   715→   715→        </div>
+   716→   716→        <button
+   717→   717→          type="button"
+   718→   718→          onClick={onOpenPolicy}
+   719→   719→          disabled={docLoading}
+   720→   720→          className="ast-focus inline-flex items-center gap-1 h-8 px-3 rounded-full text-[12px] font-medium transition-colors disabled:opacity-50"
+   721→   721→          style={{
+   722→   722→            color: "var(--brand-400)",
+   723→   723→            background: "rgba(22,154,165,0.08)",
+   724→   724→            border: "1px solid rgba(22,154,165,0.25)",
+   725→   725→          }}
+   726→   726→        >
+   727→   727→          <FileText className="w-3.5 h-3.5" strokeWidth={1.75} />
+   728→   728→          {locale === "ar" ? "افتح السياسة" : "Open policy"}
+   729→   729→          <ChevronRight className="w-3 h-3" strokeWidth={1.75} />
+   730→   730→        </button>
+   731→   731→      </div>
+   732→   732→    </article>
+   733→   733→  );
+   734→   734→}
+   735→   735→
+   736→   736→/* ============================================================
+   737→   737→   Trigger button — for embedding in other screens
+   738→   738→   ============================================================ */
+   739→   739→
+   740→   740→export function PolicySearchTriggerButton({
+   741→   741→  locale,
+   742→   742→  variant = "ghost",
+   743→   743→}: {
+   744→   744→  locale: "en" | "ar";
+   745→   745→  variant?: "ghost" | "solid";
+   746→   746→}) {
+   747→   747→  const setOpen = useAppStore((s) => s.setPolicySearchOpen);
+   748→   748→  return (
+   749→   749→    <button
+   750→   750→      type="button"
+   751→   751→      onClick={() => setOpen(true)}
+   752→   752→      aria-label={locale === "ar" ? "ابحث في السياسات" : "Search policies"}
+   753→   753→      className={cn(
+   754→   754→        "ast-focus inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium transition-colors",
+   755→   755→      )}
+   756→   756→      style={
+   757→   757→        variant === "solid"
+   758→   758→          ? {
+   759→   759→              background: "var(--brand-500)",
+   760→   760→              color: "var(--surface-0)",
+   761→   761→              border: "1px solid var(--brand-500)",
+   762→   762→            }
+   763→   763→          : {
+   764→   764→              background: "var(--surface-2)",
+   765→   765→              color: "var(--text-mid)",
+   766→   766→              border: "1px solid var(--border)",
+   767→   767→            }
+   768→   768→      }
+   769→   769→    >
+   770→   770→      <Search className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: variant === "solid" ? "var(--surface-0)" : "var(--brand-400)" }} />
+   771→   771→      <span>{locale === "ar" ? "ابحث في السياسات" : "Search policies"}</span>
+   772→   772→    </button>
+   773→   773→  );
+   774→   774→}
+   775→   775→

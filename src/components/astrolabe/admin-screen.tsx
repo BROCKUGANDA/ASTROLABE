@@ -8,7 +8,7 @@
    ============================================================ */
 
 import { useCallback, useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { format } from "date-fns";
 import {
   Database,
@@ -46,6 +46,12 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { PilotPlanPage } from "@/components/astrolabe/pilot-plan-page";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  NumberTicker,
+  Tilt3D,
+  RevealOnScroll,
+} from "@/components/astrolabe/micro-interactions";
+import { ScanLineOverlay } from "@/components/astrolabe/instrument-dial";
 
 /* ---------- Types ---------- */
 
@@ -82,11 +88,26 @@ const INGESTION_ROWS: IngestionStat[] = [
   { label: "Employees", labelAr: "الموظفون", count: 5 },
   { label: "Journey events", labelAr: "أحداث الرحلة", count: 32 },
   { label: "Service requests", labelAr: "طلبات الخدمة", count: 3 },
-  { label: "Policy chunks", labelAr: "أجزاء السياسة", count: 17 },
+  { label: "Policy chunks", labelAr: "أجزاء السياسة", count: 30 },
   { label: "Pulse responses", labelAr: "ردود النبضة", count: 2 },
   { label: "Consent records", labelAr: "سجلات الموافقة", count: 6 },
 ];
 const INGESTION_TOTAL = INGESTION_ROWS.reduce((a, r) => a + r.count, 0);
+
+/** 7-day synthetic ingestion trends; last point matches each row's `count`. */
+const INGESTION_SPARKLINES: number[][] = [
+  [3, 4, 4, 5, 5, 5, 5],
+  [22, 25, 28, 30, 31, 32, 32],
+  [1, 2, 2, 2, 3, 3, 3],
+  [22, 24, 25, 27, 28, 29, 30],
+  [1, 1, 2, 2, 2, 2, 2],
+  [4, 4, 5, 5, 6, 6, 6],
+];
+
+/** 7-bar synthetic daily load counts for the load-trend chart. */
+const LOAD_TREND: number[] = [8, 12, 6, 15, 10, 14, 47];
+const LOAD_TREND_DAYS: string[] = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
+const LOAD_TREND_DAYS_AR: string[] = ["السبت", "الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"];
 
 interface CorpusDoc {
   slug: string;
@@ -103,9 +124,10 @@ const CORPUS_DOCS: CorpusDoc[] = [
   { slug: "payroll-policy", label: "Payroll", labelAr: "الرواتب" },
   { slug: "facilities-policy", label: "Facilities", labelAr: "المرافق" },
 ];
-const CORPUS_CHUNKS = 17;
-const CORPUS_BILINGUAL_PAIRS = 2;
-const CORPUS_EN_ONLY = 13;
+const CORPUS_CHUNKS = 30;
+const CORPUS_BILINGUAL_PAIRS = 15;
+const CORPUS_EN_ONLY = 15;
+const CORPUS_AR_ONLY = 0;
 
 interface FeatureFlag {
   key: string;
@@ -144,17 +166,37 @@ const AUDIT_EVENTS: AuditEventRow[] = [
   { id: "ae-005", actor: "system", action: "escalation", subject: "escalation", subjectId: "ESC-2024-038", hash: "0x789f0a2c4e1b9d33", prevHash: "0x456b1d8ace2f7741", at: "2024-10-19T14:14:55Z" },
 ];
 
+interface HealthDependency {
+  key: string;
+  label: string;
+  labelAr: string;
+}
 interface HealthEndpoint {
   path: string;
   status: number;
   body: string;
   label: string;
   labelAr: string;
+  latencyMs: number;
+  dependencies?: HealthDependency[];
 }
 const HEALTH_ENDPOINTS: HealthEndpoint[] = [
-  { path: "GET /healthz", status: 200, body: "ok", label: "Liveness", labelAr: "الحيوية" },
-  { path: "GET /readyz", status: 200, body: "DB ✓ · Redis ✓ · Corpus ✓ · Map ✓", label: "Readiness", labelAr: "الجاهزية" },
-  { path: "GET /version", status: 200, body: "v1.0.0", label: "Version", labelAr: "الإصدار" },
+  { path: "GET /healthz", status: 200, body: "ok", label: "Liveness", labelAr: "الحيوية", latencyMs: 8 },
+  {
+    path: "GET /readyz",
+    status: 200,
+    body: "DB ✓ · Redis ✓ · Corpus ✓ · Map ✓",
+    label: "Readiness",
+    labelAr: "الجاهزية",
+    latencyMs: 12,
+    dependencies: [
+      { key: "db", label: "DB", labelAr: "ق.البيانات" },
+      { key: "redis", label: "Redis", labelAr: "ريديس" },
+      { key: "corpus", label: "Corpus", labelAr: "النصوص" },
+      { key: "map", label: "Map", labelAr: "الخريطة" },
+    ],
+  },
+  { path: "GET /version", status: 200, body: "v1.0.0", label: "Version", labelAr: "الإصدار", latencyMs: 5 },
 ];
 
 const ALL_EMPLOYEE_IDS = ["E-1042", "E-1043", "E-1044", "E-1045", "E-1046"];
@@ -334,6 +376,439 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
 }
 
 /* ============================================================
+   3D / animation helpers — admin enhancements
+   (Tracks 1–4: pulsing steady dot, sparkline, load trend chart,
+   coverage meter, ingestion stat tile, health endpoint card,
+   feature flag row)
+   ============================================================ */
+
+/** Pulsing green "steady" status dot. Used on health endpoint cards
+ *  and feature flag rows when ON. Renders static when reduced motion. */
+function PulsingSteadyDot({ size = 8 }: { size?: number }) {
+  const reduce = useReducedMotion();
+  if (reduce) {
+    return (
+      <span
+        className="inline-block rounded-full shrink-0"
+        style={{
+          width: size,
+          height: size,
+          background: "var(--status-steady)",
+          boxShadow: "0 0 8px rgba(14,159,110,0.60)",
+        }}
+        aria-hidden="true"
+      />
+    );
+  }
+  return (
+    <span
+      className="relative inline-flex items-center justify-center shrink-0"
+      style={{ width: size, height: size }}
+      aria-hidden="true"
+    >
+      <motion.span
+        className="absolute inset-0 rounded-full"
+        style={{ background: "rgba(14,159,110,0.50)" }}
+        animate={{ scale: [1, 2.4], opacity: [0.6, 0] }}
+        transition={{ duration: 1.8, repeat: Infinity, ease: "easeOut" }}
+      />
+      <span
+        className="relative rounded-full"
+        style={{
+          width: size,
+          height: size,
+          background: "var(--status-steady)",
+          boxShadow: "0 0 8px rgba(14,159,110,0.70)",
+        }}
+      />
+    </span>
+  );
+}
+
+/** Small teal sparkline (7-day synthetic trend) for ingestion stat tiles. */
+function Sparkline({
+  data,
+  width = 88,
+  height = 22,
+}: {
+  data: number[];
+  width?: number;
+  height?: number;
+}) {
+  const reduce = useReducedMotion();
+  const max = Math.max(...data, 1);
+  const min = Math.min(...data, 0);
+  const range = max - min || 1;
+  const stepX = width / Math.max(data.length - 1, 1);
+  const pts: Array<[number, number]> = data.map((v, i) => {
+    const x = i * stepX;
+    const y = height - ((v - min) / range) * (height - 4) - 2;
+    return [x, y];
+  });
+  const path = pts
+    .map(([x, y], i) => `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`)
+    .join(" ");
+  const last = pts[pts.length - 1];
+  if (!last) return null;
+  return (
+    <svg width={width} height={height} className="block" aria-hidden="true">
+      <motion.path
+        d={path}
+        fill="none"
+        stroke="var(--brand-400)"
+        strokeWidth={1.4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        initial={reduce ? { pathLength: 1 } : { pathLength: 0 }}
+        animate={{ pathLength: 1 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+      />
+      <motion.circle
+        cx={last[0]}
+        cy={last[1]}
+        r={1.6}
+        fill="var(--brand-400)"
+        initial={reduce ? { opacity: 1 } : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: reduce ? 0 : 0.45, duration: 0.2 }}
+      />
+    </svg>
+  );
+}
+
+/** 7-bar daily load trend chart with mount animation (Track 2). */
+function LoadTrendChart() {
+  const locale = useAppStore((s) => s.locale);
+  const reduce = useReducedMotion();
+  const max = Math.max(...LOAD_TREND, 1);
+  const total = LOAD_TREND.reduce((a, b) => a + b, 0);
+  return (
+    <RevealOnScroll index={0}>
+      <div
+        className="mt-4 pt-4"
+        style={{ borderTop: "1px solid var(--border-soft)" }}
+      >
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <span
+            className="text-[10px] uppercase tracking-[0.12em]"
+            style={{ color: "var(--text-lo)" }}
+          >
+            {locale === "ar" ? "اتجاه التحميل · ٧ أيام" : "Load trend · 7 days"}
+          </span>
+          <span
+            className="text-[11px] font-mono tabular"
+            style={{ color: "var(--text-mid)" }}
+            dir="ltr"
+          >
+            Σ {total}
+          </span>
+        </div>
+        <div className="flex items-end gap-2 h-28">
+          {LOAD_TREND.map((v, i) => {
+            const h = (v / max) * 100;
+            const isPeak = v === max;
+            return (
+              <div
+                key={i}
+                className="flex-1 flex flex-col items-center gap-1.5 min-w-0 h-full"
+              >
+                <div className="relative w-full flex-1 flex items-end">
+                  <motion.div
+                    className="w-full rounded-t-[3px] relative"
+                    style={{
+                      background: isPeak
+                        ? "linear-gradient(180deg, var(--brand-400), var(--brand-500))"
+                        : "linear-gradient(180deg, rgba(47,181,191,0.55), rgba(22,154,165,0.75))",
+                      boxShadow: "0 0 8px rgba(22,154,165,0.20)",
+                    }}
+                    initial={reduce ? { height: `${h}%` } : { height: "0%" }}
+                    animate={{ height: `${h}%` }}
+                    transition={{
+                      duration: 0.48,
+                      ease: "easeOut",
+                      delay: reduce ? 0 : i * 0.04,
+                    }}
+                  >
+                    <span
+                      className="absolute -top-4 left-1/2 -translate-x-1/2 text-[9px] font-mono tabular"
+                      style={{
+                        color: isPeak ? "var(--brand-400)" : "var(--text-lo)",
+                      }}
+                      dir="ltr"
+                    >
+                      {v}
+                    </span>
+                  </motion.div>
+                </div>
+                <span
+                  className="text-[9px] font-mono tabular"
+                  style={{ color: "var(--text-lo)" }}
+                >
+                  {locale === "ar" ? LOAD_TREND_DAYS_AR[i] : LOAD_TREND_DAYS[i]}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </RevealOnScroll>
+  );
+}
+
+/** Horizontal stacked corpus coverage meter (Track 3). */
+function CoverageMeter({
+  enOnly,
+  bilingual,
+  arOnly,
+  total,
+  locale,
+}: {
+  enOnly: number;
+  bilingual: number;
+  arOnly: number;
+  total: number;
+  locale: "en" | "ar";
+}) {
+  const reduce = useReducedMotion();
+  const safeTotal = total || 1;
+  const enOnlyPct = (enOnly / safeTotal) * 100;
+  const bilingualPct = (bilingual / safeTotal) * 100;
+  const arOnlyPct = (arOnly / safeTotal) * 100;
+  const bilingualCoveragePct = Math.round(bilingualPct);
+  const legend: Array<{
+    color: string;
+    label: string;
+    labelAr: string;
+    count: number;
+    dim?: boolean;
+  }> = [
+    { color: "var(--brand-500)", label: "EN-only", labelAr: "إنجليزي فقط", count: enOnly },
+    { color: "var(--accent-500)", label: "EN/AR paired", labelAr: "أزواج ثنائية", count: bilingual },
+    { color: "var(--text-lo)", label: "AR-only", labelAr: "عربي فقط", count: arOnly, dim: true },
+  ];
+  return (
+    <div className="mt-4">
+      <div className="flex items-center justify-between mb-2">
+        <span
+          className="text-[10px] uppercase tracking-[0.12em]"
+          style={{ color: "var(--text-lo)" }}
+        >
+          {locale === "ar" ? "التغطية اللغوية" : "Coverage meter"}
+        </span>
+        <span
+          className="text-[11px] font-mono tabular"
+          style={{ color: "var(--text-mid)" }}
+          dir="ltr"
+        >
+          {total} chunks
+        </span>
+      </div>
+      <div
+        className="relative h-3 rounded-full overflow-hidden"
+        style={{ background: "var(--surface-3)" }}
+        role="img"
+        aria-label={
+          locale === "ar"
+            ? `إنجليزي فقط ${enOnlyPct.toFixed(0)}%، أزواج ثنائية ${bilingualPct.toFixed(0)}%، عربي فقط ${arOnlyPct.toFixed(0)}%`
+            : `EN-only ${enOnlyPct.toFixed(0)}%, EN/AR paired ${bilingualPct.toFixed(0)}%, AR-only ${arOnlyPct.toFixed(0)}%`
+        }
+      >
+        <motion.div
+          className="absolute inset-y-0 left-0 flex"
+          style={{ width: "100%" }}
+          initial={reduce ? { width: "100%" } : { width: "0%" }}
+          animate={{ width: "100%" }}
+          transition={{ duration: 0.64, ease: [0.2, 0.8, 0.2, 1] }}
+        >
+          <div style={{ width: `${enOnlyPct}%`, background: "var(--brand-500)" }} />
+          <div style={{ width: `${bilingualPct}%`, background: "var(--accent-500)" }} />
+          <div
+            style={{ width: `${arOnlyPct}%`, background: "var(--text-lo)", opacity: 0.35 }}
+          />
+        </motion.div>
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3">
+        {legend.map((item) => (
+          <div key={item.label} className="flex items-center gap-1.5">
+            <span
+              className="w-2 h-2 rounded-full shrink-0"
+              style={{ background: item.color, opacity: item.dim ? 0.5 : 1 }}
+              aria-hidden="true"
+            />
+            <span className="text-[11px]" style={{ color: "var(--text-mid)" }}>
+              {locale === "ar" ? item.labelAr : item.label}
+            </span>
+            <span
+              className="text-[11px] font-mono tabular"
+              style={{ color: "var(--text-hi)" }}
+              dir="ltr"
+            >
+              {item.count}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div
+        className="flex items-center justify-between mt-4 pt-3"
+        style={{ borderTop: "1px solid var(--border-soft)" }}
+      >
+        <span
+          className="text-[11px] uppercase tracking-[0.12em]"
+          style={{ color: "var(--text-lo)" }}
+        >
+          {locale === "ar" ? "التغطية الثنائية" : "Bilingual coverage"}
+        </span>
+        <div className="flex items-baseline gap-1.5">
+          <span
+            className="text-[22px] font-semibold tabular"
+            style={{ color: "var(--accent-500)" }}
+            dir="ltr"
+          >
+            <NumberTicker value={bilingualCoveragePct} suffix="%" />
+          </span>
+          <span
+            className="text-[11px] font-mono tabular"
+            style={{ color: "var(--text-lo)" }}
+            dir="ltr"
+          >
+            {locale === "ar"
+              ? `(${bilingual} من ${total})`
+              : `(${bilingual} of ${total})`}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Spring drop-in ingestion stat tile with NumberTicker + sparkline. */
+function IngestionStatTile({
+  row,
+  index,
+  spark,
+  locale,
+}: {
+  row: IngestionStat;
+  index: number;
+  spark: number[];
+  locale: "en" | "ar";
+}) {
+  const reduce = useReducedMotion();
+  return (
+    <motion.div
+      className="ast-card-2 p-3 flex flex-col gap-1.5"
+      initial={reduce ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        type: "spring",
+        stiffness: 240,
+        damping: 22,
+        delay: reduce ? 0 : index * 0.04,
+      }}
+    >
+      <p
+        className="text-[10px] uppercase tracking-[0.12em]"
+        style={{ color: "var(--text-lo)" }}
+      >
+        {locale === "ar" ? row.labelAr : row.label}
+      </p>
+      <p
+        className="text-[22px] font-semibold tabular"
+        style={{ color: "var(--text-hi)" }}
+        dir="ltr"
+      >
+        <NumberTicker value={row.count} />
+      </p>
+      <div className="mt-0.5">
+        <Sparkline data={spark} />
+      </div>
+    </motion.div>
+  );
+}
+
+/** Spring drop-in feature flag row with Tilt3D, status dot, and switch glow. */
+function FeatureFlagRow({
+  flag,
+  isOn,
+  onToggle,
+  locale,
+  index,
+}: {
+  flag: FeatureFlag;
+  isOn: boolean;
+  onToggle: () => void;
+  locale: "en" | "ar";
+  index: number;
+}) {
+  const reduce = useReducedMotion();
+  return (
+    <motion.li
+      initial={reduce ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        type: "spring",
+        stiffness: 260,
+        damping: 22,
+        delay: reduce ? 0 : index * 0.03,
+      }}
+      className="list-none"
+    >
+      <Tilt3D maxDeg={1}>
+        <div
+          className="ast-card-2 p-3 flex items-center justify-between gap-3 relative overflow-hidden"
+          style={{
+            borderColor: isOn ? "rgba(22,154,165,0.28)" : "var(--border)",
+            background: isOn ? "rgba(22,154,165,0.04)" : "var(--surface-2)",
+          }}
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              {isOn ? (
+                <PulsingSteadyDot size={6} />
+              ) : (
+                <span
+                  className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                  style={{ background: "var(--text-lo)", opacity: 0.6 }}
+                  aria-hidden="true"
+                />
+              )}
+              <span className="font-mono text-[12px] tabular" style={{ color: "var(--text-hi)" }} dir="ltr">{flag.key}</span>
+              <span
+                className="ast-chip text-[10px]"
+                style={{
+                  color: isOn ? "var(--status-steady)" : "var(--text-lo)",
+                  background: isOn ? "rgba(14,159,110,0.10)" : "var(--surface-3)",
+                  borderColor: isOn ? "rgba(14,159,110,0.30)" : "var(--border)",
+                }}
+              >
+                {isOn ? (locale === "ar" ? "مفعّل" : "ON") : (locale === "ar" ? "معطّل" : "OFF")}
+              </span>
+            </div>
+            <p className="text-[12px] mt-0.5" style={{ color: "var(--text-mid)" }}>
+              {locale === "ar" ? flag.descriptionAr : flag.description}
+            </p>
+          </div>
+          <div
+            className="relative shrink-0"
+            style={{
+              filter: isOn ? "drop-shadow(0 0 6px rgba(22,154,165,0.50))" : "none",
+              transition: "filter 220ms var(--ease-standard)",
+            }}
+          >
+            <Switch
+              checked={isOn}
+              onCheckedChange={onToggle}
+              aria-label={flag.key}
+              className="ast-focus"
+            />
+          </div>
+        </div>
+      </Tilt3D>
+    </motion.li>
+  );
+}
+
+/* ============================================================
    Section: Ingestion report
    ============================================================ */
 function IngestionReportCard() {
@@ -390,15 +865,14 @@ function IngestionReportCard() {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 mb-4">
-        {INGESTION_ROWS.map((row) => (
-          <div key={row.label} className="ast-card-2 p-3">
-            <p className="text-[10px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
-              {locale === "ar" ? row.labelAr : row.label}
-            </p>
-            <p className="text-[22px] font-semibold tabular mt-1" style={{ color: "var(--text-hi)" }} dir="ltr">
-              {row.count}
-            </p>
-          </div>
+        {INGESTION_ROWS.map((row, i) => (
+          <IngestionStatTile
+            key={row.label}
+            row={row}
+            index={i}
+            spark={INGESTION_SPARKLINES[i] ?? []}
+            locale={locale}
+          />
         ))}
       </div>
 
@@ -419,6 +893,8 @@ function IngestionReportCard() {
           {locale === "ar" ? "آخر تحميل" : "Last loaded"}: {shortDate(LAST_LOADED, locale)}
         </p>
       </div>
+
+      <LoadTrendChart />
     </section>
   );
 }
@@ -600,6 +1076,14 @@ function CorpusVersionCard() {
           </span>
         ))}
       </div>
+
+      <CoverageMeter
+        enOnly={CORPUS_EN_ONLY}
+        bilingual={CORPUS_BILINGUAL_PAIRS}
+        arOnly={CORPUS_AR_ONLY}
+        total={CORPUS_CHUNKS}
+        locale={locale}
+      />
     </section>
   );
 }
@@ -625,6 +1109,7 @@ function FeatureFlagsPanel() {
   };
 
   const onCount = Object.values(flags).filter(Boolean).length;
+  const healthPct = Math.round((onCount / FEATURE_FLAGS.length) * 100);
 
   return (
     <section className="ast-card p-5 sm:p-6 ast-fade-rise">
@@ -649,45 +1134,42 @@ function FeatureFlagsPanel() {
         </div>
       </div>
 
+      {/* System health summary */}
+      <div className="ast-card-2 p-3 mb-3">
+        <div className="flex items-center justify-between mb-2 gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Activity className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--status-steady)" }} />
+            <span className="text-[12px] font-medium truncate" style={{ color: "var(--text-mid)" }}>
+              {locale === "ar" ? "صحة النظام" : "System health"}
+            </span>
+            <span className="text-[12px] font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">
+              {onCount} / {FEATURE_FLAGS.length} {locale === "ar" ? "مفعّل" : "active"}
+            </span>
+          </div>
+          <span
+            className="text-[14px] font-semibold tabular"
+            style={{
+              color: onCount === FEATURE_FLAGS.length ? "var(--status-steady)" : "var(--text-hi)",
+            }}
+            dir="ltr"
+          >
+            <NumberTicker value={healthPct} suffix="%" />
+          </span>
+        </div>
+        <Progress value={healthPct} className="h-1.5" />
+      </div>
+
       <ul className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-        {FEATURE_FLAGS.map((f) => {
-          const isOn = flags[f.key];
-          return (
-            <li
-              key={f.key}
-              className="ast-card-2 p-3 flex items-center justify-between gap-3"
-              style={{
-                borderColor: isOn ? "rgba(22,154,165,0.28)" : "var(--border)",
-                background: isOn ? "rgba(22,154,165,0.04)" : "var(--surface-2)",
-              }}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-[12px] tabular" style={{ color: "var(--text-hi)" }} dir="ltr">{f.key}</span>
-                  <span
-                    className="ast-chip text-[10px]"
-                    style={{
-                      color: isOn ? "var(--status-steady)" : "var(--text-lo)",
-                      background: isOn ? "rgba(14,159,110,0.10)" : "var(--surface-3)",
-                      borderColor: isOn ? "rgba(14,159,110,0.30)" : "var(--border)",
-                    }}
-                  >
-                    {isOn ? (locale === "ar" ? "مفعّل" : "ON") : (locale === "ar" ? "معطّل" : "OFF")}
-                  </span>
-                </div>
-                <p className="text-[12px] mt-0.5" style={{ color: "var(--text-mid)" }}>
-                  {locale === "ar" ? f.descriptionAr : f.description}
-                </p>
-              </div>
-              <Switch
-                checked={isOn}
-                onCheckedChange={() => toggle(f)}
-                aria-label={f.key}
-                className="ast-focus shrink-0"
-              />
-            </li>
-          );
-        })}
+        {FEATURE_FLAGS.map((f, i) => (
+          <FeatureFlagRow
+            key={f.key}
+            flag={f}
+            isOn={!!flags[f.key]}
+            onToggle={() => toggle(f)}
+            locale={locale}
+            index={i}
+          />
+        ))}
       </ul>
     </section>
   );
@@ -1424,6 +1906,128 @@ function AuditChainPanel() {
 /* ============================================================
    Section: Health endpoints
    ============================================================ */
+
+/** 3D glass health endpoint card with pulsing dot, latency badge,
+ *  scan-line texture, and 2×2 dependency grid (for /readyz). */
+function HealthEndpointCard({
+  ep,
+  index,
+  locale,
+}: {
+  ep: HealthEndpoint;
+  index: number;
+  locale: "en" | "ar";
+}) {
+  const reduce = useReducedMotion();
+  return (
+    <motion.div
+      initial={reduce ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        type: "spring",
+        stiffness: 220,
+        damping: 22,
+        delay: reduce ? 0 : index * 0.06,
+      }}
+      className="h-full"
+    >
+      <Tilt3D maxDeg={2} className="h-full">
+        <div className="ast-card-glass relative overflow-hidden p-4 flex flex-col gap-3 h-full">
+          <ScanLineOverlay opacity={0.015} />
+          <div className="relative flex items-center justify-between gap-2">
+            <code
+              className="font-mono text-[11px] tabular"
+              style={{ color: "var(--brand-400)" }}
+              dir="ltr"
+            >
+              {ep.path}
+            </code>
+            <div className="flex items-center gap-1.5">
+              <PulsingSteadyDot size={7} />
+              <span
+                className="inline-flex items-center gap-1 text-[10px] font-mono tabular px-1.5 py-0.5 rounded"
+                style={{
+                  color: "var(--status-steady)",
+                  background: "rgba(14,159,110,0.10)",
+                  border: "1px solid rgba(14,159,110,0.30)",
+                }}
+                dir="ltr"
+              >
+                {ep.status} OK
+              </span>
+            </div>
+          </div>
+          <div className="relative">
+            <p
+              className="text-[10px] uppercase tracking-[0.1em]"
+              style={{ color: "var(--text-lo)" }}
+            >
+              {locale === "ar" ? ep.labelAr : ep.label}
+            </p>
+            <p
+              className="text-[12px] font-mono tabular mt-0.5"
+              style={{ color: "var(--text-hi)" }}
+              dir="ltr"
+            >
+              {ep.body}
+            </p>
+          </div>
+          <div className="relative flex items-center justify-between gap-2 mt-auto pt-1">
+            <span
+              className="text-[10px] uppercase tracking-[0.12em]"
+              style={{ color: "var(--text-lo)" }}
+            >
+              {locale === "ar" ? "زمن الاستجابة" : "Latency"}
+            </span>
+            <span
+              className="text-[11px] font-mono tabular px-1.5 py-0.5 rounded"
+              style={{
+                color: "var(--text-hi)",
+                background: "var(--surface-3)",
+                border: "1px solid var(--border)",
+              }}
+              dir="ltr"
+            >
+              {ep.latencyMs}ms
+            </span>
+          </div>
+          {ep.dependencies && ep.dependencies.length > 0 && (
+            <div className="relative">
+              <p
+                className="text-[10px] uppercase tracking-[0.12em] mb-1.5"
+                style={{ color: "var(--text-lo)" }}
+              >
+                {locale === "ar" ? "الفحوص" : "Dependencies"}
+              </p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {ep.dependencies.map((dep) => (
+                  <div
+                    key={dep.key}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-md"
+                    style={{
+                      background: "var(--surface-3)",
+                      border: "1px solid var(--border-soft)",
+                    }}
+                  >
+                    <PulsingSteadyDot size={6} />
+                    <span
+                      className="text-[10px] font-mono tabular truncate"
+                      style={{ color: "var(--text-mid)" }}
+                      dir="ltr"
+                    >
+                      {locale === "ar" ? dep.labelAr : dep.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </Tilt3D>
+    </motion.div>
+  );
+}
+
 function HealthEndpoints() {
   const locale = useAppStore((s) => s.locale);
   return (
@@ -1445,27 +2049,9 @@ function HealthEndpoints() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-        {HEALTH_ENDPOINTS.map((ep) => (
-          <div key={ep.path} className="ast-card-2 p-3 flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-2">
-              <code className="font-mono text-[11px] tabular" style={{ color: "var(--brand-400)" }} dir="ltr">{ep.path}</code>
-              <span
-                className="inline-flex items-center gap-1 text-[10px] font-mono tabular px-1.5 py-0.5 rounded"
-                style={{ color: "var(--status-steady)", background: "rgba(14,159,110,0.10)", border: "1px solid rgba(14,159,110,0.30)" }}
-                dir="ltr"
-              >
-                <span className="ast-dot ast-dot-steady" aria-hidden="true" />
-                {ep.status} OK
-              </span>
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
-                {locale === "ar" ? ep.labelAr : ep.label}
-              </p>
-              <p className="text-[12px] font-mono tabular mt-0.5" style={{ color: "var(--text-hi)" }} dir="ltr">{ep.body}</p>
-            </div>
-          </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-stretch">
+        {HEALTH_ENDPOINTS.map((ep, i) => (
+          <HealthEndpointCard key={ep.path} ep={ep} index={i} locale={locale} />
         ))}
       </div>
     </section>

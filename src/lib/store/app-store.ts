@@ -42,9 +42,17 @@ export interface AppState {
   activeRequestType?: string;
 
   // PRD §18-347 — global policy search modal (opens from Ask screen header
-  // and the ⌘K command palette).
+  // and the ⌘K command palette). Kept for backward compatibility — the
+  // global search (below) is now the default entry point.
   policySearchOpen: boolean;
   policySearchInitialQuery?: string;
+
+  // PRD §18-347 — global cross-corpus search modal (policies + steps +
+  // requests). Opens from the ⌘K command palette ("Search everything") and
+  // the Ask screen header "Search" button. Replaces the policy-only search
+  // as the default; the policy-only modal is kept for parity.
+  globalSearchOpen: boolean;
+  globalSearchQuery?: string;
 
   // PRD §18-347 — prefilled question for the Ask tab (set when the user
   // clicks "Ask about this instead" inside the policy search modal).
@@ -68,6 +76,7 @@ export interface AppState {
   setActiveEscalation: (id?: string) => void;
   setActiveRequestType: (t?: string) => void;
   setPolicySearchOpen: (open: boolean, initialQuery?: string) => void;
+  setGlobalSearchOpen: (open: boolean, query?: string) => void;
   setAskPrefill: (q?: string) => void;
 }
 
@@ -89,6 +98,7 @@ export const useAppStore = create<AppState>()(
       asOfOffsetHours: 0,
       commandPaletteOpen: false,
       policySearchOpen: false,
+      globalSearchOpen: false,
 
       setRole: (r) => set({ role: r }),
       setEmployee: (id) => set({ currentEmployeeId: id }),
@@ -108,6 +118,8 @@ export const useAppStore = create<AppState>()(
       setActiveRequestType: (t) => set({ activeRequestType: t }),
       setPolicySearchOpen: (open, initialQuery) =>
         set({ policySearchOpen: open, policySearchInitialQuery: open ? initialQuery : undefined }),
+      setGlobalSearchOpen: (open, query) =>
+        set({ globalSearchOpen: open, globalSearchQuery: open ? query : undefined }),
       setAskPrefill: (q) => set({ askPrefill: q }),
     }),
     {

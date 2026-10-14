@@ -1,0 +1,1528 @@
+     1→"use client";
+     2→
+     3→/* ============================================================
+     4→   ASTROLABE — HRBP Screen (early-warning console, PRD §10, §14)
+     5→   Three sub-views via `hrbpView`:
+     6→     · queue    — ranked band-severity list with claim + open-packet
+     7→     · employee — escalation packet preview with consent statement
+     8→     · stalls   — stage × owner-group heatmap with k≥5 suppression
+     9→   HRBP queue never shows free-text comments. Pulse summary only
+    10→   shared when employee opted in (server-enforced).
+    11→   ============================================================ */
+    12→
+    13→import { useCallback, useEffect, useMemo, useState } from "react";
+    14→import { motion, AnimatePresence } from "framer-motion";
+    15→import { format } from "date-fns";
+    16→import {
+    17→  ListOrdered,
+    18→  User,
+    19→  Grid3X3,
+    20→  ChevronRight,
+    21→  AlertTriangle,
+    22→  RotateCcw,
+    23→  Clock,
+    24→  Hand,
+    25→  Send,
+    26→  Edit3,
+    27→  UserCog,
+    28→  ShieldCheck,
+    29→  Lock,
+    30→  CheckCircle2,
+    31→  ArrowLeft,
+    32→  Info,
+    33→  Hourglass,
+    34→  Filter,
+    35→  RefreshCw,
+    36→  Mail,
+    37→} from "lucide-react";
+    38→import { useAppStore } from "@/lib/store/app-store";
+    39→import {
+    40→  BandChip,
+    41→  SignalBadge,
+    42→  StatusChip,
+    43→  type Band as BandT,
+    44→} from "@/components/astrolabe/widgets";
+    45→import { HrbpDigestModal } from "@/components/astrolabe/hrbp-digest-modal";
+    46→import {
+    47→  Tilt3D,
+    48→  NumberTicker,
+    49→} from "@/components/astrolabe/micro-interactions";
+    50→import { SignalWeightBar } from "@/components/astrolabe/signal-weight-bar";
+    51→import { TimelineSparkline } from "@/components/astrolabe/timeline-sparkline";
+    52→import {
+    53→  Select,
+    54→  SelectContent,
+    55→  SelectItem,
+    56→  SelectTrigger,
+    57→  SelectValue,
+    58→} from "@/components/ui/select";
+    59→import {
+    60→  Dialog,
+    61→  DialogContent,
+    62→  DialogDescription,
+    63→  DialogFooter,
+    64→  DialogHeader,
+    65→  DialogTitle,
+    66→  DialogClose,
+    67→} from "@/components/ui/dialog";
+    68→import { Textarea } from "@/components/ui/textarea";
+    69→import { toast } from "sonner";
+    70→import { cn } from "@/lib/utils";
+    71→import { hrbps as ALL_HRBPS } from "@/lib/data/pack";
+    72→
+    73→/* ---------- Types ---------- */
+    74→
+    75→type Purpose = "journey_assistance" | "pulse_capture" | "share_pulse_summary" | "comment_retention" | "aggregate_analytics" | "manager_visibility";
+    76→
+    77→interface QueueItem {
+    78→  employeeId: string;
+    79→  employeeName: string;
+    80→  journeyType: "onboarding" | "mobility";
+    81→  stage: string;
+    82→  band: BandT;
+    83→  score: number;
+    84→  topSignals: { code: string; weight: number; description: string }[];
+    85→  /** Last 10 events for the hover-expand preview sparkline. */
+    86→  recentEvents?: { occurredAt: string; type: string }[];
+    87→  leadTimeHours: number;
+    88→  suggestedOwner: { id: string; name: string; role: string; email: string } | null;
+    89→}
+    90→
+    91→interface Assessment {
+    92→  employeeId: string;
+    93→  asOf: string;
+    94→  band: BandT;
+    95→  score: number;
+    96→  signals: { code: string; family: string; weight: number; description: string; descriptionAr: string; evidenceRefs: string[]; hardTrip?: boolean; forceBlocked?: boolean }[];
+    97→  suppressedFamilies: string[];
+    98→  stage: string;
+    99→  dayInStage: number;
+   100→}
+   101→
+   102→interface EngineTrace {
+   103→  stageInference: { stage: string; reason: string };
+   104→  signalsFired: { code: string; weight: number; family: string; evidence: string[] }[];
+   105→  signalsSuppressed: { family: string; reason: string }[];
+   106→  band: { score: number; band: BandT; hardTrips: string[]; forcedBlocked: boolean };
+   107→  nextBestStep: { stepKey: string; reason: string } | null;
+   108→  servedFrom: string;
+   109→  degraded: string[];
+   110→}
+   111→
+   112→interface EscalationPacket {
+   113→  id: string;
+   114→  employeeId: string;
+   115→  employeeName: string;
+   116→  journeyType: string;
+   117→  stage: string;
+   118→  dayInStage: number;
+   119→  locale: string;
+   120→  band: string;
+   121→  score: number;
+   122→  topSignals: { code: string; weight: number; description: string; evidenceRefs: string[] }[];
+   123→  timeline: { occurredAt: string; stepKey: string; type: string; targetVsActual?: string }[];
+   124→  blockedDownstream: string[];
+   125→  openRequests: { ref: string; type: string; ownerGroup: string; ageHours: number; reassignCount: number }[];
+   126→  decisionRequested: string;
+   127→  namedOwner: { id: string; name: string; role: string; email: string };
+   128→  backupOwner?: { id: string; name: string; role: string; email: string };
+   129→  consentStatement: {
+   130→    sharedWithHrbp: string[];
+   131→    withheld: string[];
+   132→    freeTextExcluded: boolean;
+   133→  };
+   134→  createdAt: string;
+   135→}
+   136→
+   137→interface StallsCell {
+   138→  stage: string;
+   139→  ownerGroup: string;
+   140→  suppressed: boolean;
+   141→  reason?: string;
+   142→  n?: number;
+   143→  employeeCount?: number;
+   144→  medianTimeToCompleteHours?: number;
+   145→  breachRate?: number;
+   146→  reassignmentRate?: number;
+   147→}
+   148→
+   149→interface ApiEnvelope<T> {
+   150→  ok: boolean;
+   151→  data: T | null;
+   152→  meta: { requestId: string; asOf: string; servedFrom: string };
+   153→  error: { code: string; message: string; hint?: string } | null;
+   154→}
+   155→
+   156→/* ---------- Stage labels ---------- */
+   157→const STAGE_LABELS: Record<string, { en: string; ar: string }> = {
+   158→  pre_boarding: { en: "Pre-boarding", ar: "ما قبل الالتحاق" },
+   159→  visa_processing: { en: "Visa Processing", ar: "معالجة التأشيرة" },
+   160→  first_day: { en: "First Day", ar: "اليوم الأول" },
+   161→  first_week: { en: "First Week", ar: "الأسبوع الأول" },
+   162→  first_90: { en: "First 90 Days", ar: "أول 90 يوماً" },
+   163→  transfer_approved: { en: "Transfer Approved", ar: "تمت الموافقة على النقل" },
+   164→  handover: { en: "Handover", ar: "التسليم" },
+   165→  effective_date: { en: "Effective Date", ar: "تاريخ السريان" },
+   166→  settle_new_role: { en: "Settling In", ar: "الاستقرار" },
+   167→};
+   168→
+   169→function stageLabel(key: string, locale: "en" | "ar"): string {
+   170→  const e = STAGE_LABELS[key];
+   171→  if (!e) return key;
+   172→  return locale === "ar" ? e.ar : e.en;
+   173→}
+   174→
+   175→function bandSortIndex(b: BandT): number {
+   176→  return { steady: 0, watch: 1, friction: 2, blocked: 3 }[b];
+   177→}
+   178→
+   179→/* ============================================================
+   180→   Skeleton
+   181→   ============================================================ */
+   182→function QueueSkeleton() {
+   183→  return (
+   184→    <div className="space-y-3" aria-hidden="true">
+   185→      {Array.from({ length: 4 }).map((_, i) => (
+   186→        <div key={i} className="ast-card p-4 h-24 ast-shimmer rounded-[12px]" />
+   187→      ))}
+   188→    </div>
+   189→  );
+   190→}
+   191→
+   192→function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+   193→  return (
+   194→    <div
+   195→      className="ast-card p-5 flex flex-col sm:flex-row sm:items-center gap-4"
+   196→      role="alert"
+   197→      style={{ borderColor: "rgba(220,38,38,0.4)" }}
+   198→    >
+   199→      <div
+   200→        className="flex items-center justify-center w-11 h-11 rounded-full shrink-0"
+   201→        style={{ background: "rgba(220,38,38,0.12)", color: "var(--status-friction)" }}
+   202→      >
+   203→        <AlertTriangle className="w-5 h-5" strokeWidth={1.75} />
+   204→      </div>
+   205→      <div className="flex-1 min-w-0">
+   206→        <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+   207→          The queue can&apos;t be loaded right now.
+   208→        </p>
+   209→        <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>{message}</p>
+   210→      </div>
+   211→      <button
+   212→        onClick={onRetry}
+   213→        className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium shrink-0"
+   214→        style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+   215→      >
+   216→        <RotateCcw className="w-4 h-4" strokeWidth={1.75} />
+   217→        Retry
+   218→      </button>
+   219→    </div>
+   220→  );
+   221→}
+   222→
+   223→/* ============================================================
+   224→   Sub-view tabs
+   225→   ============================================================ */
+   226→function HrbpTabs() {
+   227→  const locale = useAppStore((s) => s.locale);
+   228→  const view = useAppStore((s) => s.hrbpView);
+   229→  const setView = useAppStore((s) => s.setHrbpView);
+   230→  const TABS: { id: typeof view; label: string; labelAr: string; Icon: typeof ListOrdered }[] = [
+   231→    { id: "queue", label: "Queue", labelAr: "القائمة", Icon: ListOrdered },
+   232→    { id: "employee", label: "Packet", labelAr: "الطرد", Icon: User },
+   233→    { id: "stalls", label: "Stalls", labelAr: "الاختناقات", Icon: Grid3X3 },
+   234→  ];
+   235→  return (
+   236→    <div
+   237→      className="inline-flex items-center gap-1 p-1 rounded-full"
+   238→      style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
+   239→      role="tablist"
+   240→    >
+   241→      {TABS.map((t) => {
+   242→        const Icon = t.Icon;
+   243→        const isActive = view === t.id;
+   244→        return (
+   245→          <button
+   246→            key={t.id}
+   247→            onClick={() => setView(t.id)}
+   248→            aria-selected={isActive}
+   249→            role="tab"
+   250→            className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 sm:px-4 rounded-full text-[12px] font-medium transition-colors"
+   251→            style={{
+   252→              background: isActive ? "var(--brand-500)" : "transparent",
+   253→              color: isActive ? "var(--surface-0)" : "var(--text-mid)",
+   254→            }}
+   255→          >
+   256→            <Icon className="w-3.5 h-3.5" strokeWidth={1.75} />
+   257→            <span className="hidden sm:inline">{locale === "ar" ? t.labelAr : t.label}</span>
+   258→          </button>
+   259→        );
+   260→      })}
+   261→    </div>
+   262→  );
+   263→}
+   264→
+   265→/* ============================================================
+   266→   Queue view
+   267→   ============================================================ */
+   268→function QueueView({ onOpenPacket }: { onOpenPacket: (employeeId: string) => void }) {
+   269→  const locale = useAppStore((s) => s.locale);
+   270→  const [items, setItems] = useState<QueueItem[] | null>(null);
+   271→  const [err, setErr] = useState<string | null>(null);
+   272→  const [loading, setLoading] = useState(true);
+   273→  const [claiming, setClaiming] = useState<string | null>(null);
+   274→
+   275→  const fetchQ = useCallback(async () => {
+   276→    setLoading(true);
+   277→    setErr(null);
+   278→    try {
+   279→      const res = await fetch("/api/v1/hrbp/queue", { cache: "no-store" });
+   280→      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+   281→      const json: ApiEnvelope<{ items: QueueItem[] }> = await res.json();
+   282→      if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
+   283→      setItems(json.data.items);
+   284→    } catch (e) {
+   285→      setErr(e instanceof Error ? e.message : "Network error");
+   286→    } finally {
+   287→      setLoading(false);
+   288→    }
+   289→  }, []);
+   290→
+   291→  useEffect(() => { fetchQ(); }, [fetchQ]);
+   292→
+   293→  const handleClaim = useCallback(async (item: QueueItem) => {
+   294→    setClaiming(item.employeeId);
+   295→    // Fake audit-event write — there's no API yet, so we just simulate the receipt.
+   296→    await new Promise((r) => setTimeout(r, 320));
+   297→    toast.success("Case claimed by Fatima — employee notified", {
+   298→      description: `${item.employeeName} · ${item.employeeId}`,
+   299→    });
+   300→    setClaiming(null);
+   301→  }, []);
+   302→
+   303→  if (loading) return <QueueSkeleton />;
+   304→  if (err) return <ErrorBanner message={err} onRetry={fetchQ} />;
+   305→  if (!items) return null;
+   306→
+   307→  const active = items.filter((i) => bandSortIndex(i.band) >= 2); // friction + blocked
+   308→  const rest = items.filter((i) => bandSortIndex(i.band) < 2);
+   309→
+   310→  return (
+   311→    <div>
+   312→      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+   313→        <div>
+   314→          <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
+   315→            {locale === "ar" ? "قائمة أول من يحتاج مساعدة" : "Who needs help first"}
+   316→          </h2>
+   317→          <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+   318→            {locale === "ar"
+   319→              ? `${active.length} موظف في احتكاك أو أعلى اليوم.`
+   320→              : `${active.length} employee${active.length === 1 ? "" : "s"} in Friction or above today.`}
+   321→          </p>
+   322→        </div>
+   323→        <button
+   324→          onClick={fetchQ}
+   325→          className="ast-focus inline-flex items-center gap-2 h-9 px-3 rounded-full text-[12px] font-medium"
+   326→          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}
+   327→        >
+   328→          <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.75} />
+   329→          {locale === "ar" ? "تحديث" : "Refresh"}
+   330→        </button>
+   331→      </div>
+   332→
+   333→      {active.length === 0 ? (
+   334→        <div className="ast-card p-10 flex flex-col items-center text-center">
+   335→          <div
+   336→            className="flex items-center justify-center w-14 h-14 rounded-full mb-4"
+   337→            style={{ background: "rgba(14,159,110,0.10)", color: "var(--status-steady)" }}
+   338→          >
+   339→            <CheckCircle2 className="w-6 h-6" strokeWidth={1.75} />
+   340→          </div>
+   341→          <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+   342→            {locale === "ar" ? "لا أحد في احتكاك أو أعلى اليوم." : "No one in Friction or above today."}
+   343→          </p>
+   344→          <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+   345→            {locale === "ar" ? "تحقق لاحقاً، أو تصفّح بقية القائمة أدناه." : "Check back later, or browse the watch list below."}
+   346→          </p>
+   347→        </div>
+   348→      ) : (
+   349→        <ul className="space-y-3 mb-8">
+   350→          {active.map((item, i) => (
+   351→            <QueueRow
+   352→              key={item.employeeId}
+   353→              item={item}
+   354→              rank={i + 1}
+   355→              index={i}
+   356→              claiming={claiming === item.employeeId}
+   357→              onClaim={() => handleClaim(item)}
+   358→              onOpen={() => onOpenPacket(item.employeeId)}
+   359→            />
+   360→          ))}
+   361→        </ul>
+   362→      )}
+   363→
+   364→      {/* Watch + steady (collapsed by default-ish) */}
+   365→      {rest.length > 0 && (
+   366→        <details className="ast-card p-4" style={{ borderColor: "var(--border-soft)" }}>
+   367→          <summary className="cursor-pointer text-[13px] font-medium flex items-center gap-2" style={{ color: "var(--text-mid)" }}>
+   368→            <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.75} />
+   369→            {locale === "ar"
+   370→              ? `${rest.length} موظف تحت المراقبة أو مستقر`
+   371→              : `${rest.length} on watch or steady`}
+   372→          </summary>
+   373→          <ul className="mt-3 space-y-2">
+   374→            {rest.map((item, i) => (
+   375→              <QueueRow
+   376→                key={item.employeeId}
+   377→                item={item}
+   378→                rank={active.length + i + 1}
+   379→                index={i}
+   380→                claiming={claiming === item.employeeId}
+   381→                onClaim={() => handleClaim(item)}
+   382→                onOpen={() => onOpenPacket(item.employeeId)}
+   383→                compact
+   384→              />
+   385→            ))}
+   386→          </ul>
+   387→        </details>
+   388→      )}
+   389→    </div>
+   390→  );
+   391→}
+   392→
+   393→function QueueRow({
+   394→  item,
+   395→  rank,
+   396→  index,
+   397→  claiming,
+   398→  onClaim,
+   399→  onOpen,
+   400→  compact = false,
+   401→}: {
+   402→  item: QueueItem;
+   403→  rank: number;
+   404→  index: number;
+   405→  claiming: boolean;
+   406→  onClaim: () => void;
+   407→  onOpen: () => void;
+   408→  compact?: boolean;
+   409→}) {
+   410→  const locale = useAppStore((s) => s.locale);
+   411→  const reducedMotion = useAppStore((s) => s.reducedMotion);
+   412→  const leadDays = Math.max(0, Math.round(item.leadTimeHours / 24));
+   413→
+   414→  // Hover-expand state.
+   415→  // Desktop (pointer: fine) → hover reveals preview.
+   416→  // Mobile  (pointer: coarse) → tap chevron toggles preview.
+   417→  const [isHover, setIsHover] = useState(false);
+   418→  const [isTapped, setIsTapped] = useState(false);
+   419→
+   420→  // Band → accent colour (left bar + glow).
+   421→  const bandAccent: Record<BandT, string> = {
+   422→    steady: "var(--status-steady)",
+   423→    watch: "var(--status-watch)",
+   424→    friction: "var(--status-friction)",
+   425→    blocked: "var(--status-blocked)",
+   426→  };
+   427→  const accent = bandAccent[item.band];
+   428→
+   429→  // Spring drop-in stagger (40ms per item, capped at 0.3s = ~8 items).
+   430→  const springDelay = reducedMotion ? 0 : Math.min(index * 0.04, 0.3);
+   431→
+   432→  const isPreviewOpen = isHover || isTapped;
+   433→
+   434→  return (
+   435→    <motion.li
+   436→      initial={reducedMotion ? false : { opacity: 0, y: 12 }}
+   437→      animate={{ opacity: 1, y: 0 }}
+   438→      transition={
+   439→        reducedMotion
+   440→          ? { duration: 0 }
+   441→          : { type: "spring", stiffness: 220, damping: 26, delay: springDelay }
+   442→      }
+   443→    >
+   444→      <Tilt3D maxDeg={2}>
+   445→        <div
+   446→          className={cn(
+   447→            "relative ast-card",
+   448→            compact ? "p-3" : "p-4 sm:p-5",
+   449→          )}
+   450→          style={{
+   451→            // Depth shadow on hover / preview-open (180ms).
+   452→            boxShadow: isPreviewOpen ? "var(--e3)" : "var(--e2)",
+   453→            borderColor: isPreviewOpen ? "rgba(22,154,165,0.35)" : undefined,
+   454→            transition:
+   455→              "box-shadow 180ms var(--ease-standard), border-color 180ms var(--ease-standard)",
+   456→          }}
+   457→          onMouseEnter={() => setIsHover(true)}
+   458→          onMouseLeave={() => {
+   459→            setIsHover(false);
+   460→          }}
+   461→        >
+   462→          {/* Band-coloured left accent bar — at-a-glance scanning */}
+   463→          <div
+   464→            aria-hidden="true"
+   465→            className="absolute left-0 top-0 bottom-0 rounded-l-[14px] pointer-events-none"
+   466→            style={{
+   467→              width: 3,
+   468→              background: accent,
+   469→              boxShadow: `0 0 10px ${accent}55`,
+   470→            }}
+   471→          />
+   472→
+   473→          <div className="flex items-start gap-3 sm:gap-4 flex-wrap pl-1">
+   474→            {/* Rank + band + score */}
+   475→            <div className="flex items-center gap-3 shrink-0">
+   476→              <span
+   477→                className="text-[12px] tabular font-mono"
+   478→                style={{ color: "var(--text-lo)" }}
+   479→              >
+   480→                #{rank}
+   481→              </span>
+   482→              <BandChip
+   483→                band={item.band}
+   484→                score={item.score}
+   485→                locale={locale}
+   486→                size="lg"
+   487→              />
+   488→            </div>
+   489→
+   490→            {/* Name + stage */}
+   491→            <div className="flex-1 min-w-0">
+   492→              <p
+   493→                className="text-[15px] font-medium truncate"
+   494→                style={{ color: "var(--text-hi)" }}
+   495→              >
+   496→                {item.employeeName}
+   497→              </p>
+   498→              <p
+   499→                className="text-[12px] mt-0.5"
+   500→                style={{ color: "var(--text-mid)" }}
+   501→              >
+   502→                {stageLabel(item.stage, locale)}
+   503→                <span className="mx-1.5">·</span>
+   504→                <span className="tabular">
+   505→                  {locale === "ar"
+   506→                    ? `أول إشارة قبل ${leadDays} يوم`
+   507→                    : `first signal ${leadDays} day${leadDays === 1 ? "" : "s"} ago`}
+   508→                </span>
+   509→                <span className="mx-1.5">·</span>
+   510→                <span className="tabular" style={{ color: "var(--text-lo)" }}>
+   511→                  {locale === "ar" ? "النتيجة " : "score "}
+   512→                  <NumberTicker value={item.score} />
+   513→                </span>
+   514→              </p>
+   515→
+   516→              {/* Top signals */}
+   517→              {item.topSignals.length > 0 && (
+   518→                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+   519→                  {item.topSignals.map((s, i) => (
+   520→                    <SignalBadge
+   521→                      key={`${s.code}-${i}`}
+   522→                      code={s.code}
+   523→                      weight={s.weight}
+   524→                      hardTrip={s.code.startsWith("DP") || s.code.startsWith("MB")}
+   525→                    />
+   526→                  ))}
+   527→                </div>
+   528→              )}
+   529→            </div>
+   530→
+   531→            {/* Suggested owner + actions */}
+   532→            <div className="flex items-center gap-2 shrink-0 ml-auto">
+   533→              {item.suggestedOwner && (
+   534→                <div className="hidden md:flex flex-col items-end text-right">
+   535→                  <span
+   536→                    className="text-[11px] uppercase tracking-[0.1em]"
+   537→                    style={{ color: "var(--text-lo)" }}
+   538→                  >
+   539→                    {locale === "ar" ? "المقترح" : "Suggested"}
+   540→                  </span>
+   541→                  <span
+   542→                    className="text-[12px] font-medium"
+   543→                    style={{ color: "var(--text-hi)" }}
+   544→                  >
+   545→                    {item.suggestedOwner.name}
+   546→                  </span>
+   547→                </div>
+   548→              )}
+   549→              {/* Mobile-only tap-to-expand chevron (coarse pointer) */}
+   550→              <button
+   551→                onClick={() => setIsTapped((v) => !v)}
+   552→                aria-expanded={isTapped}
+   553→                aria-label={
+   554→                  isTapped
+   555→                    ? locale === "ar"
+   556→                      ? "إخفاء المعاينة"
+   557→                      : "Hide preview"
+   558→                    : locale === "ar"
+   559→                    ? "إظهار المعاينة"
+   560→                    : "Show preview"
+   561→                }
+   562→                className="ast-focus md:hidden inline-flex items-center justify-center w-9 h-9 rounded-full"
+   563→                style={{
+   564→                  background: "var(--surface-2)",
+   565→                  border: "1px solid var(--border)",
+   566→                  color: "var(--text-mid)",
+   567→                }}
+   568→              >
+   569→                <ChevronRight
+   570→                  className="w-4 h-4 transition-transform"
+   571→                  strokeWidth={1.75}
+   572→                  style={{
+   573→                    transform: isTapped ? "rotate(90deg)" : "rotate(0deg)",
+   574→                  }}
+   575→                />
+   576→              </button>
+   577→              <button
+   578→                onClick={onClaim}
+   579→                disabled={claiming}
+   580→                className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium transition-colors disabled:opacity-50"
+   581→                style={{
+   582→                  background: "var(--surface-2)",
+   583→                  border: "1px solid var(--border)",
+   584→                  color: "var(--text-hi)",
+   585→                }}
+   586→              >
+   587→                <Hand className="w-3.5 h-3.5" strokeWidth={1.75} />
+   588→                {claiming
+   589→                  ? (locale === "ar" ? "..." : "Claiming…")
+   590→                  : (locale === "ar" ? "تولّى" : "Claim")}
+   591→              </button>
+   592→              <button
+   593→                onClick={onOpen}
+   594→                className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium transition-colors"
+   595→                style={{
+   596→                  background: "var(--brand-500)",
+   597→                  color: "var(--surface-0)",
+   598→                  border: "1px solid var(--brand-500)",
+   599→                }}
+   600→              >
+   601→                {locale === "ar" ? "افتح الطرد" : "Open packet"}
+   602→                <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.75} />
+   603→              </button>
+   604→            </div>
+   605→          </div>
+   606→
+   607→          {/* Hover-expand preview panel (desktop hover / mobile tap). */}
+   608→          <AnimatePresence initial={false}>
+   609→            {isPreviewOpen && (
+   610→              <motion.div
+   611→                key="preview"
+   612→                initial={reducedMotion ? false : { height: 0, opacity: 0 }}
+   613→                animate={{ height: "auto", opacity: 1 }}
+   614→                exit={reducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
+   615→                transition={
+   616→                  reducedMotion
+   617→                    ? { duration: 0 }
+   618→                    : {
+   619→                        type: "spring",
+   620→                        stiffness: 240,
+   621→                        damping: 28,
+   622→                        duration: 0.24,
+   623→                      }
+   624→                }
+   625→                className="overflow-hidden"
+   626→              >
+   627→                <div className="ast-card-glass p-4 mt-3 ml-1 space-y-3">
+   628→                  {/* Top 3 signals with weight bars */}
+   629→                  <div>
+   630→                    <h5
+   631→                      className="text-[10px] uppercase tracking-[0.14em] font-medium mb-2"
+   632→                      style={{ color: "var(--text-lo)" }}
+   633→                    >
+   634→                      {locale === "ar" ? "أبرز الإشارات" : "Top signals"}
+   635→                    </h5>
+   636→                    <ul className="space-y-2.5">
+   637→                      {item.topSignals.length === 0 && (
+   638→                        <li
+   639→                          className="text-[12px]"
+   640→                          style={{ color: "var(--text-mid)" }}
+   641→                        >
+   642→                          {locale === "ar" ? "لا إشارات." : "No signals."}
+   643→                        </li>
+   644→                      )}
+   645→                      {item.topSignals.map((s, i) => (
+   646→                        <li key={`${s.code}-${i}`}>
+   647→                          <SignalWeightBar
+   648→                            code={s.code}
+   649→                            weight={s.weight}
+   650→                            family={s.code.split("-")[0]}
+   651→                            hardTrip={
+   652→                              s.code.startsWith("DP") || s.code.startsWith("MB")
+   653→                            }
+   654→                            variant="detailed"
+   655→                            description={s.description}
+   656→                            locale={locale}
+   657→                          />
+   658→                        </li>
+   659→                      ))}
+   660→                    </ul>
+   661→                  </div>
+   662→
+   663→                  {/* Timeline sparkline */}
+   664→                  <div>
+   665→                    <h5
+   666→                      className="text-[10px] uppercase tracking-[0.14em] font-medium mb-2"
+   667→                      style={{ color: "var(--text-lo)" }}
+   668→                    >
+   669→                      {locale === "ar" ? "آخر 10 أحداث" : "Recent activity"}
+   670→                    </h5>
+   671→                    <TimelineSparkline
+   672→                      events={item.recentEvents ?? []}
+   673→                      locale={locale}
+   674→                    />
+   675→                  </div>
+   676→
+   677→                  {/* Open full packet */}
+   678→                  <div className="pt-1">
+   679→                    <button
+   680→                      onClick={onOpen}
+   681→                      className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium transition-colors"
+   682→                      style={{
+   683→                        background: "rgba(22,154,165,0.10)",
+   684→                        color: "var(--brand-400)",
+   685→                        border: "1px solid rgba(22,154,165,0.30)",
+   686→                      }}
+   687→                    >
+   688→                      {locale === "ar" ? "افتح الطرد الكامل" : "Open full packet"}
+   689→                      <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.75} />
+   690→                    </button>
+   691→                  </div>
+   692→                </div>
+   693→              </motion.div>
+   694→            )}
+   695→          </AnimatePresence>
+   696→        </div>
+   697→      </Tilt3D>
+   698→    </motion.li>
+   699→  );
+   700→}
+   701→
+   702→/* ============================================================
+   703→   Employee (escalation packet) view
+   704→   ============================================================ */
+   705→function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () => void }) {
+   706→  const locale = useAppStore((s) => s.locale);
+   707→  const reducedMotion = useAppStore((s) => s.reducedMotion);
+   708→  const [assessment, setAssessment] = useState<Assessment | null>(null);
+   709→  const [trace, setTrace] = useState<EngineTrace | null>(null);
+   710→  const [packet, setPacket] = useState<EscalationPacket | null>(null);
+   711→  const [loading, setLoading] = useState(true);
+   712→  const [err, setErr] = useState<string | null>(null);
+   713→  const [decision, setDecision] = useState("");
+   714→  const [sharePulse, setSharePulse] = useState(false);
+   715→  const [namedOwnerId, setNamedOwnerId] = useState<string>("HRBP-1");
+   716→  const [editMode, setEditMode] = useState(false);
+   717→  const [building, setBuilding] = useState(false);
+   718→  const [sending, setSending] = useState(false);
+   719→  const [sent, setSent] = useState(false);
+   720→  const [confirmOpen, setConfirmOpen] = useState(false);
+   721→
+   722→  const fetchAssessment = useCallback(async () => {
+   723→    setLoading(true);
+   724→    setErr(null);
+   725→    try {
+   726→      const res = await fetch(`/api/v1/journey/${encodeURIComponent(employeeId)}/assessment`, { cache: "no-store" });
+   727→      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+   728→      const json: ApiEnvelope<{ assessment: Assessment; trace: EngineTrace }> = await res.json();
+   729→      if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
+   730→      setAssessment(json.data.assessment);
+   731→      setTrace(json.data.trace);
+   732→      // Default decision text
+   733→      const a = json.data.assessment;
+   734→      const top = a.signals.sort((x, y) => y.weight - x.weight)[0];
+   735→      setDecision(
+   736→        locale === "ar"
+   737→          ? `يرجى مراجعة ${top?.code ?? "الوضع"} لموظف في ${stageLabel(a.stage, "ar")} — التصنيف ${a.band}.`
+   738→          : `Please review ${top?.code ?? "the situation"} for an employee in ${stageLabel(a.stage, "en")} — band ${a.band}.`
+   739→      );
+   740→    } catch (e) {
+   741→      setErr(e instanceof Error ? e.message : "Network error");
+   742→    } finally {
+   743→      setLoading(false);
+   744→    }
+   745→  }, [employeeId, locale]);
+   746→
+   747→  useEffect(() => { fetchAssessment(); }, [fetchAssessment]);
+   748→
+   749→  // Pulse-suppressed banner
+   750→  const pulseSuppressed = useMemo(() => {
+   751→    if (!trace) return false;
+   752→    return trace.signalsSuppressed.some((s) => s.family === "PS");
+   753→  }, [trace]);
+   754→
+   755→  const buildPacket = useCallback(async () => {
+   756→    setBuilding(true);
+   757→    setErr(null);
+   758→    try {
+   759→      const res = await fetch("/api/v1/escalations", {
+   760→        method: "POST",
+   761→        headers: { "Content-Type": "application/json" },
+   762→        body: JSON.stringify({
+   763→          employeeId,
+   764→          decisionRequested: decision,
+   765→          sharePulseSummary: sharePulse,
+   766→          namedOwnerId,
+   767→        }),
+   768→      });
+   769→      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+   770→      const json: ApiEnvelope<EscalationPacket> = await res.json();
+   771→      if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
+   772→      setPacket(json.data);
+   773→      setEditMode(false);
+   774→      toast.success("Packet built", { description: json.data.id });
+   775→    } catch (e) {
+   776→      setErr(e instanceof Error ? e.message : "Network error");
+   777→      toast.error("Could not build packet");
+   778→    } finally {
+   779→      setBuilding(false);
+   780→    }
+   781→  }, [decision, employeeId, namedOwnerId, sharePulse]);
+   782→
+   783→  const handleSend = useCallback(async () => {
+   784→    setSending(true);
+   785→    await new Promise((r) => setTimeout(r, 420));
+   786→    setSending(false);
+   787→    setSent(true);
+   788→    setConfirmOpen(false);
+   789→    toast.success("Packet sent", {
+   790→      description: `Employee notified: "I've asked Fatima in HR to step in. She'll reply today."`,
+   791→    });
+   792→  }, []);
+   793→
+   794→  if (loading) {
+   795→    return (
+   796→      <div className="space-y-4" aria-hidden="true">
+   797→        <div className="h-10 ast-shimmer rounded-full" />
+   798→        <div className="ast-card p-6 h-40 ast-shimmer rounded-[14px]" />
+   799→        <div className="ast-card p-6 h-72 ast-shimmer rounded-[14px]" />
+   800→      </div>
+   801→    );
+   802→  }
+   803→  if (err) return <ErrorBanner message={err} onRetry={fetchAssessment} />;
+   804→
+   805→  return (
+   806→    <div>
+   807→      {/* Back + heading */}
+   808→      <div className="flex items-center gap-3 mb-4">
+   809→        <button
+   810→          onClick={onBack}
+   811→          className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium"
+   812→          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}
+   813→        >
+   814→          <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.75} />
+   815→          {locale === "ar" ? "القائمة" : "Queue"}
+   816→        </button>
+   817→        <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
+   818→          {locale === "ar" ? "طرد التصعيد" : "Escalation packet"}
+   819→        </h2>
+   820→        {assessment && (
+   821→          <BandChip band={assessment.band} score={assessment.score} locale={locale} size="md" />
+   822→        )}
+   823→      </div>
+   824→
+   825→      {/* Consent-limited notice */}
+   826→      {pulseSuppressed && (
+   827→        <div
+   828→          className="ast-card-2 p-3 mb-4 flex items-start gap-3"
+   829→          style={{ borderColor: "rgba(217,119,6,0.32)", background: "rgba(217,119,6,0.06)" }}
+   830→        >
+   831→          <Lock className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--status-watch)" }} />
+   832→          <p className="text-[13px]" style={{ color: "var(--text-mid)" }}>
+   833→            {locale === "ar"
+   834→              ? "نبضة مكتومة — يستخدم هذا العرض بيانات الرحلة والطلبات فقط."
+   835→              : "Pulse signals are suppressed — this view uses journey and request data only."}
+   836→          </p>
+   837→        </div>
+   838→      )}
+   839→
+   840→      {/* Sent success state */}
+   841→      {sent && packet ? (
+   842→        <motion.div
+   843→          initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+   844→          animate={{ opacity: 1, y: 0 }}
+   845→          transition={{ duration: 0.32 }}
+   846→          className="ast-card p-6 mb-4"
+   847→          style={{ borderColor: "rgba(14,159,110,0.32)" }}
+   848→        >
+   849→          <div className="flex items-start gap-4">
+   850→            <div
+   851→              className="flex items-center justify-center w-12 h-12 rounded-full shrink-0"
+   852→              style={{ background: "rgba(14,159,110,0.12)", color: "var(--status-steady)" }}
+   853→            >
+   854→              <CheckCircle2 className="w-6 h-6" strokeWidth={1.75} />
+   855→            </div>
+   856→            <div className="flex-1">
+   857→              <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+   858→                {locale === "ar" ? "تم إرسال الطرد" : "Packet sent"}
+   859→              </p>
+   860→              <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+   861→                {locale === "ar"
+   862→                  ? "تم إشعار الموظف: «طلبتُ من فاطمة في الموارد البشرية التدخّل. ستردّ اليوم.»"
+   863→                  : "Employee notified: \"I've asked Fatima in HR to step in. She'll reply today.\""}
+   864→              </p>
+   865→              <p className="text-[12px] mt-2 font-mono tabular" style={{ color: "var(--text-lo)" }}>
+   866→                {packet.id} · {packet.namedOwner.name}
+   867→              </p>
+   868→            </div>
+   869→          </div>
+   870→        </motion.div>
+   871→      ) : null}
+   872→
+   873→      {/* Decision editor */}
+   874→      <section className="ast-card p-5 sm:p-6 mb-4">
+   875→        <div className="flex items-center gap-2 mb-3">
+   876→          <Edit3 className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+   877→          <h3 className="text-[14px] font-semibold" style={{ color: "var(--text-hi)" }}>
+   878→            {locale === "ar" ? "ما القرار المطلوب" : "Decision requested"}
+   879→          </h3>
+   880→        </div>
+   881→        <Textarea
+   882→          value={decision}
+   883→          onChange={(e) => setDecision(e.target.value)}
+   884→          disabled={!editMode && !!packet}
+   885→          rows={3}
+   886→          className="ast-focus w-full text-[13px] resize-y"
+   887→          style={{
+   888→            background: "var(--surface-2)",
+   889→            border: "1px solid var(--border)",
+   890→            color: "var(--text-hi)",
+   891→          }}
+   892→        />
+   893→
+   894→        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+   895→          {/* Named owner selector */}
+   896→          <div>
+   897→            <label className="text-[11px] uppercase tracking-[0.12em] font-medium" style={{ color: "var(--text-lo)" }}>
+   898→              {locale === "ar" ? "المسؤول المُسمّى" : "Named owner"}
+   899→            </label>
+   900→            <Select value={namedOwnerId} onValueChange={setNamedOwnerId} disabled={!!packet && !editMode}>
+   901→              <SelectTrigger className="ast-focus h-11 mt-1.5" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}>
+   902→                <SelectValue />
+   903→              </SelectTrigger>
+   904→              <SelectContent style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}>
+   905→                {ALL_HRBPS.map((h) => (
+   906→                  <SelectItem key={h.id} value={h.id}>
+   907→                    {h.name} · {h.role}
+   908→                  </SelectItem>
+   909→                ))}
+   910→              </SelectContent>
+   911→            </Select>
+   912→          </div>
+   913→
+   914→          {/* Share pulse toggle */}
+   915→          <div>
+   916→            <label className="text-[11px] uppercase tracking-[0.12em] font-medium" style={{ color: "var(--text-lo)" }}>
+   917→              {locale === "ar" ? "مشاركة ملخص النبضة" : "Share pulse summary"}
+   918→            </label>
+   919→            <button
+   920→              onClick={() => !packet || editMode ? setSharePulse((v) => !v) : null}
+   921→              disabled={(!!packet && !editMode) || pulseSuppressed}
+   922→              className="ast-focus w-full h-11 mt-1.5 px-3 rounded-full text-[13px] font-medium flex items-center justify-between disabled:opacity-60"
+   923→              style={{
+   924→                background: sharePulse ? "rgba(22,154,165,0.10)" : "var(--surface-2)",
+   925→                border: `1px solid ${sharePulse ? "rgba(22,154,165,0.32)" : "var(--border)"}`,
+   926→                color: sharePulse ? "var(--brand-400)" : "var(--text-mid)",
+   927→              }}
+   928→            >
+   929→              <span className="flex items-center gap-2">
+   930→                <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
+   931→                {sharePulse
+   932→                  ? (locale === "ar" ? "يُشارك الملخص (1–5)" : "Share summary (1–5)")
+   933→                  : (locale === "ar" ? "لا تُشارك الملخص" : "Don't share summary")}
+   934→              </span>
+   935→              {pulseSuppressed && (
+   936→                <Lock className="w-3 h-3" strokeWidth={1.75} style={{ color: "var(--text-lo)" }} />
+   937→              )}
+   938→            </button>
+   939→          </div>
+   940→        </div>
+   941→
+   942→        <div className="flex items-center gap-2 mt-4 flex-wrap">
+   943→          {!packet || editMode ? (
+   944→            <button
+   945→              onClick={buildPacket}
+   946→              disabled={building || !decision.trim()}
+   947→              className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium transition-colors disabled:opacity-50"
+   948→              style={{
+   949→                background: "var(--brand-500)",
+   950→                color: "var(--surface-0)",
+   951→                border: "1px solid var(--brand-500)",
+   952→              }}
+   953→            >
+   954→              <UserCog className="w-4 h-4" strokeWidth={1.75} />
+   955→              {building
+   956→                ? (locale === "ar" ? "جارٍ البناء..." : "Building…")
+   957→                : packet
+   958→                ? (locale === "ar" ? "أعد بناء الطرد" : "Rebuild packet")
+   959→                : (locale === "ar" ? "ابنِ الطرد" : "Build packet")}
+   960→            </button>
+   961→          ) : (
+   962→            <>
+   963→              <button
+   964→                onClick={() => setEditMode(true)}
+   965→                className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium"
+   966→                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+   967→              >
+   968→                <Edit3 className="w-4 h-4" strokeWidth={1.75} />
+   969→                {locale === "ar" ? "تحرير الملخص" : "Edit summary"}
+   970→              </button>
+   971→              <button
+   972→                onClick={() => setEditMode(true)}
+   973→                className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium"
+   974→                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+   975→              >
+   976→                <UserCog className="w-4 h-4" strokeWidth={1.75} />
+   977→                {locale === "ar" ? "تعيين لمالك الخدمة" : "Assign to service owner"}
+   978→              </button>
+   979→              <button
+   980→                onClick={() => setConfirmOpen(true)}
+   981→                className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium transition-colors"
+   982→                style={{
+   983→                  background: "var(--accent-500)",
+   984→                  color: "var(--surface-0)",
+   985→                  border: "1px solid var(--accent-500)",
+   986→                }}
+   987→              >
+   988→                <Send className="w-4 h-4" strokeWidth={1.75} />
+   989→                {locale === "ar" ? "أرسل الطرد" : "Send packet"}
+   990→              </button>
+   991→            </>
+   992→          )}
+   993→        </div>
+   994→      </section>
+   995→
+   996→      {/* Packet preview */}
+   997→      <AnimatePresence>
+   998→        {packet && (
+   999→          <motion.section
+  1000→            initial={reducedMotion ? false : { opacity: 0, y: 12 }}
+  1001→            animate={{ opacity: 1, y: 0 }}
+  1002→            exit={{ opacity: 0 }}
+  1003→            transition={{ duration: 0.28 }}
+  1004→            className="ast-card p-5 sm:p-6 space-y-5"
+  1005→          >
+  1006→            {/* Header */}
+  1007→            <div className="flex items-baseline justify-between gap-4 flex-wrap">
+  1008→              <div>
+  1009→                <p className="text-[11px] uppercase tracking-[0.16em] font-mono" style={{ color: "var(--text-lo)" }}>
+  1010→                  {packet.id}
+  1011→                </p>
+  1012→                <h3 className="text-[18px] font-semibold mt-1" style={{ color: "var(--text-hi)" }}>
+  1013→                  {packet.employeeName}
+  1014→                </h3>
+  1015→                <p className="text-[12px] mt-0.5" style={{ color: "var(--text-mid)" }}>
+  1016→                  {stageLabel(packet.stage, locale)}
+  1017→                  <span className="mx-1.5">·</span>
+  1018→                  <span className="tabular">
+  1019→                    {locale === "ar" ? `يوم ${packet.dayInStage}` : `Day ${packet.dayInStage}`}
+  1020→                  </span>
+  1021→                  <span className="mx-1.5">·</span>
+  1022→                  <span>{packet.journeyType === "onboarding" ? (locale === "ar" ? "التحاق" : "Onboarding") : (locale === "ar" ? "تنقل" : "Mobility")}</span>
+  1023→                </p>
+  1024→              </div>
+  1025→              <BandChip band={packet.band as BandT} score={packet.score} locale={locale} size="lg" />
+  1026→            </div>
+  1027→
+  1028→            {/* Situation */}
+  1029→            <div>
+  1030→              <h4 className="text-[11px] uppercase tracking-[0.12em] font-medium mb-2" style={{ color: "var(--text-lo)" }}>
+  1031→                {locale === "ar" ? "الوضع" : "Situation"}
+  1032→              </h4>
+  1033→              <p className="text-[14px] leading-relaxed" style={{ color: "var(--text-hi)" }}>
+  1034→                {locale === "ar"
+  1035→                  ? `${packet.employeeName} في ${stageLabel(packet.stage, "ar")}، يوم ${packet.dayInStage}. التصنيف ${packet.band} (${packet.score}). أبرز إشارة: ${packet.topSignals[0]?.code ?? "—"}.`
+  1036→                  : `${packet.employeeName} is in ${stageLabel(packet.stage, "en")}, day ${packet.dayInStage}. Band ${packet.band} (score ${packet.score}). Top signal: ${packet.topSignals[0]?.code ?? "—"}.`}
+  1037→              </p>
+  1038→            </div>
+  1039→
+  1040→            {/* Evidence */}
+  1041→            <div>
+  1042→              <h4 className="text-[11px] uppercase tracking-[0.12em] font-medium mb-2" style={{ color: "var(--text-lo)" }}>
+  1043→                {locale === "ar" ? "الأدلة" : "Evidence"}
+  1044→              </h4>
+  1045→              <ul className="space-y-2">
+  1046→                {packet.topSignals.map((s, i) => (
+  1047→                  <li key={`${s.code}-${i}`} className="ast-card-2 p-3 flex items-start gap-3">
+  1048→                    <SignalBadge code={s.code} weight={s.weight} hardTrip={s.code.startsWith("DP") || s.code.startsWith("MB")} />
+  1049→                    <div className="flex-1 min-w-0">
+  1050→                      <p className="text-[12px]" style={{ color: "var(--text-hi)" }}>{s.description}</p>
+  1051→                      {s.evidenceRefs.length > 0 && (
+  1052→                        <p className="text-[11px] font-mono mt-1 tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+  1053→                          {s.evidenceRefs.join(" · ")}
+  1054→                        </p>
+  1055→                      )}
+  1056→                      <div className="mt-2">
+  1057→                        <SignalWeightBar
+  1058→                          code={s.code}
+  1059→                          weight={s.weight}
+  1060→                          family={s.code.split("-")[0]}
+  1061→                          hardTrip={s.code.startsWith("DP") || s.code.startsWith("MB")}
+  1062→                          variant="compact"
+  1063→                          locale={locale}
+  1064→                        />
+  1065→                      </div>
+  1066→                    </div>
+  1067→                  </li>
+  1068→                ))}
+  1069→              </ul>
+  1070→            </div>
+  1071→
+  1072→            {/* Timeline */}
+  1073→            <div>
+  1074→              <h4 className="text-[11px] uppercase tracking-[0.12em] font-medium mb-2" style={{ color: "var(--text-lo)" }}>
+  1075→                {locale === "ar" ? "آخر 10 أحداث" : "Timeline (last 10 events)"}
+  1076→              </h4>
+  1077→              <ol className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+  1078→                {packet.timeline.map((e, i) => (
+  1079→                  <li key={i} className="text-[12px] flex items-center gap-2 tabular" style={{ color: "var(--text-mid)" }}>
+  1080→                    <span className="font-mono text-[11px]" style={{ color: "var(--text-lo)" }} dir="ltr">
+  1081→                      {format(new Date(e.occurredAt), "d MMM HH:mm")}
+  1082→                    </span>
+  1083→                    <span style={{ color: "var(--text-mid)" }}>·</span>
+  1084→                    <span className="font-mono text-[11px]" style={{ color: "var(--brand-400)" }} dir="ltr">{e.stepKey}</span>
+  1085→                    <span style={{ color: "var(--text-mid)" }}>·</span>
+  1086→                    <span>{e.type.replace(/_/g, " ")}</span>
+  1087→                  </li>
+  1088→                ))}
+  1089→              </ol>
+  1090→            </div>
+  1091→
+  1092→            {/* Blocked downstream */}
+  1093→            {packet.blockedDownstream.length > 0 && (
+  1094→              <div>
+  1095→                <h4 className="text-[11px] uppercase tracking-[0.12em] font-medium mb-2" style={{ color: "var(--text-lo)" }}>
+  1096→                  {locale === "ar" ? "محظور في اتجاه التيار" : "Blocked downstream"}
+  1097→                </h4>
+  1098→                <div className="flex flex-wrap gap-1.5">
+  1099→                  {packet.blockedDownstream.map((k) => (
+  1100→                    <span key={k} className="ast-chip font-mono text-[11px]" style={{ color: "var(--status-friction)" }}>
+  1101→                      {k}
+  1102→                    </span>
+  1103→                  ))}
+  1104→                </div>
+  1105→              </div>
+  1106→            )}
+  1107→
+  1108→            {/* Open requests */}
+  1109→            {packet.openRequests.length > 0 && (
+  1110→              <div>
+  1111→                <h4 className="text-[11px] uppercase tracking-[0.12em] font-medium mb-2" style={{ color: "var(--text-lo)" }}>
+  1112→                  {locale === "ar" ? "الطلبات المفتوحة" : "Open requests"}
+  1113→                </h4>
+  1114→                <ul className="space-y-1.5">
+  1115→                  {packet.openRequests.map((r) => {
+  1116→                    const ageDays = Math.max(0, Math.round(r.ageHours / 24));
+  1117→                    return (
+  1118→                      <li key={r.ref} className="ast-card-2 p-3 flex items-center gap-3 flex-wrap">
+  1119→                        <span className="font-mono text-[11px] tabular" style={{ color: "var(--brand-400)" }} dir="ltr">{r.ref}</span>
+  1120→                        <span className="text-[12px]" style={{ color: "var(--text-mid)" }}>{r.type.replace(/_/g, " ")}</span>
+  1121→                        <span className="text-[11px] tabular" style={{ color: "var(--text-lo)" }}>
+  1122→                          {locale === "ar" ? `العمر ${ageDays} يوم` : `age ${ageDays}d`}
+  1123→                        </span>
+  1124→                        {r.reassignCount > 0 && (
+  1125→                          <span className="ast-chip text-[10px]" style={{ color: "var(--status-watch)" }}>
+  1126→                            {locale === "ar" ? `أُعيد تعيينها ${r.reassignCount}×` : `reassigned ${r.reassignCount}×`}
+  1127→                          </span>
+  1128→                        )}
+  1129→                      </li>
+  1130→                    );
+  1131→                  })}
+  1132→                </ul>
+  1133→              </div>
+  1134→            )}
+  1135→
+  1136→            {/* Named owner + backup */}
+  1137→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+  1138→              <div className="ast-card-2 p-3">
+  1139→                <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+  1140→                  {locale === "ar" ? "المسؤول المُسمّى" : "Named owner"}
+  1141→                </p>
+  1142→                <p className="text-[14px] font-medium mt-1" style={{ color: "var(--text-hi)" }}>{packet.namedOwner.name}</p>
+  1143→                <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>{packet.namedOwner.role}</p>
+  1144→                <p className="text-[11px] font-mono mt-1 tabular" style={{ color: "var(--brand-400)" }} dir="ltr">{packet.namedOwner.email}</p>
+  1145→              </div>
+  1146→              {packet.backupOwner && (
+  1147→                <div className="ast-card-2 p-3">
+  1148→                  <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+  1149→                    {locale === "ar" ? "البديل" : "Backup"}
+  1150→                  </p>
+  1151→                  <p className="text-[14px] font-medium mt-1" style={{ color: "var(--text-hi)" }}>{packet.backupOwner.name}</p>
+  1152→                  <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>{packet.backupOwner.role}</p>
+  1153→                  <p className="text-[11px] font-mono mt-1 tabular" style={{ color: "var(--brand-400)" }} dir="ltr">{packet.backupOwner.email}</p>
+  1154→                </div>
+  1155→              )}
+  1156→            </div>
+  1157→
+  1158→            {/* Consent statement */}
+  1159→            <div
+  1160→              className="p-4 rounded-[10px]"
+  1161→              style={{ background: "rgba(22,154,165,0.06)", border: "1px solid rgba(22,154,165,0.22)" }}
+  1162→            >
+  1163→              <div className="flex items-center gap-2 mb-2">
+  1164→                <ShieldCheck className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+  1165→                <p className="text-[12px] font-semibold uppercase tracking-[0.12em]" style={{ color: "var(--brand-400)" }}>
+  1166→                  {locale === "ar" ? "بيان الموافقة" : "Consent statement"}
+  1167→                </p>
+  1168→              </div>
+  1169→              <p className="text-[12px] leading-relaxed" style={{ color: "var(--text-mid)" }}>
+  1170→                <span className="font-medium" style={{ color: "var(--text-hi)" }}>
+  1171→                  {locale === "ar" ? "مُشارك مع شريك الموارد البشرية: " : "Shared with HRBP: "}
+  1172→                </span>
+  1173→                {packet.consentStatement.sharedWithHrbp.join(", ").replace(/_/g, " ")}
+  1174→                <br />
+  1175→                <span className="font-medium" style={{ color: "var(--text-hi)" }}>
+  1176→                  {locale === "ar" ? "مكتوم: " : "Withheld: "}
+  1177→                </span>
+  1178→                {packet.consentStatement.withheld.join(", ").replace(/_/g, " ") || (locale === "ar" ? "—" : "none")}
+  1179→                <br />
+  1180→                <span className="font-medium" style={{ color: "var(--text-hi)" }}>
+  1181→                  {locale === "ar" ? "النص الحر مستثنى افتراضياً." : "Free-text excluded by default."}
+  1182→                </span>
+  1183→              </p>
+  1184→            </div>
+  1185→          </motion.section>
+  1186→        )}
+  1187→      </AnimatePresence>
+  1188→
+  1189→      {/* Send-packet confirmation */}
+  1190→      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+  1191→        <DialogContent
+  1192→          style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+  1193→        >
+  1194→          <DialogHeader>
+  1195→            <DialogTitle style={{ color: "var(--text-hi)" }}>
+  1196→              {locale === "ar" ? "إرسال الطرد؟" : "Send packet?"}
+  1197→            </DialogTitle>
+  1198→            <DialogDescription style={{ color: "var(--text-mid)" }}>
+  1199→              {locale === "ar"
+  1200→                ? "سيُشعَر الموظف باسم المسؤول المُسمّى. سيُقال لهم: «طلبتُ من فاطمة في الموارد البشرية التدخّل. ستردّ اليوم.»"
+  1201→                : "The employee will be notified with the named owner. They'll hear: \"I've asked Fatima in HR to step in. She'll reply today.\""}
+  1202→            </DialogDescription>
+  1203→          </DialogHeader>
+  1204→          <DialogFooter>
+  1205→            <DialogClose asChild>
+  1206→              <button
+  1207→                className="ast-focus inline-flex items-center h-11 px-4 rounded-full text-[13px] font-medium"
+  1208→                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+  1209→              >
+  1210→                {locale === "ar" ? "تراجع" : "Cancel"}
+  1211→              </button>
+  1212→            </DialogClose>
+  1213→            <button
+  1214→              onClick={handleSend}
+  1215→              disabled={sending}
+  1216→              className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium"
+  1217→              style={{ background: "var(--accent-500)", color: "var(--surface-0)", border: "1px solid var(--accent-500)" }}
+  1218→            >
+  1219→              <Send className="w-4 h-4" strokeWidth={1.75} />
+  1220→              {sending ? (locale === "ar" ? "جارٍ الإرسال..." : "Sending…") : (locale === "ar" ? "أرسل" : "Send")}
+  1221→            </button>
+  1222→          </DialogFooter>
+  1223→        </DialogContent>
+  1224→      </Dialog>
+  1225→    </div>
+  1226→  );
+  1227→}
+  1228→
+  1229→/* ============================================================
+  1230→   Stalls view (heatmap)
+  1231→   ============================================================ */
+  1232→function StallsView() {
+  1233→  const locale = useAppStore((s) => s.locale);
+  1234→  const [cells, setCells] = useState<StallsCell[] | null>(null);
+  1235→  const [err, setErr] = useState<string | null>(null);
+  1236→  const [loading, setLoading] = useState(true);
+  1237→
+  1238→  const fetchCells = useCallback(async () => {
+  1239→    setLoading(true);
+  1240→    setErr(null);
+  1241→    try {
+  1242→      const res = await fetch("/api/v1/insights/stalls", { cache: "no-store" });
+  1243→      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  1244→      const json: ApiEnvelope<{ cells: StallsCell[] }> = await res.json();
+  1245→      if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
+  1246→      setCells(json.data.cells);
+  1247→    } catch (e) {
+  1248→      setErr(e instanceof Error ? e.message : "Network error");
+  1249→    } finally {
+  1250→      setLoading(false);
+  1251→    }
+  1252→  }, []);
+  1253→
+  1254→  useEffect(() => { fetchCells(); }, [fetchCells]);
+  1255→
+  1256→  // Build matrix
+  1257→  const matrix = useMemo(() => {
+  1258→    if (!cells) return { stages: [], groups: [], map: new Map<string, StallsCell>() };
+  1259→    const stageSet = new Set<string>();
+  1260→    const groupSet = new Set<string>();
+  1261→    const map = new Map<string, StallsCell>();
+  1262→    for (const c of cells) {
+  1263→      stageSet.add(c.stage);
+  1264→      groupSet.add(c.ownerGroup);
+  1265→      map.set(`${c.stage}|${c.ownerGroup}`, c);
+  1266→    }
+  1267→    // Preserve stage order via STAGE_LABELS insertion
+  1268→    const stageOrder = Object.keys(STAGE_LABELS);
+  1269→    const stages = Array.from(stageSet).sort((a, b) => stageOrder.indexOf(a) - stageOrder.indexOf(b));
+  1270→    const groups = Array.from(groupSet).sort();
+  1271→    return { stages, groups, map };
+  1272→  }, [cells]);
+  1273→
+  1274→  // Color scale: teal → sand-gold → red (by medianDays)
+  1275→  function cellColor(c: StallsCell | undefined): string {
+  1276→    if (!c || c.suppressed) return "var(--surface-2)";
+  1277→    const m = c.medianTimeToCompleteHours ?? 0;
+  1278→    // Map 0h → teal, 48h → sand-gold, 168h+ → red
+  1279→    if (m <= 24) return "rgba(22,154,165,0.18)";
+  1280→    if (m <= 72) return "rgba(201,162,39,0.18)";
+  1281→    if (m <= 168) return "rgba(217,119,6,0.20)";
+  1282→    return "rgba(220,38,38,0.20)";
+  1283→  }
+  1284→  function cellBorder(c: StallsCell | undefined): string {
+  1285→    if (!c || c.suppressed) return "var(--border)";
+  1286→    const m = c.medianTimeToCompleteHours ?? 0;
+  1287→    if (m <= 24) return "rgba(22,154,165,0.36)";
+  1288→    if (m <= 72) return "rgba(201,162,39,0.36)";
+  1289→    if (m <= 168) return "rgba(217,119,6,0.36)";
+  1290→    return "rgba(220,38,38,0.36)";
+  1291→  }
+  1292→
+  1293→  const FILTER_CHIPS = [
+  1294→    { en: "All stages", ar: "كل المراحل" },
+  1295→    { en: "All owners", ar: "كل المالكين" },
+  1296→    { en: "All locations", ar: "كل المواقع" },
+  1297→  ];
+  1298→
+  1299→  if (loading) {
+  1300→    return (
+  1301→      <div className="space-y-3" aria-hidden="true">
+  1302→        <div className="h-10 ast-shimmer rounded-full" />
+  1303→        <div className="ast-card p-6 h-72 ast-shimmer rounded-[14px]" />
+  1304→      </div>
+  1305→    );
+  1306→  }
+  1307→  if (err) return <ErrorBanner message={err} onRetry={fetchCells} />;
+  1308→
+  1309→  return (
+  1310→    <div>
+  1311→      <div className="flex items-baseline justify-between mb-4 flex-wrap gap-3">
+  1312→        <div>
+  1313→          <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
+  1314→            {locale === "ar" ? "خريطة الاختناقات" : "Stall heatmap"}
+  1315→          </h2>
+  1316→          <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+  1317→            {locale === "ar"
+  1318→              ? "الوسيط لكل (مرحلة × مالك). الخلايا أقل من 5 مكتومة."
+  1319→              : "Median days per stage × owner. Cells below k=5 are suppressed."}
+  1320→          </p>
+  1321→        </div>
+  1322→        <div className="flex items-center gap-1.5 flex-wrap">
+  1323→          <Filter className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--text-lo)" }} />
+  1324→          {FILTER_CHIPS.map((f) => (
+  1325→            <button
+  1326→              key={f.en}
+  1327→              className="ast-focus h-8 px-2.5 rounded-full text-[11px] font-medium"
+  1328→              style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}
+  1329→            >
+  1330→              {locale === "ar" ? f.ar : f.en}
+  1331→            </button>
+  1332→          ))}
+  1333→        </div>
+  1334→      </div>
+  1335→
+  1336→      {/* Heatmap */}
+  1337→      <div className="ast-card p-4 sm:p-5 overflow-x-auto">
+  1338→        <table className="w-full border-collapse min-w-[640px]">
+  1339→          <thead>
+  1340→            <tr>
+  1341→              <th className="text-left p-2 text-[11px] uppercase tracking-[0.12em] font-medium" style={{ color: "var(--text-lo)" }}>
+  1342→                {locale === "ar" ? "المرحلة / المالك" : "Stage / Owner"}
+  1343→              </th>
+  1344→              {matrix.groups.map((g) => (
+  1345→                <th key={g} className="p-2 text-center text-[11px] uppercase tracking-[0.08em] font-medium" style={{ color: "var(--text-lo)" }}>
+  1346→                  {g}
+  1347→                </th>
+  1348→              ))}
+  1349→            </tr>
+  1350→          </thead>
+  1351→          <tbody>
+  1352→            {matrix.stages.map((s) => (
+  1353→              <tr key={s}>
+  1354→                <td className="p-2 text-[12px] font-medium" style={{ color: "var(--text-hi)" }}>
+  1355→                  {stageLabel(s, locale)}
+  1356→                </td>
+  1357→                {matrix.groups.map((g) => {
+  1358→                  const c = matrix.map.get(`${s}|${g}`);
+  1359→                  const suppressed = !c || c.suppressed;
+  1360→                  return (
+  1361→                    <td key={g} className="p-1.5 align-top">
+  1362→                      <div
+  1363→                        className="rounded-[8px] p-3 min-h-[88px] flex flex-col justify-between"
+  1364→                        style={{
+  1365→                          background: cellColor(c),
+  1366→                          border: `1px solid ${cellBorder(c)}`,
+  1367→                        }}
+  1368→                        title={suppressed ? "Not enough data to show safely (n<5)" : `n=${c?.n ?? 0}`}
+  1369→                      >
+  1370→                        {suppressed ? (
+  1371→                          <div className="flex flex-col items-center text-center gap-1.5 h-full justify-center">
+  1372→                            <Hourglass className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--text-lo)" }} />
+  1373→                            <p className="text-[10px] leading-tight" style={{ color: "var(--text-lo)" }}>
+  1374→                              {locale === "ar"
+  1375→                                ? "بيانات غير كافية (n<5)"
+  1376→                                : "Not enough data to show safely (n<5)"}
+  1377→                            </p>
+  1378→                          </div>
+  1379→                        ) : (
+  1380→                          <div className="space-y-1">
+  1381→                            <p className="text-[18px] font-semibold tabular" style={{ color: "var(--text-hi)" }}>
+  1382→                              {((c?.medianTimeToCompleteHours ?? 0) / 24).toFixed(1)}
+  1383→                              <span className="text-[11px] font-normal ml-1" style={{ color: "var(--text-mid)" }}>
+  1384→                                {locale === "ar" ? "يوم" : "days"}
+  1385→                              </span>
+  1386→                            </p>
+  1387→                            <p className="text-[10px] tabular" style={{ color: "var(--text-mid)" }}>
+  1388→                              {locale === "ar" ? "خرق " : "breach "}
+  1389→                              <span style={{ color: "var(--status-watch)" }}>
+  1390→                                {Math.round((c?.breachRate ?? 0) * 100)}%
+  1391→                              </span>
+  1392→                            </p>
+  1393→                            <p className="text-[10px] tabular" style={{ color: "var(--text-mid)" }}>
+  1394→                              {locale === "ar" ? "إعادة " : "reassign "}
+  1395→                              <span style={{ color: "var(--status-friction)" }}>
+  1396→                                {Math.round((c?.reassignmentRate ?? 0) * 100)}%
+  1397→                              </span>
+  1398→                            </p>
+  1399→                            <p className="text-[9px] font-mono tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+  1400→                              n={c?.n ?? 0}
+  1401→                            </p>
+  1402→                          </div>
+  1403→                        )}
+  1404→                      </div>
+  1405→                    </td>
+  1406→                  );
+  1407→                })}
+  1408→              </tr>
+  1409→            ))}
+  1410→          </tbody>
+  1411→        </table>
+  1412→      </div>
+  1413→
+  1414→      {/* Legend */}
+  1415→      <div className="flex items-center gap-3 mt-4 flex-wrap text-[11px]" style={{ color: "var(--text-mid)" }}>
+  1416→        <span>{locale === "ar" ? "السرعة:" : "Speed:"}</span>
+  1417→        <span className="inline-flex items-center gap-1.5">
+  1418→          <span className="w-3 h-3 rounded-sm" style={{ background: "rgba(22,154,165,0.36)" }} />
+  1419→          {locale === "ar" ? "≤ يوم" : "≤ 1 day"}
+  1420→        </span>
+  1421→        <span className="inline-flex items-center gap-1.5">
+  1422→          <span className="w-3 h-3 rounded-sm" style={{ background: "rgba(201,162,39,0.36)" }} />
+  1423→          {locale === "ar" ? "1–3 أيام" : "1–3 days"}
+  1424→        </span>
+  1425→        <span className="inline-flex items-center gap-1.5">
+  1426→          <span className="w-3 h-3 rounded-sm" style={{ background: "rgba(217,119,6,0.40)" }} />
+  1427→          {locale === "ar" ? "3–7 أيام" : "3–7 days"}
+  1428→        </span>
+  1429→        <span className="inline-flex items-center gap-1.5">
+  1430→          <span className="w-3 h-3 rounded-sm" style={{ background: "rgba(220,38,38,0.40)" }} />
+  1431→          {locale === "ar" ? "+7 أيام" : "7+ days"}
+  1432→        </span>
+  1433→      </div>
+  1434→    </div>
+  1435→  );
+  1436→}
+  1437→
+  1438→/* ============================================================
+  1439→   Root
+  1440→   ============================================================ */
+  1441→export function HrbpScreen() {
+  1442→  const locale = useAppStore((s) => s.locale);
+  1443→  const view = useAppStore((s) => s.hrbpView);
+  1444→  const setView = useAppStore((s) => s.setHrbpView);
+  1445→  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+  1446→  const [digestOpen, setDigestOpen] = useState(false);
+  1447→  const dir = locale === "ar" ? "rtl" : "ltr";
+  1448→
+  1449→  const openPacket = useCallback((employeeId: string) => {
+  1450→    setSelectedEmployeeId(employeeId);
+  1451→    setView("employee");
+  1452→  }, [setView]);
+  1453→
+  1454→  const backToQueue = useCallback(() => {
+  1455→    setView("queue");
+  1456→    setSelectedEmployeeId(null);
+  1457→  }, [setView]);
+  1458→
+  1459→  return (
+  1460→    <div
+  1461→      dir={dir}
+  1462→      className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10"
+  1463→    >
+  1464→      <header className="flex items-center justify-between mb-6 flex-wrap gap-3">
+  1465→        <div>
+  1466→          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--brand-400)" }}>
+  1467→            <ListOrdered className="w-3.5 h-3.5" strokeWidth={1.75} />
+  1468→            <span>{locale === "ar" ? "وحدة شريك الموارد البشرية" : "HRBP console"}</span>
+  1469→          </div>
+  1470→          <h1 className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight" style={{ color: "var(--text-hi)" }}>
+  1471→            {locale === "ar" ? "أول من يحتاج مساعدة اليوم" : "Who needs you first today"}
+  1472→          </h1>
+  1473→        </div>
+  1474→        <div className="flex items-center gap-2 flex-wrap">
+  1475→          {/* PRD §10-198 — Weekly digest "where journeys stalled" */}
+  1476→          <button
+  1477→            type="button"
+  1478→            onClick={() => setDigestOpen(true)}
+  1479→            className="ast-focus inline-flex items-center gap-2 h-9 px-3 rounded-full text-[12px] font-medium whitespace-nowrap"
+  1480→            style={{
+  1481→              background: "rgba(201,162,39,0.08)",
+  1482→              border: "1px solid rgba(201,162,39,0.32)",
+  1483→              color: "var(--accent-500)",
+  1484→            }}
+  1485→            aria-label={locale === "ar" ? "الملخّص الأسبوعي" : "Weekly digest"}
+  1486→          >
+  1487→            <Mail className="w-3.5 h-3.5" strokeWidth={1.75} />
+  1488→            <span className="hidden sm:inline">{locale === "ar" ? "الملخّص الأسبوعي" : "Weekly digest"}</span>
+  1489→            <span className="sm:hidden">{locale === "ar" ? "ملخّص" : "Digest"}</span>
+  1490→          </button>
+  1491→          <HrbpTabs />
+  1492→        </div>
+  1493→      </header>
+  1494→
+  1495→      {view === "queue" && <QueueView onOpenPacket={openPacket} />}
+  1496→      {view === "employee" && (
+  1497→        selectedEmployeeId
+  1498→          ? <EmployeeView employeeId={selectedEmployeeId} onBack={backToQueue} />
+  1499→          : (
+  1500→            <div className="ast-card p-10 flex flex-col items-center text-center">
+  1501→              <div
+  1502→                className="flex items-center justify-center w-14 h-14 rounded-full mb-4"
+  1503→                style={{ background: "var(--surface-2)", color: "var(--text-mid)" }}
+  1504→              >
+  1505→                <User className="w-6 h-6" strokeWidth={1.75} />
+  1506→              </div>
+  1507→              <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+  1508→                {locale === "ar" ? "اختر موظفاً من القائمة لعرض الطرد." : "Pick someone from the queue to view their packet."}
+  1509→              </p>
+  1510→              <button
+  1511→                onClick={() => setView("queue")}
+  1512→                className="ast-focus mt-4 inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium"
+  1513→                style={{ background: "var(--brand-500)", color: "var(--surface-0)", border: "1px solid var(--brand-500)" }}
+  1514→              >
+  1515→                <ListOrdered className="w-4 h-4" strokeWidth={1.75} />
+  1516→                {locale === "ar" ? "افتح القائمة" : "Open queue"}
+  1517→              </button>
+  1518→            </div>
+  1519→          )
+  1520→      )}
+  1521→      {view === "stalls" && <StallsView />}
+  1522→
+  1523→      {/* PRD §10-198 — Weekly digest modal */}
+  1524→      <HrbpDigestModal open={digestOpen} onOpenChange={setDigestOpen} />
+  1525→    </div>
+  1526→  );
+  1527→}
+  1528→
