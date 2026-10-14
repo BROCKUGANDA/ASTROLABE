@@ -85,6 +85,15 @@ const STOPWORDS = new Set([
   "be", "will", "can", "you", "please", "tell", "about", "when", "where",
   "if", "so", "it", "this", "that", "from", "as", "have", "has", "was",
   "were", "they", "them", "their", "we", "us", "our", "your",
+  // Arabic function words. Without these, an Arabic question scored its "content
+  // match" on هي and يوم, so a topic absent from the corpus looked answerable and
+  // the companion cited real policies in reply to a question they do not address.
+  // Bilingual by construction means the retrieval stops in both languages.
+  "ما", "هي", "هو", "ان", "أن", "إن", "الذي", "التي", "هذه", "هذا", "عن", "في",
+  "على", "الى", "إلى", "مع", "هل", "كم", "كل", "بعض", "يوم", "او", "أو", "ثم",
+  "كان", "كانت", "يكون", "لكن", "قد", "بين", "بعد", "قبل", "حتى", "غير", "من",
+  "هنا", "الان", "الآن", "اي", "أي", "ايضاً", "أيضا", "نعم", "لا", "ذات", "ذالك",
+  "ذلك", "لذلك", "بسبب", "مثال", "جدا", "جداً", "اليوم", "غدا", "غداً", "امس",
 ]);
 
 export function tokenize(text: string): string[] {
@@ -139,7 +148,19 @@ export type Intent = "policy" | "journey" | "action" | "smalltalk" | "out_of_sco
 export function classifyIntent(question: string): Intent {
   const q = question.toLowerCase();
   // Out of scope: compensation disputes, legal, medical, disciplinary, another employee
-  if (/\b(salary\s+dispute|sue|lawsuit|medical|sick\s+leave\s+dispute|disciplin|warned|fired|about\s+(?:my\s+)?colleague|about\s+(?:mr|mrs|ms)\b)/.test(q)) {
+  if (/\b(salary\s+dispute|sue|lawsuit|medical|sick\s+leave\s+dispute|disciplin|warned|fired|about\s+(?:my\s+)?colleague|about\s+(?:mr|mrs|ms)\b)/i.test(q)) {
+    return "out_of_scope";
+  }
+  // The same categories in Arabic. Without these, an Arabic speaker asking to sue
+  // the company gets a cited answer instead of a hand-off, which is exactly the
+  // failure the brief forbids — the guardrail was written in one language only.
+  if (
+    /(مقاضاة|محام|دعوى|تحكيم|قانوني)/.test(question) ||
+    /(نزاع.{0,12}(أجر|أجور|راتب)|(راتبي|أجري).{0,12}(خاطئ|خطأ|غلط|ناقص)|مظلمة)/.test(question) ||
+    /(تأديب|إنذار|فصل\s+من|تحقيق\s+مع)/.test(question) ||
+    /(حالة\s+طبية|توصية\s+طبية|تشخيص|علاجي)/.test(question) ||
+    /(زميلي|زميلتي|راتب\s+(?:هو|هي|زميل)|عن\s+موظف\s+آخر)/.test(question)
+  ) {
     return "out_of_scope";
   }
   // PRD §22 adversarial: "What's John's salary?" — asking about a named
@@ -375,7 +396,19 @@ export function answer(
 
   // Check top chunk similarity floor
   const topScore = retrieved[0].score;
-  if (topScore < 0.5) {
+  // A keyword hit is not evidence of relevance. The old floor was passed by any
+  // shared function word, so an Arabic question about Saturday early attendance
+  // came back with citations from the facilities and mobility documents. The test
+  // is whether the chunk matches a word that actually carries the topic: matching
+  // only "policy" / "سياسة" / "days" proves nothing, while matching "visa" proves
+  // the topic even when the question is one word long.
+  const GENERIC_MATCH_TOKENS = new Set([
+    "policy", "policies", "سياسة", "السياسة", "hr", "company", "employee", "employees", "day", "days",
+    "how", "many", "what", "when", "where", "will", "can", "do", "get", "am", "i", "my", "the", "are",
+    "km", "m", "cm", "hours", "hour", "week", "weeks", "month", "months", "year", "years",
+  ]);
+  const topicMatches = retrieved[0].matchedTerms.filter((t) => !GENERIC_MATCH_TOKENS.has(t));
+  if (topScore < 0.5 || topicMatches.length === 0) {
     return {
       answerId,
       kind: "abstain",

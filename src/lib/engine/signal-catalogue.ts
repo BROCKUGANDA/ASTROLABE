@@ -32,6 +32,16 @@ export interface SignalSpec {
   dataQuality?: boolean;
   /** Nudge the employee only; never enters the HRBP queue (PRD §3-059). */
   nudgeOnly?: boolean;
+  /**
+   * false = recorded and shown, but contributes nothing to the score. This is
+   * how the spec's two rules are reconciled: §11 gives DQ-03 a weight of 1, while
+   * §22 requires that an assessment at T be invariant to rows dated after T. A
+   * signal whose entire subject is a future-dated event cannot be allowed to move
+   * a verdict at T — it would mean a row that has not happened yet can push
+   * someone from Steady to Watch. It stays in the payload and the trace as an
+   * operator finding.
+   */
+  scoring?: boolean;
   condition: string;
   rationale: string;
 }
@@ -167,7 +177,7 @@ export const SIGNAL_CATALOGUE: Record<string, SignalSpec> = {
   "DQ-02": { code: "DQ-02", family: "DQ", weight: 2, dataQuality: true, perItem: true,
     condition: "Conflicting events (completed then reopened without reason)",
     rationale: "Contradictory history must be shown honestly rather than silently resolved, but it is rarely the employee's problem." },
-  "DQ-03": { code: "DQ-03", family: "DQ", weight: 1, dataQuality: true,
+  "DQ-03": { code: "DQ-03", family: "DQ", weight: 1, dataQuality: true, scoring: false,
     condition: "Future-dated event beyond now (clock skew)",
     rationale: "One point: the event is excluded from state, so the employee is unaffected, but an operator must see it." },
   "DQ-04": { code: "DQ-04", family: "DQ", weight: 3, dataQuality: true,

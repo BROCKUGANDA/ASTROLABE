@@ -189,19 +189,22 @@ export function fuse(
   // force the Blocked band, which is exactly the consent-as-a-banner failure the
   // PRD forbids (§15, §29 018).
   const admissible = signals.filter((s) => !suppressed.includes(s.family));
+  // Disclosures that exist only to report rows outside the as-of window are
+  // shown and traced, but they never move the score.
+  const scored = admissible.filter((s) => s.counts !== false);
 
   for (const family of families) {
     const isSuppressed = suppressed.includes(family);
     const raw = isSuppressed
       ? 0
-      : admissible.filter((s) => s.family === family).reduce((sum, s) => sum + s.weight, 0);
+      : scored.filter((s) => s.family === family).reduce((sum, s) => sum + s.weight, 0);
     const capped = Math.min(raw, FAMILY_CAPS[family]);
     familyArithmetic.push({ family, raw, capped, cap: FAMILY_CAPS[family], suppressed: isSuppressed });
     score += capped;
   }
 
-  const hardTrips = admissible.filter((s) => s.hardTrip).map((s) => s.code);
-  const forcedBlocked = admissible.some((s) => s.forceBlocked);
+  const hardTrips = scored.filter((s) => s.hardTrip).map((s) => s.code);
+  const forcedBlocked = scored.some((s) => s.forceBlocked);
 
   let band: Band = "steady";
   if (score >= BAND_THRESHOLDS.blocked.min) band = "blocked";

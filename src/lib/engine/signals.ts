@@ -35,6 +35,8 @@ export interface FiredSignal {
   forceBlocked: boolean;
   nudgeOnly: boolean;
   dataQuality: boolean;
+  /** False for disclosures about data outside the as-of window: recorded, not scored. */
+  counts?: boolean;
 }
 
 export interface SignalInput {
@@ -98,6 +100,7 @@ function mk(
     forceBlocked: Boolean(spec.forceBlocked),
     nudgeOnly: Boolean(spec.nudgeOnly),
     dataQuality: Boolean(spec.dataQuality),
+    counts: spec.scoring !== false,
     ...overrides,
   };
 }
