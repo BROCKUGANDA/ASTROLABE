@@ -23,10 +23,16 @@ const plexArabic = IBM_Plex_Sans_Arabic({
   display: "swap",
 });
 
+const SITE_URL = "https://astrolabe.internal";
+const SITE_TITLE = "ASTROLABE · Employee Journey Companion";
+const SITE_DESCRIPTION =
+  "A navigation instrument for onboarding and internal mobility. The deterministic engine decides — the model explains. Every answer cites its source. Unsure is a first-class answer.";
+
 export const metadata: Metadata = {
-  title: "ASTROLABE · Employee Journey Companion",
-  description:
-    "A navigation instrument for onboarding and internal mobility. The deterministic engine decides — the model explains. Every answer cites its source. Unsure is a first-class answer.",
+  metadataBase: new URL(SITE_URL),
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  applicationName: "ASTROLABE",
   keywords: [
     "ASTROLABE",
     "employee journey",
@@ -36,7 +42,52 @@ export const metadata: Metadata = {
     "Emirates",
   ],
   authors: [{ name: "ASTROLABE" }],
-  icons: { icon: "/logo.svg" },
+  creator: "ASTROLABE",
+  publisher: "ASTROLABE",
+  icons: { icon: "/logo.svg", apple: "/logo.svg" },
+  manifest: "/manifest.webmanifest",
+  // Prototype is indexable; a real prod deployment would flip to noindex
+  // until the app is GA.
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large" },
+  },
+  alternates: {
+    canonical: "/",
+    languages: {
+      en: "/",
+      ar: "/?locale=ar",
+    },
+  },
+  openGraph: {
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    type: "website",
+    locale: "en_US",
+    alternateLocale: ["ar_AE"],
+    siteName: "ASTROLABE",
+    url: SITE_URL,
+    images: [
+      {
+        url: "/logo.svg",
+        width: 512,
+        height: 512,
+        alt: "ASTROLABE — Employee Journey Companion",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: ["/logo.svg"],
+  },
+  verification: {
+    google: "astrolabe-verification",
+  },
+  category: "technology",
+  formatDetection: { telephone: false, address: false, email: false },
 };
 
 export default function RootLayout({

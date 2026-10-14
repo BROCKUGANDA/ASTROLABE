@@ -3,8 +3,16 @@
  * Re-run the deterministic engine against an as-of timestamp for one,
  * many, or all employees. Returns a jobId + the assessments.
  *
- * The engine is pure, so a replay with the same (asOf, employeeIds)
- * yields byte-identical assessments — this is the judge-mode "rewind".
+ * PRD §29 item 46 / PRD §19-378 — Replay is deterministic. The engine is
+ * pure (no I/O, no Math.random, no Date.now inside `src/lib/engine`), so
+ * `POST /api/v1/admin/replay { asOf: T }` always yields byte-identical
+ * `results` for the same `asOf` (+ same `employeeIds` filter, same pack
+ * version, same engine version). The response stamps `mapVersion`,
+ * `corpusVersion`, `engineVersion`, `packVersion` via the success envelope
+ * so callers can prove they got the same artefact across runs. The only
+ * non-deterministic field on the response is `jobId` (a `Date.now`-based
+ * slug for human tracking) and `latencyMs` — both live in `meta`, not in
+ * the replayed `results`. This is the judge-mode "rewind".
  */
 import { NextRequest } from "next/server";
 import { success, error } from "@/lib/api/envelope";

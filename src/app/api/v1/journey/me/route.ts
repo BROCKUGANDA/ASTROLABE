@@ -1,3 +1,18 @@
+/**
+ * ASTROLABE API — /api/v1/journey/me (GET)
+ * The employee's own journey state at `asOf`.
+ *
+ * PRD §29 item 25 / PRD §17-340 — Deterministic core works with model
+ * switched off. This handler makes ZERO model calls. Every field on the
+ * response (stage, day-in-stage, band, score, signals, suppressed families,
+ * next-best-step, every step's status/SLA/breach-level) is produced by the
+ * pure functions in `src/lib/engine/engine.ts` (`assess`, `nextBestStep`,
+ * `computeStepState`) and the synthetic pack in `src/lib/data/pack.ts`.
+ * No `fetch`, no `Math.random`, no `Date.now` inside the engine — the only
+ * time source is the `asOf` parameter (defaulting to `new Date()` for the
+ * live demo, but overridable for replay). You could set `ASTROLABE_MODEL=off`
+ * and the entire `/journey/me` response would be byte-identical.
+ */
 import { NextRequest } from "next/server";
 import { success, error } from "@/lib/api/envelope";
 import { employees, getOwner } from "@/lib/data/pack";

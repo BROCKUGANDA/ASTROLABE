@@ -603,6 +603,18 @@ function LateItemsPanel({ data }: { data: JourneyMeData }) {
 
   const nbs = data.nextBestStep;
 
+  // PRD §29 item 04 / PRD §03-051 — "Pause clocks visibly when waiting on the
+  // employee and say so." When a step is `waiting_employee` the engine
+  // freezes its SLA clock (engine.ts: `effectiveElapsed = isWaitingEmployee ?
+  // 0 : elapsedHours`), so it never appears in the "late" list. We surface
+  // the first such step here so the empty-late state can say:
+  //   "Nothing is late — this one is waiting on your passport scan."
+  // instead of looking like the engine forgot about the user.
+  const waitingOnEmployee = useMemo(
+    () => data.steps.find((s) => s.status === "waiting_employee"),
+    [data.steps],
+  );
+
   return (
     <section className="ast-card p-5 sm:p-6 lg:col-span-5" aria-label="Late items">
       <div className="flex items-center gap-2 mb-4">
@@ -621,7 +633,18 @@ function LateItemsPanel({ data }: { data: JourneyMeData }) {
       </div>
 
       {late.length === 0 ? (
-        <EmptyLateState nbsLabel={nbs ? (locale === "ar" ? nbs.labelAr : nbs.label) : null} dueAt={nbs?.dueAt} locale={locale} />
+        <EmptyLateState
+          nbsLabel={nbs ? (locale === "ar" ? nbs.labelAr : nbs.label) : null}
+          dueAt={nbs?.dueAt}
+          locale={locale}
+          waitingOnEmployeeLabel={
+            waitingOnEmployee
+              ? locale === "ar"
+                ? waitingOnEmployee.labelAr
+                : waitingOnEmployee.label
+              : null
+          }
+        />
       ) : (
         <ul className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
           <AnimatePresence initial={false}>
@@ -673,30 +696,69 @@ function EmptyLateState({
   nbsLabel,
   dueAt,
   locale,
+  waitingOnEmployeeLabel,
 }: {
   nbsLabel: string | null;
   dueAt?: string;
   locale: "en" | "ar";
+  /** Label of the first step whose SLA clock is paused on the employee
+   *  (status === "waiting_employee"). When present, the empty-late message
+   *  becomes the PRD §29 item 04 "this one is waiting on your …" copy. */
+  waitingOnEmployeeLabel?: string | null;
 }) {
-  const copy = nbsLabel
+  // PRD §29 item 04 / PRD §06-600: "Clock paused: waiting_employee →
+  // Nothing is late — this one is waiting on your passport scan."
+  // When the SLA clock has visibly paused on the employee, the empty-late
+  // state must explain *why* nothing is late — otherwise it reads as "the
+  // engine forgot about me." The Hourglass icon (instead of the steady
+  // CheckCircle2) signals "clock is paused", not "all clear".
+  const isPaused = Boolean(waitingOnEmployeeLabel);
+
+  const copy = isPaused
     ? locale === "ar"
-      ? `لا شيء متأخر. التالي: ${nbsLabel}${dueAt ? ` بحلول ${format(new Date(dueAt), "EEEE d MMM")}` : ""}.`
-      : `Nothing is late. Next: ${nbsLabel}${dueAt ? ` by ${format(new Date(dueAt), "EEEE d MMM")}` : ""}.`
-    : locale === "ar"
-      ? "لا شيء متأخر. كل شيء يسير على وقته."
-      : "Nothing is late. Everything is on time.";
+      ? `لا شيء متأخر — هذه الخطوة تنتظر منك: ${waitingOnEmployeeLabel}.`
+      : `Nothing is late — this one is waiting on your ${waitingOnEmployeeLabel}.`
+    : nbsLabel
+      ? locale === "ar"
+        ? `لا شيء متأخر. التالي: ${nbsLabel}${dueAt ? ` بحلول ${format(new Date(dueAt), "EEEE d MMM")}` : ""}.`
+        : `Nothing is late. Next: ${nbsLabel}${dueAt ? ` by ${format(new Date(dueAt), "EEEE d MMM")}` : ""}.`
+      : locale === "ar"
+        ? "لا شيء متأخر. كل شيء يسير على وقته."
+        : "Nothing is late. Everything is on time.";
 
   return (
     <div className="flex flex-col items-start gap-3 py-2">
       <div
         className="flex items-center justify-center w-10 h-10 rounded-full"
-        style={{ background: "rgba(14,159,110,0.10)", color: "var(--status-steady)" }}
+        style={
+          isPaused
+            ? { background: "rgba(201,162,39,0.10)", color: "var(--accent-500)" }
+            : { background: "rgba(14,159,110,0.10)", color: "var(--status-steady)" }
+        }
+        aria-label={isPaused ? (locale === "ar" ? "الساعة متوقفة" : "Clock paused") : undefined}
       >
-        <CheckCircle2 className="w-5 h-5" strokeWidth={1.75} />
+        {isPaused ? (
+          <Hourglass className="w-5 h-5" strokeWidth={1.75} />
+        ) : (
+          <CheckCircle2 className="w-5 h-5" strokeWidth={1.75} />
+        )}
       </div>
       <p className="text-[14px] leading-relaxed" style={{ color: "var(--text-mid)" }}>
         {copy}
       </p>
+      {isPaused && (
+        <p
+          className="text-[11px] font-mono tabular inline-flex items-center gap-1.5"
+          style={{ color: "var(--text-lo)" }}
+        >
+          <span
+            className="inline-block w-1.5 h-1.5 rounded-full"
+            style={{ background: "var(--accent-500)" }}
+            aria-hidden="true"
+          />
+          {locale === "ar" ? "الساعة متوقفة مؤقتاً" : "SLA clock paused"}
+        </p>
+      )}
     </div>
   );
 }

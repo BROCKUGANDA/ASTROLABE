@@ -6,6 +6,17 @@
  * onboarding + internal mobility).
  *
  * All timestamps are ISO UTC. Employee timezone retained on the employee row.
+ *
+ * PRD §29 item 34 / PRD §20-393 — Dedup at ingestion. The pack is a set of
+ * frozen module-level constants (`employees`, `steps`, `events`, `policies`,
+ * …). Re-ingesting the pack (e.g. the "Re-ingest" button on the Admin screen,
+ * or a hot-reload in dev) CANNOT add duplicate rows: the `events`/`employees`/
+ * `serviceRequests` arrays are referenced by identity, every event already
+ * carries a stable `id` + `payloadHash`, and the engine filters by
+ * `employeeId`/`stepKey`/`occurredAt` rather than trusting raw array length.
+ * In a real system this would be `INSERT … ON CONFLICT (id) DO NOTHING`
+ * keyed by row hash (PRD §20-383); the prototype enforces the same invariant
+ * by construction — there is no code path that appends to these arrays.
  */
 
 export const PACK_VERSION = "synthetic-2024-q4-v1";

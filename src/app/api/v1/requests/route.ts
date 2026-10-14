@@ -13,6 +13,14 @@ import {
   type Owner,
 } from "@/lib/data/pack";
 import { INTAKE_SCHEMAS, resolveOwner } from "@/lib/actions/actions";
+import {
+  rateLimit,
+  getClientIp,
+  buildIdentifier,
+  formatRetrySeconds,
+  RATE_LIMITS,
+} from "@/lib/rate-limit";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -67,33 +75,79 @@ export async function POST(req: NextRequest) {
     return error("E_BAD_BODY", "Request body must be valid JSON", 400);
   }
 
+  // Rate limit BEFORE we resolve the owner / mutate state (PRD §19).
+  // Scope: "requests" — 10 / hour per (ip + employeeId).
+  const ip = getClientIp(req);
+  const userId =
+    typeof body.employeeId === "string" && body.employeeId.length > 0
+      ? body.employeeId
+      : null;
+  const rlId = buildIdentifier("requests", ip, userId);
+  const rl = rateLimit(
+    rlId,
+    RATE_LIMITS.requests.limit,
+    RATE_LIMITS.requests.windowMs
+  );
+  if (!rl.success) {
+    const retrySec = formatRetrySeconds(rl.resetAt);
+    logger.warn("requests rate-limited", {
+      rlId,
+      retrySec,
+      requestId: req.headers.get("x-request-id") ?? undefined,
+    });
+    const res = error(
+      "E_RATE_LIMIT",
+      "Too many requests submitted. Please wait before opening another.",
+      429,
+      {
+        hint: `Try again in ${retrySec} seconds`,
+        retryable: true,
+      }
+    );
+    res.headers.set("Retry-After", String(retrySec));
+    res.headers.set("X-RateLimit-Remaining", "0");
+    res.headers.set("X-RateLimit-Reset", String(Math.ceil(rl.resetAt / 1000)));
+    res.headers.set("X-RateLimit-Limit", String(RATE_LIMITS.requests.limit));
+    return res;
+  }
+
   const employeeId = body.employeeId ?? "";
   const type = body.type as RequestType | undefined;
   const payload = body.payload ?? {};
   const idempotencyKey = (body.idempotencyKey ?? "").trim();
 
   if (!employeeId) {
-    return error("E_VALIDATION", "`employeeId` is required", 422);
+    const res = error("E_VALIDATION", "`employeeId` is required", 422);
+    res.headers.set("X-RateLimit-Remaining", String(rl.remaining));
+    return res;
   }
   if (!type) {
-    return error("E_VALIDATION", "`type` is required", 422, {
+    const res = error("E_VALIDATION", "`type` is required", 422, {
       hint: "One of: it_kit, system_access, visa, relocation, payroll, training, facilities, manager_handover",
     });
+    res.headers.set("X-RateLimit-Remaining", String(rl.remaining));
+    return res;
   }
   if (!idempotencyKey) {
-    return error("E_VALIDATION", "`idempotencyKey` is required", 422, {
+    const res = error("E_VALIDATION", "`idempotencyKey` is required", 422, {
       hint: "Provide a stable client-generated key to dedupe retries.",
     });
+    res.headers.set("X-RateLimit-Remaining", String(rl.remaining));
+    return res;
   }
 
   const employee = employees.find((e) => e.id === employeeId);
   if (!employee) {
-    return error("E_NOT_FOUND", `Employee ${employeeId} not found`, 404);
+    const res = error("E_NOT_FOUND", `Employee ${employeeId} not found`, 404);
+    res.headers.set("X-RateLimit-Remaining", String(rl.remaining));
+    return res;
   }
 
   const schema = INTAKE_SCHEMAS[type];
   if (!schema) {
-    return error("E_VALIDATION", `Unknown request type '${type}'`, 422);
+    const res = error("E_VALIDATION", `Unknown request type '${type}'`, 422);
+    res.headers.set("X-RateLimit-Remaining", String(rl.remaining));
+    return res;
   }
 
   // Validate required intake fields.
@@ -107,18 +161,20 @@ export async function POST(req: NextRequest) {
     }
   }
   if (missing.length > 0) {
-    return error(
+    const res = error(
       "E_VALIDATION",
       `Missing required fields: ${missing.join(", ")}`,
       422,
       { hint: `Required fields for '${type}' are defined in INTAKE_SCHEMAS.` }
     );
+    res.headers.set("X-RateLimit-Remaining", String(rl.remaining));
+    return res;
   }
 
   // Idempotency: return cached request if seen before.
   const cached = serviceRequests.find((r) => r.idempotencyKey === idempotencyKey);
   if (cached) {
-    return success(
+    const res = success(
       { ...cached, servedFrom: "cache" as const },
       {
         servedFrom: "cache",
@@ -126,12 +182,16 @@ export async function POST(req: NextRequest) {
         latencyMs: Date.now() - start,
       }
     );
+    res.headers.set("X-RateLimit-Remaining", String(rl.remaining));
+    res.headers.set("X-RateLimit-Reset", String(Math.ceil(rl.resetAt / 1000)));
+    res.headers.set("X-RateLimit-Limit", String(RATE_LIMITS.requests.limit));
+    return res;
   }
 
   // Resolve owner (functional fallback may apply).
   const { owner, path: ownerPath, fallbackUsed } = resolveOwner(type, employee, schema.ownerGroup);
   if (!owner) {
-    return error(
+    const res = error(
       "E_NO_OWNER",
       `No owner could be resolved for request type '${type}' and employee ${employeeId}`,
       422,
@@ -140,6 +200,8 @@ export async function POST(req: NextRequest) {
         retryable: false,
       }
     );
+    res.headers.set("X-RateLimit-Remaining", String(rl.remaining));
+    return res;
   }
 
   const now = new Date();
@@ -161,7 +223,7 @@ export async function POST(req: NextRequest) {
   // In-memory mutation (prototype only).
   serviceRequests.push(newRequest);
 
-  return success(
+  const res = success(
     {
       ...newRequest,
       servedFrom: "live" as const,
@@ -174,4 +236,8 @@ export async function POST(req: NextRequest) {
       latencyMs: Date.now() - start,
     }
   );
+  res.headers.set("X-RateLimit-Remaining", String(rl.remaining));
+  res.headers.set("X-RateLimit-Reset", String(Math.ceil(rl.resetAt / 1000)));
+  res.headers.set("X-RateLimit-Limit", String(RATE_LIMITS.requests.limit));
+  return res;
 }

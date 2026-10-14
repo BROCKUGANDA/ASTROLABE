@@ -329,6 +329,19 @@ export function buildEscalationPacket(
 
 /* ============================================================
    REQUEST STATE MACHINE
+   ------------------------------------------------------------
+   PRD §29 item 15 — Request status is DERIVED, never written.
+   The only legal way to move a ServiceRequest between statuses is
+   `POST /api/v1/requests/[id]/transition`, which:
+     1. validates `to` against the VALID_STATUSES set,
+     2. checks the (from, to) pair against LEGAL_TRANSITIONS below,
+     3. only then mutates `request.status`.
+   No handler in the app writes `request.status = …` directly; any
+   other code path that needs to change status MUST go through the
+   transition route (or this `canTransition` predicate + the same
+   idempotency-key rule). This makes every status change auditable
+   from one site and prevents the engine, the UI, or a future
+   model-call from silently jumping a request to "resolved".
    ============================================================ */
 const LEGAL_TRANSITIONS: Record<string, string[]> = {
   draft: ["validated", "cancelled"],

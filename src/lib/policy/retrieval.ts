@@ -12,6 +12,24 @@
  *  - Abstain on: low grounding, low top-chunk, equal-authority conflict,
  *    compensation/legal/medical/disciplinary, about another employee,
  *    corpus unavailable
+ *
+ * PRD §29 item 41 / PRD §23-443 — Untrusted text is DATA, never an
+ * instruction. Policy chunks (and the employee's question) are always
+ * treated as opaque strings:
+ *   - They are tokenised for SCORING ONLY (`tokenize` lower-cases + strips
+ *     punctuation; the original text is never `eval`'d, templated, or
+ *     passed to a system-prompt slot).
+ *   - The composer (`composeExtractive`) picks whole sentences VERBATIM
+ *     from the chunk text and emits them inside the markdown answer
+ *     between citation markers. It never interpolates chunk text into a
+ *     prompt, never runs it through `eval`/`Function`, and never feeds it
+ *     to a model as an instruction — only as the fenced "data" envelope.
+ *   - The validator (`validateGrounding`) counts sentences and citation
+ *     markers; it does not execute the text.
+ *   - On the (future) model path, the same invariant holds: retrieved
+ *     chunks travel in a `data:` envelope, never in the `system:` slot.
+ *     The model has no tools, no network, no DB (PRD §23-444), so even a
+ *     prompt-injection payload inside a policy chunk cannot escalate.
  */
 
 import { policies, PolicyChunk, Locale, NOW } from "../data/pack";

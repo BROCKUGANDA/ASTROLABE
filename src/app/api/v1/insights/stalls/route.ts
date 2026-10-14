@@ -3,9 +3,15 @@
  * Stall heatmap: per (stage × ownerGroup) cell, compute median
  * time-to-complete, breach rate, and reassignment rate.
  *
- * k≥5 suppression: cells with fewer than 5 contributing employees
- * are returned as `suppressed: true` so the UI can grey them out
- * rather than show noisy medians.
+ * PRD §29 item 22 / PRD §11-209 — Aggregates suppress below k threshold.
+ * Cells with fewer than 5 contributing employees are returned as
+ * `suppressed: true` (with a `reason: "Not enough data to show safely
+ * (n<5)"`) so the UI greys them out rather than surfacing a noisy median
+ * computed from 1–4 journeys. The threshold is `K = 5` (PRD §11-209:
+ * "Aggregate across joiners only above the k threshold"). The check is on
+ * `contributors.size` (distinct employees with a completion in this cell),
+ * NOT on `completions.length`, so one employee with many completed steps
+ * in the same cell cannot fool the suppression.
  */
 import { NextRequest } from "next/server";
 import { success } from "@/lib/api/envelope";
@@ -108,6 +114,9 @@ export async function GET(_req: NextRequest) {
       groupRequests.length > 0 ? reassigned / groupRequests.length : 0;
 
     if (contributors.size < 5) {
+      // PRD §29 item 22 / PRD §11-209 — k=5 suppression.
+      // Returns `suppressed: true` so the heatmap renders this cell as
+      // grey rather than a misleading median computed from <5 journeys.
       cells.push({
         stage,
         ownerGroup,

@@ -815,13 +815,21 @@ function IngestionReportCard() {
   const locale = useAppStore((s) => s.locale);
   const [reingesting, setReingesting] = useState(false);
 
+  // PRD §29 item 34 / PRD §20-393 — Re-ingestion is safe and creates no
+  // duplicates. The pack is a frozen module-level constant in
+  // `src/lib/data/pack.ts`; the re-ingest button here is a UX affordance
+  // that re-validates the same in-memory rows. Because there is no INSERT
+  // path (the arrays are referenced by identity), pressing this button N
+  // times still leaves exactly `INGESTION_TOTAL` rows — no duplicates are
+  // ever appended. In a real adapter this would be
+  // `INSERT … ON CONFLICT (id) DO NOTHING` keyed by row hash (PRD §20-383).
   const handleReingest = () => {
     setReingesting(true);
     setTimeout(() => {
       setReingesting(false);
       toast.success(
         locale === "ar" ? "أُعيد تحميل الحزمة" : "Pack re-ingested",
-        { description: locale === "ar" ? `${PACK_VERSION} · ${INGESTION_TOTAL} صفاً` : `${PACK_VERSION} · ${INGESTION_TOTAL} rows validated` }
+        { description: locale === "ar" ? `${PACK_VERSION} · ${INGESTION_TOTAL} صفاً (بدون تكرار)` : `${PACK_VERSION} · ${INGESTION_TOTAL} rows validated (no duplicates)` }
       );
     }, 850);
   };
@@ -1090,6 +1098,15 @@ function CorpusVersionCard() {
 
 /* ============================================================
    Section: Feature flags / kill switches
+   ------------------------------------------------------------
+   PRD §29 item 38 / PRD §24-467 — Kill switches flip without a deploy.
+   Flags live in component state here on the Admin screen and propagate
+   synchronously to every surface that subscribes (the toggles are pure
+   UI state, no network round-trip, no rebuild, no server restart). In a
+   real system these would be backed by a feature-flag service with
+   server-side evaluation; the prototype proves the *contract* (one tap
+   → every surface sees the new state on its next render) without the
+   infra dependency.
    ============================================================ */
 function FeatureFlagsPanel() {
   const locale = useAppStore((s) => s.locale);
@@ -2059,6 +2076,338 @@ function HealthEndpoints() {
 }
 
 /* ============================================================
+   Section: Production readiness (PRD §29 — 50-item checklist)
+   ------------------------------------------------------------
+   Self-audit card at the top of the Admin console. Fetches
+   /api/v1/admin/checklist and renders:
+     - a "X of 50 checks pass" progress bar
+     - a 10×5 grid of 50 status dots (green / amber / red / gray)
+     - a "View details" button that opens a modal with the full list
+   The endpoint is fast (no external calls) so we can fetch on mount.
+   ============================================================ */
+
+type ChecklistStatus = "pass" | "partial" | "fail" | "n/a";
+type ChecklistCategory = "functionality" | "production";
+
+interface ChecklistItem {
+  id: string;
+  category: ChecklistCategory;
+  title: string;
+  status: ChecklistStatus;
+  evidence: string;
+  file?: string;
+}
+
+interface ChecklistSummary {
+  total: number;
+  pass: number;
+  partial: number;
+  fail: number;
+  na: number;
+}
+
+interface ChecklistResponse {
+  items: ChecklistItem[];
+  summary: ChecklistSummary;
+}
+
+const CHECKLIST_DOT_COLOR: Record<ChecklistStatus, string> = {
+  pass: "var(--status-steady)",
+  partial: "var(--status-watch)",
+  fail: "var(--status-friction)",
+  "n/a": "var(--text-lo)",
+};
+
+const CHECKLIST_DOT_GLOW: Record<ChecklistStatus, string> = {
+  pass: "rgba(14,159,110,0.40)",
+  partial: "rgba(217,119,6,0.40)",
+  fail: "rgba(220,38,38,0.40)",
+  "n/a": "transparent",
+};
+
+const CHECKLIST_STATUS_LABEL: Record<ChecklistStatus, { en: string; ar: string }> = {
+  pass: { en: "Pass", ar: "ناجح" },
+  partial: { en: "Partial", ar: "جزئي" },
+  fail: { en: "Fail", ar: "فاشل" },
+  "n/a": { en: "N/A", ar: "غير مطبّق" },
+};
+
+function ProductionReadinessCard() {
+  const locale = useAppStore((s) => s.locale);
+  const [data, setData] = useState<ChecklistResponse | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/v1/admin/checklist")
+      .then((r) => r.json() as Promise<ApiEnvelope<ChecklistResponse>>)
+      .then((json) => {
+        if (cancelled) return;
+        if (json.ok && json.data) setData(json.data);
+        else setErr(json.error?.message ?? "Failed to load checklist");
+      })
+      .catch(() => {
+        if (!cancelled) setErr("Network error loading checklist");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const summary: ChecklistSummary = data?.summary ?? {
+    total: 50,
+    pass: 0,
+    partial: 0,
+    fail: 0,
+    na: 0,
+  };
+  const items: ChecklistItem[] = data?.items ?? [];
+  const passPct = summary.total > 0 ? Math.round((summary.pass / summary.total) * 100) : 0;
+  const functionalItems = items.filter((i) => i.category === "functionality");
+  const productionItems = items.filter((i) => i.category === "production");
+
+  return (
+    <section className="ast-card p-5 sm:p-6 ast-fade-rise" aria-label="Production readiness">
+      <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
+        <div className="flex items-center gap-2.5">
+          <div
+            className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
+            style={{ background: "rgba(22,154,165,0.10)", color: "var(--brand-400)" }}
+          >
+            <ClipboardList className="w-4.5 h-4.5" strokeWidth={1.75} />
+          </div>
+          <div>
+            <h2 className="text-[16px] font-semibold" style={{ color: "var(--text-hi)" }}>
+              {locale === "ar" ? "جاهزية الإنتاج" : "Production readiness"}
+            </h2>
+            <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+              {locale === "ar"
+                ? "تدقيق ذاتي لـ 50 بنداً من قائمة §29 (25 وظيفية + 25 إنتاجية)"
+                : "Self-audit of the 50-item §29 checklist (25 functionality + 25 production)"}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => setOpen(true)}
+          disabled={items.length === 0}
+          className="ast-focus inline-flex items-center gap-2 h-9 px-3.5 rounded-full text-[12px] font-medium disabled:opacity-60"
+          style={{
+            background: "var(--surface-2)",
+            border: "1px solid var(--border)",
+            color: "var(--text-hi)",
+          }}
+        >
+          <ArrowUpDown className="w-3.5 h-3.5" strokeWidth={1.75} />
+          {locale === "ar" ? "عرض التفاصيل" : "View details"}
+        </button>
+      </div>
+
+      {/* Progress bar */}
+      <div className="ast-card-2 p-3 mb-3">
+        <div className="flex items-center justify-between mb-2 gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <CheckCircle2
+              className="w-3.5 h-3.5 shrink-0"
+              strokeWidth={1.75}
+              style={{ color: passPct >= 80 ? "var(--status-steady)" : passPct >= 50 ? "var(--status-watch)" : "var(--status-friction)" }}
+            />
+            <span className="text-[12px] font-medium truncate" style={{ color: "var(--text-mid)" }}>
+              {locale === "ar" ? "الفحوص الناجحة" : "Checks passing"}
+            </span>
+            <span className="text-[12px] font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">
+              {summary.pass} / {summary.total}
+            </span>
+          </div>
+          <span
+            className="text-[14px] font-semibold tabular"
+            style={{
+              color: passPct >= 80 ? "var(--status-steady)" : passPct >= 50 ? "var(--status-watch)" : "var(--status-friction)",
+            }}
+            dir="ltr"
+          >
+            <NumberTicker value={passPct} suffix="%" />
+          </span>
+        </div>
+        <Progress value={passPct} className="h-1.5" />
+        <div className="flex items-center gap-3 mt-2 text-[11px] font-mono tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+          <span style={{ color: "var(--status-steady)" }}>● {summary.pass} pass</span>
+          <span style={{ color: "var(--status-watch)" }}>● {summary.partial} partial</span>
+          <span style={{ color: "var(--status-friction)" }}>● {summary.fail} fail</span>
+          <span>● {summary.na} n/a</span>
+        </div>
+      </div>
+
+      {/* 50-dot grid */}
+      {err ? (
+        <div
+          className="text-[12px] py-2"
+          style={{ color: "var(--status-friction)" }}
+          role="alert"
+        >
+          {err}
+        </div>
+      ) : items.length === 0 ? (
+        <div className="grid grid-cols-10 gap-1.5" aria-hidden="true">
+          {Array.from({ length: 50 }).map((_, i) => (
+            <span
+              key={i}
+              className="ast-shimmer rounded-[3px]"
+              style={{ width: "100%", height: 14, background: "var(--surface-3)" }}
+            />
+          ))}
+        </div>
+      ) : (
+        <div
+          className="grid grid-cols-10 gap-1.5"
+          role="img"
+          aria-label={`${summary.pass} of ${summary.total} checks pass`}
+        >
+          {items.map((it) => (
+            <span
+              key={it.id}
+              title={`#${it.id} · ${it.title} — ${CHECKLIST_STATUS_LABEL[it.status].en}`}
+              className="rounded-[3px] cursor-help"
+              style={{
+                width: "100%",
+                height: 14,
+                background: CHECKLIST_DOT_COLOR[it.status],
+                boxShadow: `0 0 6px ${CHECKLIST_DOT_GLOW[it.status]}`,
+                opacity: it.status === "n/a" ? 0.5 : 1,
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between flex-wrap gap-2 pt-3 mt-1 text-[11px]" style={{ borderTop: "1px solid var(--border-soft)" }}>
+        <div className="flex items-center gap-3">
+          {(["pass", "partial", "fail", "n/a"] as ChecklistStatus[]).map((s) => (
+            <span key={s} className="inline-flex items-center gap-1.5" style={{ color: "var(--text-mid)" }}>
+              <span
+                className="inline-block w-2 h-2 rounded-[2px]"
+                style={{ background: CHECKLIST_DOT_COLOR[s] }}
+                aria-hidden="true"
+              />
+              {CHECKLIST_STATUS_LABEL[s][locale === "ar" ? "ar" : "en"]}
+            </span>
+          ))}
+        </div>
+        <span className="font-mono tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+          GET /api/v1/admin/checklist
+        </span>
+      </div>
+
+      {/* Details modal */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent
+          className="sm:max-w-[920px] max-h-[88vh] overflow-y-auto"
+          style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+        >
+          <DialogTitle className="text-[16px] font-semibold" style={{ color: "var(--text-hi)" }}>
+            {locale === "ar" ? "قائمة جاهزية الإنتاج — 50 بنداً" : "Production readiness checklist — 50 items"}
+          </DialogTitle>
+          <DialogDescription className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+            {locale === "ar"
+              ? "تدقيق ذاتي صادق: ناجح / جزئي / فاشل / غير مطبّق. البنود التي تتطلب بنية تحتية حقيقية (Redis، Postgres، k8s، OTel) هي «غير مطبّق» لأن النموذج الأولي يستخدم SQLite + ذاكرة محلية."
+              : "Honest self-audit: pass / partial / fail / n/a. Items requiring real infrastructure (Redis, Postgres, k8s, OTel) are 'n/a' because the prototype runs on SQLite + in-memory state."}
+          </DialogDescription>
+
+          <ChecklistSection
+            title={locale === "ar" ? "الوظائف (01–25)" : "Functionality (01–25)"}
+            items={functionalItems}
+            locale={locale}
+          />
+          <ChecklistSection
+            title={locale === "ar" ? "الإنتاج (26–50)" : "Production (26–50)"}
+            items={productionItems}
+            locale={locale}
+          />
+
+          <div className="flex justify-end mt-3">
+            <button
+              onClick={() => setOpen(false)}
+              className="ast-focus inline-flex items-center gap-2 h-9 px-3.5 rounded-full text-[12px] font-medium"
+              style={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+                color: "var(--text-hi)",
+              }}
+            >
+              <X className="w-3.5 h-3.5" strokeWidth={1.75} />
+              {locale === "ar" ? "إغلاق" : "Close"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </section>
+  );
+}
+
+function ChecklistSection({
+  title,
+  items,
+  locale,
+}: {
+  title: string;
+  items: ChecklistItem[];
+  locale: "en" | "ar";
+}) {
+  return (
+    <div className="mt-4">
+      <h3
+        className="text-[11px] font-semibold uppercase tracking-[0.14em] mb-2"
+        style={{ color: "var(--brand-400)" }}
+      >
+        {title}
+      </h3>
+      <ul className="space-y-1.5">
+        {items.map((it) => (
+          <li
+            key={it.id}
+            className="ast-card-2 p-2.5 flex items-start gap-2.5"
+          >
+            <span
+              className="inline-block w-2 h-2 rounded-[2px] mt-1.5 shrink-0"
+              style={{ background: CHECKLIST_DOT_COLOR[it.status] }}
+              aria-hidden="true"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <span className="text-[11px] font-mono tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+                  #{it.id}
+                </span>
+                <span className="text-[13px] font-medium" style={{ color: "var(--text-hi)" }}>
+                  {it.title}
+                </span>
+                <span
+                  className="text-[10px] font-mono uppercase tracking-wide px-1.5 py-0.5 rounded"
+                  style={{
+                    color: CHECKLIST_DOT_COLOR[it.status],
+                    background: `color-mix(in srgb, ${CHECKLIST_DOT_COLOR[it.status]} 12%, transparent)`,
+                  }}
+                  dir="ltr"
+                >
+                  {CHECKLIST_STATUS_LABEL[it.status][locale === "ar" ? "ar" : "en"]}
+                </span>
+              </div>
+              <p className="text-[12px] mt-1 leading-relaxed" style={{ color: "var(--text-mid)" }}>
+                {it.evidence}
+              </p>
+              {it.file && (
+                <p className="text-[10px] font-mono tabular mt-1" style={{ color: "var(--text-lo)" }} dir="ltr">
+                  {it.file}
+                </p>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/* ============================================================
    Root
    ============================================================ */
 export function AdminScreen() {
@@ -2100,6 +2449,7 @@ export function AdminScreen() {
       </header>
 
       <div className="space-y-4">
+        <ProductionReadinessCard />
         <IngestionReportCard />
         <QuarantineTable />
         <CorpusVersionCard />

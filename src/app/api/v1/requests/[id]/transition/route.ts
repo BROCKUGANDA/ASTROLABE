@@ -2,6 +2,14 @@
  * ASTROLABE API — /api/v1/requests/[id]/transition (POST)
  * Transitions a service request through the legal state machine.
  *
+ * PRD §29 item 15 — Request status is DERIVED, never written directly.
+ * This route is the ONLY mutation site for `request.status` in the whole
+ * app. It enforces: (a) `to` ∈ VALID_STATUSES, (b) `(from, to)` ∈
+ * LEGAL_TRANSITIONS (via `canTransition`), (c) idempotency-key present,
+ * (d) structured return-question lifecycle. The engine, the UI, and any
+ * future model-call layer are forbidden from writing `request.status`;
+ * they must call this route (or the `canTransition` predicate at minimum).
+ *
  * Optional payload extensions (PRD §11-212):
  *   - returnQuestion: { question, additionalDetail?, returnedBy, returnedAt? }
  *     When `to === "returned"`, attaches the structured "needs more info"
