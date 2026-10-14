@@ -311,6 +311,23 @@ describe("audit chain", () => {
     expect(log.length).toBe(2);
     expect(log.map((r) => r.actor)).toContain("HRBP-1");
 
+    // The employee's "who has looked at me" panel renders directly from this
+    // projection, so its field names and nullability are the contract. The Me
+    // screen read `at` and a non-nullable `purpose`, and threw on the first
+    // row written without one — which is every engine and system write.
+    appendAudit({
+      actor: "SYSTEM",
+      actorRole: "system",
+      action: "engine.assess",
+      subject: "E-1042",
+      lawfulBasis: "legitimate_interests",
+    });
+    const [newest] = viewLogFor("E-1042");
+    expect(newest.actorRole).toBe("system");
+    expect(newest.purpose).toBeNull();
+    expect(typeof newest.timestamp).toBe("string");
+    expect(newest.lawfulBasis).toBe("legitimate_interests");
+
     // Editing a row in place must be detected, and the report must say where.
     const stillValid = __tamperForTesting(1, { action: "silently.changed" });
     expect(stillValid).toBe(false);

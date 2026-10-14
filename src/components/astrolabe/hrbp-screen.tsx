@@ -166,8 +166,11 @@ interface StallsCell {
   reason?: string;
   n?: number;
   employeeCount?: number;
-  medianTimeToCompleteHours?: number;
-  breachRate?: number;
+  /** Fraction of the open steps that are blocked or waiting on someone. */
+  stalledShare?: number;
+  /** Null when no step in the cell has a recorded start — unknown, not zero. */
+  medianDaysOpen?: number | null;
+  breachRate?: number | null;
   reassignmentRate?: number;
 }
 
@@ -307,7 +310,13 @@ function QueueView({ onOpenPacket }: { onOpenPacket: (employeeId: string) => voi
     setLoading(true);
     setErr(null);
     try {
-      const res = await fetch("/api/v1/hrbp/queue", { cache: "no-store" });
+      // The queue is pulse-derived, so the server requires a declared purpose
+      // on the read and writes it into the audit chain. This screen is the
+      // early-warning surface, which is exactly that purpose.
+      const res = await fetch("/api/v1/hrbp/queue", {
+        cache: "no-store",
+        headers: { "X-Purpose": "early_warning" },
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: ApiEnvelope<{ items: QueueItem[] }> = await res.json();
       if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
@@ -1706,22 +1715,22 @@ function StallsView() {
     return { stages, groups, map };
   }, [cells]);
 
-  // Color scale: teal → sand-gold → red (by medianDays)
+  // Colour scale: how much of the cell is blocked or waiting on someone.
+  const STALL_BANDS = [0.25, 0.5, 0.75] as const;
   function cellColor(c: StallsCell | undefined): string {
     if (!c || c.suppressed) return "var(--surface-2)";
-    const m = c.medianTimeToCompleteHours ?? 0;
-    // Map 0h → teal, 48h → sand-gold, 168h+ → red
-    if (m <= 24) return "rgba(22,154,165,0.18)";
-    if (m <= 72) return "rgba(201,162,39,0.18)";
-    if (m <= 168) return "rgba(217,119,6,0.20)";
+    const s = c.stalledShare ?? 0;
+    if (s <= STALL_BANDS[0]) return "rgba(22,154,165,0.18)";
+    if (s <= STALL_BANDS[1]) return "rgba(201,162,39,0.18)";
+    if (s <= STALL_BANDS[2]) return "rgba(217,119,6,0.20)";
     return "rgba(220,38,38,0.20)";
   }
   function cellBorder(c: StallsCell | undefined): string {
     if (!c || c.suppressed) return "var(--border)";
-    const m = c.medianTimeToCompleteHours ?? 0;
-    if (m <= 24) return "rgba(22,154,165,0.36)";
-    if (m <= 72) return "rgba(201,162,39,0.36)";
-    if (m <= 168) return "rgba(217,119,6,0.36)";
+    const s = c.stalledShare ?? 0;
+    if (s <= STALL_BANDS[0]) return "rgba(22,154,165,0.36)";
+    if (s <= STALL_BANDS[1]) return "rgba(201,162,39,0.36)";
+    if (s <= STALL_BANDS[2]) return "rgba(217,119,6,0.36)";
     return "rgba(220,38,38,0.36)";
   }
 
@@ -1750,8 +1759,8 @@ function StallsView() {
           </h2>
           <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
             {locale === "ar"
-              ? "الوسيط لكل (مرحلة × مالك). الخلايا أقل من 5 مكتومة."
-              : "Median days per stage × owner. Cells below k=5 are suppressed."}
+              ? "الخطوات المفتوحة والنسبة المتوقفة لكل (مرحلة × مالك). الخلايا أقل من 5 مكتومة."
+              : "Open steps and the share blocked, per stage × owner. Cells below k=5 are suppressed."}
           </p>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -1837,19 +1846,37 @@ function StallsView() {
                               className="text-[18px] font-semibold tabular"
                               style={{ color: "var(--text-hi)" }}
                             >
-                              {((c?.medianTimeToCompleteHours ?? 0) / 24).toFixed(1)}
+                              {c?.n ?? 0}
                               <span
                                 className="text-[11px] font-normal ml-1"
                                 style={{ color: "var(--text-mid)" }}
                               >
-                                {locale === "ar" ? "يوم" : "days"}
+                                {locale === "ar" ? "خطوة مفتوحة" : "open steps"}
                               </span>
                             </p>
                             <p className="text-[10px] tabular" style={{ color: "var(--text-mid)" }}>
-                              {locale === "ar" ? "خرق " : "breach "}
-                              <span style={{ color: "var(--status-watch)" }}>
-                                {Math.round((c?.breachRate ?? 0) * 100)}%
+                              {locale === "ar" ? "متوقف " : "blocked "}
+                              <span style={{ color: "var(--status-friction)" }}>
+                                {Math.round((c?.stalledShare ?? 0) * 100)}%
                               </span>
+                            </p>
+                            <p className="text-[10px] tabular" style={{ color: "var(--text-mid)" }}>
+                              {c?.medianDaysOpen === null || c?.medianDaysOpen === undefined ? (
+                                <span style={{ color: "var(--text-lo)" }}>
+                                  {locale === "ar" ? "لا بداية مسجلة" : "no start recorded"}
+                                </span>
+                              ) : (
+                                <>
+                                  {locale === "ar" ? "وسيط " : "median "}
+                                  <span style={{ color: "var(--text-hi)" }}>
+                                    {c.medianDaysOpen.toFixed(1)}
+                                  </span>
+                                  {locale === "ar" ? " يوم · خرق " : " d · breach "}
+                                  <span style={{ color: "var(--status-watch)" }}>
+                                    {Math.round((c?.breachRate ?? 0) * 100)}%
+                                  </span>
+                                </>
+                              )}
                             </p>
                             <p className="text-[10px] tabular" style={{ color: "var(--text-mid)" }}>
                               {locale === "ar" ? "إعادة " : "reassign "}

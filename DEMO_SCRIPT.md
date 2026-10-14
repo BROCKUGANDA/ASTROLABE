@@ -100,7 +100,9 @@ employee, not a monitoring tool for managers."*
 
 ## 2:40 — Where journeys stall, and the reuse claim
 
-HRBP console → **Stalls**. The heatmap is stage by owner group, with median time and breach rate.
+HRBP console → **Stalls**. The heatmap is stage by owner group: open steps, the share blocked or
+waiting on someone, and the median age of the steps whose start the log actually carries — a cell
+with no recorded start says "no start recorded" instead of showing a zero.
 Narrow a filter to a cohort of two: it returns **"not enough data to show safely"** — suppressed
 server-side, so no client can widen it.
 

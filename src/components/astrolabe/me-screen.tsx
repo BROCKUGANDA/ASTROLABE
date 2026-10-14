@@ -134,8 +134,18 @@ interface MeData {
   }[];
   pulseConsentGranted: boolean;
   consentRecords: ConsentRecord[];
-  auditEvents: unknown[];
-  viewLog: { actor: string; action: string; at: string; purpose: string }[];
+  retention: Record<string, string>;
+  chainLength: number;
+  auditChainVerified: boolean;
+  viewLog: {
+    actor: string;
+    actorRole: string;
+    action: string;
+    purpose: string | null;
+    lawfulBasis: string;
+    timestamp: string;
+    requestId: string;
+  }[];
   exportLink: string;
   generatedAt: string;
   snapshotAt: string;
@@ -263,7 +273,8 @@ function purposeGranted(
    Audit timeline — types, action metadata, synthetic entries
    ============================================================ */
 
-type AuditAction = "read_record" | "consent_change" | "export" | "escalation" | "ingestion";
+type AuditAction =
+  "read_record" | "consent_change" | "export" | "escalation" | "ingestion" | "other";
 
 interface AuditEntry {
   id: string;
@@ -337,6 +348,16 @@ const ACTION_META: Record<AuditAction, ActionMeta> = {
     filterLabel: "Ingestion",
     filterLabelAr: "استيعاب",
   },
+  other: {
+    color: "var(--text-mid)",
+    bg: "var(--surface-2)",
+    border: "var(--border)",
+    Icon: Info,
+    verbEn: "recorded against your journey",
+    verbAr: "سُجّل على رحلتك",
+    filterLabel: "Other",
+    filterLabelAr: "أخرى",
+  },
 };
 
 type AuditFilterKey = "all" | "reads" | "consents" | "exports" | "escalations";
@@ -355,73 +376,58 @@ const AUDIT_FILTERS: {
 ];
 
 /**
- * Build the audit timeline. The server pack only ships one sparse
- * view-log entry (Fatima Al-Mansouri · read_record · hrbp_review).
- * To show a credible timeline visualization, we extend with five
- * synthetic events covering ingestion, system assessment, consent
- * change, export, and escalation — every action type the timeline
- * knows how to render.
+ * Classify a chain action into the vocabulary the timeline renders. Anything
+ * unrecognised stays "other" rather than being dressed up as a record read.
+ */
+function auditKind(action: string): AuditAction {
+  if (action.startsWith("consent.")) return "consent_change";
+  if (action.includes("export")) return "export";
+  if (action.includes("escalation")) return "escalation";
+  if (action.includes("ingest")) return "ingestion";
+  if (action.endsWith(".read") || action.startsWith("pulse.read") || action === "me.data") {
+    return "read_record";
+  }
+  return "other";
+}
+
+/** The chain stores the role token; the timeline shows the person's title. */
+const ACTOR_ROLE_LABEL: Record<string, string> = {
+  employee: "Employee",
+  hrbp: "HRBP",
+  manager: "Line manager",
+  service_owner: "Service owner",
+  admin: "Admin",
+  judge: "Judge",
+  system: "System",
+};
+
+const LAWFUL_BASIS_LABEL: Record<string, string> = {
+  contract_necessary: "Contractual necessity",
+  legitimate_interests: "Legitimate interests",
+  consent: "Consent",
+  legal_obligation: "Legal obligation",
+};
+
+/**
+ * The audit timeline is the employee's answer to "who has looked at me", so it
+ * renders the hash chain and nothing else. This used to pad the real view log
+ * with five invented events and label every genuine row "read_record" — a
+ * disclosure surface must not embellish, and an empty chain has its own (and
+ * better) state below.
  */
 function buildAuditTimeline(viewLog: MeData["viewLog"]): AuditEntry[] {
-  const base: AuditEntry[] = viewLog.map((v, i) => ({
-    id: `vl-${i}-${v.at}`,
-    actor: v.actor,
-    role: v.actor === "Fatima Al-Mansouri" ? "HRBP" : "System",
-    action: "read_record",
-    at: v.at,
-    purpose: v.purpose.replace(/_/g, " "),
-    lawfulBasis: "Contractual necessity",
-  }));
-
-  const synthetic: AuditEntry[] = [
-    {
-      id: "syn-ingestion-1",
-      actor: "System",
-      role: "Automated engine",
-      action: "ingestion",
-      at: "2024-10-18T22:00:00Z",
-      purpose: "Overnight journey refresh",
-      lawfulBasis: "Contractual necessity",
-    },
-    {
-      id: "syn-system-read-1",
-      actor: "System",
-      role: "Automated engine",
-      action: "read_record",
-      at: "2024-10-18T14:30:00Z",
-      purpose: "Band assessment · friction score recompute",
-      lawfulBasis: "Contractual necessity",
-    },
-    {
-      id: "syn-consent-1",
-      actor: "You",
-      role: "Employee",
-      action: "consent_change",
-      at: "2024-10-17T09:12:00Z",
-      purpose: "Revoked comment retention",
-      lawfulBasis: "Explicit consent",
-    },
-    {
-      id: "syn-export-1",
-      actor: "You",
-      role: "Employee",
-      action: "export",
-      at: "2024-10-16T16:45:00Z",
-      purpose: "JSON data export · snapshot review",
-      lawfulBasis: "Explicit consent",
-    },
-    {
-      id: "syn-escalation-1",
-      actor: "Fatima Al-Mansouri",
-      role: "HRBP",
-      action: "escalation",
-      at: "2024-10-15T11:20:00Z",
-      purpose: "Visa step overdue · opened escalation packet to Immigration",
-      lawfulBasis: "Vital interest",
-    },
-  ];
-
-  return [...base, ...synthetic].sort((a, b) => b.at.localeCompare(a.at));
+  return viewLog
+    .map((v, i) => ({
+      id: `${v.requestId || "row"}-${i}`,
+      actor: v.actor,
+      role: ACTOR_ROLE_LABEL[v.actorRole] ?? v.actorRole,
+      action: auditKind(v.action),
+      at: v.timestamp,
+      // A row written without a purpose says so; it is not dressed up.
+      purpose: v.purpose ? v.purpose.replace(/_/g, " ") : "no purpose recorded",
+      lawfulBasis: LAWFUL_BASIS_LABEL[v.lawfulBasis] ?? v.lawfulBasis,
+    }))
+    .sort((a, b) => b.at.localeCompare(a.at));
 }
 
 /* ============================================================
@@ -1157,7 +1163,7 @@ export function MeScreen() {
     return computePrivacyScore(data.consentRecords, overrides, hasExportedData);
   }, [data, overrides, hasExportedData]);
 
-  // Full audit timeline — server view log + synthetic entries.
+  // Every read of this record, straight from the hash chain.
   const auditEntries = useMemo<AuditEntry[]>(() => {
     if (!data) return [];
     return buildAuditTimeline(data.viewLog);
@@ -1167,35 +1173,38 @@ export function MeScreen() {
   const dataRows: DataRow[] = useMemo(() => {
     if (!data) return [];
     const nowIso = data.generatedAt;
+    // Retention comes from the server's own table, not from copy here: the
+    // numbers the retention job runs against and the numbers the employee is
+    // shown have to be the same numbers.
     const rows: DataRow[] = [
       {
         source: "Employee record",
         purpose: "Journey assistance",
-        retention: "Duration of employment + 6 years",
-        lastViewed: data.viewLog[0]?.at ?? nowIso,
+        retention: data.retention.employeeRecord,
+        lastViewed: data.viewLog[0]?.timestamp ?? nowIso,
         count: 1,
         sample: data.employee,
       },
       {
         source: "Journey events",
         purpose: "Journey assistance",
-        retention: "Duration of employment + 6 years",
-        lastViewed: data.viewLog[0]?.at ?? nowIso,
+        retention: data.retention.journeyEvents,
+        lastViewed: data.viewLog[0]?.timestamp ?? nowIso,
         count: data.journeyEvents.length,
         sample: data.journeyEvents.slice(0, 5),
       },
       {
         source: "Service requests",
         purpose: "Journey assistance",
-        retention: "Duration of employment + 6 years",
-        lastViewed: data.viewLog[0]?.at ?? nowIso,
+        retention: data.retention.serviceRequests,
+        lastViewed: data.viewLog[0]?.timestamp ?? nowIso,
         count: data.serviceRequests.length,
         sample: data.serviceRequests,
       },
       {
         source: "Pulse responses",
         purpose: "Pulse capture",
-        retention: "12 months (or until consent revoked)",
+        retention: data.retention.pulseScores,
         lastViewed: "—",
         count: data.pulseResponses.length,
         sample: data.pulseResponses,
@@ -1204,18 +1213,18 @@ export function MeScreen() {
       {
         source: "Consent records",
         purpose: "Audit / proof",
-        retention: "Duration of employment + 6 years",
+        retention: data.retention.consentRecords,
         lastViewed: nowIso,
         count: data.consentRecords.length,
         sample: data.consentRecords,
       },
       {
-        source: "Audit events",
+        source: "Audit chain",
         purpose: "Access log",
-        retention: "Duration of employment + 6 years",
-        lastViewed: nowIso,
-        count: data.auditEvents.length,
-        sample: data.auditEvents,
+        retention: data.retention.auditChain,
+        lastViewed: data.viewLog[0]?.timestamp ?? nowIso,
+        count: data.chainLength,
+        sample: data.viewLog,
       },
     ];
     return rows;

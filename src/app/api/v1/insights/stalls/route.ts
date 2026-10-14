@@ -1,7 +1,10 @@
 /**
  * ASTROLABE API — /api/v1/insights/stalls (GET)
- * Stall heatmap: per (stage × ownerGroup) cell, compute median
- * time-to-complete, breach rate, and reassignment rate.
+ * Stall heatmap: per (stage × ownerGroup) cell, the median number of days an
+ * open step has been sitting, its breach rate, and the reassignment rate of
+ * requests routed to that owner group. Not time-to-complete: the pack records
+ * a step as done without a matching start, so every completion would measure
+ * zero hours and the grid would report a confident, meaningless 0.0.
  *
  * PRD §29 item 22 / PRD §11-209 — Aggregates suppress below k threshold.
  * Cells with fewer than 5 contributing employees are returned as
@@ -9,9 +12,9 @@
  * (n<5)"`) so the UI greys them out rather than surfacing a noisy median
  * computed from 1–4 journeys. The threshold is `K = 5` (PRD §11-209:
  * "Aggregate across joiners only above the k threshold"). The check is on
- * `contributors.size` (distinct employees with a completion in this cell),
- * NOT on `completions.length`, so one employee with many completed steps
- * in the same cell cannot fool the suppression.
+ * `contributors.size` (distinct employees with an open step in this
+ * cell), NOT on the step count, so one employee with many open steps in the
+ * same cell cannot fool the suppression.
  */
 import { NextRequest } from "next/server";
 import { success } from "@/lib/api/envelope";
@@ -28,9 +31,16 @@ import { appendAudit } from "@/lib/privacy/audit";
 
 export const dynamic = "force-dynamic";
 
-interface Completion {
-  timeToCompleteHours: number;
+interface OpenStep {
+  /**
+   * Working hours the step has been sitting open, or null when the step has no
+   * recorded start — most blocked steps were never opened, and averaging them
+   * in as zero would understate every cell.
+   */
+  hoursOpen: number | null;
   breached: boolean;
+  /** Blocked or waiting on someone: the stall this heatmap exists to find. */
+  stalled: boolean;
   employeeId: string;
 }
 
@@ -41,8 +51,15 @@ interface HeatmapCell {
   reason?: string;
   n?: number;
   employeeCount?: number;
-  medianTimeToCompleteHours?: number;
-  breachRate?: number;
+  /** Fraction of the open steps that are blocked or waiting on someone. */
+  stalledShare?: number;
+  /**
+   * Median working days and breach rate, over the subset with a recorded start.
+   * Null when no step in the cell has one — reported as unknown rather than 0.
+   */
+  medianDaysOpen?: number | null;
+  clockedCount?: number;
+  breachRate?: number | null;
   reassignmentRate?: number;
 }
 
@@ -81,7 +98,7 @@ export async function GET(req: NextRequest) {
     const [stage, ownerGroup] = key.split("|") as [string, Owner["group"]];
     const cellSteps = ALL_STEPS.filter((s) => s.stage === stage && s.ownerGroup === ownerGroup);
 
-    const completions: Completion[] = [];
+    const openSteps: OpenStep[] = [];
     const contributors = new Set<string>();
 
     for (const employee of employees) {
@@ -93,16 +110,22 @@ export async function GET(req: NextRequest) {
 
       for (const step of employeeJourneySteps) {
         const state = computeStepState(employee, step, employeeEvents, asOf);
-        if (state.status === "done" && state.startedAt && state.completedAt) {
-          const timeToCompleteHours =
-            (new Date(state.completedAt).getTime() - new Date(state.startedAt).getTime()) / 3600000;
-          completions.push({
-            timeToCompleteHours,
-            breached: timeToCompleteHours > step.targetHours,
-            employeeId: employee.id,
-          });
-          contributors.add(employee.id);
-        }
+        // Time-to-complete is not measurable from this pack: a step is recorded
+        // done with no matching start, so every completion would measure zero
+        // hours and the heatmap would report a confident 0.0 days. What the
+        // event log does support — and what an early-warning surface is for —
+        // is how long an open step has been sitting against its target.
+        if (state.status === "done" || state.status === "skipped") continue;
+        openSteps.push({
+          hoursOpen: state.startedAt && !state.untimed ? state.workingElapsedHours : null,
+          breached: state.breachLevel === "breached" || state.breachLevel === "hard",
+          stalled:
+            state.status === "blocked" ||
+            state.status === "waiting_owner" ||
+            state.status === "waiting_employee",
+          employeeId: employee.id,
+        });
+        contributors.add(employee.id);
       }
     }
 
@@ -125,20 +148,23 @@ export async function GET(req: NextRequest) {
       continue;
     }
 
-    const times = completions.map((c) => c.timeToCompleteHours);
-    const breachRate =
-      completions.length > 0
-        ? completions.filter((c) => c.breached).length / completions.length
-        : 0;
+    const clocked = openSteps
+      .map((c) => c.hoursOpen)
+      .filter((v): v is number => typeof v === "number");
+    const share = (list: OpenStep[]) => (openSteps.length > 0 ? list.length / openSteps.length : 0);
+    const stalledShare = share(openSteps.filter((c) => c.stalled));
+    const breachRate = clocked.length > 0 ? share(openSteps.filter((c) => c.breached)) : null;
 
     cells.push({
       stage,
       ownerGroup,
       suppressed: false,
-      n: completions.length,
+      n: openSteps.length,
       employeeCount: contributors.size,
-      medianTimeToCompleteHours: Math.round(median(times) * 10) / 10,
-      breachRate: Math.round(breachRate * 100) / 100,
+      stalledShare: Math.round(stalledShare * 100) / 100,
+      clockedCount: clocked.length,
+      medianDaysOpen: clocked.length > 0 ? Math.round((median(clocked) / 24) * 10) / 10 : null,
+      breachRate: breachRate === null ? null : Math.round(breachRate * 100) / 100,
       reassignmentRate: Math.round(reassignmentRate * 100) / 100,
     });
   }

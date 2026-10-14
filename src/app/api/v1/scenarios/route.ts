@@ -1,6 +1,6 @@
 /**
  * ASTROLABE API — /api/v1/scenarios (GET)
- * Returns the 5 seeded demo scenarios used by judge mode's switcher.
+ * Returns the seeded demo scenarios used by judge mode's switcher.
  */
 import { NextRequest } from "next/server";
 import { success } from "@/lib/api/envelope";
@@ -49,6 +49,13 @@ const SCENARIOS: Scenario[] = [
     title: "Handover pending",
     description:
       "Sara Kovač's transfer was signed 30 days ago, but the releasing manager handover has been in_progress for 6 days. DP-05 should fire (handover pending > 5 days). Effective date is 10 days away, so MB-04 has not yet tripped.",
+  },
+  {
+    id: "S6",
+    employeeId: "E-1047",
+    title: "Hidden scenario: visa stalled, Arabic-first",
+    description:
+      "Nadia Haddad is the brief's own hidden scenario. Her visa paperwork has been open nine days with no approval, so DP-02 hard-trips the band to Blocked whatever the arithmetic says. She also carries what the first five cannot: engagement friction (EN-01/02/04/05), a duplicate and an ownerless request, an unmapped activity and out-of-order completion (DQ-03/04/05), and an approved leave window that must pause the clock rather than count as delay. Arabic-first locale, so the plain-language path is exercised in Arabic too.",
   },
 ];
 

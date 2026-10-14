@@ -11,6 +11,15 @@ import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { format } from "date-fns";
 import {
+  consentRecords,
+  employees,
+  events,
+  NOW,
+  policies,
+  pulseResponses,
+  serviceRequests,
+} from "@/lib/data/pack";
+import {
   Database,
   ShieldCheck,
   ShieldAlert,
@@ -77,49 +86,102 @@ interface ApiEnvelope<T> {
   error: { code: string; message: string; hint?: string } | null;
 }
 
-/* ---------- Static synthetic data ---------- */
+/* ---------- Ingestion report, measured from the pack ---------- */
 
 const PACK_VERSION = "synthetic-2024-q4-v1";
 const CORPUS_VERSION = "policies-2024-q4-v1";
-const LAST_LOADED = "2024-10-19T10:00:00Z";
+/** The pack is a snapshot. Every date on this screen is anchored to its
+    reference time rather than the wall clock, or the loader would appear to
+    have loaded nothing for two years. */
+const LAST_LOADED = NOW.toISOString();
 
 interface IngestionStat {
   label: string;
   labelAr: string;
   count: number;
+  /** Cumulative rows loaded over the seven days ending at the snapshot. */
+  series: number[];
 }
+
+/**
+ * A row class with no timestamp (the employee roster, the policy corpus) has no
+ * load history to plot, so its series is flat at the total rather than invented.
+ */
+function ingestionStat(
+  label: string,
+  labelAr: string,
+  count: number,
+  stamps: (string | null)[],
+): IngestionStat {
+  const times = stamps.filter((v): v is string => !!v).map((v) => new Date(v).getTime());
+  const series =
+    times.length === 0
+      ? Array.from({ length: 7 }, () => count)
+      : Array.from({ length: 7 }, (_, d) => {
+          const end = NOW.getTime() - (6 - d) * 86_400_000;
+          return times.filter((t) => t <= end).length;
+        });
+  return { label, labelAr, count, series };
+}
+
 const INGESTION_ROWS: IngestionStat[] = [
-  { label: "Employees", labelAr: "الموظفون", count: 5 },
-  { label: "Journey events", labelAr: "أحداث الرحلة", count: 32 },
-  { label: "Service requests", labelAr: "طلبات الخدمة", count: 3 },
-  { label: "Policy chunks", labelAr: "أجزاء السياسة", count: 30 },
-  { label: "Pulse responses", labelAr: "ردود النبضة", count: 2 },
-  { label: "Consent records", labelAr: "سجلات الموافقة", count: 6 },
+  ingestionStat("Employees", "الموظفون", employees.length, []),
+  ingestionStat(
+    "Journey events",
+    "أحداث الرحلة",
+    events.length,
+    events.map((e) => e.occurredAt),
+  ),
+  ingestionStat(
+    "Service requests",
+    "طلبات الخدمة",
+    serviceRequests.length,
+    serviceRequests.map((r) => r.openedAt),
+  ),
+  ingestionStat("Policy chunks", "أجزاء السياسة", policies.length, []),
+  ingestionStat(
+    "Pulse responses",
+    "ردود النبضة",
+    pulseResponses.length,
+    pulseResponses.map((r) => r.createdAt),
+  ),
+  ingestionStat(
+    "Consent records",
+    "سجلات الموافقة",
+    consentRecords.length,
+    consentRecords.map((c) => c.grantedAt),
+  ),
 ];
 const INGESTION_TOTAL = INGESTION_ROWS.reduce((a, r) => a + r.count, 0);
 
-/** 7-day synthetic ingestion trends; last point matches each row's `count`. */
-const INGESTION_SPARKLINES: number[][] = [
-  [3, 4, 4, 5, 5, 5, 5],
-  [22, 25, 28, 30, 31, 32, 32],
-  [1, 2, 2, 2, 3, 3, 3],
-  [22, 24, 25, 27, 28, 29, 30],
-  [1, 1, 2, 2, 2, 2, 2],
-  [4, 4, 5, 5, 6, 6, 6],
-];
-
-/** 7-bar synthetic daily load counts for the load-trend chart. */
-const LOAD_TREND: number[] = [8, 12, 6, 15, 10, 14, 47];
-const LOAD_TREND_DAYS: string[] = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
-const LOAD_TREND_DAYS_AR: string[] = [
-  "السبت",
-  "الأحد",
-  "الإثنين",
-  "الثلاثاء",
-  "الأربعاء",
-  "الخميس",
-  "الجمعة",
-];
+/** The seven snapshot-relative days the load chart covers, oldest first. */
+const LOAD_DAYS = Array.from(
+  { length: 7 },
+  (_, d) => new Date(NOW.getTime() - (6 - d) * 86_400_000),
+);
+const LOAD_STAMPS = [
+  ...events.map((e) => e.occurredAt),
+  ...serviceRequests.map((r) => r.openedAt),
+  ...pulseResponses.map((r) => r.createdAt),
+  ...consentRecords.map((c) => c.grantedAt),
+].map((v) => new Date(v).getTime());
+/** Rows whose timestamp falls in that day — the loader's real daily volume. */
+const LOAD_TREND: number[] = LOAD_DAYS.map((day) => {
+  const start = new Date(day.getFullYear(), day.getMonth(), day.getDate()).getTime();
+  const end = start + 86_400_000;
+  return LOAD_STAMPS.filter((t) => t >= start && t < end).length;
+});
+const LOAD_TREND_DAYS: string[] = LOAD_DAYS.map((d) => format(d, "EEE"));
+const ARABIC_WEEKDAYS: Record<string, string> = {
+  Sat: "السبت",
+  Sun: "الأحد",
+  Mon: "الإثنين",
+  Tue: "الثلاثاء",
+  Wed: "الأربعاء",
+  Thu: "الخميس",
+  Fri: "الجمعة",
+};
+const LOAD_TREND_DAYS_AR: string[] = LOAD_TREND_DAYS.map((d) => ARABIC_WEEKDAYS[d] ?? d);
 
 interface CorpusDoc {
   slug: string;
@@ -1010,7 +1072,7 @@ function IngestionReportCard() {
             key={row.label}
             row={row}
             index={i}
-            spark={INGESTION_SPARKLINES[i] ?? []}
+            spark={row.series}
             locale={locale}
           />
         ))}

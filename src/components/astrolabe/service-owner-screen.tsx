@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  formatDistanceToNow,
+  formatDistance,
   differenceInHours,
   format,
   addDays,
@@ -1006,8 +1006,8 @@ function RequestCard({
               <Clock className="w-3 h-3" strokeWidth={1.75} />
               <span className="tabular">
                 {locale === "ar"
-                  ? `فُتح ${formatDistanceToNow(new Date(request.openedAt), { addSuffix: false, locale: undefined as never })}`
-                  : `opened ${formatDistanceToNow(new Date(request.openedAt), { addSuffix: false })} ago`}
+                  ? `فُتح ${formatDistance(new Date(request.openedAt), PACK_NOW, { addSuffix: false, locale: undefined as never })} مضت`
+                  : `opened ${formatDistance(new Date(request.openedAt), PACK_NOW, { addSuffix: false })} ago`}
               </span>
             </span>
             <span

@@ -44,7 +44,7 @@ const BEATS: Beat[] = [
     id: "03-blockers",
     at: "0:32",
     title: "Blockers in sentences",
-    say: "When something is stuck it says so in plain words. The badge waits on the visa, the visa waits on her passport scan, and you can see how many steps sit behind it.",
+    say: "When something is stuck it says so in sentences. Every step carries its owner, its target against actual, and how many steps sit behind it. Access provisioning is blocked because the laptop has to be issued first, and the chain opens as far back as it goes.",
   },
   {
     id: "04-ask",
@@ -80,13 +80,13 @@ const BEATS: Beat[] = [
     id: "09-consent",
     at: "2:15",
     title: "Consent and the manager boundary",
-    say: "Switch pulse feedback off and the band recomputes on screen, because consent gates the computation and not just the interface, and the explanation names what was excluded. This is her own record: every field, why it is held, how long, and who has looked at it. Now the manager console. There is no sentiment score in the response, because there is nowhere in the type to put one. This is a companion for the employee, not a monitoring tool for managers.",
+    say: "Switch pulse feedback off and the band recomputes on screen, because consent gates the computation and not just the interface, and the explanation names what was excluded. This is her own record: every field, why it is held, how long, and who has looked at it. And the manager console: no sentiment score in the response, because there is nowhere in the type to put one. This is a companion for the employee, not a monitoring tool for managers.",
   },
   {
     id: "10-stalls",
     at: "2:40",
     title: "Where journeys stall, and reuse",
-    say: "The stall view is stage against owner group, with medians and breach rates. Narrow it below five people and the cell disappears with a reason, enforced on the server. The map, the policies, the owner directory and the thresholds are all configuration, so another government entity swaps its own map and gets this product without a code change.",
+    say: "The stall view is stage against owner group: open steps, the share blocked or waiting on someone, and the median age where the log carries a start. Where it has none, it says so rather than showing a zero. Below five people a cell disappears with a reason, enforced server-side. And the map, policies, owners and thresholds are configuration — another entity swaps in its own map and gets this product without a code change.",
   },
   {
     id: "11-pilot",
@@ -244,7 +244,9 @@ function main(): number {
       );
       return 1;
     }
-    const seconds = durationOf(wav) + 0.35;
+    // 0.25s of breathing room per cut. The brief caps the video at three
+    // minutes, so the gap is a budget item, not a style choice.
+    const seconds = durationOf(wav) + 0.25;
     if (seconds <= 0.4) {
       console.error(
         `narration for ${beat.id} measured ${seconds}s — refusing to build a silent segment`,

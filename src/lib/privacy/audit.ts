@@ -112,6 +112,7 @@ export function viewLogFor(subject: string): {
   actorRole: ActorRole;
   action: string;
   purpose: string | null;
+  lawfulBasis: LawfulBasis;
   timestamp: string;
   requestId: string;
 }[] {
@@ -124,6 +125,7 @@ export function viewLogFor(subject: string): {
       actorRole: r.actorRole,
       action: r.action,
       purpose: r.purpose ?? null,
+      lawfulBasis: r.lawfulBasis,
       timestamp: r.timestamp,
       requestId: r.requestId,
     }));

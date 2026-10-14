@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { format, formatDistanceToNow, addDays } from "date-fns";
+import { format, formatDistance, addDays } from "date-fns";
 import {
   Plus,
   ChevronRight,
@@ -636,7 +636,7 @@ function ReturnQuestionBanner({
   // Plain-language: "{first name} from {group} needs this to finish your
   // request. One quick answer and it's back on its way."
   const first = rq.returnedBy.split(" ")[0] || rq.returnedBy;
-  const timeAgo = formatDistanceToNow(new Date(rq.returnedAt), { addSuffix: false });
+  const timeAgo = formatDistance(new Date(rq.returnedAt), PACK_NOW, { addSuffix: false });
 
   const handleSubmit = async () => {
     const trimmed = answer.trim();

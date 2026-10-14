@@ -26,6 +26,7 @@ export const dynamic = "force-dynamic";
  * same numbers the retention job is written against, not a policy PDF.
  */
 const RETENTION: Record<string, string> = {
+  employeeRecord: "Duration of employment + 6 years",
   journeyEvents: "24 months from occurred_at",
   serviceRequests: "24 months from closed_at",
   pulseScores: "12 months from created_at",

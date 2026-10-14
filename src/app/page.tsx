@@ -104,6 +104,10 @@ const EMPLOYEES = [
   { id: "E-1044", name: "Aisha Rahman", journey: "Mobility · Effective", loc: "AUH" },
   { id: "E-1045", name: "James Park", journey: "Onboarding · Day 1", loc: "DXB" },
   { id: "E-1046", name: "Sara Kovač", journey: "Mobility · Handover", loc: "DXB" },
+  // The brief's hidden scenario. Without this row neither the header
+  // picker nor ⌘K could reach her, and she is the only carrier of the EN
+  // family, the duplicate/ownerless requests and the leave-window pause.
+  { id: "E-1047", name: "Nadia Haddad", journey: "Onboarding · Visa stalled", loc: "DXB" },
 ];
 
 export default function Home() {
