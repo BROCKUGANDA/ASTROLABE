@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, Suspense, Component, type ReactNode } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Environment, Float, Sparkles, Torus, Ring, OrbitControls } from "@react-three/drei";
+import { Float, Sparkles, Torus, Ring, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 
 /* ============================================================
@@ -15,6 +15,55 @@ import * as THREE from "three";
 interface AstrolabeProps {
   size?: number;
   spin?: boolean;
+}
+
+/* ============================================================
+   3D Error Boundary — if WebGL/canvas fails, show a CSS fallback
+   instead of crashing the whole page.
+   ============================================================ */
+
+class Canvas3DErrorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode; fallback: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: unknown) {
+    console.warn("3D canvas error (non-fatal):", error);
+  }
+  render() {
+    if (this.state.hasError) return this.props.fallback;
+    return this.props.children;
+  }
+}
+
+/* CSS fallback — a spinning brass ring with compass icon */
+function AstrolabeCSSFallback({ size = 1 }: { size?: number }) {
+  const dim = 200 * size;
+  return (
+    <div
+      className="flex items-center justify-center ast-spin-slow rounded-full"
+      style={{
+        width: dim,
+        height: dim,
+        background: "radial-gradient(circle at 30% 30%, rgba(22,154,165,0.20), rgba(11,17,28,0.6))",
+        border: "2px solid rgba(201,162,39,0.35)",
+        boxShadow: "0 0 0 1px rgba(22,154,165,0.15), 0 8px 24px rgba(0,0,0,0.3)",
+      }}
+    >
+      <div
+        className="rounded-full"
+        style={{
+          width: dim * 0.55,
+          height: dim * 0.55,
+          background: "radial-gradient(circle at 30% 30%, rgba(201,162,39,0.25), rgba(14,92,99,0.15))",
+          border: "1px solid rgba(22,154,165,0.30)",
+        }}
+      />
+    </div>
+  );
 }
 
 function BrassRing({ radius, tube, segments = 96 }: { radius: number; tube: number; segments?: number }) {
@@ -219,6 +268,7 @@ function FloatingParticles() {
 
 export function Astrolabe3D({ size = 1, spin = true, interactive = false }: AstrolabeProps & { interactive?: boolean }) {
   return (
+    <Canvas3DErrorBoundary fallback={<AstrolabeCSSFallback size={size} />}>
     <Canvas
       camera={{ position: [0, 0, 5], fov: 40 }}
       dpr={[1, 2]}
@@ -236,7 +286,9 @@ export function Astrolabe3D({ size = 1, spin = true, interactive = false }: Astr
 
       <FloatingParticles />
 
-      <Environment preset="night" />
+      {/* Enhanced lighting replaces CDN-fetched Environment HDR — no external fetch */}
+      <hemisphereLight args={["#F6ECC9", "#0B111C", 0.3]} />
+      <spotLight position={[0, 5, 5]} angle={0.3} penumbra={0.5} intensity={0.4} color="#169AA5" />
 
       {interactive && (
         <OrbitControls
@@ -248,6 +300,7 @@ export function Astrolabe3D({ size = 1, spin = true, interactive = false }: Astr
         />
       )}
     </Canvas>
+    </Canvas3DErrorBoundary>
   );
 }
 
@@ -358,9 +411,11 @@ function OrbitScene({ journeySteps }: { journeySteps: OrbitStep[] }) {
 
 export function JourneyOrbit3D({ steps: journeySteps }: { steps: OrbitStep[] }) {
   return (
+    <Canvas3DErrorBoundary fallback={<div className="flex items-center justify-center h-[280px]"><AstrolabeCSSFallback size={0.7} /></div>}>
     <Canvas camera={{ position: [0, 0, 6], fov: 40 }} dpr={[1, 2]} gl={{ alpha: true, antialias: true }} style={{ background: "transparent" }}>
       <OrbitScene journeySteps={journeySteps} />
     </Canvas>
+    </Canvas3DErrorBoundary>
   );
 }
 
@@ -406,8 +461,10 @@ function BandSphereScene({ band }: { band: "steady" | "watch" | "friction" | "bl
 
 export function BandSphere3D({ band }: { band: "steady" | "watch" | "friction" | "blocked" }) {
   return (
+    <Canvas3DErrorBoundary fallback={<div className="w-[200px] h-[200px]" />}>
     <Canvas camera={{ position: [0, 0, 3], fov: 40 }} dpr={[1, 2]} gl={{ alpha: true, antialias: true }} style={{ background: "transparent" }}>
       <BandSphereScene band={band} />
     </Canvas>
+    </Canvas3DErrorBoundary>
   );
 }
