@@ -161,10 +161,12 @@ open the manager console and look at the network payload.
   self-assign a production key, so the API returns 500 on `/api/v1/auth/sign-in` until you set one.
   This is intentional fail-closed behaviour, not a bug to work around — but it means `bun run dev`
   and `bun run start` are not equally turn-key.
-- **A route-level `loading.tsx` strands the shell.** With one present, React 19 leaves the streamed
-  `loading.tsx` boundary stays on screen while the app renders at zero height: no console errors, all
-  chunks 200, sessions and APIs correct. The API surface and the 134 tests are verified; a
-  click-through walkthrough is not, and it should be done before recording the demo.
+- **A route-level `loading.tsx` strands the shell.** React 19 parked the streamed page in a hidden
+  boundary (`div#S:0`) that no reveal step ever swapped, so the fallback stayed on screen while the
+  app rendered at zero height behind it — silently, in dev and production alike. The file is gone;
+  each surface has its own skeleton. Note two traps when changing the shell: the stale prerender in
+  `.next` keeps serving the broken HTML until you rebuild clean, and the browser cache serves it
+  after that, so verify with a cache-busting URL rather than a reload.
 - Golden assessment snapshots drift whenever a weight, threshold or pack row changes. That is the
   gate working: re-record with `UPDATE_SNAPSHOTS=1 bun test tests/engine/snapshot.test.ts` and put
   the change note in the commit.
