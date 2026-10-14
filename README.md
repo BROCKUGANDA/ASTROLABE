@@ -25,6 +25,10 @@ cp .env.example .env      # optional for `dev`; required values for `start`
 bun run dev               # http://localhost:3000
 ```
 
+`.env.example` documents every variable. `bun run dev` needs nothing; `bun run start`
+will not boot a working session unless `SESSION_SECRET` is set — the session layer
+refuses to invent a production key, so `/api/v1/auth/sign-in` returns 500 by design.
+
 The app is one page with six consoles. Pick a console and a person in the header; the browser
 asks the server for a session for that identity and the server decides what it may see.
 
@@ -75,8 +79,7 @@ the same engine reads the real time.
 bun run build && bun run start     # standalone production server on :3000
 ```
 
-`.github/workflows/ci.yml` runs typecheck, lint, tests, the golden-snapshot gate and the build on
-every push and pull request. A deployment needs one build artifact, environment-only configuration
+`.github/workflows/ci.yml` runs, in order: typecheck, lint, the full test suite, an assertion that the golden snapshot baseline is committed and that the re-record escape hatch is unset, the backtest metric gates, the production build, a **secret scan of the emitted bundle**, and a **behavioural smoke test against the built server** — readiness all-green, the shell rendered rather than a stranded loading boundary, 401 with no session, a working sign-in that sets a cookie, an authorised journey read, and three refused cross-role calls. Both gate steps live in `scripts/ci-bundle-scan.sh` and `scripts/ci-smoke.sh`, so `bun run verify:prod` runs the identical checks locally. A deployment needs one build artifact, environment-only configuration
 and a writable directory for the SQLite file; there are no sticky sessions and no local state that
 is not rebuildable from the event log.
 

@@ -15,7 +15,10 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset",
-    "start:standalone": "bun .next/standalone/server.js"
+    "start:standalone": "bun .next/standalone/server.js",
+    "verify:prod": "bash scripts/ci-bundle-scan.sh && bash scripts/ci-smoke.sh",
+    "scan": "bash scripts/ci-bundle-scan.sh",
+    "smoke": "bash scripts/ci-smoke.sh"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
