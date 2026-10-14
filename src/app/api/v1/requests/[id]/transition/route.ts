@@ -25,6 +25,7 @@ import { NextRequest } from "next/server";
 import { success, error } from "@/lib/api/envelope";
 import { serviceRequests, type ServiceRequest, type ReturnQuestion } from "@/lib/data/pack";
 import { canTransition } from "@/lib/actions/actions";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ const VALID_STATUSES: ReadonlySet<ServiceRequest["status"]> = new Set([
   "closed",
   "returned",
   "reassigned",
+  "reopened",
   "cancelled",
 ]);
 
@@ -83,7 +85,7 @@ export async function POST(
       `Unknown target status '${to}'`,
       422,
       {
-        hint: "Must be one of: draft, validated, submitted, acknowledged, in_progress, waiting_employee, resolved, closed, returned, reassigned, cancelled",
+        hint: "Must be one of: draft, validated, submitted, acknowledged, in_progress, waiting_employee, resolved, closed, returned, reassigned, reopened, cancelled",
       }
     );
   }
@@ -95,6 +97,14 @@ export async function POST(
 
   const from = request.status;
   if (!canTransition(from, to)) {
+    // Rejections are part of the audit trail: a refused jump is exactly the
+    // evidence the HRBP view needs (RQ-02 ping-pong, illegal close attempts).
+    logger.warn("illegal request transition rejected", {
+      requestId: req.headers.get("x-request-id") ?? undefined,
+      serviceRequestId: id,
+      from,
+      to,
+    });
     return error(
       "E_CONFLICT",
       `Illegal transition: '${from}' → '${to}'`,
@@ -143,6 +153,15 @@ export async function POST(
 
   // Mutate in place (prototype only).
   request.status = to as ServiceRequest["status"];
+
+  // Server-side counters: the ping-pong evidence (RQ-02) is DERIVED from the
+  // transitions that actually happened, not from what the UI chose to bump
+  // optimistically. A replay (from === to) is not a new bounce, so it counts
+  // once at the real transition only.
+  if (from !== to) {
+    if (to === "reassigned") request.reassignCount += 1;
+    if (to === "returned") request.returnCount += 1;
+  }
 
   return success(
     {

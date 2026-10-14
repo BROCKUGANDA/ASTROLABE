@@ -1,19 +1,36 @@
 /**
  * ASTROLABE API — /api/v1/requests
  *  GET  : list service requests (cursor pagination, optional employeeId filter)
- *  POST : create a new service request (idempotent, schema-validated, owner-resolved)
+ *  POST : create a new service request (server-derived dedup, schema-validated,
+ *         directory owner resolution, working-calendar expected-by)
+ *
+ * Dedup is the SERVER's job, not the caller's (see src/lib/requests/intake.ts):
+ * a create is a duplicate when (employeeId, type, payloadHash) matches a request
+ * opened within DUPLICATE_WINDOW_MS, whether or not the caller sent a key. A
+ * duplicate returns HTTP 200 with the EXISTING request + `duplicate: true` and
+ * is recorded via noteDuplicate so the HRBP view can see the repeat. An explicit
+ * `X-Idempotency-Key` header (or body `idempotencyKey`) is still honoured: the
+ * same key + same payload replays the ticket, the same key + DIFFERENT payload
+ * is a caller bug and returns 409 E_CONFLICT.
  */
 import { NextRequest } from "next/server";
 import { success, error } from "@/lib/api/envelope";
+import { guard } from "@/lib/privacy/guard";
 import {
   serviceRequests,
   employees,
-  type ServiceRequest,
   type RequestType,
   type Owner,
 } from "@/lib/data/pack";
-import { INTAKE_SCHEMAS, resolveOwner } from "@/lib/actions/actions";
+import { INTAKE_SCHEMAS } from "@/lib/actions/actions";
 import { engineNow } from "@/lib/engine/engine";
+import {
+  expectedByFor,
+  assessIntake,
+  commitIntake,
+  intakeRecordFor,
+  noteDuplicate,
+} from "@/lib/requests/intake";
 import {
   rateLimit,
   getClientIp,
@@ -62,6 +79,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  // Creating a ticket is a state change, so it needs a session: an employee or
+  // an HRBP acting for one, never an anonymous caller.
+  const auth = await guard(req, "requests.create");
+  if (!auth.ok) return auth.response;
   const start = Date.now();
 
   let body: {
@@ -115,7 +136,11 @@ export async function POST(req: NextRequest) {
   const employeeId = body.employeeId ?? "";
   const type = body.type as RequestType | undefined;
   const payload = body.payload ?? {};
-  const idempotencyKey = (body.idempotencyKey ?? "").trim();
+  // An explicit key still counts, but it is a courtesy, not the dedup engine:
+  // header wins over body, and neither is required any more.
+  const idempotencyKey = (
+    req.headers.get("x-idempotency-key") ?? body.idempotencyKey ?? ""
+  ).trim();
 
   if (!employeeId) {
     const res = error("E_VALIDATION", "`employeeId` is required", 422);
@@ -125,13 +150,6 @@ export async function POST(req: NextRequest) {
   if (!type) {
     const res = error("E_VALIDATION", "`type` is required", 422, {
       hint: "One of: it_kit, system_access, visa, relocation, payroll, training, facilities, manager_handover",
-    });
-    res.headers.set("X-RateLimit-Remaining", String(rl.remaining));
-    return res;
-  }
-  if (!idempotencyKey) {
-    const res = error("E_VALIDATION", "`idempotencyKey` is required", 422, {
-      hint: "Provide a stable client-generated key to dedupe retries.",
     });
     res.headers.set("X-RateLimit-Remaining", String(rl.remaining));
     return res;
@@ -172,73 +190,149 @@ export async function POST(req: NextRequest) {
     return res;
   }
 
-  // Idempotency: return cached request if seen before.
-  const cached = serviceRequests.find((r) => r.idempotencyKey === idempotencyKey);
-  if (cached) {
-    const res = success(
-      { ...cached, servedFrom: "cache" as const },
-      {
-        servedFrom: "cache",
-        asOf: new Date().toISOString(),
-        latencyMs: Date.now() - start,
-      }
-    );
+  // Server-derived intake assessment: canonical payload hash, dedup lookup,
+  // directory owner resolution and working-calendar expected-by. There must be
+  // no `await` between the duplicate check and the commit below — the single
+  // process event loop is what makes ten concurrent submits collapse into one
+  // row (see intake.ts commitIntake docs).
+  const assessment = assessIntake({
+    employee,
+    type,
+    schema,
+    rawPayload: payload,
+    idempotencyKey,
+    asOf: engineNow(),
+  });
+  const rateHeaders = (res: ReturnType<typeof success>) => {
     res.headers.set("X-RateLimit-Remaining", String(rl.remaining));
     res.headers.set("X-RateLimit-Reset", String(Math.ceil(rl.resetAt / 1000)));
     res.headers.set("X-RateLimit-Limit", String(RATE_LIMITS.requests.limit));
     return res;
-  }
-
-  // Resolve owner (functional fallback may apply).
-  const { owner, path: ownerPath, fallbackUsed } = resolveOwner(type, employee, schema.ownerGroup);
-  if (!owner) {
-    const res = error(
-      "E_NO_OWNER",
-      `No owner could be resolved for request type '${type}' and employee ${employeeId}`,
-      422,
-      {
-        hint: "Owner resolution chain exhausted. Assign manually via HRBP.",
-        retryable: false,
-      }
-    );
-    res.headers.set("X-RateLimit-Remaining", String(rl.remaining));
-    return res;
-  }
-
-  const now = engineNow();
-  const newRequest: ServiceRequest = {
-    id: `SR-2024-${now.getTime().toString(36)}`,
-    ref: `SR-2024-${now.getTime().toString(36)}`,
-    employeeId,
-    type,
-    ownerGroup: schema.ownerGroup,
-    assignee: owner.id,
-    status: "submitted",
-    openedAt: now.toISOString(),
-    slaHours: schema.slaHours,
-    reassignCount: 0,
-    returnCount: 0,
-    idempotencyKey,
   };
 
-  // In-memory mutation (prototype only).
-  serviceRequests.push(newRequest);
+  // Same caller key, DIFFERENT payload — a caller bug against its own
+  // idempotency promise. Refuse rather than file something else under it.
+  if (assessment.keyConflict) {
+    const conflict = assessment.keyConflict;
+    logger.warn("intake idempotency-key conflict", {
+      requestId: req.headers.get("x-request-id") ?? undefined,
+      employeeId,
+      type,
+      idempotencyKey,
+      existingRef: conflict.ref,
+    });
+    return rateHeaders(
+      error(
+        "E_CONFLICT",
+        `Idempotency key '${idempotencyKey}' was already used for a different payload (request ${conflict.ref}).`,
+        409,
+        {
+          hint: "Reuse a key only for the exact same request body; use a new key for a different one.",
+          retryable: false,
+        }
+      )
+    );
+  }
 
-  const res = success(
-    {
-      ...newRequest,
-      servedFrom: "live" as const,
-      owner: { id: owner.id, name: owner.name, role: owner.role, email: owner.email } as Pick<Owner, "id" | "name" | "role" | "email">,
-      ownerResolution: { path: ownerPath, fallbackUsed },
-    },
-    {
-      servedFrom: "live",
-      asOf: now.toISOString(),
-      latencyMs: Date.now() - start,
-    }
+  // Duplicate: the same employee, type and canonical payload inside the
+  // dedup window (or the same key with the same payload). Return the EXISTING
+  // ticket with duplicate: true and record the repeat for the HRBP view.
+  if (assessment.duplicateOf) {
+    const { request: existing, via } = assessment.duplicateOf;
+    const at = assessment.openedAt;
+    const hoursSinceOpened = Math.max(
+      0,
+      (new Date(at).getTime() - new Date(existing.openedAt).getTime()) / 3_600_000
+    );
+    noteDuplicate({
+      employeeId,
+      type,
+      existingRef: existing.ref,
+      existingId: existing.id,
+      at,
+      payloadHash: assessment.payloadHash,
+      via,
+      hoursSinceOpened,
+    });
+    const record = intakeRecordFor(existing.id);
+    const expectedBy =
+      record?.expectedBy ?? expectedByFor(existing.openedAt, schema.slaHours, assessment.location);
+    logger.info("intake duplicate collapsed", {
+      requestId: req.headers.get("x-request-id") ?? undefined,
+      employeeId,
+      type,
+      via,
+      existingRef: existing.ref,
+      hoursSinceOpened: Math.round(hoursSinceOpened * 10) / 10,
+    });
+    return rateHeaders(
+      success(
+        {
+          ...existing,
+          ref: existing.ref,
+          duplicate: true,
+          expectedBy,
+          servedFrom: "cache" as const,
+        },
+        {
+          servedFrom: "cache",
+          asOf: at,
+          latencyMs: Date.now() - start,
+        }
+      )
+    );
+  }
+
+  // Resolve owner via the versioned directory (step → location queue →
+  // functional fallback → HRBP of record). No owner → E_NO_OWNER, and the
+  // directory names who was told instead.
+  const { resolution } = assessment;
+  if (!resolution.owner) {
+    const noOwner = resolution.noOwner;
+    return rateHeaders(
+      error(
+        "E_NO_OWNER",
+        noOwner?.message ??
+          `No owner could be resolved for request type '${type}' and employee ${employeeId}`,
+        422,
+        {
+          hint: noOwner
+            ? `Directory path: ${resolution.path.join(" → ")}`
+            : "Owner resolution chain exhausted. Assign manually via HRBP.",
+          retryable: false,
+          ownerHint: noOwner?.toldInstead ?? undefined,
+        }
+      )
+    );
+  }
+
+  const { request, record } = commitIntake(assessment);
+  const owner = resolution.owner;
+
+  return rateHeaders(
+    success(
+      {
+        ...request,
+        servedFrom: "live" as const,
+        duplicate: false,
+        expectedBy: record.expectedBy,
+        payload: record.payload,
+        owner: { id: owner.id, name: owner.name, role: owner.role, email: owner.email } as Pick<Owner, "id" | "name" | "role" | "email">,
+        backupOwner: resolution.backup
+          ? { id: resolution.backup.id, name: resolution.backup.name, role: resolution.backup.role, email: resolution.backup.email }
+          : null,
+        ownerResolution: {
+          path: resolution.path,
+          rung: resolution.rung,
+          fallbackUsed: resolution.fallbackUsed,
+          directoryVersion: resolution.directoryVersion,
+        },
+      },
+      {
+        servedFrom: "live",
+        asOf: assessment.openedAt,
+        latencyMs: Date.now() - start,
+      }
+    )
   );
-  res.headers.set("X-RateLimit-Remaining", String(rl.remaining));
-  res.headers.set("X-RateLimit-Reset", String(Math.ceil(rl.resetAt / 1000)));
-  res.headers.set("X-RateLimit-Limit", String(RATE_LIMITS.requests.limit));
-  return res;
 }
