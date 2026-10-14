@@ -12,6 +12,7 @@ import {
 import {
   Compass, Map, MessageSquare, Inbox, User, Users, ClipboardList, Microscope,
   Search, Command, ShieldCheck, Languages, Monitor, Sparkles, X, ArrowRight, Server,
+  HelpCircle, UserCircle,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
 import { TodayScreen } from "@/components/astrolabe/today-screen";
@@ -19,6 +20,8 @@ import { JourneyScreen } from "@/components/astrolabe/journey-screen";
 import { AskScreen } from "@/components/astrolabe/ask-screen";
 import { RequestsScreen } from "@/components/astrolabe/requests-screen";
 import { MeScreen } from "@/components/astrolabe/me-screen";
+import { HelpScreen } from "@/components/astrolabe/help-screen";
+import { ProfileScreen } from "@/components/astrolabe/profile-screen";
 import { HrbpScreen } from "@/components/astrolabe/hrbp-screen";
 import { ManagerScreen } from "@/components/astrolabe/manager-screen";
 import { JudgeScreen } from "@/components/astrolabe/judge-screen";
@@ -30,7 +33,7 @@ import { NotificationsBell } from "@/components/astrolabe/notifications-bell";
 import { ConstellationBg } from "@/components/astrolabe/constellation-bg";
 import { PolicySearchModal } from "@/components/astrolabe/policy-search";
 
-type View = "today" | "journey" | "ask" | "requests" | "me";
+type View = "today" | "journey" | "ask" | "requests" | "me" | "help" | "profile";
 type Role = "employee" | "hrbp" | "manager" | "judge" | "admin" | "service_owner";
 
 const EMPLOYEE_TABS: { id: View; label: string; labelAr: string; Icon: typeof Compass; hint: string }[] = [
@@ -39,6 +42,8 @@ const EMPLOYEE_TABS: { id: View; label: string; labelAr: string; Icon: typeof Co
   { id: "ask", label: "Ask", labelAr: "اسأل", Icon: MessageSquare, hint: "Cited policy answers" },
   { id: "requests", label: "Requests", labelAr: "الطلبات", Icon: Inbox, hint: "Status & intake" },
   { id: "me", label: "Me", labelAr: "حسابي", Icon: User, hint: "Consent & data" },
+  { id: "profile", label: "Profile", labelAr: "ملفي", Icon: UserCircle, hint: "Your details" },
+  { id: "help", label: "Help", labelAr: "مساعدة", Icon: HelpCircle, hint: "Guides & support" },
 ];
 
 const ROLES: { id: Role; label: string; labelAr: string; Icon: typeof Compass; accent: string }[] = [
@@ -110,23 +115,27 @@ export default function Home() {
       <header
         className="sticky top-0 z-40 backdrop-blur-xl transition-all"
         style={{
-          background: scrolled ? "rgba(11,17,28,0.92)" : "rgba(11,17,28,0.62)",
+          background: scrolled ? "rgba(11,17,28,0.94)" : "rgba(11,17,28,0.70)",
           borderBottom: `1px solid ${scrolled ? "var(--border)" : "transparent"}`,
         }}
       >
-        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center gap-2 sm:gap-3">
+        {/* UAE flag accent stripe — 2px at the very top */}
+        <div className="ast-uae-stripe h-[2px] w-full" aria-hidden="true" />
+
+        {/* Row 1: Brand + Tools (h-16, spacious) */}
+        <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-4">
           {/* Brand */}
           <button
             onClick={() => { setRole("employee"); setView("today"); }}
-            className="ast-focus flex items-center gap-2.5 mr-auto group"
+            className="ast-focus flex items-center gap-3 group shrink-0"
             aria-label="ASTROLABE home"
           >
             <div
-              className="relative flex items-center justify-center w-9 h-9 rounded-full transition-transform group-hover:rotate-12"
+              className="relative flex items-center justify-center w-10 h-10 rounded-full transition-transform group-hover:rotate-12"
               style={{
-                background: "radial-gradient(circle at 30% 30%, rgba(22,154,165,0.35), rgba(11,17,28,0.4))",
-                border: "1px solid rgba(22,154,165,0.35)",
-                boxShadow: "0 0 0 1px rgba(201,162,39,0.15), 0 6px 16px rgba(22,154,165,0.18)",
+                background: "radial-gradient(circle at 30% 30%, rgba(22,154,165,0.40), rgba(11,17,28,0.4))",
+                border: "1px solid rgba(22,154,165,0.40)",
+                boxShadow: "0 0 0 1px rgba(201,162,39,0.15), 0 6px 16px rgba(22,154,165,0.20)",
               }}
             >
               <Compass className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
@@ -137,25 +146,88 @@ export default function Home() {
             </div>
             <div className="flex flex-col items-start leading-none">
               <span
-                className="text-[13px] font-semibold uppercase ast-brass"
+                className="text-[14px] font-semibold uppercase ast-brass"
                 style={{ letterSpacing: "0.22em" }}
               >
                 ASTROLABE
               </span>
               <span
-                className="text-[9px] uppercase tracking-[0.18em] hidden sm:block"
+                className="text-[9px] uppercase tracking-[0.18em] hidden sm:block mt-0.5"
                 style={{ color: "var(--text-lo)" }}
               >
-                {locale === "ar" ? "بوصلتك في الرحلة" : "Journey companion"}
+                {locale === "ar" ? "بوصلتك في الرحلة" : "Emirates journey companion"}
               </span>
             </div>
           </button>
 
-          {/* Employee tabs (only in employee role) */}
-          {role === "employee" && (
+          <div className="flex-1" />
+
+          {/* Tools cluster — right aligned, generous gap */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            {/* Command palette trigger */}
+            <button
+              onClick={() => setCommandPalette(true)}
+              aria-label="Command palette (⌘K)"
+              title="⌘K"
+              className="ast-focus hidden md:inline-flex items-center gap-2 h-9 px-3 rounded-full text-[11px] tabular"
+              style={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+                color: "var(--text-lo)",
+              }}
+            >
+              <Search className="w-3.5 h-3.5" strokeWidth={1.75} />
+              <span className="hidden lg:inline">Search…</span>
+              <kbd
+                className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-mono"
+                style={{ background: "var(--surface-3)", color: "var(--text-mid)" }}
+              >
+                ⌘K
+              </kbd>
+            </button>
+
+            {/* Notifications bell */}
+            <NotificationsBell />
+
+            {/* Projector toggle */}
+            <button
+              onClick={toggleProjector}
+              aria-pressed={projectorMode}
+              aria-label="Projector mode"
+              title="Projector mode"
+              className="ast-focus inline-flex items-center justify-center h-9 w-9 rounded-full transition-colors"
+              style={{
+                background: projectorMode ? "var(--accent-500)" : "var(--surface-2)",
+                color: projectorMode ? "var(--surface-0)" : "var(--text-mid)",
+                border: `1px solid ${projectorMode ? "var(--accent-500)" : "var(--border)"}`,
+              }}
+            >
+              <Monitor className="w-4 h-4" strokeWidth={1.75} />
+            </button>
+
+            {/* Locale toggle */}
+            <button
+              onClick={() => setLocale(locale === "en" ? "ar" : "en")}
+              className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[11px] font-semibold uppercase tracking-[0.12em]"
+              style={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+                color: "var(--text-hi)",
+              }}
+              aria-label="Toggle language"
+            >
+              <Languages className="w-3.5 h-3.5" strokeWidth={1.75} />
+              {locale === "en" ? "AR" : "EN"}
+            </button>
+          </div>
+        </div>
+
+        {/* Row 2: View tabs (employee) OR Role switcher (other roles) */}
+        <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 pb-3">
+          {role === "employee" ? (
             <nav
-              className="flex items-center gap-0.5 p-1 rounded-full overflow-x-auto max-w-[55%] sm:max-w-none"
-              style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
+              className="flex items-center gap-1 p-1.5 rounded-full overflow-x-auto"
+              style={{ background: "var(--surface-2)", border: "1px solid var(--border)", width: "fit-content", maxWidth: "100%" }}
               aria-label="View switcher"
             >
               {EMPLOYEE_TABS.map((t) => {
@@ -168,7 +240,7 @@ export default function Home() {
                     aria-pressed={isActive}
                     aria-label={locale === "ar" ? t.labelAr : t.label}
                     title={t.hint}
-                    className="ast-focus relative inline-flex items-center gap-1.5 h-7 px-2.5 sm:px-3 rounded-full text-[12px] font-medium transition-colors whitespace-nowrap"
+                    className="ast-focus relative inline-flex items-center gap-2 h-9 px-4 rounded-full text-[13px] font-medium transition-colors whitespace-nowrap"
                     style={{
                       color: isActive ? "var(--surface-0)" : "var(--text-mid)",
                     }}
@@ -181,81 +253,25 @@ export default function Home() {
                         transition={{ type: "spring", stiffness: 380, damping: 30 }}
                       />
                     )}
-                    <Icon className="w-3.5 h-3.5 relative z-10" strokeWidth={1.75} />
-                    <span className="hidden sm:inline relative z-10">
+                    <Icon className="w-4 h-4 relative z-10" strokeWidth={1.75} />
+                    <span className="relative z-10">
                       {locale === "ar" ? t.labelAr : t.label}
                     </span>
                   </button>
                 );
               })}
             </nav>
-          )}
-
-          {/* Command palette trigger */}
-          <button
-            onClick={() => setCommandPalette(true)}
-            aria-label="Command palette (⌘K)"
-            title="⌘K"
-            className="ast-focus hidden md:inline-flex items-center gap-2 h-8 px-2.5 rounded-full text-[11px] tabular"
-            style={{
-              background: "var(--surface-2)",
-              border: "1px solid var(--border)",
-              color: "var(--text-lo)",
-            }}
-          >
-            <Search className="w-3 h-3" strokeWidth={1.75} />
-            <span className="hidden lg:inline">Search…</span>
-            <kbd
-              className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-mono"
-              style={{ background: "var(--surface-3)", color: "var(--text-mid)" }}
-            >
-              ⌘K
-            </kbd>
-          </button>
-
-          {/* Notifications bell */}
-          <NotificationsBell />
-
-          {/* Projector toggle */}
-          <button
-            onClick={toggleProjector}
-            aria-pressed={projectorMode}
-            aria-label="Projector mode"
-            title="Projector mode"
-            className="ast-focus inline-flex items-center justify-center h-8 w-8 rounded-full transition-colors"
-            style={{
-              background: projectorMode ? "var(--accent-500)" : "var(--surface-2)",
-              color: projectorMode ? "var(--surface-0)" : "var(--text-mid)",
-              border: `1px solid ${projectorMode ? "var(--accent-500)" : "var(--border)"}`,
-            }}
-          >
-            <Monitor className="w-3.5 h-3.5" strokeWidth={1.75} />
-          </button>
-
-          {/* Locale toggle */}
-          <button
-            onClick={() => setLocale(locale === "en" ? "ar" : "en")}
-            className="ast-focus inline-flex items-center gap-1 h-8 px-2.5 rounded-full text-[11px] font-semibold uppercase tracking-[0.12em]"
-            style={{
-              background: "var(--surface-2)",
-              border: "1px solid var(--border)",
-              color: "var(--text-hi)",
-            }}
-            aria-label="Toggle language"
-          >
-            <Languages className="w-3 h-3" strokeWidth={1.75} />
-            {locale === "en" ? "AR" : "EN"}
-          </button>
+          ) : null}
         </div>
 
-        {/* Role switcher strip */}
+        {/* Row 3: Role switcher + scenario picker */}
         <div className="border-t" style={{ borderColor: "var(--border-soft)" }}>
-          <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center gap-1.5 overflow-x-auto">
+          <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-2 overflow-x-auto">
             <span
-              className="text-[10px] uppercase tracking-[0.14em] mr-1 whitespace-nowrap"
+              className="text-[10px] uppercase tracking-[0.14em] mr-1 whitespace-nowrap shrink-0"
               style={{ color: "var(--text-lo)" }}
             >
-              {locale === "ar" ? "وضع" : "Mode"}
+              {locale === "ar" ? "الوضع" : "Role"}
             </span>
             {ROLES.map((r) => {
               const Icon = r.Icon;
@@ -265,14 +281,14 @@ export default function Home() {
                   key={r.id}
                   onClick={() => setRole(r.id)}
                   aria-pressed={isActive}
-                  className="ast-focus inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-all"
+                  className="ast-focus inline-flex items-center gap-2 h-8 px-3.5 rounded-full text-[12px] font-medium whitespace-nowrap transition-all"
                   style={{
                     background: isActive ? r.accent : "transparent",
                     color: isActive ? "var(--surface-0)" : "var(--text-mid)",
                     border: `1px solid ${isActive ? r.accent : "var(--border)"}`,
                   }}
                 >
-                  <Icon className="w-3 h-3" strokeWidth={1.75} />
+                  <Icon className="w-3.5 h-3.5" strokeWidth={1.75} />
                   {locale === "ar" ? r.labelAr : r.label}
                 </button>
               );
@@ -280,7 +296,7 @@ export default function Home() {
 
             {/* Employee picker for judge/preview */}
             {(role === "employee" || role === "judge") && (
-              <div className="ml-auto flex items-center gap-1.5">
+              <div className="ml-auto flex items-center gap-2 shrink-0">
                 <span
                   className="text-[10px] uppercase tracking-[0.14em] hidden sm:inline"
                   style={{ color: "var(--text-lo)" }}
@@ -291,7 +307,7 @@ export default function Home() {
                   value={employeeId}
                   onChange={(e) => setEmployee(e.target.value)}
                   aria-label="Employee scenario"
-                  className="ast-focus h-7 px-2 rounded-full text-[11px] tabular"
+                  className="ast-focus h-8 px-3 rounded-full text-[11px] tabular"
                   style={{
                     background: "var(--surface-2)",
                     border: "1px solid var(--border)",
@@ -344,6 +360,8 @@ export default function Home() {
             {view === "ask" && <AskScreen />}
             {view === "requests" && <RequestsScreen />}
             {view === "me" && <MeScreen />}
+            {view === "help" && <HelpScreen />}
+            {view === "profile" && <ProfileScreen />}
           </>
         )}
         {role === "hrbp" && <HrbpScreen />}
@@ -694,6 +712,8 @@ function CommandPalette({
       { id: "ask", label: locale === "ar" ? "اسأل" : "Ask", hint: "Cited answers", run: () => onNavigate("ask") },
       { id: "requests", label: locale === "ar" ? "الطلبات" : "Requests", hint: "Intake & status", run: () => onNavigate("requests") },
       { id: "me", label: locale === "ar" ? "حسابي" : "Me", hint: "Consent & data", run: () => onNavigate("me") },
+      { id: "profile", label: locale === "ar" ? "ملفي" : "Profile", hint: "Your details", run: () => onNavigate("profile") },
+      { id: "help", label: locale === "ar" ? "مساعدة" : "Help", hint: "Guides & support", run: () => onNavigate("help") },
     ]},
     { group: locale === "ar" ? "الوضع" : "Mode", actions: [
       { id: "employee", label: locale === "ar" ? "موظف" : "Employee", hint: "Journey companion", run: () => onRole("employee") },

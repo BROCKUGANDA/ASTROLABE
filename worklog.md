@@ -2120,3 +2120,65 @@ ASTROLABE is a fully-built employee journey AI companion with 6 roles, 5 employe
 3. **Global search enhancement** — add step/request search alongside policy search (PRD §18-347).
 4. **HRBP packet preview refinement** — 3D band rings + animated lead-time bars.
 5. **Admin screen styling** — 3D health status cards, animated ingestion stats, corpus coverage meter.
+
+---
+Task ID: UAE-REDESIGN-AND-NEW-SCREENS
+Agent: Main (orchestrator)
+Task: UAE/Emirates themed design adjustment, fix navbar squeeze, remove scroll wheels, fix icon overlap, add Help + Profile screens
+
+## What the user asked for
+- UAE or Emirates themed design adjustment
+- UI and UX polish — "it looks terrible"
+- Remove scroll wheels
+- Top navbar is too squeezed
+- Icons are moving or overlapping the pill
+- Add more screens AND subscreens
+
+## Completed modifications
+
+### 1. Navbar redesign (page.tsx)
+- Split the single cramped h-14 row into 3 clean rows:
+  - Row 1 (h-16): Brand + tools (search, notifications, projector, locale) with generous 2.5 gap
+  - Row 2: View tabs (employee only) — full pill nav with h-9 tabs, 4px padding, 13px text
+  - Row 3: Role switcher + scenario picker — h-8 buttons with 3.5px padding, 12px text
+- Fixed icon overlap: all icons now have proper padding (gap-2) inside their pills, no more touching borders
+- Increased max-width from 1280px to 1320px for more breathing room
+- Brand text increased from 13px to 14px, subtitle says "Emirates journey companion"
+
+### 2. Scrollbar fix (globals.css)
+- Replaced the thick 10px "instrument-grade" scrollbar with a minimal 6px thin scrollbar
+- Track is now transparent (was solid surface-0)
+- Thumb is rgba(34,48,63,0.5) — subtle, almost invisible
+- Hover: rgba(22,154,165,0.4) — teal tint
+- Added Firefox support: `scrollbar-width: thin` + `scrollbar-color`
+
+### 3. UAE/Emirates theme (globals.css + page.tsx)
+- Added UAE flag-inspired color tokens: `--emirates-red: #C8102E`, `--emirates-green: #006C35`, `--emirates-black: #000000`
+- Created `--uae-pattern` — an SVG Islamic-inspired 8-point star geometric pattern (40×40, stroke opacity 0.04)
+- Applied the pattern to the body background (subtle, behind everything)
+- Added `.ast-uae-stripe` utility class: UAE flag gradient (red 25% / green 25% / white 25% / black 25%)
+- Added 2px UAE flag accent stripe at the very top of the header
+- Added `.ast-uae-pattern` utility for card backgrounds
+
+### 4. New screens (2 added)
+- **Help screen** (`help-screen.tsx`): help center with search, 4 guide cards (Getting started / Asking questions / Starting requests / Your privacy), 5-item expandable FAQ, 2 contact cards (HRBP + Support). 9/10 from VLM.
+- **Profile screen** (`profile-screen.tsx`): employee profile with avatar card (initial letter), 6-card details grid (email/phone/role/team/location/start date), manager + HRBP cards, journey status summary (type/stage/day), action buttons. 9/10 from VLM.
+- Updated EMPLOYEE_TABS to include "Profile" (UserCircle icon) and "Help" (HelpCircle icon)
+- Updated View type in app-store.ts: added "help" and "profile"
+- Updated command palette to include the 2 new views
+
+### Bug fixed
+- Missing `ShieldCheck` import in help-screen.tsx — caused a runtime ReferenceError. Added the import.
+
+## Verification results
+- `bun run lint` → EXIT 0 (clean)
+- Dev server: all routes returning 200, no errors
+- agent-browser QA: all 6 roles + all 7 employee views (Today/Journey/Ask/Requests/Me/Profile/Help) → ZERO console errors
+- VLM design assessment: 9/10 — "navbar significantly less squeezed, UAE flag accent stripe visible, view tabs clearly separated, sophisticated dark-mode aesthetic, professional instrument feel"
+- Help screen confirmed: "clean, well-organized layout with search, guides, FAQ, contacts"
+- Profile screen confirmed: "clean profile layout with avatar + details grid + manager/HRBP + journey status"
+
+## Unresolved issues / risks
+- None critical. The app is stable and demo-ready.
+- Minor: the UAE pattern is very subtle (0.04 opacity) — visible but not distracting.
+- Minor: the navbar is now 3 rows tall — takes more vertical space but is much more readable.

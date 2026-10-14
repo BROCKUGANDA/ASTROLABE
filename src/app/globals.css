@@ -80,6 +80,14 @@
   --accent-400: #D9B445;
   --accent-100: #F6ECC9;
 
+  /* Emirates accent — subtle UAE flag-inspired (used very sparingly) */
+  --emirates-red: #C8102E;
+  --emirates-green: #006C35;
+  --emirates-black: #000000;
+
+  /* UAE geometric pattern — Islamic-inspired 8-point star */
+  --uae-pattern: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23169AA5' stroke-opacity='0.04' stroke-width='1'%3E%3Cpath d='M20 0 L25 15 L40 20 L25 25 L20 40 L15 25 L0 20 L15 15 Z'/%3E%3Ccircle cx='20' cy='20' r='3'/%3E%3C/g%3E%3C/svg%3E");
+
   /* Status */
   --status-steady: #0E9F6E;
   --status-watch: #D97706;
@@ -153,6 +161,8 @@
   }
   body {
     background-color: var(--surface-0);
+    background-image: var(--uae-pattern);
+    background-size: 40px 40px;
     color: var(--text-hi);
     font-family: var(--font-inter), system-ui, sans-serif;
     font-feature-settings: "ss01", "cv11", "tnum";
@@ -176,21 +186,25 @@
     background: rgba(22, 154, 165, 0.32);
     color: var(--text-hi);
   }
-  /* Custom scrollbar — instrument-grade */
+  /* Minimal scrollbar — thin, almost invisible, no "wheels" */
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 6px;
+    height: 6px;
   }
   ::-webkit-scrollbar-track {
-    background: var(--surface-0);
+    background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--surface-3);
+    background: rgba(34, 48, 63, 0.5);
     border-radius: 999px;
-    border: 2px solid var(--surface-0);
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--brand-700);
+    background: rgba(22, 154, 165, 0.4);
+  }
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(34, 48, 63, 0.5) transparent;
   }
 }
 
@@ -378,6 +392,26 @@
       rgba(22, 154, 165, 0.025) 2px,
       rgba(22, 154, 165, 0.025) 3px
     );
+  }
+
+  /* UAE flag accent stripe — red/green/white/black used VERY sparingly */
+  .ast-uae-stripe {
+    background: linear-gradient(90deg,
+      var(--emirates-red) 0%,
+      var(--emirates-red) 25%,
+      var(--emirates-green) 25%,
+      var(--emirates-green) 50%,
+      #ffffff 50%,
+      #ffffff 75%,
+      var(--emirates-black) 75%,
+      var(--emirates-black) 100%
+    );
+  }
+
+  /* UAE geometric pattern utility — for card backgrounds */
+  .ast-uae-pattern {
+    background-image: var(--uae-pattern);
+    background-size: 40px 40px;
   }
 
   /* Verdict card — band readout */
