@@ -4,9 +4,10 @@
 # serves the app and the API from one process. Building it here rather than
 # shipping a tarball means the artifact a judge pulls is the artifact CI built.
 #
-# Note: Actions runs in this account currently fail at startup (0 jobs created,
-# see README "CI runs"), so this workflow is verified by the identical local
-# build until runners are available.
+# Runs on the same self-hosted runner as CI (see the note there): the account
+# has no GitHub-hosted minutes. Single-arch on purpose — amd64 is what the
+# deployment runs, and emulating arm64 here would cost twenty minutes for an
+# image nobody pulls.
 
 name: Publish image
 
@@ -26,7 +27,7 @@ permissions:
 jobs:
   build-and-push:
     name: build · push
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, astrolabe]
 
     steps:
       - name: Checkout
@@ -49,9 +50,6 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -60,7 +58,7 @@ jobs:
         with:
           context: .
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha

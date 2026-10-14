@@ -18,6 +18,7 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -32,7 +33,12 @@ env:
 jobs:
   verify:
     name: typecheck · lint · tests · backtest · build · scan · smoke
-    runs-on: ubuntu-latest
+    # This account gets no GitHub-hosted runner minutes: every `ubuntu-latest`
+    # job — including an eight-line echo-only control and Dependabot's own —
+    # ends in startup_failure with zero steps executed. So CI runs on the same
+    # self-hosted runner the other projects on this VPS use. Change this one
+    # line back to `ubuntu-latest` wherever hosted minutes exist.
+    runs-on: [self-hosted, astrolabe]
 
     steps:
       - name: Checkout
