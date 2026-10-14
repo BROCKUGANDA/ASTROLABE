@@ -80,7 +80,7 @@ interface RequestHit {
   ref: string;
   typeLabel: string;
   typeLabelAr: string;
-  type: string;
+  requestType: string;
   status: string;
   ownerGroup: string;
   openedAt: string;

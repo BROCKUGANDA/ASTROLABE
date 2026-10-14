@@ -75,7 +75,7 @@ interface RequestHit {
   ref: string;
   typeLabel: string;
   typeLabelAr: string;
-  type: RequestType;
+  requestType: RequestType;
   status: string;
   ownerGroup: string;
   openedAt: string;
@@ -217,7 +217,7 @@ function searchRequests(qTokens: string[], reqRows: RequestRow[]): RequestHit[] 
       ref: r.ref,
       typeLabel,
       typeLabelAr,
-      type: r.type as RequestType,
+      requestType: r.type as RequestType,
       status: r.status,
       ownerGroup: r.ownerGroup,
       openedAt: r.openedAt,

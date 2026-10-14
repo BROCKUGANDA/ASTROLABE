@@ -21,11 +21,15 @@
 
 export const PACK_VERSION = "synthetic-2024-q4-v1";
 export const ENGINE_VERSION = "engine-1.0.0";
+/** The journey map is configuration: its version rides on every assessment,
+ * answer and request so a verdict can always be replayed against the map that
+ * produced it. */
+export const MAP_VERSION = "map-1.0.0";
 export const CORPUS_VERSION = "policies-2024-q4-v1";
 
 export type JourneyType = "onboarding" | "mobility";
 export type Locale = "en" | "ar";
-export type Location = "DXB" | "AUH" | "REMOTE";
+export type Location = "DXB" | "AUH" | "SHJ" | "REMOTE";
 
 export interface Employee {
   id: string;
@@ -45,6 +49,14 @@ export interface Employee {
   roleAr?: string;
   team: string;
   nationality: string;
+  /** Location before a mobility move. MB-02 fires when it differs and no relocation case exists. */
+  previousLocation?: Location;
+  /** Second journey the record is active in. DQ-04 fires when both journeys have live events. */
+  secondaryJourneyType?: JourneyType;
+  /** Approved absence. SLA clocks pause across these windows and nudges are suppressed. */
+  leaveWindows?: { from: string; to: string; reason: string }[];
+  /** Physical arrival date, the anchor for DP-06's housing deadline. */
+  arrivalDate?: string;
 }
 
 export interface Owner {
@@ -141,6 +153,7 @@ export interface ServiceRequest {
     | "closed"
     | "returned"
     | "reassigned"
+    | "reopened"
     | "cancelled";
   openedAt: string;
   slaHours: number;
@@ -148,6 +161,8 @@ export interface ServiceRequest {
   returnCount: number;
   parentId?: string;
   idempotencyKey: string;
+  /** Server-derived dedup key: employee + type + payload hash (PRD §12). */
+  payloadHash?: string;
   /** Present when status === "returned" and the owner asked a structured question. */
   returnQuestion?: ReturnQuestion;
 }
@@ -174,6 +189,41 @@ export interface PulseResponse {
   commentText?: string;
   consentId: string;
   createdAt: string;
+}
+
+/**
+ * A logged answer or abstain. The EN family (engagement signals) reads this —
+ * without an answer log the companion cannot notice that it abstained three
+ * times, that the same topic keeps coming back, or that the employee is
+ * asking for a human.
+ */
+export interface AnswerRecord {
+  id: string;
+  employeeId: string;
+  question: string;
+  /** Normalised topic key so EN-02 can count repeats of the same subject. */
+  topicKey: string;
+  intent: "policy" | "journey" | "action" | "help_seeking" | "out_of_scope";
+  kind: "answer" | "abstain";
+  abstainReason?: string;
+  groundingScore: number;
+  chunkIds: string[];
+  askedAt: string;
+  locale: Locale;
+  corpusVersion: string;
+}
+
+/**
+ * Intake abandonment telemetry (EN-05). A draft started and never submitted is
+ * the only evidence that a form asked for something the employee did not have.
+ */
+export interface IntakeDraftRecord {
+  id: string;
+  employeeId: string;
+  type: RequestType;
+  status: "abandoned" | "submitted";
+  startedAt: string;
+  abandonedAt?: string;
 }
 
 export const owners: Owner[] = [
@@ -327,6 +377,104 @@ export const employees: Employee[] = [
     team: "Cabin Crew DXB",
     nationality: "Croatian",
   },
+  {
+    // Hidden-scenario carrier: engagement friction (EN family), an unmapped
+    // event, out-of-order completion, duplicate and ownerless requests.
+    id: "E-1047",
+    ref: "E-1047",
+    displayName: "Nadia Haddad",
+    displayNameAr: "نادية حداد",
+    journeyType: "onboarding",
+    secondaryJourneyType: "mobility",
+    stage: "visa_processing",
+    startDate: "2024-10-28T08:00:00Z",
+    arrivalDate: "2024-11-01T08:00:00Z",
+    location: "DXB",
+    timezone: "Asia/Beirut",
+    managerId: "MGR-1",
+    hrbpId: "HRBP-1",
+    locale: "ar",
+    role: "Cabin Crew Trainee",
+    roleAr: "متدربة طاقم المقصورة",
+    team: "Cabin Crew DXB",
+    nationality: "Lebanese",
+    leaveWindows: [{ from: "2024-10-17T00:00:00Z", to: "2024-10-18T23:59:00Z", reason: "Approved medical leave" }],
+  },
+  {
+    // Mobility friction carrier: location moved with no relocation case,
+    // overdue asset return and mandatory training unbooked.
+    id: "E-1048",
+    ref: "E-1048",
+    displayName: "Peter Nowak",
+    displayNameAr: "بيتر نواك",
+    journeyType: "mobility",
+    stage: "effective_date",
+    startDate: "2024-09-01T08:00:00Z",
+    effectiveDate: "2024-10-10T08:00:00Z",
+    location: "AUH",
+    previousLocation: "DXB",
+    timezone: "Europe/Warsaw",
+    managerId: "MGR-2",
+    hrbpId: "HRBP-2",
+    locale: "en",
+    role: "Ground Operations Planner",
+    team: "Ground Ops AUH",
+    nationality: "Polish",
+  },
+  // The band spread below is what makes the HRBP queue, the stall heatmap and the
+  // k≥5 suppression rule demonstrable: a pack where everyone is Blocked proves
+  // nothing about ranking.
+  {
+    id: "E-1050", ref: "E-1050", displayName: "Layla Ali", displayNameAr: "ليلى علي",
+    journeyType: "onboarding", stage: "first_week", startDate: "2024-10-14T08:00:00Z",
+    arrivalDate: "2024-10-14T08:00:00Z", location: "DXB", timezone: "Asia/Dubai",
+    managerId: "MGR-1", hrbpId: "HRBP-1", locale: "ar", role: "Cabin Crew Trainee",
+    team: "Cabin Crew DXB", nationality: "Emirati",
+  },
+  {
+    id: "E-1051", ref: "E-1051", displayName: "Omar Salem", displayNameAr: "عمر سالم",
+    journeyType: "onboarding", stage: "pre_boarding", startDate: "2024-10-22T08:00:00Z",
+    arrivalDate: "2024-10-22T08:00:00Z", location: "AUH", timezone: "Asia/Dubai",
+    managerId: "MGR-2", hrbpId: "HRBP-2", locale: "ar", role: "Warehouse Associate",
+    team: "Ground Ops AUH", nationality: "Egyptian",
+  },
+  {
+    id: "E-1052", ref: "E-1052", displayName: "Chen Wei", displayNameAr: "تشن وي",
+    journeyType: "mobility", stage: "settle_new_role", startDate: "2024-08-01T08:00:00Z",
+    effectiveDate: "2024-09-30T08:00:00Z", location: "REMOTE", timezone: "Asia/Shanghai",
+    managerId: "MGR-1", hrbpId: "HRBP-1", locale: "en", role: "Revenue Analyst",
+    team: "Commercial DXB", nationality: "Chinese",
+  },
+  {
+    id: "E-1053", ref: "E-1053", displayName: "Grace Adeyemi", displayNameAr: "غريس أدييمي",
+    journeyType: "onboarding", stage: "first_day", startDate: "2024-10-15T08:00:00Z",
+    arrivalDate: "2024-10-15T08:00:00Z", location: "DXB", timezone: "Africa/Lagos",
+    managerId: "MGR-1", hrbpId: "HRBP-1", locale: "en", role: "Cabin Crew Trainee",
+    team: "Cabin Crew DXB", nationality: "Nigerian",
+  },
+  {
+    id: "E-1054", ref: "E-1054", displayName: "Yusuf Ibrahim", displayNameAr: "يوسف إبراهيم",
+    journeyType: "mobility", stage: "handover", startDate: "2024-06-01T08:00:00Z",
+    effectiveDate: "2024-10-05T08:00:00Z", previousLocation: "DXB", location: "SHJ",
+    timezone: "Asia/Dubai", managerId: "MGR-2", hrbpId: "HRBP-2", locale: "en",
+    role: "Catering Supervisor", team: "Catering SHJ", nationality: "Turkish",
+  },
+  {
+    id: "E-1055", ref: "E-1055", displayName: "Mariam Al-Kuwari", displayNameAr: "مريم الكواري",
+    journeyType: "onboarding", stage: "first_week", startDate: "2024-10-13T08:00:00Z",
+    arrivalDate: "2024-10-13T08:00:00Z", location: "AUH", timezone: "Asia/Dubai",
+    managerId: "MGR-2", hrbpId: "HRBP-2", locale: "ar", role: "Guest Services Agent",
+    team: "Ground Ops AUH", nationality: "Qatari",
+  },
+  {
+    // The Watch case: two things are running late but nothing is stopped, and no
+    // hard trip applies. A queue that only contains Blocked rows teaches nothing.
+    id: "E-1056", ref: "E-1056", displayName: "Ravi Kumar", displayNameAr: "رافي كومار",
+    journeyType: "onboarding", stage: "first_week", startDate: "2024-10-10T08:00:00Z",
+    arrivalDate: "2024-10-10T08:00:00Z", location: "DXB", timezone: "Asia/Kolkata",
+    managerId: "MGR-1", hrbpId: "HRBP-1", locale: "en", role: "Cabin Crew Trainee",
+    team: "Cabin Crew DXB", nationality: "Indian",
+  },
 ];
 
 export const NOW = new Date("2024-10-19T10:00:00Z");
@@ -354,7 +502,11 @@ export const events: JourneyEvent[] = [
   // E-1043 Daniel Okonkwo (onboarding, visa_processing, start in 16 days)
   { id: "EV-101", employeeId: "E-1043", stepKey: "ob_offer_signed", type: "completed", occurredAt: hoursAgo(24 * 8), recordedAt: hoursAgo(24 * 8), source: "hr-system", payloadHash: "h-101" },
   { id: "EV-102", employeeId: "E-1043", stepKey: "ob_passport_upload", type: "completed", occurredAt: hoursAgo(24 * 7), recordedAt: hoursAgo(24 * 7), source: "immigration-portal", payloadHash: "h-102" },
-  { id: "EV-103", employeeId: "E-1043", stepKey: "ob_visa_application", type: "started", occurredAt: hoursAgo(24 * 7), recordedAt: hoursAgo(24 * 7), source: "immigration-portal", payloadHash: "h-103" },
+  { id: "EV-103", employeeId: "E-1043", stepKey: "ob_visa_application", type: "completed", occurredAt: hoursAgo(24 * 7), recordedAt: hoursAgo(24 * 7), source: "immigration-portal", payloadHash: "h-103" },
+  // The approval has sat open for eight days. It is the single step four others
+  // wait on, so DP-01 and the DP-02 hard trip both apply.
+  { id: "EV-104", employeeId: "E-1043", stepKey: "ob_visa_approval", type: "started", occurredAt: hoursAgo(24 * 8), recordedAt: hoursAgo(24 * 8), source: "immigration-portal", payloadHash: "h-104" },
+  { id: "EV-105", employeeId: "E-1043", stepKey: "ob_visa_approval", type: "waiting_owner", occurredAt: hoursAgo(24 * 8), recordedAt: hoursAgo(24 * 6), source: "immigration-portal", payloadHash: "h-105" },
 
   // E-1044 Aisha Rahman (mobility, effective_date, 4 days past)
   { id: "EV-201", employeeId: "E-1044", stepKey: "mb_transfer_signed", type: "completed", occurredAt: hoursAgo(24 * 20), recordedAt: hoursAgo(24 * 20), source: "hr-system", payloadHash: "h-201" },
@@ -378,6 +530,104 @@ export const events: JourneyEvent[] = [
   // E-1046 Sara Kovač (mobility, handover, effective in 10 days)
   { id: "EV-401", employeeId: "E-1046", stepKey: "mb_transfer_signed", type: "completed", occurredAt: hoursAgo(24 * 30), recordedAt: hoursAgo(24 * 30), source: "hr-system", payloadHash: "h-401" },
   { id: "EV-402", employeeId: "E-1046", stepKey: "mb_release_handover", type: "started", occurredAt: hoursAgo(24 * 6), recordedAt: hoursAgo(24 * 6), source: "hr-system", payloadHash: "h-402" },
+
+  // E-1047 Nadia Haddad — the brief's own hidden scenario: visa paperwork stalled.
+  // DP-02 (hard trip) fires on a nine-day stall, plus out-of-order completion,
+  // a future-dated event, unmapped activity and a contradictory second journey.
+  { id: "EV-501", employeeId: "E-1047", stepKey: "ob_offer_signed", type: "completed", occurredAt: hoursAgo(24 * 10), recordedAt: hoursAgo(24 * 10), source: "hr-system", payloadHash: "h-501" },
+  { id: "EV-502", employeeId: "E-1047", stepKey: "ob_passport_upload", type: "completed", occurredAt: hoursAgo(24 * 9), recordedAt: hoursAgo(24 * 9), source: "immigration-portal", payloadHash: "h-502" },
+  { id: "EV-503", employeeId: "E-1047", stepKey: "ob_visa_application", type: "started", occurredAt: hoursAgo(24 * 9), recordedAt: hoursAgo(24 * 9), source: "immigration-portal", payloadHash: "h-503" },
+  { id: "EV-504", employeeId: "E-1047", stepKey: "ob_visa_application", type: "waiting_owner", occurredAt: hoursAgo(24 * 8), recordedAt: hoursAgo(24 * 8), source: "immigration-portal", payloadHash: "h-504" },
+  // Completed out of order: the badge was issued while the visa it depends on is still open.
+  { id: "EV-505", employeeId: "E-1047", stepKey: "ob_badge_issued", type: "completed", occurredAt: hoursAgo(24 * 3), recordedAt: hoursAgo(24 * 3), source: "facilities-system", payloadHash: "h-505" },
+  // Unmapped activity: this step key is not in the journey map (DQ-05).
+  { id: "EV-506", employeeId: "E-1047", stepKey: "ob_payroll_setup", type: "completed", occurredAt: hoursAgo(24 * 2), recordedAt: hoursAgo(24 * 2), source: "payroll-system", payloadHash: "h-506" },
+  // Future-dated relative to the frozen clock (DQ-03) — must be excluded from state.
+  { id: "EV-507", employeeId: "E-1047", stepKey: "ob_flight_booked", type: "completed", occurredAt: hoursAhead(24 * 4), recordedAt: hoursAgo(2), source: "mobility-system", payloadHash: "h-507" },
+  // Contradictory record: she is also live in the mobility journey (DQ-04).
+  { id: "EV-508", employeeId: "E-1047", stepKey: "mb_transfer_signed", type: "started", occurredAt: hoursAgo(24 * 4), recordedAt: hoursAgo(24 * 4), source: "hr-system", payloadHash: "h-508" },
+  // Waiting on the employee: the SLA clock must pause and say why.
+  { id: "EV-509", employeeId: "E-1047", stepKey: "ob_passport_upload", type: "waiting_employee", occurredAt: hoursAgo(24 * 1), recordedAt: hoursAgo(24 * 1), source: "immigration-portal", payloadHash: "h-509" },
+  { id: "EV-510", employeeId: "E-1047", stepKey: "ob_relocation_allowance", type: "started", occurredAt: hoursAgo(24 * 6), recordedAt: hoursAgo(24 * 6), source: "mobility-system", payloadHash: "h-510" },
+
+  // E-1048 Peter Nowak — mobility friction: assets overdue, training unbooked.
+  { id: "EV-601", employeeId: "E-1048", stepKey: "mb_transfer_signed", type: "completed", occurredAt: hoursAgo(24 * 30), recordedAt: hoursAgo(24 * 30), source: "hr-system", payloadHash: "h-601" },
+  { id: "EV-602", employeeId: "E-1048", stepKey: "mb_release_handover", type: "completed", occurredAt: hoursAgo(24 * 14), recordedAt: hoursAgo(24 * 14), source: "hr-system", payloadHash: "h-602" },
+  { id: "EV-603", employeeId: "E-1048", stepKey: "mb_asset_return", type: "started", occurredAt: hoursAgo(24 * 25), recordedAt: hoursAgo(24 * 25), source: "facilities-system", payloadHash: "h-603" },
+  { id: "EV-604", employeeId: "E-1048", stepKey: "mb_role_access", type: "started", occurredAt: hoursAgo(24 * 9), recordedAt: hoursAgo(24 * 9), source: "it-system", payloadHash: "h-604" },
+  { id: "EV-605", employeeId: "E-1048", stepKey: "mb_payroll_change", type: "started", occurredAt: hoursAgo(24 * 9), recordedAt: hoursAgo(24 * 9), source: "payroll-system", payloadHash: "h-605" },
+  { id: "EV-606", employeeId: "E-1048", stepKey: "mb_dual_reporting", type: "waiting_owner", occurredAt: hoursAgo(24 * 9), recordedAt: hoursAgo(24 * 9), source: "hr-system", payloadHash: "h-606" },
+  { id: "EV-607", employeeId: "E-1048", stepKey: "mb_transfer_signed", type: "note", occurredAt: hoursAgo(24 * 3), recordedAt: hoursAgo(24 * 3), source: "hr-system", payloadHash: "h-607" },
+
+  // E-1050 Layla — clean journey, nothing late. The Steady case.
+  { id: "EV-701", employeeId: "E-1050", stepKey: "ob_offer_signed", type: "completed", occurredAt: hoursAgo(24 * 9), recordedAt: hoursAgo(24 * 9), source: "hr-system", payloadHash: "h-701" },
+  { id: "EV-702", employeeId: "E-1050", stepKey: "ob_passport_upload", type: "completed", occurredAt: hoursAgo(24 * 8), recordedAt: hoursAgo(24 * 8), source: "immigration-portal", payloadHash: "h-702" },
+  { id: "EV-703", employeeId: "E-1050", stepKey: "ob_relocation_allowance", type: "completed", occurredAt: hoursAgo(24 * 7), recordedAt: hoursAgo(24 * 7), source: "mobility-system", payloadHash: "h-703" },
+  { id: "EV-704", employeeId: "E-1050", stepKey: "ob_visa_application", type: "completed", occurredAt: hoursAgo(24 * 6), recordedAt: hoursAgo(24 * 6), source: "immigration-portal", payloadHash: "h-704" },
+  { id: "EV-705", employeeId: "E-1050", stepKey: "ob_visa_approval", type: "completed", occurredAt: hoursAgo(24 * 5), recordedAt: hoursAgo(24 * 5), source: "immigration-portal", payloadHash: "h-705" },
+  { id: "EV-706", employeeId: "E-1050", stepKey: "ob_kit_issued", type: "completed", occurredAt: hoursAgo(24 * 4), recordedAt: hoursAgo(24 * 4), source: "it-system", payloadHash: "h-706" },
+  { id: "EV-707", employeeId: "E-1050", stepKey: "ob_access_provisioned", type: "completed", occurredAt: hoursAgo(24 * 3), recordedAt: hoursAgo(24 * 3), source: "it-system", payloadHash: "h-707" },
+  { id: "EV-708", employeeId: "E-1050", stepKey: "ob_badge_issued", type: "completed", occurredAt: hoursAgo(24 * 4), recordedAt: hoursAgo(24 * 4), source: "facilities-system", payloadHash: "h-708" },
+  { id: "EV-709", employeeId: "E-1050", stepKey: "ob_induction_complete", type: "completed", occurredAt: hoursAgo(24 * 2), recordedAt: hoursAgo(24 * 2), source: "hr-system", payloadHash: "h-709" },
+  { id: "EV-710", employeeId: "E-1050", stepKey: "ob_training_booked", type: "started", occurredAt: hoursAgo(20), recordedAt: hoursAgo(20), source: "learning-system", payloadHash: "h-710" },
+
+  // E-1051 Omar — three days to start, one pre-boarding step done. TL-04 + EN-03.
+  { id: "EV-711", employeeId: "E-1051", stepKey: "ob_offer_signed", type: "completed", occurredAt: hoursAgo(24 * 9), recordedAt: hoursAgo(24 * 9), source: "hr-system", payloadHash: "h-711" },
+
+  // E-1052 Chen — mobility finished end to end. The other Steady case.
+  { id: "EV-721", employeeId: "E-1052", stepKey: "mb_transfer_signed", type: "completed", occurredAt: hoursAgo(24 * 40), recordedAt: hoursAgo(24 * 40), source: "hr-system", payloadHash: "h-721" },
+  { id: "EV-722", employeeId: "E-1052", stepKey: "mb_release_handover", type: "completed", occurredAt: hoursAgo(24 * 30), recordedAt: hoursAgo(24 * 30), source: "hr-system", payloadHash: "h-722" },
+  { id: "EV-723", employeeId: "E-1052", stepKey: "mb_asset_return", type: "completed", occurredAt: hoursAgo(24 * 28), recordedAt: hoursAgo(24 * 28), source: "facilities-system", payloadHash: "h-723" },
+  { id: "EV-724", employeeId: "E-1052", stepKey: "mb_role_access", type: "completed", occurredAt: hoursAgo(24 * 20), recordedAt: hoursAgo(24 * 20), source: "it-system", payloadHash: "h-724" },
+  { id: "EV-725", employeeId: "E-1052", stepKey: "mb_payroll_change", type: "completed", occurredAt: hoursAgo(24 * 19), recordedAt: hoursAgo(24 * 19), source: "payroll-system", payloadHash: "h-725" },
+  { id: "EV-726", employeeId: "E-1052", stepKey: "mb_dual_reporting", type: "completed", occurredAt: hoursAgo(24 * 15), recordedAt: hoursAgo(24 * 15), source: "hr-system", payloadHash: "h-726" },
+  { id: "EV-727", employeeId: "E-1052", stepKey: "mb_training_booked", type: "completed", occurredAt: hoursAgo(24 * 10), recordedAt: hoursAgo(24 * 10), source: "learning-system", payloadHash: "h-727" },
+
+  // E-1053 Grace — laptop never arrived on day 2, so access and training are frozen.
+  { id: "EV-731", employeeId: "E-1053", stepKey: "ob_offer_signed", type: "completed", occurredAt: hoursAgo(24 * 10), recordedAt: hoursAgo(24 * 10), source: "hr-system", payloadHash: "h-731" },
+  { id: "EV-732", employeeId: "E-1053", stepKey: "ob_passport_upload", type: "completed", occurredAt: hoursAgo(24 * 9), recordedAt: hoursAgo(24 * 9), source: "immigration-portal", payloadHash: "h-732" },
+  { id: "EV-733", employeeId: "E-1053", stepKey: "ob_visa_application", type: "completed", occurredAt: hoursAgo(24 * 8), recordedAt: hoursAgo(24 * 8), source: "immigration-portal", payloadHash: "h-733" },
+  { id: "EV-734", employeeId: "E-1053", stepKey: "ob_visa_approval", type: "completed", occurredAt: hoursAgo(24 * 5), recordedAt: hoursAgo(24 * 5), source: "immigration-portal", payloadHash: "h-734" },
+  { id: "EV-735", employeeId: "E-1053", stepKey: "ob_badge_issued", type: "completed", occurredAt: hoursAgo(24 * 4), recordedAt: hoursAgo(24 * 4), source: "facilities-system", payloadHash: "h-735" },
+
+  // E-1054 Yusuf — moved to Sharjah with nobody opening a relocation case.
+  { id: "EV-741", employeeId: "E-1054", stepKey: "mb_transfer_signed", type: "completed", occurredAt: hoursAgo(24 * 25), recordedAt: hoursAgo(24 * 25), source: "hr-system", payloadHash: "h-741" },
+  { id: "EV-742", employeeId: "E-1054", stepKey: "mb_release_handover", type: "completed", occurredAt: hoursAgo(24 * 18), recordedAt: hoursAgo(24 * 18), source: "hr-system", payloadHash: "h-742" },
+  { id: "EV-743", employeeId: "E-1054", stepKey: "mb_asset_return", type: "started", occurredAt: hoursAgo(24 * 26), recordedAt: hoursAgo(24 * 26), source: "facilities-system", payloadHash: "h-743" },
+  { id: "EV-744", employeeId: "E-1054", stepKey: "mb_role_access", type: "completed", occurredAt: hoursAgo(24 * 12), recordedAt: hoursAgo(24 * 12), source: "it-system", payloadHash: "h-744" },
+  { id: "EV-745", employeeId: "E-1054", stepKey: "mb_payroll_change", type: "completed", occurredAt: hoursAgo(24 * 12), recordedAt: hoursAgo(24 * 12), source: "payroll-system", payloadHash: "h-745" },
+
+  // E-1055 Mariam — everything on time except the buddy assignment.
+  { id: "EV-751", employeeId: "E-1055", stepKey: "ob_offer_signed", type: "completed", occurredAt: hoursAgo(24 * 12), recordedAt: hoursAgo(24 * 12), source: "hr-system", payloadHash: "h-751" },
+  { id: "EV-752", employeeId: "E-1055", stepKey: "ob_passport_upload", type: "completed", occurredAt: hoursAgo(24 * 11), recordedAt: hoursAgo(24 * 11), source: "immigration-portal", payloadHash: "h-752" },
+  { id: "EV-753", employeeId: "E-1055", stepKey: "ob_relocation_allowance", type: "completed", occurredAt: hoursAgo(24 * 10), recordedAt: hoursAgo(24 * 10), source: "mobility-system", payloadHash: "h-753" },
+  { id: "EV-754", employeeId: "E-1055", stepKey: "ob_visa_application", type: "completed", occurredAt: hoursAgo(24 * 9), recordedAt: hoursAgo(24 * 9), source: "immigration-portal", payloadHash: "h-754" },
+  { id: "EV-755", employeeId: "E-1055", stepKey: "ob_visa_approval", type: "completed", occurredAt: hoursAgo(24 * 7), recordedAt: hoursAgo(24 * 7), source: "immigration-portal", payloadHash: "h-755" },
+  { id: "EV-756", employeeId: "E-1055", stepKey: "ob_flight_booked", type: "completed", occurredAt: hoursAgo(24 * 6), recordedAt: hoursAgo(24 * 6), source: "mobility-system", payloadHash: "h-756" },
+  { id: "EV-757", employeeId: "E-1055", stepKey: "ob_housing_arranged", type: "completed", occurredAt: hoursAgo(24 * 6), recordedAt: hoursAgo(24 * 6), source: "mobility-system", payloadHash: "h-757" },
+  { id: "EV-758", employeeId: "E-1055", stepKey: "ob_kit_issued", type: "completed", occurredAt: hoursAgo(24 * 5), recordedAt: hoursAgo(24 * 5), source: "it-system", payloadHash: "h-758" },
+  { id: "EV-760", employeeId: "E-1055", stepKey: "ob_badge_issued", type: "completed", occurredAt: hoursAgo(24 * 5), recordedAt: hoursAgo(24 * 5), source: "facilities-system", payloadHash: "h-760" },
+  { id: "EV-761", employeeId: "E-1055", stepKey: "ob_induction_complete", type: "completed", occurredAt: hoursAgo(24 * 3), recordedAt: hoursAgo(24 * 3), source: "hr-system", payloadHash: "h-761" },
+  { id: "EV-762", employeeId: "E-1055", stepKey: "ob_buddy_assigned", type: "started", occurredAt: hoursAgo(24 * 3), recordedAt: hoursAgo(24 * 3), source: "hr-system", payloadHash: "h-762" },
+
+  // Mariam's access provisioning began and then stopped on a missing asset.
+  // She is the Watch case: real, but nothing is frozen and no hard trip applies.
+  { id: "EV-763", employeeId: "E-1055", stepKey: "ob_access_provisioned", type: "started", occurredAt: hoursAgo(24 * 4), recordedAt: hoursAgo(24 * 4), source: "it-system", payloadHash: "h-763" },
+  { id: "EV-764", employeeId: "E-1055", stepKey: "ob_access_provisioned", type: "blocked", occurredAt: hoursAgo(24 * 2), recordedAt: hoursAgo(24 * 2), source: "it-system", payloadHash: "h-764" },
+
+  // E-1056 Ravi — training was booked while his access is still missing (DP-04),
+  // and the buddy assignment has been open for six days against a 24h target.
+  { id: "EV-771", employeeId: "E-1056", stepKey: "ob_offer_signed", type: "completed", occurredAt: hoursAgo(24 * 14), recordedAt: hoursAgo(24 * 14), source: "hr-system", payloadHash: "h-771" },
+  { id: "EV-772", employeeId: "E-1056", stepKey: "ob_passport_upload", type: "completed", occurredAt: hoursAgo(24 * 13), recordedAt: hoursAgo(24 * 13), source: "immigration-portal", payloadHash: "h-772" },
+  { id: "EV-773", employeeId: "E-1056", stepKey: "ob_relocation_allowance", type: "completed", occurredAt: hoursAgo(24 * 12), recordedAt: hoursAgo(24 * 12), source: "mobility-system", payloadHash: "h-773" },
+  { id: "EV-774", employeeId: "E-1056", stepKey: "ob_visa_application", type: "completed", occurredAt: hoursAgo(24 * 11), recordedAt: hoursAgo(24 * 11), source: "immigration-portal", payloadHash: "h-774" },
+  { id: "EV-775", employeeId: "E-1056", stepKey: "ob_visa_approval", type: "completed", occurredAt: hoursAgo(24 * 9), recordedAt: hoursAgo(24 * 9), source: "immigration-portal", payloadHash: "h-775" },
+  { id: "EV-776", employeeId: "E-1056", stepKey: "ob_kit_issued", type: "completed", occurredAt: hoursAgo(24 * 8), recordedAt: hoursAgo(24 * 8), source: "it-system", payloadHash: "h-776" },
+  { id: "EV-777", employeeId: "E-1056", stepKey: "ob_badge_issued", type: "completed", occurredAt: hoursAgo(24 * 8), recordedAt: hoursAgo(24 * 8), source: "facilities-system", payloadHash: "h-777" },
+  { id: "EV-778", employeeId: "E-1056", stepKey: "ob_induction_complete", type: "completed", occurredAt: hoursAgo(24 * 6), recordedAt: hoursAgo(24 * 6), source: "hr-system", payloadHash: "h-778" },
+  { id: "EV-779", employeeId: "E-1056", stepKey: "ob_training_booked", type: "started", occurredAt: hoursAgo(24 * 5), recordedAt: hoursAgo(24 * 5), source: "learning-system", payloadHash: "h-779" },
+  { id: "EV-780", employeeId: "E-1056", stepKey: "ob_buddy_assigned", type: "started", occurredAt: hoursAgo(24 * 6), recordedAt: hoursAgo(24 * 6), source: "hr-system", payloadHash: "h-780" },
+  { id: "EV-781", employeeId: "E-1056", stepKey: "ob_training_booked", type: "note", occurredAt: hoursAgo(20), recordedAt: hoursAgo(20), source: "learning-system", payloadHash: "h-781" },
 ];
 
 export const serviceRequests: ServiceRequest[] = [
@@ -449,6 +699,113 @@ export const serviceRequests: ServiceRequest[] = [
     returnCount: 0,
     idempotencyKey: "idm-E1045-it_kit-20241019",
   },
+  {
+    // Nadia asked twice for the same laptop inside 72h — the second one is the
+    // evidence for RQ-04, and the reason SR-2024-102 exists at all.
+    id: "SR-2024-101",
+    ref: "SR-2024-101",
+    employeeId: "E-1047",
+    type: "it_kit",
+    ownerGroup: "IT",
+    assignee: "O-IT-1",
+    status: "acknowledged",
+    openedAt: hoursAgo(40),
+    slaHours: 24,
+    reassignCount: 0,
+    returnCount: 0,
+    idempotencyKey: "idm-E1047-it_kit-20241017",
+  },
+  {
+    // Duplicate of SR-2024-101: same employee, same intent, inside 72h (RQ-04).
+    id: "SR-2024-102",
+    ref: "SR-2024-102",
+    employeeId: "E-1047",
+    type: "it_kit",
+    ownerGroup: "IT",
+    assignee: "O-IT-1",
+    status: "submitted",
+    openedAt: hoursAgo(20),
+    slaHours: 24,
+    reassignCount: 0,
+    returnCount: 0,
+    idempotencyKey: "idm-E1047-it_kit-20241018b",
+  },
+  {
+    // Assignee is a person who has left: no resolvable owner (RQ-05, edge case 21).
+    id: "SR-2024-103",
+    ref: "SR-2024-103",
+    employeeId: "E-1047",
+    type: "visa",
+    ownerGroup: "Immigration",
+    assignee: "O-LEFT-9",
+    status: "in_progress",
+    openedAt: hoursAgo(24 * 6),
+    slaHours: 72,
+    reassignCount: 1,
+    returnCount: 0,
+    idempotencyKey: "idm-E1047-visa-20241013",
+  },
+  {
+    // Closed too early and reopened, after bouncing between three queues
+    // (RQ-02 ping-pong + RQ-06 reopened).
+    id: "SR-2024-104",
+    ref: "SR-2024-104",
+    employeeId: "E-1047",
+    type: "facilities",
+    ownerGroup: "Facilities",
+    assignee: "O-FAC-1",
+    status: "reopened",
+    openedAt: hoursAgo(24 * 4),
+    slaHours: 24,
+    reassignCount: 3,
+    returnCount: 2,
+    idempotencyKey: "idm-E1047-facilities-20241015",
+  },
+  {
+    // Waiting on the employee for 7 days: nudge only, never a queue entry (RQ-07).
+    id: "SR-2024-105",
+    ref: "SR-2024-105",
+    employeeId: "E-1047",
+    type: "training",
+    ownerGroup: "Learning",
+    assignee: "O-LEARN-1",
+    status: "waiting_employee",
+    openedAt: hoursAgo(24 * 7),
+    slaHours: 48,
+    reassignCount: 0,
+    returnCount: 0,
+    idempotencyKey: "idm-E1047-training-20241012",
+  },
+  {
+    // Omar asked for a badge three days ago and the queue has not picked it up.
+    id: "SR-2024-106",
+    ref: "SR-2024-106",
+    employeeId: "E-1051",
+    type: "facilities",
+    ownerGroup: "Facilities",
+    assignee: "O-FAC-1",
+    status: "submitted",
+    openedAt: hoursAgo(24 * 3),
+    slaHours: 24,
+    reassignCount: 0,
+    returnCount: 0,
+    idempotencyKey: "idm-E1051-facilities-20241016",
+  },
+  {
+    // Ravi booked a course four days ago; Learning has not confirmed it.
+    id: "SR-2024-107",
+    ref: "SR-2024-107",
+    employeeId: "E-1056",
+    type: "training",
+    ownerGroup: "Learning",
+    assignee: "O-LEARN-1",
+    status: "acknowledged",
+    openedAt: hoursAgo(24 * 4),
+    slaHours: 48,
+    reassignCount: 0,
+    returnCount: 0,
+    idempotencyKey: "idm-E1056-training-20241015",
+  },
 ];
 
 export const pulseResponses: PulseResponse[] = [
@@ -470,6 +827,49 @@ export const pulseResponses: PulseResponse[] = [
     consentId: "CN-002",
     createdAt: hoursAgo(6),
   },
+  // James' access provisioning slipped, and his pulse trend goes with it. This is
+  // the consent-revoke demo: switching pulse off visibly drops his band, because
+  // PS-01, PS-02 and PS-03 contribute 11 points that the engine zeroes out.
+  {
+    id: "PS-003",
+    employeeId: "E-1045",
+    stage: "first_day",
+    score: 4,
+    consentId: "CN-002",
+    createdAt: hoursAgo(4),
+  },
+  {
+    id: "PS-004",
+    employeeId: "E-1045",
+    stage: "first_week",
+    score: 2,
+    commentRef: "PC-002",
+    commentText: "I have asked twice and nobody replied. I cannot start without access.",
+    consentId: "CN-002",
+    createdAt: hoursAgo(2),
+  },
+];
+
+/**
+ * Engagement telemetry for E-1047. The EN family cannot exist without an
+ * answer log: abstains, repeated topics, help-seeking intents and abandoned
+ * intakes are the only evidence the companion has that the employee is
+ * struggling rather than merely slow.
+ */
+export const answerLog: AnswerRecord[] = [
+  { id: "ANS-9001", employeeId: "E-1047", question: "Can I bring my family on my visa?", topicKey: "visa:dependants", intent: "policy", kind: "abstain", abstainReason: "low_grounding", groundingScore: 0.31, chunkIds: [], askedAt: hoursAgo(9), locale: "en", corpusVersion: CORPUS_VERSION },
+  { id: "ANS-9002", employeeId: "E-1047", question: "Will my husband get a visa too?", topicKey: "visa:dependants", intent: "policy", kind: "abstain", abstainReason: "low_grounding", groundingScore: 0.29, chunkIds: [], askedAt: hoursAgo(6), locale: "en", corpusVersion: CORPUS_VERSION },
+  { id: "ANS-9003", employeeId: "E-1047", question: "dependants visa rules", topicKey: "visa:dependants", intent: "policy", kind: "abstain", abstainReason: "top_chunk_below_floor", groundingScore: 0.22, chunkIds: [], askedAt: hoursAgo(2), locale: "en", corpusVersion: CORPUS_VERSION },
+  { id: "ANS-9004", employeeId: "E-1047", question: "Who do I talk to about my badge?", topicKey: "contact:badge", intent: "help_seeking", kind: "answer", groundingScore: 0.88, chunkIds: ["POL-FAC-EN-1"], askedAt: hoursAgo(5), locale: "en", corpusVersion: CORPUS_VERSION },
+  { id: "ANS-9005", employeeId: "E-1047", question: "I'm stuck, nobody has replied to me", topicKey: "contact:help", intent: "help_seeking", kind: "answer", groundingScore: 0.9, chunkIds: ["POL-ONB-EN-1"], askedAt: hoursAgo(1), locale: "en", corpusVersion: CORPUS_VERSION },
+  { id: "ANS-9006", employeeId: "E-1042", question: "How much relocation allowance do I get?", topicKey: "relocation:allowance", intent: "policy", kind: "answer", groundingScore: 0.94, chunkIds: ["POL-RELOC-EN-1"], askedAt: hoursAgo(30), locale: "en", corpusVersion: CORPUS_VERSION },
+];
+
+/** Intake abandonment for E-1047 — the same visa form started and left twice. */
+export const intakeDrafts: IntakeDraftRecord[] = [
+  { id: "DRAFT-7001", employeeId: "E-1047", type: "visa", status: "abandoned", startedAt: hoursAgo(30), abandonedAt: hoursAgo(29) },
+  { id: "DRAFT-7002", employeeId: "E-1047", type: "visa", status: "abandoned", startedAt: hoursAgo(8), abandonedAt: hoursAgo(7) },
+  { id: "DRAFT-7003", employeeId: "E-1042", type: "it_kit", status: "submitted", startedAt: hoursAgo(70), abandonedAt: undefined },
 ];
 
 export const policies: PolicyChunk[] = [
@@ -643,6 +1043,7 @@ export const consentRecords: ConsentRecord[] = [
   { id: "CN-001-E1042-comm", employeeId: "E-1042", purpose: "comment_retention", granted: true, grantedAt: hoursAgo(20), version: "v1", textHash: "th-c" },
   { id: "CN-000-E1045", employeeId: "E-1045", purpose: "journey_assistance", granted: true, grantedAt: hoursAgo(24 * 18), version: "v1", textHash: "th-j" },
   { id: "CN-002", employeeId: "E-1045", purpose: "pulse_capture", granted: true, grantedAt: hoursAgo(6), version: "v1", textHash: "th-p" },
+  { id: "CN-002-E1045-comm", employeeId: "E-1045", purpose: "comment_retention", granted: true, grantedAt: hoursAgo(6), version: "v1", textHash: "th-c" },
 ];
 
 export interface AuditEvent {
