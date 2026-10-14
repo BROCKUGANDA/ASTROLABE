@@ -122,11 +122,10 @@ function emit(level: LogLevel, message: string, meta?: LogMeta): void {
   // Human-readable pretty line to stderr in development (does not pollute
   // piped stdout consumers).
   if (isDev()) {
-    const metaStr =
-      Object.keys(bodyMeta).length > 0 ? " " + JSON.stringify(bodyMeta) : "";
+    const metaStr = Object.keys(bodyMeta).length > 0 ? " " + JSON.stringify(bodyMeta) : "";
     const rid = requestId ? ` [${requestId}]` : "";
     console.error(
-      `${COLORS[level]}${level.toUpperCase().padEnd(5)}${RESET} ${timestamp}${rid} ${message}${metaStr}`
+      `${COLORS[level]}${level.toUpperCase().padEnd(5)}${RESET} ${timestamp}${rid} ${message}${metaStr}`,
     );
   }
 }

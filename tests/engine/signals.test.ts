@@ -76,14 +76,22 @@ describe("TL family", () => {
       ...baseline().events.slice(0, 7),
       ev(E, "ob_kit_issued", "started", hoursAgo(30)),
     ]);
-    const fired = runCase({ employee: late.employee, events: late.events, consents: withConsents() });
+    const fired = runCase({
+      employee: late.employee,
+      events: late.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(fired, "TL-01").length).toBeGreaterThan(0);
 
     const onTime = baseline([
       ...baseline().events.slice(0, 7),
       ev(E, "ob_kit_issued", "started", hoursAgo(6)),
     ]);
-    const quiet = runCase({ employee: onTime.employee, events: onTime.events, consents: withConsents() });
+    const quiet = runCase({
+      employee: onTime.employee,
+      events: onTime.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(quiet, "TL-01").length).toBe(0);
   });
 
@@ -92,7 +100,11 @@ describe("TL family", () => {
       ...baseline().events.slice(0, 7),
       ev(E, "ob_kit_issued", "started", daysAgo(6)),
     ]);
-    const a = runCase({ employee: doubleLate.employee, events: doubleLate.events, consents: withConsents() });
+    const a = runCase({
+      employee: doubleLate.employee,
+      events: doubleLate.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(a, "TL-02").length).toBeGreaterThan(0);
     expect(a.hardTrips).toContain("TL-02");
 
@@ -100,7 +112,11 @@ describe("TL family", () => {
       ...baseline().events.slice(0, 7),
       ev(E, "ob_kit_issued", "started", hoursAgo(30)),
     ]);
-    const b = runCase({ employee: justLate.employee, events: justLate.events, consents: withConsents() });
+    const b = runCase({
+      employee: justLate.employee,
+      events: justLate.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(b, "TL-02").length).toBe(0);
   });
 
@@ -109,9 +125,15 @@ describe("TL family", () => {
       ...baseline().events.slice(0, 7),
       ev(E, "ob_kit_issued", "started", hoursAgo(10)),
     ]);
-    const a = runCase({ employee: broken.employee, events: broken.events, consents: withConsents() });
+    const a = runCase({
+      employee: broken.employee,
+      events: broken.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(a, "TL-03").length).toBeGreaterThan(0);
-    expect(a.signals.find((s) => s.code === "TL-03" && s.description.includes("laptop"))).toBeDefined();
+    expect(
+      a.signals.find((s) => s.code === "TL-03" && s.description.includes("laptop")),
+    ).toBeDefined();
 
     const kept = baseline();
     const b = runCase({ employee: kept.employee, events: kept.events, consents: withConsents() });
@@ -119,15 +141,24 @@ describe("TL family", () => {
   });
 
   test("TL-04 pre-boarding under 60% inside five days of starting", () => {
-    const atRisk = baseline([ev(E, "ob_offer_signed", "completed", daysAgo(9))], { startDate: daysAhead(3) });
-    const a = runCase({ employee: atRisk.employee, events: atRisk.events, consents: withConsents() });
+    const atRisk = baseline([ev(E, "ob_offer_signed", "completed", daysAgo(9))], {
+      startDate: daysAhead(3),
+    });
+    const a = runCase({
+      employee: atRisk.employee,
+      events: atRisk.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(a, "TL-04").length).toBeGreaterThan(0);
 
-    const ready = baseline([
-      ev(E, "ob_offer_signed", "completed", daysAgo(9)),
-      ev(E, "ob_passport_upload", "completed", daysAgo(8)),
-      ev(E, "ob_relocation_allowance", "completed", daysAgo(7)),
-    ], { startDate: daysAhead(3) });
+    const ready = baseline(
+      [
+        ev(E, "ob_offer_signed", "completed", daysAgo(9)),
+        ev(E, "ob_passport_upload", "completed", daysAgo(8)),
+        ev(E, "ob_relocation_allowance", "completed", daysAgo(7)),
+      ],
+      { startDate: daysAhead(3) },
+    );
     const b = runCase({ employee: ready.employee, events: ready.events, consents: withConsents() });
     expect(hasSignal(b, "TL-04").length).toBe(0);
   });
@@ -143,7 +174,11 @@ describe("TL family", () => {
       ev(E, "ob_visa_approval", "completed", daysAgo(6)),
       ev(E, "ob_kit_issued", "started", daysAgo(4)),
     ]);
-    const a = runCase({ employee: silent.employee, events: silent.events, consents: withConsents() });
+    const a = runCase({
+      employee: silent.employee,
+      events: silent.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(a, "TL-05").length).toBeGreaterThan(0);
 
     const recent = baseline([
@@ -155,7 +190,11 @@ describe("TL family", () => {
       ev(E, "ob_kit_issued", "started", daysAgo(4)),
       ev(E, "ob_kit_issued", "note", hoursAgo(70)),
     ]);
-    const b = runCase({ employee: recent.employee, events: recent.events, consents: withConsents() });
+    const b = runCase({
+      employee: recent.employee,
+      events: recent.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(b, "TL-05").length).toBe(0);
   });
 
@@ -166,7 +205,11 @@ describe("TL family", () => {
       ...baseline().events.slice(0, 7),
       ev(E, "ob_kit_issued", "started", "2024-10-17T02:00:00Z"),
     ]);
-    const a = runCase({ employee: overWeekend.employee, events: overWeekend.events, consents: withConsents() });
+    const a = runCase({
+      employee: overWeekend.employee,
+      events: overWeekend.events,
+      consents: withConsents(),
+    });
     const tl01 = hasSignal(a, "TL-01").length;
     const tl06 = hasSignal(a, "TL-06").length;
     expect(tl01).toBeGreaterThan(0);
@@ -176,7 +219,11 @@ describe("TL family", () => {
       ...baseline().events.slice(0, 7),
       ev(E, "ob_kit_issued", "started", daysAgo(10)),
     ]);
-    const b = runCase({ employee: overWorked.employee, events: overWorked.events, consents: withConsents() });
+    const b = runCase({
+      employee: overWorked.employee,
+      events: overWorked.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(b, "TL-06").length).toBeGreaterThan(0);
   });
 
@@ -193,22 +240,36 @@ describe("TL family", () => {
       // laptop issued five days BEFORE the visa approval it depends on
       ev(E, "ob_kit_issued", "completed", daysAgo(5)),
     ]);
-    const a = runCase({ employee: outOfOrder.employee, events: outOfOrder.events, consents: withConsents() });
+    const a = runCase({
+      employee: outOfOrder.employee,
+      events: outOfOrder.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(a, "TL-07").length).toBeGreaterThan(0);
 
     const inOrder = baseline();
-    const b = runCase({ employee: inOrder.employee, events: inOrder.events, consents: withConsents() });
+    const b = runCase({
+      employee: inOrder.employee,
+      events: inOrder.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(b, "TL-07").length).toBe(0);
   });
 
   test("TL-08 a step with no target time is a map defect, not lateness", () => {
     const untimedCase = baseline();
-    const a = runCase({ employee: untimedCase.employee, events: untimedCase.events, consents: withConsents() });
+    const a = runCase({
+      employee: untimedCase.employee,
+      events: untimedCase.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(a, "TL-08").length).toBe(0);
 
     // Every step in the map has a target, so the signal is silent. Prove it
     // speaks when a target is removed from the configuration.
-    const stepsWithoutTarget = MAP.steps.map((s) => (s.key === "ob_buddy_assigned" ? { ...s, targetHours: 0 } : s));
+    const stepsWithoutTarget = MAP.steps.map((s) =>
+      s.key === "ob_buddy_assigned" ? { ...s, targetHours: 0 } : s,
+    );
     const b = assess(untimedCase.employee, new Date("2024-10-19T10:00:00Z"), {
       ...packData(),
       steps: stepsWithoutTarget,
@@ -227,7 +288,11 @@ describe("TL family", () => {
     expect(hasSignal(b, "TL-08").length).toBeGreaterThan(0);
     expect(b.signals.find((s) => s.code === "TL-08")?.dataQuality).toBe(true);
     // An untimed step must never be reported as a breach (PRD §3-053).
-    expect(b.signals.find((s) => s.code === "TL-01" && s.evidenceRefs.includes("step:ob_buddy_assigned"))).toBeUndefined();
+    expect(
+      b.signals.find(
+        (s) => s.code === "TL-01" && s.evidenceRefs.includes("step:ob_buddy_assigned"),
+      ),
+    ).toBeUndefined();
   });
 });
 
@@ -237,24 +302,46 @@ describe("DP family", () => {
       ...baseline().events.slice(0, 4),
       ev(E, "ob_visa_approval", "started", daysAgo(3)),
     ]);
-    const a = runCase({ employee: holdsUp.employee, events: holdsUp.events, consents: withConsents() });
+    const a = runCase({
+      employee: holdsUp.employee,
+      events: holdsUp.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(a, "DP-01").length).toBeGreaterThan(0);
 
     // Not yet begun: normal sequencing, not friction.
     const notBegun = baseline([...baseline().events.slice(0, 4)]);
-    const b = runCase({ employee: notBegun.employee, events: notBegun.events, consents: withConsents() });
+    const b = runCase({
+      employee: notBegun.employee,
+      events: notBegun.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(b, "DP-01").length).toBe(0);
   });
 
   test("DP-02 visa stalled a day over the seven-day line", () => {
-    const stalled = baseline([...baseline().events.slice(0, 4), ev(E, "ob_visa_approval", "started", daysAgo(8))]);
-    const a = runCase({ employee: stalled.employee, events: stalled.events, consents: withConsents() });
+    const stalled = baseline([
+      ...baseline().events.slice(0, 4),
+      ev(E, "ob_visa_approval", "started", daysAgo(8)),
+    ]);
+    const a = runCase({
+      employee: stalled.employee,
+      events: stalled.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(a, "DP-02").length).toBeGreaterThan(0);
     expect(a.band).toBe("blocked");
     expect(a.forcedBlocked).toBe(true);
 
-    const sixDays = baseline([...baseline().events.slice(0, 4), ev(E, "ob_visa_approval", "started", daysAgo(6))]);
-    const b = runCase({ employee: sixDays.employee, events: sixDays.events, consents: withConsents() });
+    const sixDays = baseline([
+      ...baseline().events.slice(0, 4),
+      ev(E, "ob_visa_approval", "started", daysAgo(6)),
+    ]);
+    const b = runCase({
+      employee: sixDays.employee,
+      events: sixDays.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(b, "DP-02").length).toBe(0);
     expect(b.band).not.toBe("blocked");
   });
@@ -265,26 +352,53 @@ describe("DP family", () => {
       ev(E, "ob_access_provisioned", "started", daysAgo(2)),
       ev(E, "ob_access_provisioned", "blocked", daysAgo(1)),
     ]);
-    const a = runCase({ employee: stopped.employee, events: stopped.events, consents: withConsents() });
+    const a = runCase({
+      employee: stopped.employee,
+      events: stopped.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(a, "DP-03").length).toBeGreaterThan(0);
 
     const neverStarted = baseline([...baseline().events.slice(0, 8)]);
-    const b = runCase({ employee: neverStarted.employee, events: neverStarted.events, consents: withConsents() });
+    const b = runCase({
+      employee: neverStarted.employee,
+      events: neverStarted.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(b, "DP-03").length).toBe(0);
   });
 
   test("DP-04 training booked while access is missing", () => {
-    const booked = baseline([...baseline().events.slice(0, 8), ev(E, "ob_training_booked", "started", hoursAgo(10))]);
-    const a = runCase({ employee: booked.employee, events: booked.events, consents: withConsents() });
+    const booked = baseline([
+      ...baseline().events.slice(0, 8),
+      ev(E, "ob_training_booked", "started", hoursAgo(10)),
+    ]);
+    const a = runCase({
+      employee: booked.employee,
+      events: booked.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(a, "DP-04").length).toBeGreaterThan(0);
 
-    const withAccess = baseline([...baseline().events.slice(0, 9), ev(E, "ob_training_booked", "started", hoursAgo(10))]);
-    const b = runCase({ employee: withAccess.employee, events: withAccess.events, consents: withConsents() });
+    const withAccess = baseline([
+      ...baseline().events.slice(0, 9),
+      ev(E, "ob_training_booked", "started", hoursAgo(10)),
+    ]);
+    const b = runCase({
+      employee: withAccess.employee,
+      events: withAccess.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(b, "DP-04").length).toBe(0);
   });
 
   test("DP-05 handover absent six days after an approved transfer", () => {
-    const mover = baseEmployee({ journeyType: "mobility", stage: "handover", effectiveDate: daysAgo(2), startDate: daysAgo(60) });
+    const mover = baseEmployee({
+      journeyType: "mobility",
+      stage: "handover",
+      effectiveDate: daysAgo(2),
+      startDate: daysAgo(60),
+    });
     const events = [
       ev(mover.id, "mb_transfer_signed", "completed", daysAgo(12)),
       ev(mover.id, "mb_release_handover", "started", daysAgo(6)),
@@ -294,7 +408,10 @@ describe("DP family", () => {
 
     const fresh = runCase({
       employee: mover,
-      events: [ev(mover.id, "mb_transfer_signed", "completed", daysAgo(12)), ev(mover.id, "mb_release_handover", "started", daysAgo(3))],
+      events: [
+        ev(mover.id, "mb_transfer_signed", "completed", daysAgo(12)),
+        ev(mover.id, "mb_release_handover", "started", daysAgo(3)),
+      ],
       consents: withConsents(),
     });
     expect(hasSignal(fresh, "DP-05").length).toBe(0);
@@ -325,25 +442,49 @@ describe("DP family", () => {
 
 describe("RQ family", () => {
   test("RQ-01 open beyond its type SLA", () => {
-    const late = runCase({ ...baseline(), requests: [request(E, { openedAt: hoursAgo(30), slaHours: 24 })], consents: withConsents() });
+    const late = runCase({
+      ...baseline(),
+      requests: [request(E, { openedAt: hoursAgo(30), slaHours: 24 })],
+      consents: withConsents(),
+    });
     expect(hasSignal(late, "RQ-01").length).toBeGreaterThan(0);
 
-    const inside = runCase({ ...baseline(), requests: [request(E, { openedAt: hoursAgo(20), slaHours: 24 })], consents: withConsents() });
+    const inside = runCase({
+      ...baseline(),
+      requests: [request(E, { openedAt: hoursAgo(20), slaHours: 24 })],
+      consents: withConsents(),
+    });
     expect(hasSignal(inside, "RQ-01").length).toBe(0);
   });
 
   test("RQ-02 three reassignments, not two", () => {
-    const pingPong = runCase({ ...baseline(), requests: [request(E, { reassignCount: 3 })], consents: withConsents() });
+    const pingPong = runCase({
+      ...baseline(),
+      requests: [request(E, { reassignCount: 3 })],
+      consents: withConsents(),
+    });
     expect(hasSignal(pingPong, "RQ-02").length).toBeGreaterThan(0);
 
-    const twice = runCase({ ...baseline(), requests: [request(E, { reassignCount: 2 })], consents: withConsents() });
+    const twice = runCase({
+      ...baseline(),
+      requests: [request(E, { reassignCount: 2 })],
+      consents: withConsents(),
+    });
     expect(hasSignal(twice, "RQ-02").length).toBe(0);
   });
 
   test("RQ-03 returned as incomplete twice", () => {
-    const returned = runCase({ ...baseline(), requests: [request(E, { returnCount: 2 })], consents: withConsents() });
+    const returned = runCase({
+      ...baseline(),
+      requests: [request(E, { returnCount: 2 })],
+      consents: withConsents(),
+    });
     expect(hasSignal(returned, "RQ-03").length).toBeGreaterThan(0);
-    const once = runCase({ ...baseline(), requests: [request(E, { returnCount: 1 })], consents: withConsents() });
+    const once = runCase({
+      ...baseline(),
+      requests: [request(E, { returnCount: 1 })],
+      consents: withConsents(),
+    });
     expect(hasSignal(once, "RQ-03").length).toBe(0);
   });
 
@@ -364,28 +505,52 @@ describe("RQ family", () => {
   });
 
   test("RQ-05 an assignee the directory cannot resolve", () => {
-    const ghost = runCase({ ...baseline(), requests: [request(E, { assignee: "O-LEFT-9" })], consents: withConsents() });
+    const ghost = runCase({
+      ...baseline(),
+      requests: [request(E, { assignee: "O-LEFT-9" })],
+      consents: withConsents(),
+    });
     expect(hasSignal(ghost, "RQ-05").length).toBeGreaterThan(0);
 
-    const real = runCase({ ...baseline(), requests: [request(E, { assignee: "O-IT-1" })], consents: withConsents() });
+    const real = runCase({
+      ...baseline(),
+      requests: [request(E, { assignee: "O-IT-1" })],
+      consents: withConsents(),
+    });
     expect(hasSignal(real, "RQ-05").length).toBe(0);
   });
 
   test("RQ-06 closed then reopened", () => {
-    const reopened = runCase({ ...baseline(), requests: [request(E, { status: "reopened" })], consents: withConsents() });
+    const reopened = runCase({
+      ...baseline(),
+      requests: [request(E, { status: "reopened" })],
+      consents: withConsents(),
+    });
     expect(hasSignal(reopened, "RQ-06").length).toBeGreaterThan(0);
-    const closed = runCase({ ...baseline(), requests: [request(E, { status: "closed" })], consents: withConsents() });
+    const closed = runCase({
+      ...baseline(),
+      requests: [request(E, { status: "closed" })],
+      consents: withConsents(),
+    });
     expect(hasSignal(closed, "RQ-06").length).toBe(0);
   });
 
   test("RQ-07 waiting on the employee six days, and it stays a nudge", () => {
-    const onEmployee = runCase({ ...baseline(), requests: [request(E, { status: "waiting_employee", openedAt: daysAgo(6) })], consents: withConsents() });
+    const onEmployee = runCase({
+      ...baseline(),
+      requests: [request(E, { status: "waiting_employee", openedAt: daysAgo(6) })],
+      consents: withConsents(),
+    });
     const sig = hasSignal(onEmployee, "RQ-07");
     expect(sig.length).toBeGreaterThan(0);
     expect(sig[0].nudgeOnly).toBe(true);
     expect(sig[0].weight).toBe(SIGNAL_CATALOGUE["RQ-07"].weight);
 
-    const fresh = runCase({ ...baseline(), requests: [request(E, { status: "waiting_employee", openedAt: daysAgo(3) })], consents: withConsents() });
+    const fresh = runCase({
+      ...baseline(),
+      requests: [request(E, { status: "waiting_employee", openedAt: daysAgo(3) })],
+      consents: withConsents(),
+    });
     expect(hasSignal(fresh, "RQ-07").length).toBe(0);
   });
 });
@@ -405,7 +570,10 @@ describe("EN family", () => {
 
     const two = runCase({
       ...baseline(),
-      answers: [answer(E, { kind: "abstain", askedAt: hoursAgo(20) }), answer(E, { kind: "abstain", askedAt: hoursAgo(10) })],
+      answers: [
+        answer(E, { kind: "abstain", askedAt: hoursAgo(20) }),
+        answer(E, { kind: "abstain", askedAt: hoursAgo(10) }),
+      ],
       consents: withConsents(),
     });
     expect(hasSignal(two, "EN-01").length).toBe(0);
@@ -426,7 +594,9 @@ describe("EN family", () => {
     const distinct = runCase({
       ...baseline(),
       answers: [
-        answer(E, { topicKey: "a" }), answer(E, { topicKey: "b" }), answer(E, { topicKey: "c" }),
+        answer(E, { topicKey: "a" }),
+        answer(E, { topicKey: "b" }),
+        answer(E, { topicKey: "c" }),
       ],
       consents: withConsents(),
     });
@@ -453,7 +623,11 @@ describe("EN family", () => {
     expect(hasSignal(idle, "EN-03").length).toBeGreaterThan(0);
 
     const baselineCase = baseline();
-    const busy = runCase({ employee: baselineCase.employee, events: baselineCase.events, consents: withConsents() });
+    const busy = runCase({
+      employee: baselineCase.employee,
+      events: baselineCase.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(busy, "EN-03").length).toBe(0);
   });
 
@@ -468,7 +642,11 @@ describe("EN family", () => {
     });
     expect(hasSignal(asking, "EN-04").length).toBeGreaterThan(0);
 
-    const oneOnly = runCase({ ...baseline(), answers: [answer(E, { intent: "help_seeking" })], consents: withConsents() });
+    const oneOnly = runCase({
+      ...baseline(),
+      answers: [answer(E, { intent: "help_seeking" })],
+      consents: withConsents(),
+    });
     expect(hasSignal(oneOnly, "EN-04").length).toBe(0);
   });
 
@@ -480,13 +658,21 @@ describe("EN family", () => {
     });
     expect(hasSignal(abandoned, "EN-05").length).toBeGreaterThan(0);
 
-    const once = runCase({ ...baseline(), drafts: [draft(E, { type: "visa" })], consents: withConsents() });
+    const once = runCase({
+      ...baseline(),
+      drafts: [draft(E, { type: "visa" })],
+      consents: withConsents(),
+    });
     expect(hasSignal(once, "EN-05").length).toBe(0);
   });
 });
 
 describe("PS family", () => {
-  const pulseOn = [consent(E, "journey_assistance", true), consent(E, "pulse_capture", true), consent(E, "comment_retention", true)];
+  const pulseOn = [
+    consent(E, "journey_assistance", true),
+    consent(E, "pulse_capture", true),
+    consent(E, "comment_retention", true),
+  ];
 
   test("PS-01 confidence at or below 2, not at 3", () => {
     const low = runCase({ ...baseline(), pulse: [pulse(E, 2, hoursAgo(5))], consents: pulseOn });
@@ -515,21 +701,39 @@ describe("PS family", () => {
   test("PS-03 is a lexicon match, and only with comment consent", () => {
     const withComment = runCase({
       ...baseline(),
-      pulse: [pulse(E, 4, hoursAgo(5), { commentText: "I asked twice and nobody replied.", commentRef: "PC-X" })],
+      pulse: [
+        pulse(E, 4, hoursAgo(5), {
+          commentText: "I asked twice and nobody replied.",
+          commentRef: "PC-X",
+        }),
+      ],
       consents: pulseOn,
     });
     expect(hasSignal(withComment, "PS-03").length).toBeGreaterThan(0);
 
     const noCommentConsent = runCase({
       ...baseline(),
-      pulse: [pulse(E, 4, hoursAgo(5), { commentText: "I asked twice and nobody replied.", commentRef: "PC-X" })],
-      consents: [consent(E, "journey_assistance", true), consent(E, "pulse_capture", true), consent(E, "comment_retention", false)],
+      pulse: [
+        pulse(E, 4, hoursAgo(5), {
+          commentText: "I asked twice and nobody replied.",
+          commentRef: "PC-X",
+        }),
+      ],
+      consents: [
+        consent(E, "journey_assistance", true),
+        consent(E, "pulse_capture", true),
+        consent(E, "comment_retention", false),
+      ],
     });
     expect(hasSignal(noCommentConsent, "PS-03").length).toBe(0);
   });
 
   test("PS-04 discloses suppression with zero weight", () => {
-    const off = runCase({ ...baseline(), pulse: [pulse(E, 1, hoursAgo(5))], consents: [consent(E, "journey_assistance", true), consent(E, "pulse_capture", false)] });
+    const off = runCase({
+      ...baseline(),
+      pulse: [pulse(E, 1, hoursAgo(5))],
+      consents: [consent(E, "journey_assistance", true), consent(E, "pulse_capture", false)],
+    });
     const sig = hasSignal(off, "PS-04");
     expect(sig.length).toBeGreaterThan(0);
     expect(sig[0].weight).toBe(0);
@@ -540,7 +744,9 @@ describe("PS family", () => {
   test("PS-05 an explicit plea forces Blocked", () => {
     const plea = runCase({
       ...baseline(),
-      pulse: [pulse(E, 4, hoursAgo(5), { commentText: "I need help now, please.", commentRef: "PC-Y" })],
+      pulse: [
+        pulse(E, 4, hoursAgo(5), { commentText: "I need help now, please.", commentRef: "PC-Y" }),
+      ],
       consents: pulseOn,
     });
     expect(hasSignal(plea, "PS-05").length).toBeGreaterThan(0);
@@ -597,7 +803,9 @@ describe("MB family", () => {
     const withCase = runCase({
       employee,
       events,
-      requests: [request(employee.id, { type: "relocation", ownerGroup: "Mobility", assignee: "O-HR-2" })],
+      requests: [
+        request(employee.id, { type: "relocation", ownerGroup: "Mobility", assignee: "O-HR-2" }),
+      ],
       consents: withConsents(),
     });
     expect(hasSignal(withCase, "MB-02").length).toBe(0);
@@ -654,11 +862,12 @@ describe("MB family", () => {
     const a = runCase({ ...w, consents: withConsents() });
     expect(hasSignal(a, "MB-06").length).toBeGreaterThan(0);
 
-    const booked = mover(6, [
-      ...w.events,
-      ev("x", "mb_training_booked", "started", daysAgo(1)),
-    ]);
-    const b = runCase({ employee: booked.employee, events: booked.events, consents: withConsents() });
+    const booked = mover(6, [...w.events, ev("x", "mb_training_booked", "started", daysAgo(1))]);
+    const b = runCase({
+      employee: booked.employee,
+      events: booked.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(b, "MB-06").length).toBe(0);
   });
 });
@@ -666,7 +875,11 @@ describe("MB family", () => {
 describe("DQ family", () => {
   test("DQ-01 a record with no HR partner", () => {
     const orphan = baseline([], { hrbpId: "" });
-    const a = runCase({ employee: orphan.employee, events: orphan.events, consents: withConsents() });
+    const a = runCase({
+      employee: orphan.employee,
+      events: orphan.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(a, "DQ-01").length).toBeGreaterThan(0);
     expect(a.signals.find((s) => s.code === "DQ-01")?.dataQuality).toBe(true);
   });
@@ -677,13 +890,24 @@ describe("DQ family", () => {
       ev(E, "ob_induction_complete", "completed", daysAgo(3)),
       ev(E, "ob_induction_complete", "started", daysAgo(1)),
     ]);
-    const a = runCase({ employee: reopened.employee, events: reopened.events, consents: withConsents() });
+    const a = runCase({
+      employee: reopened.employee,
+      events: reopened.events,
+      consents: withConsents(),
+    });
     expect(hasSignal(a, "DQ-02").length).toBeGreaterThan(0);
   });
 
   test("DQ-03 excludes a future-dated event from state and says so", () => {
-    const skewed = baseline([...baseline().events, ev(E, "ob_30day_checkin", "completed", daysAhead(2))]);
-    const a = runCase({ employee: skewed.employee, events: skewed.events, consents: withConsents() });
+    const skewed = baseline([
+      ...baseline().events,
+      ev(E, "ob_30day_checkin", "completed", daysAhead(2)),
+    ]);
+    const a = runCase({
+      employee: skewed.employee,
+      events: skewed.events,
+      consents: withConsents(),
+    });
     const sig = hasSignal(a, "DQ-03");
     expect(sig.length).toBeGreaterThan(0);
     expect(sig[0].evidenceRefs.some((r) => r.startsWith("event:"))).toBe(true);
@@ -692,13 +916,19 @@ describe("DQ family", () => {
   });
 
   test("DQ-04 active in two journeys at once", () => {
-    const both = baseline([...baseline().events.slice(0, 8), ev(E, "mb_transfer_signed", "started", daysAgo(3))]);
+    const both = baseline([
+      ...baseline().events.slice(0, 8),
+      ev(E, "mb_transfer_signed", "started", daysAgo(3)),
+    ]);
     const a = runCase({ employee: both.employee, events: both.events, consents: withConsents() });
     expect(hasSignal(a, "DQ-04").length).toBeGreaterThan(0);
   });
 
   test("DQ-05 surfaces unmapped activity instead of dropping it", () => {
-    const weird = baseline([...baseline().events, ev(E, "ob_time_machine", "completed", daysAgo(1))]);
+    const weird = baseline([
+      ...baseline().events,
+      ev(E, "ob_time_machine", "completed", daysAgo(1)),
+    ]);
     const a = runCase({ employee: weird.employee, events: weird.events, consents: withConsents() });
     expect(hasSignal(a, "DQ-05").length).toBeGreaterThan(0);
     expect(a.unmappedActivity.map((u) => u.stepKey)).toContain("ob_time_machine");
@@ -720,18 +950,56 @@ describe("catalogue integrity", () => {
 
   test("every weight matches the PRD §11 table verbatim", () => {
     const specified: Record<string, number> = {
-      "TL-01": 3, "TL-02": 6, "TL-03": 5, "TL-04": 4, "TL-05": 3, "TL-06": 2, "TL-07": 3, "TL-08": 1,
-      "DP-01": 5, "DP-02": 7, "DP-03": 4, "DP-04": 3, "DP-05": 4, "DP-06": 5,
-      "RQ-01": 3, "RQ-02": 4, "RQ-03": 4, "RQ-04": 2, "RQ-05": 5, "RQ-06": 3, "RQ-07": 1,
-      "EN-01": 3, "EN-02": 2, "EN-03": 2, "EN-04": 3, "EN-05": 2,
-      "PS-01": 4, "PS-02": 4, "PS-03": 3, "PS-04": 0, "PS-05": 6,
-      "MB-01": 4, "MB-02": 5, "MB-03": 3, "MB-04": 6, "MB-05": 2, "MB-06": 3,
-      "DQ-01": 4, "DQ-02": 2, "DQ-03": 1, "DQ-04": 3, "DQ-05": 2,
+      "TL-01": 3,
+      "TL-02": 6,
+      "TL-03": 5,
+      "TL-04": 4,
+      "TL-05": 3,
+      "TL-06": 2,
+      "TL-07": 3,
+      "TL-08": 1,
+      "DP-01": 5,
+      "DP-02": 7,
+      "DP-03": 4,
+      "DP-04": 3,
+      "DP-05": 4,
+      "DP-06": 5,
+      "RQ-01": 3,
+      "RQ-02": 4,
+      "RQ-03": 4,
+      "RQ-04": 2,
+      "RQ-05": 5,
+      "RQ-06": 3,
+      "RQ-07": 1,
+      "EN-01": 3,
+      "EN-02": 2,
+      "EN-03": 2,
+      "EN-04": 3,
+      "EN-05": 2,
+      "PS-01": 4,
+      "PS-02": 4,
+      "PS-03": 3,
+      "PS-04": 0,
+      "PS-05": 6,
+      "MB-01": 4,
+      "MB-02": 5,
+      "MB-03": 3,
+      "MB-04": 6,
+      "MB-05": 2,
+      "MB-06": 3,
+      "DQ-01": 4,
+      "DQ-02": 2,
+      "DQ-03": 1,
+      "DQ-04": 3,
+      "DQ-05": 2,
     };
     expect(Object.keys(specified).length).toBe(42);
     const drift = Object.entries(specified)
       .filter(([code, weight]) => SIGNAL_CATALOGUE[code]?.weight !== weight)
-      .map(([code, weight]) => `${code} expects ${weight}, catalogue has ${SIGNAL_CATALOGUE[code]?.weight}`);
+      .map(
+        ([code, weight]) =>
+          `${code} expects ${weight}, catalogue has ${SIGNAL_CATALOGUE[code]?.weight}`,
+      );
     expect(drift).toEqual([]);
     expect(Object.keys(SIGNAL_CATALOGUE).sort()).toEqual(Object.keys(specified).sort());
   });
@@ -744,7 +1012,10 @@ describe("catalogue integrity", () => {
   });
 
   test("exactly three codes force the Blocked band", () => {
-    const forced = Object.values(SIGNAL_CATALOGUE).filter((s) => s.forceBlocked).map((s) => s.code).sort();
+    const forced = Object.values(SIGNAL_CATALOGUE)
+      .filter((s) => s.forceBlocked)
+      .map((s) => s.code)
+      .sort();
     expect(forced).toEqual(["DP-02", "MB-04", "PS-05"]);
   });
 

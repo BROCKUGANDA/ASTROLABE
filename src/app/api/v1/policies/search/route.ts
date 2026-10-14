@@ -48,7 +48,10 @@ function pickBestSentence(text: string, qTokens: string[]): string {
     const sTokens = new Set(tokenize(s));
     const overlap = qTokens.filter((t) => sTokens.has(t)).length;
     // Slight boost for normative content (numbers, durations).
-    const normative = /\b(\d+|aed|days?|hours?|weeks?|months?|years?|must|shall|required|eligible)\b/i.test(s) ? 0.5 : 0;
+    const normative =
+      /\b(\d+|aed|days?|hours?|weeks?|months?|years?|must|shall|required|eligible)\b/i.test(s)
+        ? 0.5
+        : 0;
     const score = overlap + normative;
     if (score > bestScore) {
       bestScore = score;
@@ -69,12 +72,9 @@ export async function GET(req: NextRequest) {
   const doc = (req.nextUrl.searchParams.get("doc") ?? "").trim();
 
   if (q.length < MIN_QUERY) {
-    return error(
-      "E_VALIDATION",
-      `Query must be at least ${MIN_QUERY} characters`,
-      422,
-      { hint: "Try a longer search term." }
-    );
+    return error("E_VALIDATION", `Query must be at least ${MIN_QUERY} characters`, 422, {
+      hint: "Try a longer search term.",
+    });
   }
 
   const validLangs = new Set(["en", "ar", "all"]);
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
         servedFrom: "live",
         asOf: new Date().toISOString(),
         latencyMs: Date.now() - start,
-      }
+      },
     );
   }
 
@@ -104,10 +104,8 @@ export async function GET(req: NextRequest) {
   // Compute BM25-ish score per chunk, reusing the same tokenizer the engine
   // uses so the score stays consistent with retrieve().
   const avgLen =
-    pool.reduce(
-      (a, c) => a + tokenize(c.text + " " + c.title + " " + c.section).length,
-      0,
-    ) / Math.max(1, pool.length);
+    pool.reduce((a, c) => a + tokenize(c.text + " " + c.title + " " + c.section).length, 0) /
+    Math.max(1, pool.length);
   const k1 = 1.5;
   const b = 0.75;
 
@@ -118,7 +116,8 @@ export async function GET(req: NextRequest) {
     const matchedTerms = Array.from(new Set(qTokens.filter((t) => chunkSet.has(t))));
     if (matchedTerms.length === 0) continue;
     const tf = matchedTerms.length;
-    const tfNorm = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (chunkTokens.length / Math.max(1, avgLen))));
+    const tfNorm =
+      (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (chunkTokens.length / Math.max(1, avgLen))));
     const sectionMatch = qTokens.some((t) => chunk.section.toLowerCase().includes(t));
     const titleMatch = qTokens.some((t) => chunk.title.toLowerCase().includes(t));
     const raw = tfNorm + (sectionMatch ? 1.5 : 0) + (titleMatch ? 1.0 : 0);
@@ -159,6 +158,6 @@ export async function GET(req: NextRequest) {
       servedFrom: "live",
       asOf: new Date().toISOString(),
       latencyMs: Date.now() - start,
-    }
+    },
   );
 }

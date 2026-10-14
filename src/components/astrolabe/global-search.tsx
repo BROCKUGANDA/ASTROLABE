@@ -184,16 +184,36 @@ function stageLabel(stageKey: string, locale: Locale): string {
 function stepStatusChip(status: string): { bg: string; fg: string; border: string } {
   switch (status) {
     case "done":
-      return { bg: "rgba(14,159,110,0.12)", fg: "var(--status-steady)", border: "rgba(14,159,110,0.30)" };
+      return {
+        bg: "rgba(14,159,110,0.12)",
+        fg: "var(--status-steady)",
+        border: "rgba(14,159,110,0.30)",
+      };
     case "in_progress":
-      return { bg: "rgba(22,154,165,0.12)", fg: "var(--brand-400)", border: "rgba(22,154,165,0.32)" };
+      return {
+        bg: "rgba(22,154,165,0.12)",
+        fg: "var(--brand-400)",
+        border: "rgba(22,154,165,0.32)",
+      };
     case "waiting_employee":
     case "waiting_owner":
-      return { bg: "rgba(217,119,6,0.12)", fg: "var(--status-watch)", border: "rgba(217,119,6,0.32)" };
+      return {
+        bg: "rgba(217,119,6,0.12)",
+        fg: "var(--status-watch)",
+        border: "rgba(217,119,6,0.32)",
+      };
     case "blocked":
-      return { bg: "rgba(220,38,38,0.12)", fg: "var(--status-friction)", border: "rgba(220,38,38,0.32)" };
+      return {
+        bg: "rgba(220,38,38,0.12)",
+        fg: "var(--status-friction)",
+        border: "rgba(220,38,38,0.32)",
+      };
     case "skipped":
-      return { bg: "rgba(159,18,57,0.12)", fg: "var(--status-blocked)", border: "rgba(159,18,57,0.30)" };
+      return {
+        bg: "rgba(159,18,57,0.12)",
+        fg: "var(--status-blocked)",
+        border: "rgba(159,18,57,0.30)",
+      };
     case "not_started":
     default:
       return { bg: "var(--surface-2)", fg: "var(--text-lo)", border: "var(--border)" };
@@ -205,14 +225,30 @@ function requestStatusChip(status: string): { bg: string; fg: string; border: st
   switch (status) {
     case "submitted":
     case "acknowledged":
-      return { bg: "rgba(22,154,165,0.10)", fg: "var(--brand-400)", border: "rgba(22,154,165,0.28)" };
+      return {
+        bg: "rgba(22,154,165,0.10)",
+        fg: "var(--brand-400)",
+        border: "rgba(22,154,165,0.28)",
+      };
     case "in_progress":
-      return { bg: "rgba(22,154,165,0.14)", fg: "var(--brand-400)", border: "rgba(22,154,165,0.36)" };
+      return {
+        bg: "rgba(22,154,165,0.14)",
+        fg: "var(--brand-400)",
+        border: "rgba(22,154,165,0.36)",
+      };
     case "returned":
-      return { bg: "rgba(201,162,39,0.12)", fg: "var(--accent-500)", border: "rgba(201,162,39,0.34)" };
+      return {
+        bg: "rgba(201,162,39,0.12)",
+        fg: "var(--accent-500)",
+        border: "rgba(201,162,39,0.34)",
+      };
     case "resolved":
     case "closed":
-      return { bg: "rgba(14,159,110,0.10)", fg: "var(--status-steady)", border: "rgba(14,159,110,0.28)" };
+      return {
+        bg: "rgba(14,159,110,0.10)",
+        fg: "var(--status-steady)",
+        border: "rgba(14,159,110,0.28)",
+      };
     case "draft":
     default:
       return { bg: "var(--surface-2)", fg: "var(--text-lo)", border: "var(--border)" };
@@ -386,8 +422,7 @@ function GlobalSearchBody({
     (showSteps ? steps.length : 0) +
     (showRequests ? requests.length : 0);
 
-  const showEmptyState =
-    hasQuery && !loading && !error && data !== null && visibleTotal === 0;
+  const showEmptyState = hasQuery && !loading && !error && data !== null && visibleTotal === 0;
 
   const sections = useMemo(
     () =>
@@ -396,7 +431,7 @@ function GlobalSearchBody({
         { id: "steps" as const, visible: showSteps, items: steps },
         { id: "requests" as const, visible: showRequests, items: requests },
       ].filter((s) => s.visible),
-    [showPolicies, showSteps, showRequests, policies, steps, requests]
+    [showPolicies, showSteps, showRequests, policies, steps, requests],
   );
 
   return (
@@ -409,7 +444,11 @@ function GlobalSearchBody({
           border: "1px solid var(--border)",
         }}
       >
-        <Search className="w-4 h-4 shrink-0" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+        <Search
+          className="w-4 h-4 shrink-0"
+          strokeWidth={1.75}
+          style={{ color: "var(--brand-400)" }}
+        />
         <input
           type="text"
           value={query}
@@ -417,9 +456,7 @@ function GlobalSearchBody({
           autoFocus
           aria-label={locale === "ar" ? "ابحث في كل شيء" : "Search everything"}
           placeholder={
-            locale === "ar"
-              ? "ابحث عن سياسة، خطوة، طلب…"
-              : "Search for a policy, step, request…"
+            locale === "ar" ? "ابحث عن سياسة، خطوة، طلب…" : "Search for a policy, step, request…"
           }
           className="flex-1 bg-transparent outline-none text-[14px] placeholder:opacity-50"
           style={{ color: "var(--text-hi)" }}
@@ -456,7 +493,7 @@ function GlobalSearchBody({
             const active = filter === f.id;
             const count =
               f.id === "all"
-                ? data?.total ?? 0
+                ? (data?.total ?? 0)
                 : f.id === "policies"
                   ? policies.length
                   : f.id === "steps"
@@ -476,9 +513,7 @@ function GlobalSearchBody({
               >
                 <f.Icon className="w-3 h-3" strokeWidth={1.75} />
                 {locale === "ar" ? f.labelAr : f.label}
-                {data !== null && (
-                  <span className="tabular opacity-70">{count}</span>
-                )}
+                {data !== null && <span className="tabular opacity-70">{count}</span>}
               </button>
             );
           })}
@@ -505,8 +540,15 @@ function GlobalSearchBody({
 
         {/* Loading */}
         {loading && (
-          <div className="flex items-center justify-center py-10 gap-2 text-[13px]" style={{ color: "var(--text-mid)" }}>
-            <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+          <div
+            className="flex items-center justify-center py-10 gap-2 text-[13px]"
+            style={{ color: "var(--text-mid)" }}
+          >
+            <Loader2
+              className="w-4 h-4 animate-spin"
+              strokeWidth={1.75}
+              style={{ color: "var(--brand-400)" }}
+            />
             {locale === "ar" ? "أبحث في كل شيء…" : "Searching everything…"}
           </div>
         )}
@@ -589,7 +631,11 @@ function GlobalSearchBody({
                             exit={{ opacity: 0, y: -6 }}
                             transition={{ duration: 0.16, delay: Math.min(i * 0.03, 0.18) }}
                           >
-                            <RequestHitCard hit={hit} onGoToRequests={onGoToRequests} locale={locale} />
+                            <RequestHitCard
+                              hit={hit}
+                              onGoToRequests={onGoToRequests}
+                              locale={locale}
+                            />
                           </motion.li>
                         ))}
                     </AnimatePresence>
@@ -793,10 +839,7 @@ function PolicyHitCard({
       {/* Title row */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p
-            className="text-[12px] font-semibold truncate"
-            style={{ color: "var(--text-hi)" }}
-          >
+          <p className="text-[12px] font-semibold truncate" style={{ color: "var(--text-hi)" }}>
             {locale === "ar" ? hit.titleAr : hit.title}
             <span className="opacity-60"> · </span>
             <span className="font-mono tabular" style={{ color: "var(--brand-400)" }}>
@@ -843,10 +886,7 @@ function PolicyHitCard({
         </div>
         {/* Score */}
         <div className="shrink-0 text-right">
-          <p
-            className="text-[9px] uppercase tracking-[0.12em]"
-            style={{ color: "var(--text-lo)" }}
-          >
+          <p className="text-[9px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
             {locale === "ar" ? "تطابق" : "Match"}
           </p>
           <p
@@ -932,10 +972,7 @@ function StepHitCard({
     <article className="ast-card-2 p-3.5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p
-            className="text-[13px] font-semibold truncate"
-            style={{ color: "var(--text-hi)" }}
-          >
+          <p className="text-[13px] font-semibold truncate" style={{ color: "var(--text-hi)" }}>
             {highlightMatches(locale === "ar" ? hit.labelAr : hit.label, hit.matchedTerms)}
           </p>
           <div className="mt-1 flex items-center flex-wrap gap-2 text-[10px]">
@@ -954,7 +991,11 @@ function StepHitCard({
                 border: "1px solid var(--border)",
               }}
             >
-              <Map className="w-2.5 h-2.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+              <Map
+                className="w-2.5 h-2.5"
+                strokeWidth={1.75}
+                style={{ color: "var(--brand-400)" }}
+              />
               {stageLabel(hit.stage, locale)}
             </span>
             <span
@@ -971,10 +1012,7 @@ function StepHitCard({
         </div>
         {/* Score */}
         <div className="shrink-0 text-right">
-          <p
-            className="text-[9px] uppercase tracking-[0.12em]"
-            style={{ color: "var(--text-lo)" }}
-          >
+          <p className="text-[9px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
             {locale === "ar" ? "تطابق" : "Match"}
           </p>
           <p
@@ -1007,10 +1045,7 @@ function StepHitCard({
             border: `1px solid ${chip.border}`,
           }}
         >
-          <span
-            className="inline-block w-1.5 h-1.5 rounded-full"
-            style={{ background: chip.fg }}
-          />
+          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: chip.fg }} />
           {prettyStatus(hit.status)}
         </span>
         <button
@@ -1046,13 +1081,10 @@ function RequestHitCard({
     <article className="ast-card-2 p-3.5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p
-            className="text-[13px] font-semibold truncate"
-            style={{ color: "var(--text-hi)" }}
-          >
+          <p className="text-[13px] font-semibold truncate" style={{ color: "var(--text-hi)" }}>
             {highlightMatches(
               `${hit.ref} · ${locale === "ar" ? hit.typeLabelAr : hit.typeLabel}`,
-              hit.matchedTerms
+              hit.matchedTerms,
             )}
           </p>
           <div className="mt-1 flex items-center flex-wrap gap-2 text-[10px]">
@@ -1071,24 +1103,24 @@ function RequestHitCard({
                 border: "1px solid var(--border)",
               }}
             >
-              <Inbox className="w-2.5 h-2.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+              <Inbox
+                className="w-2.5 h-2.5"
+                strokeWidth={1.75}
+                style={{ color: "var(--brand-400)" }}
+              />
               {hit.ownerGroup}
             </span>
             <span
               className="inline-flex items-center gap-1 tabular"
               style={{ color: "var(--text-lo)" }}
             >
-              {locale === "ar" ? "فُتح" : "Opened"}{" "}
-              {format(new Date(hit.openedAt), "d MMM yyyy")}
+              {locale === "ar" ? "فُتح" : "Opened"} {format(new Date(hit.openedAt), "d MMM yyyy")}
             </span>
           </div>
         </div>
         {/* Score */}
         <div className="shrink-0 text-right">
-          <p
-            className="text-[9px] uppercase tracking-[0.12em]"
-            style={{ color: "var(--text-lo)" }}
-          >
+          <p className="text-[9px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
             {locale === "ar" ? "تطابق" : "Match"}
           </p>
           <p
@@ -1121,10 +1153,7 @@ function RequestHitCard({
             border: `1px solid ${chip.border}`,
           }}
         >
-          <span
-            className="inline-block w-1.5 h-1.5 rounded-full"
-            style={{ background: chip.fg }}
-          />
+          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: chip.fg }} />
           {prettyStatus(hit.status)}
         </span>
         <button

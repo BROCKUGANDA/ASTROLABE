@@ -57,7 +57,7 @@ export function ev(
   stepKey: string,
   type: JourneyEvent["type"],
   occurredAt: string,
-  extra: Partial<JourneyEvent> = {}
+  extra: Partial<JourneyEvent> = {},
 ): JourneyEvent {
   eventSeq++;
   return {
@@ -126,7 +126,7 @@ export function hasSignal(a: Assessment, code: string) {
 
 export function request(
   employeeId: string,
-  overrides: Partial<ServiceRequest> = {}
+  overrides: Partial<ServiceRequest> = {},
 ): ServiceRequest {
   return {
     id: `TREQ-${employeeId}-${Math.random().toString(36).slice(2, 6)}`,
@@ -145,7 +145,12 @@ export function request(
   } as ServiceRequest;
 }
 
-export function pulse(employeeId: string, score: number, createdAt: string, overrides: Partial<PulseResponse> = {}): PulseResponse {
+export function pulse(
+  employeeId: string,
+  score: number,
+  createdAt: string,
+  overrides: Partial<PulseResponse> = {},
+): PulseResponse {
   return {
     id: `TPS-${employeeId}-${createdAt}`,
     employeeId,
@@ -157,7 +162,12 @@ export function pulse(employeeId: string, score: number, createdAt: string, over
   } as PulseResponse;
 }
 
-export function consent(employeeId: string, purpose: ConsentRecord["purpose"], granted: boolean, grantedAt = daysAgo(1)): ConsentRecord {
+export function consent(
+  employeeId: string,
+  purpose: ConsentRecord["purpose"],
+  granted: boolean,
+  grantedAt = daysAgo(1),
+): ConsentRecord {
   return {
     id: `TCP-${employeeId}-${purpose}-${granted ? "on" : "off"}`,
     employeeId,
@@ -186,7 +196,10 @@ export function answer(employeeId: string, overrides: Partial<AnswerRecord> = {}
   } as AnswerRecord;
 }
 
-export function draft(employeeId: string, overrides: Partial<IntakeDraftRecord> = {}): IntakeDraftRecord {
+export function draft(
+  employeeId: string,
+  overrides: Partial<IntakeDraftRecord> = {},
+): IntakeDraftRecord {
   return {
     id: `TDR-${employeeId}-${Math.random().toString(36).slice(2, 7)}`,
     employeeId,

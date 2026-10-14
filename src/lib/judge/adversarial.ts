@@ -167,7 +167,11 @@ export async function runInjectionTest(employeeId = "E-1042"): Promise<Injection
   const pollutedComment = `${originalComment} ${injectedText}`;
 
   trace.push({ label: "Read pulse comment", detail: `"${originalComment}"`, status: "info" });
-  trace.push({ label: "Inject instruction string into comment", detail: `"${injectedText}"`, status: "warn" });
+  trace.push({
+    label: "Inject instruction string into comment",
+    detail: `"${injectedText}"`,
+    status: "warn",
+  });
 
   const detection = detectInjection(pollutedComment);
   trace.push({
@@ -179,7 +183,10 @@ export async function runInjectionTest(employeeId = "E-1042"): Promise<Injection
   const { cleaned, removed } = neutralizeInjection(pollutedComment);
   trace.push({
     label: "Neutralized comment (injection stripped before reaching engine)",
-    detail: removed.length > 0 ? `Removed ${removed.length} sentence(s). Engine sees: "${cleaned}"` : undefined,
+    detail:
+      removed.length > 0
+        ? `Removed ${removed.length} sentence(s). Engine sees: "${cleaned}"`
+        : undefined,
     status: detection.detected ? "pass" : "fail",
   });
 
@@ -276,7 +283,11 @@ export async function runConflictingPoliciesTest(
   question = "What's the process for transfer?",
 ): Promise<ConflictResult> {
   const trace: AdversarialTraceStep[] = [];
-  trace.push({ label: "Submit ambiguous policy question", detail: `"${question}"`, status: "info" });
+  trace.push({
+    label: "Submit ambiguous policy question",
+    detail: `"${question}"`,
+    status: "info",
+  });
 
   try {
     const res = await fetch("/api/v1/admin/adv-test", {
@@ -420,7 +431,13 @@ export async function runMissingConsentTest(employeeId = "E-1042"): Promise<Miss
       futureEventId: string;
       futureEventAt: string;
       before: { band: string; score: number; suppressedFamilies: string[]; psContribution: number };
-      after: { band: string; score: number; suppressedFamilies: string[]; psContribution: number; signals: { code: string; family: string }[] };
+      after: {
+        band: string;
+        score: number;
+        suppressedFamilies: string[];
+        psContribution: number;
+        signals: { code: string; family: string }[];
+      };
       dq03Raised: boolean;
       disclosure: string;
       restored: boolean;
@@ -548,7 +565,11 @@ async function runDedupTest(): Promise<QuartetSubResult> {
     },
   };
 
-  trace.push({ label: "POST /api/v1/requests (call 1)", detail: `idempotencyKey=${idempotencyKey}`, status: "info" });
+  trace.push({
+    label: "POST /api/v1/requests (call 1)",
+    detail: `idempotencyKey=${idempotencyKey}`,
+    status: "info",
+  });
   try {
     const r1 = await fetch("/api/v1/requests", {
       method: "POST",
@@ -556,7 +577,9 @@ async function runDedupTest(): Promise<QuartetSubResult> {
       body: JSON.stringify(body),
       cache: "no-store",
     });
-    const j1: ApiEnvelope<{ id: string; ref: string; servedFrom?: string } & Record<string, unknown>> = await r1.json();
+    const j1: ApiEnvelope<
+      { id: string; ref: string; servedFrom?: string } & Record<string, unknown>
+    > = await r1.json();
     if (!j1.ok || !j1.data) throw new Error(j1.error?.message ?? "First POST failed");
     const id1 = j1.data.id;
     const served1 = j1.data.servedFrom ?? j1.meta.servedFrom;
@@ -573,14 +596,18 @@ async function runDedupTest(): Promise<QuartetSubResult> {
       body: JSON.stringify(body),
       cache: "no-store",
     });
-    const j2: ApiEnvelope<{ id: string; ref: string; servedFrom?: string } & Record<string, unknown>> = await r2.json();
+    const j2: ApiEnvelope<
+      { id: string; ref: string; servedFrom?: string } & Record<string, unknown>
+    > = await r2.json();
     if (!j2.ok || !j2.data) throw new Error(j2.error?.message ?? "Second POST failed");
     const id2 = j2.data.id;
     const served2 = j2.data.servedFrom ?? j2.meta.servedFrom;
     const dedup = id1 === id2 && served2 === "cache";
 
     trace.push({
-      label: dedup ? `Call 2 returned same ticket (${id2}) — servedFrom=cache` : `Call 2 returned different ticket — DEDUP FAILED`,
+      label: dedup
+        ? `Call 2 returned same ticket (${id2}) — servedFrom=cache`
+        : `Call 2 returned different ticket — DEDUP FAILED`,
       detail: `id1=${id1} id2=${id2} servedFrom=${served2}`,
       status: dedup ? "pass" : "fail",
     });
@@ -631,11 +658,15 @@ async function runUnknownPolicyTest(): Promise<QuartetSubResult> {
     const ans = json.data.answer;
     const abstained = ans.kind === "abstain";
     trace.push({
-      label: abstained ? `Abstained with reason \`${ans.abstainReasonCode ?? "unknown"}\`` : "Answer returned — fail",
+      label: abstained
+        ? `Abstained with reason \`${ans.abstainReasonCode ?? "unknown"}\``
+        : "Answer returned — fail",
       status: abstained ? "pass" : "fail",
     });
     trace.push({
-      label: ans.ownerHint ? `Handoff to ${ans.ownerHint.name} (${ans.ownerHint.role})` : "No handoff owner",
+      label: ans.ownerHint
+        ? `Handoff to ${ans.ownerHint.name} (${ans.ownerHint.role})`
+        : "No handoff owner",
       status: abstained ? "pass" : "fail",
     });
 
@@ -688,12 +719,14 @@ async function runColleagueTest(): Promise<QuartetSubResult> {
       label: refused
         ? "Refused with reason `about_another_employee`"
         : ans.kind === "abstain"
-        ? `Abstained with reason \`${ans.abstainReasonCode ?? "unknown"}\` — partial`
-        : "Answer returned — privacy violation",
+          ? `Abstained with reason \`${ans.abstainReasonCode ?? "unknown"}\` — partial`
+          : "Answer returned — privacy violation",
       status: refused ? "pass" : "fail",
     });
     trace.push({
-      label: ans.ownerHint ? `Privacy explanation offered — handoff to ${ans.ownerHint.name}` : "No handoff",
+      label: ans.ownerHint
+        ? `Privacy explanation offered — handoff to ${ans.ownerHint.name}`
+        : "No handoff",
       status: refused ? "pass" : "fail",
     });
 
@@ -704,8 +737,8 @@ async function runColleagueTest(): Promise<QuartetSubResult> {
       message: refused
         ? `Refused: about_another_employee. Privacy explanation offered. Handoff to ${ans.ownerHint?.name ?? "HR"}.`
         : ans.kind === "abstain"
-        ? `Abstained but with wrong reason: ${ans.abstainReasonCode ?? "unknown"}`
-        : "System leaked colleague information — privacy violation.",
+          ? `Abstained but with wrong reason: ${ans.abstainReasonCode ?? "unknown"}`
+          : "System leaked colleague information — privacy violation.",
       detail: `question="${question}"`,
       trace,
     };
@@ -727,11 +760,31 @@ function runCorruptedCsvTest(): QuartetSubResult {
   // quarantined with reason E_VALIDATION, and the other rows load
   // normally. This is what would happen in a real CSV import.
   const trace: AdversarialTraceStep[] = [
-    { label: "CSV row 1: employeeId=E-1042, kit_type=standard_laptop", detail: "valid — loaded", status: "pass" },
-    { label: "CSV row 2: employeeId=<missing>, kit_type=cabin_crew", detail: "missing required field `employeeId`", status: "warn" },
-    { label: "Quarantine row 2 with reason E_VALIDATION", detail: "row held in quarantine table for manual review", status: "pass" },
-    { label: "CSV row 3: employeeId=E-1045, kit_type=replacement", detail: "valid — loaded normally", status: "pass" },
-    { label: "Other rows loaded normally", detail: "2/3 rows ingested, 1/3 quarantined", status: "pass" },
+    {
+      label: "CSV row 1: employeeId=E-1042, kit_type=standard_laptop",
+      detail: "valid — loaded",
+      status: "pass",
+    },
+    {
+      label: "CSV row 2: employeeId=<missing>, kit_type=cabin_crew",
+      detail: "missing required field `employeeId`",
+      status: "warn",
+    },
+    {
+      label: "Quarantine row 2 with reason E_VALIDATION",
+      detail: "row held in quarantine table for manual review",
+      status: "pass",
+    },
+    {
+      label: "CSV row 3: employeeId=E-1045, kit_type=replacement",
+      detail: "valid — loaded normally",
+      status: "pass",
+    },
+    {
+      label: "Other rows loaded normally",
+      detail: "2/3 rows ingested, 1/3 quarantined",
+      status: "pass",
+    },
   ];
   return {
     id: "corrupted_csv",

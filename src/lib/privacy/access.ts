@@ -37,7 +37,9 @@ function secretBytes(): Uint8Array {
   const secret = process.env.SESSION_SECRET;
   if (!secret || secret.length < 16) {
     if (process.env.NODE_ENV === "production") {
-      throw new Error("SESSION_SECRET is required in production and must be at least 16 characters");
+      throw new Error(
+        "SESSION_SECRET is required in production and must be at least 16 characters",
+      );
     }
     // Development only: a fixed key so a fresh clone runs. Never ships as a real secret.
     return encoder.encode("astrolabe-development-session-key-not-for-production");
@@ -53,7 +55,8 @@ function base64url(bytes: Uint8Array | ArrayBuffer): string {
 }
 
 function fromBase64url(value: string): Uint8Array {
-  const padded = value.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (value.length % 4)) % 4);
+  const padded =
+    value.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (value.length % 4)) % 4);
   const binary = atob(padded);
   const out = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
@@ -61,7 +64,13 @@ function fromBase64url(value: string): Uint8Array {
 }
 
 async function key(): Promise<CryptoKey> {
-  return crypto.subtle.importKey("raw", toArrayBuffer(secretBytes()), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
+  return crypto.subtle.importKey(
+    "raw",
+    toArrayBuffer(secretBytes()),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign", "verify"],
+  );
 }
 
 /**
@@ -88,7 +97,12 @@ export async function verifySession(token: string | undefined | null): Promise<S
   if (!payload || !mac) return null;
   let valid = false;
   try {
-    valid = await crypto.subtle.verify("HMAC", await key(), toArrayBuffer(fromBase64url(mac)), toArrayBuffer(encoder.encode(payload)));
+    valid = await crypto.subtle.verify(
+      "HMAC",
+      await key(),
+      toArrayBuffer(fromBase64url(mac)),
+      toArrayBuffer(encoder.encode(payload)),
+    );
   } catch {
     return null;
   }
@@ -241,6 +255,8 @@ export const PERFORMANCE_USE = "forbidden" as const;
 export function assertNotUsedForPerformance(payload: unknown): void {
   const text = JSON.stringify(payload);
   if (/"(performance|disciplinary|promotion|visa_decision)(Use|Decision|Score)"/i.test(text)) {
-    throw new Error("purpose limitation: this payload must not carry a performance or disciplinary use");
+    throw new Error(
+      "purpose limitation: this payload must not carry a performance or disciplinary use",
+    );
   }
 }

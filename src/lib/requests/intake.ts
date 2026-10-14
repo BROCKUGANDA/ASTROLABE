@@ -49,7 +49,7 @@ function collapse(value: string): string {
  */
 export function normaliseIntakePayload(
   schema: IntakeSchema,
-  raw: Record<string, unknown> | undefined
+  raw: Record<string, unknown> | undefined,
 ): NormalisedPayload {
   const input = raw ?? {};
   const out: NormalisedPayload = {};
@@ -57,7 +57,8 @@ export function normaliseIntakePayload(
     const value = input[field.key];
     if (value === undefined || value === null) continue;
     if (field.type === "checkbox") {
-      const truthy = value === true || value === "true" || value === "yes" || value === 1 || value === "1";
+      const truthy =
+        value === true || value === "true" || value === "yes" || value === 1 || value === "1";
       if (!truthy) continue;
       out[field.key] = true;
       continue;
@@ -91,7 +92,7 @@ export function canonicalPayloadJson(payload: NormalisedPayload): string {
 export function computePayloadHash(
   employeeId: string,
   type: RequestType,
-  payload: NormalisedPayload
+  payload: NormalisedPayload,
 ): string {
   return createHash("sha256")
     .update(`${employeeId}|${type}|${canonicalPayloadJson(payload)}`)
@@ -184,7 +185,7 @@ export function findPayloadDuplicate(
   employeeId: string,
   type: RequestType,
   payloadHash: string,
-  now: Date
+  now: Date,
 ): ServiceRequest | null {
   let best: ServiceRequest | null = null;
   for (const r of serviceRequests) {
@@ -221,7 +222,10 @@ export interface IntakeAssessment {
  * mean something instead of every intake short-circuiting on the request type.
  */
 export function stepKeyForRequest(employee: Employee, type: RequestType): string | null {
-  return ALL_STEPS.find((s) => s.journeyType === employee.journeyType && s.requestType === type)?.key ?? null;
+  return (
+    ALL_STEPS.find((s) => s.journeyType === employee.journeyType && s.requestType === type)?.key ??
+    null
+  );
 }
 
 /**
@@ -260,7 +264,8 @@ export function assessIntake(params: {
 
   const key = (params.idempotencyKey ?? "").trim();
   const keyed = findByIdempotencyKey(key);
-  const keyConflict = keyed && keyed.idempotencyKey === key && keyed.payloadHash !== payloadHash ? keyed : null;
+  const keyConflict =
+    keyed && keyed.idempotencyKey === key && keyed.payloadHash !== payloadHash ? keyed : null;
 
   const payloadHit = findPayloadDuplicate(params.employee.id, params.type, payloadHash, now);
   const duplicateOf: DedupMatch | null = keyed
@@ -300,9 +305,13 @@ export interface CommitResult {
  * submits collapse into one row.
  */
 export function commitIntake(assessment: IntakeAssessment): CommitResult {
-  const { employee, type, payload, payloadHash, openedAt, expectedBy, resolution, schema } = assessment;
+  const { employee, type, payload, payloadHash, openedAt, expectedBy, resolution, schema } =
+    assessment;
   const owner = resolution.owner;
-  if (!owner) throw new Error("commitIntake called without a resolved owner — route the E_NO_OWNER case instead");
+  if (!owner)
+    throw new Error(
+      "commitIntake called without a resolved owner — route the E_NO_OWNER case instead",
+    );
 
   intakeSeq += 1;
   const fingerprint = createHash("sha256")

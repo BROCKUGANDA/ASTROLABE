@@ -35,7 +35,10 @@ export function QuickActionOrb() {
       label: "Ask a question",
       labelAr: "اسأل سؤالاً",
       icon: MessageSquare,
-      action: () => { setView("ask"); setOpen(false); },
+      action: () => {
+        setView("ask");
+        setOpen(false);
+      },
       accent: "var(--brand-500)",
     },
     {
@@ -43,7 +46,11 @@ export function QuickActionOrb() {
       label: "Start a request",
       labelAr: "ابدأ طلباً",
       icon: Inbox,
-      action: () => { setActiveRequestType(undefined); setView("requests"); setOpen(false); },
+      action: () => {
+        setActiveRequestType(undefined);
+        setView("requests");
+        setOpen(false);
+      },
       accent: "var(--accent-500)",
     },
     {
@@ -51,7 +58,10 @@ export function QuickActionOrb() {
       label: "View journey",
       labelAr: "اعرض الرحلة",
       icon: Map,
-      action: () => { setView("journey"); setOpen(false); },
+      action: () => {
+        setView("journey");
+        setOpen(false);
+      },
       accent: "var(--brand-400)",
     },
   ];
@@ -129,7 +139,8 @@ export function QuickActionOrb() {
         <div
           className="absolute inset-1 rounded-full"
           style={{
-            background: "radial-gradient(circle at 30% 30%, rgba(246,236,201,0.30), transparent 60%)",
+            background:
+              "radial-gradient(circle at 30% 30%, rgba(246,236,201,0.30), transparent 60%)",
           }}
           aria-hidden="true"
         />
@@ -152,7 +163,11 @@ export function QuickActionOrb() {
               exit={{ rotate: -90, opacity: 0 }}
               transition={{ duration: 0.18 }}
             >
-              <Sparkles className="w-5 h-5" strokeWidth={1.75} style={{ color: "var(--surface-0)" }} />
+              <Sparkles
+                className="w-5 h-5"
+                strokeWidth={1.75}
+                style={{ color: "var(--surface-0)" }}
+              />
             </motion.span>
           )}
         </AnimatePresence>

@@ -70,8 +70,16 @@ export const GROUP_OWNERS: Record<Owner["group"], OwnerSlot> = {
  * are counter work and fall to the location queue — that is the point.
  */
 export const STEP_OWNERS: Record<string, OwnerSlot> = {
-  ob_visa_application: { primary: "O-IMM-1", backup: "O-HR-1", queue: "Immigration desk — single owner of visa status" },
-  ob_relocation_allowance: { primary: "O-HR-2", backup: "O-HR-1", queue: "Mobility desk — allowance" },
+  ob_visa_application: {
+    primary: "O-IMM-1",
+    backup: "O-HR-1",
+    queue: "Immigration desk — single owner of visa status",
+  },
+  ob_relocation_allowance: {
+    primary: "O-HR-2",
+    backup: "O-HR-1",
+    queue: "Mobility desk — allowance",
+  },
   mb_payroll_change: { primary: "O-PAY-1", backup: "O-HR-1", queue: "Payroll — transfer cutoff" },
 };
 
@@ -86,19 +94,43 @@ export const LOCATION_QUEUES: Record<string, OwnerSlot> = {
   "it_kit:DXB": { primary: "O-IT-1", backup: "O-IT-2", queue: "IT counter — Dubai (DXB)" },
   "it_kit:AUH": { primary: "O-IT-2", backup: "O-IT-1", queue: "IT counter — Abu Dhabi (AUH)" },
   "system_access:DXB": { primary: "O-IT-2", backup: "O-IT-1", queue: "Access desk — Dubai (DXB)" },
-  "system_access:AUH": { primary: "O-IT-1", backup: "O-IT-2", queue: "Access desk — Abu Dhabi (AUH)" },
-  "facilities:DXB": { primary: "O-FAC-1", backup: "O-HR-1", queue: "Facilities counter — Dubai (DXB)" },
-  "facilities:AUH": { primary: "O-FAC-1", backup: "O-HR-2", queue: "Facilities counter — Abu Dhabi (AUH)" },
+  "system_access:AUH": {
+    primary: "O-IT-1",
+    backup: "O-IT-2",
+    queue: "Access desk — Abu Dhabi (AUH)",
+  },
+  "facilities:DXB": {
+    primary: "O-FAC-1",
+    backup: "O-HR-1",
+    queue: "Facilities counter — Dubai (DXB)",
+  },
+  "facilities:AUH": {
+    primary: "O-FAC-1",
+    backup: "O-HR-2",
+    queue: "Facilities counter — Abu Dhabi (AUH)",
+  },
   "visa:DXB": { primary: "O-IMM-1", backup: "O-HR-1", queue: "Immigration desk — Dubai (DXB)" },
   "visa:AUH": { primary: "O-IMM-1", backup: "O-HR-2", queue: "Immigration desk — Abu Dhabi (AUH)" },
   "relocation:DXB": { primary: "O-HR-2", backup: "O-HR-1", queue: "Mobility desk — Dubai (DXB)" },
-  "relocation:AUH": { primary: "O-HR-2", backup: "HRBP-2", queue: "Mobility desk — Abu Dhabi (AUH)" },
+  "relocation:AUH": {
+    primary: "O-HR-2",
+    backup: "HRBP-2",
+    queue: "Mobility desk — Abu Dhabi (AUH)",
+  },
   "payroll:DXB": { primary: "O-PAY-1", backup: "O-HR-1", queue: "Payroll — Dubai (DXB)" },
   "payroll:AUH": { primary: "O-PAY-1", backup: "HRBP-2", queue: "Payroll — Abu Dhabi (AUH)" },
   "training:DXB": { primary: "O-LEARN-1", backup: "O-HR-1", queue: "Learning — Dubai (DXB)" },
   "training:AUH": { primary: "O-LEARN-1", backup: "HRBP-2", queue: "Learning — Abu Dhabi (AUH)" },
-  "manager_handover:DXB": { primary: "MGR-1", backup: "HRBP-1", queue: "People team — Dubai (DXB)" },
-  "manager_handover:AUH": { primary: "MGR-2", backup: "HRBP-2", queue: "People team — Abu Dhabi (AUH)" },
+  "manager_handover:DXB": {
+    primary: "MGR-1",
+    backup: "HRBP-1",
+    queue: "People team — Dubai (DXB)",
+  },
+  "manager_handover:AUH": {
+    primary: "MGR-2",
+    backup: "HRBP-2",
+    queue: "People team — Abu Dhabi (AUH)",
+  },
 };
 
 /**
@@ -144,9 +176,10 @@ export function personById(id: string | null | undefined): Owner | null {
   return getOwner(id) ?? null;
 }
 
-export function slotPeople(
-  slot: OwnerSlot | null | undefined
-): { owner: Owner | null; backup: Owner | null } {
+export function slotPeople(slot: OwnerSlot | null | undefined): {
+  owner: Owner | null;
+  backup: Owner | null;
+} {
   if (!slot) return { owner: null, backup: null };
   return { owner: personById(slot.primary), backup: personById(slot.backup) };
 }
@@ -171,11 +204,7 @@ export function backupFor(directory: OwnerDirectory, ownerId: string): Owner | n
 }
 
 export type ResolutionRung =
-  | "step_owner"
-  | "location_queue"
-  | "functional_fallback"
-  | "hrbp_of_record"
-  | "no_owner";
+  "step_owner" | "location_queue" | "functional_fallback" | "hrbp_of_record" | "no_owner";
 
 export interface NoOwnerInfo {
   code: "E_NO_OWNER";
@@ -213,7 +242,7 @@ export function resolveOwnerFromDirectory(
     directory?: OwnerDirectory;
     /** Explicit location — the intake form's delivery-location / site answer. */
     location?: Location | string;
-  } = {}
+  } = {},
 ): OwnerResolution {
   const directory = options.directory ?? DEFAULT_DIRECTORY;
   const location = (options.location ?? employee.location) as Location | string;
@@ -303,7 +332,9 @@ export function resolveOwnerFromDirectory(
   const toldInstead = duty.owner
     ? { name: duty.owner.name, role: duty.owner.role, email: duty.owner.email }
     : null;
-  path.push(toldInstead ? `5_no_owner:told_instead=${duty.owner?.id}` : "5_no_owner:nobody_to_tell");
+  path.push(
+    toldInstead ? `5_no_owner:told_instead=${duty.owner?.id}` : "5_no_owner:nobody_to_tell",
+  );
 
   const message = toldInstead
     ? `No service owner could be resolved for ${type} at ${location}. The case was handed to ${toldInstead.name} (${toldInstead.role}, ${toldInstead.email}).`

@@ -54,11 +54,7 @@ import {
 /* ---------- Types ---------- */
 
 export type ChangeType =
-  | "adjust_target"
-  | "change_owner"
-  | "add_step"
-  | "remove_step"
-  | "reorder_dependency";
+  "adjust_target" | "change_owner" | "add_step" | "remove_step" | "reorder_dependency";
 
 export interface MapFixProposal {
   id: string;
@@ -113,11 +109,26 @@ const CHANGE_TYPES: {
   labelAr: string;
   Icon: typeof Clock;
 }[] = [
-  { id: "adjust_target", labelEn: "Adjust target time", labelAr: "تعديل الوقت المستهدف", Icon: Clock },
-  { id: "change_owner", labelEn: "Change owner group", labelAr: "تغيير مجموعة المالك", Icon: Users },
+  {
+    id: "adjust_target",
+    labelEn: "Adjust target time",
+    labelAr: "تعديل الوقت المستهدف",
+    Icon: Clock,
+  },
+  {
+    id: "change_owner",
+    labelEn: "Change owner group",
+    labelAr: "تغيير مجموعة المالك",
+    Icon: Users,
+  },
   { id: "add_step", labelEn: "Add missing step", labelAr: "إضافة خطوة مفقودة", Icon: Plus },
   { id: "remove_step", labelEn: "Remove step", labelAr: "إزالة خطوة", Icon: Trash2 },
-  { id: "reorder_dependency", labelEn: "Reorder dependency", labelAr: "إعادة ترتيب التبعية", Icon: ArrowLeftRight },
+  {
+    id: "reorder_dependency",
+    labelEn: "Reorder dependency",
+    labelAr: "إعادة ترتيب التبعية",
+    Icon: ArrowLeftRight,
+  },
 ];
 
 /* ============================================================
@@ -215,7 +226,7 @@ export function JourneyMapFixModal({
       toast.error(
         locale === "ar"
           ? "أضف سبباً قصيراً للتغيير (1-2 جمل)"
-          : "Add a short reason for the change (1-2 sentences)"
+          : "Add a short reason for the change (1-2 sentences)",
       );
       return;
     }
@@ -223,13 +234,15 @@ export function JourneyMapFixModal({
       toast.error(
         locale === "ar"
           ? "أكّد إزالة الخطوة قبل الإرسال"
-          : "Confirm step removal before submitting"
+          : "Confirm step removal before submitting",
       );
       return;
     }
     if (changeType === "add_step") {
       if (!newStepKey.trim() || !newStepLabel.trim()) {
-        toast.error(locale === "ar" ? "أدخل مفتاح الخطوة وعنوانها" : "Provide a step key and label");
+        toast.error(
+          locale === "ar" ? "أدخل مفتاح الخطوة وعنوانها" : "Provide a step key and label",
+        );
         return;
       }
     }
@@ -253,7 +266,7 @@ export function JourneyMapFixModal({
       toast.success(
         locale === "ar"
           ? "أُرسل اقتراح إصلاح خريطة الرحلة إلى مالك الخريطة. سيتم إشعارك عند المراجعة."
-          : "Map fix proposal submitted to the journey-map owner. You'll be notified when it's reviewed."
+          : "Map fix proposal submitted to the journey-map owner. You'll be notified when it's reviewed.",
       );
     } catch (e) {
       toast.error(locale === "ar" ? "تعذّر إرسال الاقتراح" : "Couldn't submit the proposal", {
@@ -270,7 +283,11 @@ export function JourneyMapFixModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="sm:max-w-[720px] max-h-[90vh] overflow-y-auto"
-        style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+        style={{
+          background: "var(--surface-1)",
+          border: "1px solid var(--border)",
+          color: "var(--text-hi)",
+        }}
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2" style={{ color: "var(--text-hi)" }}>
@@ -291,32 +308,63 @@ export function JourneyMapFixModal({
             style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
           >
             <div className="flex-1 min-w-[200px]">
-              <p className="text-[10px] uppercase tracking-[0.14em]" style={{ color: "var(--text-lo)" }}>
+              <p
+                className="text-[10px] uppercase tracking-[0.14em]"
+                style={{ color: "var(--text-lo)" }}
+              >
                 {locale === "ar" ? "الخطوة الحالية" : "Current step"}
               </p>
               <p className="text-[13px] font-medium mt-1" style={{ color: "var(--text-hi)" }}>
-                <span className="font-mono text-[12px]" style={{ color: "var(--brand-400)" }} dir="ltr">{step.key}</span>
-                <span style={{ color: "var(--text-mid)" }}> · {locale === "ar" ? step.labelAr : step.label}</span>
+                <span
+                  className="font-mono text-[12px]"
+                  style={{ color: "var(--brand-400)" }}
+                  dir="ltr"
+                >
+                  {step.key}
+                </span>
+                <span style={{ color: "var(--text-mid)" }}>
+                  {" "}
+                  · {locale === "ar" ? step.labelAr : step.label}
+                </span>
               </p>
             </div>
             <div className="flex items-center gap-4 flex-wrap">
               <div>
-                <p className="text-[10px] uppercase tracking-[0.14em]" style={{ color: "var(--text-lo)" }}>
+                <p
+                  className="text-[10px] uppercase tracking-[0.14em]"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {locale === "ar" ? "الوقت المستهدف" : "Target hours"}
                 </p>
-                <p className="text-[13px] tabular mt-1" style={{ color: "var(--text-hi)" }} dir="ltr">{step.targetHours}h</p>
+                <p
+                  className="text-[13px] tabular mt-1"
+                  style={{ color: "var(--text-hi)" }}
+                  dir="ltr"
+                >
+                  {step.targetHours}h
+                </p>
               </div>
               <div>
-                <p className="text-[10px] uppercase tracking-[0.14em]" style={{ color: "var(--text-lo)" }}>
+                <p
+                  className="text-[10px] uppercase tracking-[0.14em]"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {locale === "ar" ? "المالك" : "Owner group"}
                 </p>
-                <p className="text-[13px] mt-1" style={{ color: "var(--text-hi)" }}>{step.ownerGroup}</p>
+                <p className="text-[13px] mt-1" style={{ color: "var(--text-hi)" }}>
+                  {step.ownerGroup}
+                </p>
               </div>
               <div>
-                <p className="text-[10px] uppercase tracking-[0.14em]" style={{ color: "var(--text-lo)" }}>
+                <p
+                  className="text-[10px] uppercase tracking-[0.14em]"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {locale === "ar" ? "المرحلة" : "Stage"}
                 </p>
-                <p className="text-[13px] mt-1" style={{ color: "var(--text-hi)" }}>{stageLabel(step.stage, locale)}</p>
+                <p className="text-[13px] mt-1" style={{ color: "var(--text-hi)" }}>
+                  {stageLabel(step.stage, locale)}
+                </p>
               </div>
             </div>
           </div>
@@ -363,7 +411,11 @@ export function JourneyMapFixModal({
           {changeType === "adjust_target" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="new-target" className="text-[12px] font-medium" style={{ color: "var(--text-mid)" }}>
+                <Label
+                  htmlFor="new-target"
+                  className="text-[12px] font-medium"
+                  style={{ color: "var(--text-mid)" }}
+                >
                   {locale === "ar" ? "الوقت المستهدف الجديد (ساعات)" : "New target (hours)"}
                 </Label>
                 <Input
@@ -374,7 +426,11 @@ export function JourneyMapFixModal({
                   value={newTargetHours}
                   onChange={(e) => setNewTargetHours(Number(e.target.value) || 0)}
                   className="ast-focus h-11 text-[13px] tabular"
-                  style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-hi)" }}
+                  style={{
+                    background: "var(--surface-2)",
+                    borderColor: "var(--border)",
+                    color: "var(--text-hi)",
+                  }}
                   dir="ltr"
                 />
               </div>
@@ -390,18 +446,35 @@ export function JourneyMapFixModal({
 
           {changeType === "change_owner" && (
             <div className="space-y-2">
-              <Label htmlFor="new-owner" className="text-[12px] font-medium" style={{ color: "var(--text-mid)" }}>
+              <Label
+                htmlFor="new-owner"
+                className="text-[12px] font-medium"
+                style={{ color: "var(--text-mid)" }}
+              >
                 {locale === "ar" ? "المجموعة المالكة الجديدة" : "New owner group"}
               </Label>
-              <Select value={newOwnerGroup} onValueChange={(v) => setNewOwnerGroup(v as Owner["group"])}>
+              <Select
+                value={newOwnerGroup}
+                onValueChange={(v) => setNewOwnerGroup(v as Owner["group"])}
+              >
                 <SelectTrigger
                   id="new-owner"
                   className="w-full h-11 text-[13px] ast-focus"
-                  style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-hi)" }}
+                  style={{
+                    background: "var(--surface-2)",
+                    borderColor: "var(--border)",
+                    color: "var(--text-hi)",
+                  }}
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent style={{ background: "var(--surface-1)", borderColor: "var(--border)", color: "var(--text-hi)" }}>
+                <SelectContent
+                  style={{
+                    background: "var(--surface-1)",
+                    borderColor: "var(--border)",
+                    color: "var(--text-hi)",
+                  }}
+                >
                   {OWNER_GROUPS.map((g) => (
                     <SelectItem key={g.id} value={g.id} className="text-[13px]">
                       {locale === "ar" ? `${g.labelAr} · ${g.id}` : `${g.label} · ${g.id}`}
@@ -420,7 +493,11 @@ export function JourneyMapFixModal({
           {changeType === "add_step" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="new-step-key" className="text-[12px] font-medium" style={{ color: "var(--text-mid)" }}>
+                <Label
+                  htmlFor="new-step-key"
+                  className="text-[12px] font-medium"
+                  style={{ color: "var(--text-mid)" }}
+                >
                   {locale === "ar" ? "مفتاح الخطوة" : "Step key"}
                 </Label>
                 <Input
@@ -430,12 +507,20 @@ export function JourneyMapFixModal({
                   onChange={(e) => setNewStepKey(e.target.value)}
                   placeholder="ob_medical_check"
                   className="ast-focus h-11 text-[12px] font-mono"
-                  style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-hi)" }}
+                  style={{
+                    background: "var(--surface-2)",
+                    borderColor: "var(--border)",
+                    color: "var(--text-hi)",
+                  }}
                   dir="ltr"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="new-step-label" className="text-[12px] font-medium" style={{ color: "var(--text-mid)" }}>
+                <Label
+                  htmlFor="new-step-label"
+                  className="text-[12px] font-medium"
+                  style={{ color: "var(--text-mid)" }}
+                >
                   {locale === "ar" ? "عنوان الخطوة" : "Step label"}
                 </Label>
                 <Input
@@ -445,22 +530,40 @@ export function JourneyMapFixModal({
                   onChange={(e) => setNewStepLabel(e.target.value)}
                   placeholder={locale === "ar" ? "فحص طبي" : "Medical check"}
                   className="ast-focus h-11 text-[13px]"
-                  style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-hi)" }}
+                  style={{
+                    background: "var(--surface-2)",
+                    borderColor: "var(--border)",
+                    color: "var(--text-hi)",
+                  }}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="new-step-stage" className="text-[12px] font-medium" style={{ color: "var(--text-mid)" }}>
+                <Label
+                  htmlFor="new-step-stage"
+                  className="text-[12px] font-medium"
+                  style={{ color: "var(--text-mid)" }}
+                >
                   {locale === "ar" ? "المرحلة" : "Stage"}
                 </Label>
                 <Select value={newStepStage} onValueChange={setNewStepStage}>
                   <SelectTrigger
                     id="new-step-stage"
                     className="w-full h-11 text-[13px] ast-focus"
-                    style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-hi)" }}
+                    style={{
+                      background: "var(--surface-2)",
+                      borderColor: "var(--border)",
+                      color: "var(--text-hi)",
+                    }}
                   >
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent style={{ background: "var(--surface-1)", borderColor: "var(--border)", color: "var(--text-hi)" }}>
+                  <SelectContent
+                    style={{
+                      background: "var(--surface-1)",
+                      borderColor: "var(--border)",
+                      color: "var(--text-hi)",
+                    }}
+                  >
                     {ALL_STAGES.map((s) => (
                       <SelectItem key={s.key} value={s.key} className="text-[13px]">
                         {locale === "ar" ? s.labelAr : s.label}
@@ -470,7 +573,11 @@ export function JourneyMapFixModal({
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="new-step-target" className="text-[12px] font-medium" style={{ color: "var(--text-mid)" }}>
+                <Label
+                  htmlFor="new-step-target"
+                  className="text-[12px] font-medium"
+                  style={{ color: "var(--text-mid)" }}
+                >
                   {locale === "ar" ? "الوقت المستهدف (ساعات)" : "Target (hours)"}
                 </Label>
                 <Input
@@ -481,30 +588,53 @@ export function JourneyMapFixModal({
                   value={newStepTarget}
                   onChange={(e) => setNewStepTarget(Number(e.target.value) || 0)}
                   className="ast-focus h-11 text-[13px] tabular"
-                  style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-hi)" }}
+                  style={{
+                    background: "var(--surface-2)",
+                    borderColor: "var(--border)",
+                    color: "var(--text-hi)",
+                  }}
                   dir="ltr"
                 />
               </div>
               <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="new-step-deps" className="text-[12px] font-medium" style={{ color: "var(--text-mid)" }}>
+                <Label
+                  htmlFor="new-step-deps"
+                  className="text-[12px] font-medium"
+                  style={{ color: "var(--text-mid)" }}
+                >
                   {locale === "ar" ? "تعتمد على" : "Depends on"}
                 </Label>
                 <Select value={newStepDependsOn} onValueChange={setNewStepDependsOn}>
                   <SelectTrigger
                     id="new-step-deps"
                     className="w-full h-11 text-[13px] ast-focus"
-                    style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-hi)" }}
+                    style={{
+                      background: "var(--surface-2)",
+                      borderColor: "var(--border)",
+                      color: "var(--text-hi)",
+                    }}
                   >
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent style={{ background: "var(--surface-1)", borderColor: "var(--border)", color: "var(--text-hi)" }}>
+                  <SelectContent
+                    style={{
+                      background: "var(--surface-1)",
+                      borderColor: "var(--border)",
+                      color: "var(--text-hi)",
+                    }}
+                  >
                     <SelectItem value="none" className="text-[13px]">
                       {locale === "ar" ? "بلا تبعية" : "No prerequisite"}
                     </SelectItem>
                     {ALL_STEPS.map((s) => (
                       <SelectItem key={s.key} value={s.key} className="text-[13px]">
-                        <span className="font-mono text-[12px]" dir="ltr">{s.key}</span>
-                        <span style={{ color: "var(--text-mid)" }}> · {locale === "ar" ? s.labelAr : s.label}</span>
+                        <span className="font-mono text-[12px]" dir="ltr">
+                          {s.key}
+                        </span>
+                        <span style={{ color: "var(--text-mid)" }}>
+                          {" "}
+                          · {locale === "ar" ? s.labelAr : s.label}
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -516,9 +646,16 @@ export function JourneyMapFixModal({
           {changeType === "remove_step" && (
             <div
               className="rounded-[10px] p-3 flex items-start gap-3"
-              style={{ background: "rgba(159,18,57,0.08)", border: "1px solid rgba(159,18,57,0.32)" }}
+              style={{
+                background: "rgba(159,18,57,0.08)",
+                border: "1px solid rgba(159,18,57,0.32)",
+              }}
             >
-              <Trash2 className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={1.75} style={{ color: "var(--status-blocked)" }} />
+              <Trash2
+                className="w-4 h-4 shrink-0 mt-0.5"
+                strokeWidth={1.75}
+                style={{ color: "var(--status-blocked)" }}
+              />
               <div className="flex-1 space-y-2">
                 <p className="text-[13px] font-medium" style={{ color: "var(--text-hi)" }}>
                   {locale === "ar"
@@ -539,7 +676,9 @@ export function JourneyMapFixModal({
                     style={{ accentColor: "var(--status-blocked)" }}
                   />
                   <span className="text-[12px]" style={{ color: "var(--text-mid)" }}>
-                    {locale === "ar" ? "أؤكد أنني أريد إزالة هذه الخطوة" : "I confirm I want to remove this step"}
+                    {locale === "ar"
+                      ? "أؤكد أنني أريد إزالة هذه الخطوة"
+                      : "I confirm I want to remove this step"}
                   </span>
                 </label>
               </div>
@@ -548,7 +687,11 @@ export function JourneyMapFixModal({
 
           {changeType === "reorder_dependency" && (
             <div className="space-y-2">
-              <Label htmlFor="reorder-prereq" className="text-[12px] font-medium" style={{ color: "var(--text-mid)" }}>
+              <Label
+                htmlFor="reorder-prereq"
+                className="text-[12px] font-medium"
+                style={{ color: "var(--text-mid)" }}
+              >
                 {locale === "ar"
                   ? `المتطلب السابق الجديد للخطوة ${step?.key ?? ""}`
                   : `New prerequisite for ${step?.key ?? ""}`}
@@ -557,18 +700,33 @@ export function JourneyMapFixModal({
                 <SelectTrigger
                   id="reorder-prereq"
                   className="w-full h-11 text-[13px] ast-focus"
-                  style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-hi)" }}
+                  style={{
+                    background: "var(--surface-2)",
+                    borderColor: "var(--border)",
+                    color: "var(--text-hi)",
+                  }}
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent style={{ background: "var(--surface-1)", borderColor: "var(--border)", color: "var(--text-hi)" }}>
+                <SelectContent
+                  style={{
+                    background: "var(--surface-1)",
+                    borderColor: "var(--border)",
+                    color: "var(--text-hi)",
+                  }}
+                >
                   <SelectItem value="none" className="text-[13px]">
                     {locale === "ar" ? "بلا متطلب سابق" : "No prerequisite"}
                   </SelectItem>
                   {ALL_STEPS.filter((s) => s.key !== stepKey).map((s) => (
                     <SelectItem key={s.key} value={s.key} className="text-[13px]">
-                      <span className="font-mono text-[12px]" dir="ltr">{s.key}</span>
-                      <span style={{ color: "var(--text-mid)" }}> · {locale === "ar" ? s.labelAr : s.label}</span>
+                      <span className="font-mono text-[12px]" dir="ltr">
+                        {s.key}
+                      </span>
+                      <span style={{ color: "var(--text-mid)" }}>
+                        {" "}
+                        · {locale === "ar" ? s.labelAr : s.label}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -584,7 +742,11 @@ export function JourneyMapFixModal({
 
         {/* Reason textarea */}
         <div className="space-y-2">
-          <Label htmlFor="reason" className="text-[12px] font-medium" style={{ color: "var(--text-mid)" }}>
+          <Label
+            htmlFor="reason"
+            className="text-[12px] font-medium"
+            style={{ color: "var(--text-mid)" }}
+          >
             {locale === "ar" ? "سبب الاقتراح" : "Why this change?"}
           </Label>
           <Textarea
@@ -598,7 +760,11 @@ export function JourneyMapFixModal({
                 : "e.g. The IT kit ticket takes 48h in practice, not 24 — most breach reasons trace to this tight target."
             }
             className="ast-focus text-[13px]"
-            style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-hi)" }}
+            style={{
+              background: "var(--surface-2)",
+              borderColor: "var(--border)",
+              color: "var(--text-hi)",
+            }}
           />
         </div>
 
@@ -615,13 +781,19 @@ export function JourneyMapFixModal({
           </div>
           <div className="flex-1 min-w-[200px]">
             <p className="text-[12px] font-medium" style={{ color: "var(--text-hi)" }}>
-              {locale === "ar"
-                ? "يتأثر هذا التغيير بـ"
-                : "This change affects"}
-              <span className="tabular ml-1" style={{ color: "var(--accent-500)" }}>{downstreamSteps.length}</span>
-              <span style={{ color: "var(--text-mid)" }}>{locale === "ar" ? " خطوة لاحقة و" : " downstream steps and "}</span>
-              <span className="tabular" style={{ color: "var(--accent-500)" }}>{affectedEmployees.length}</span>
-              <span style={{ color: "var(--text-mid)" }}>{locale === "ar" ? " موظف" : " employees"}</span>
+              {locale === "ar" ? "يتأثر هذا التغيير بـ" : "This change affects"}
+              <span className="tabular ml-1" style={{ color: "var(--accent-500)" }}>
+                {downstreamSteps.length}
+              </span>
+              <span style={{ color: "var(--text-mid)" }}>
+                {locale === "ar" ? " خطوة لاحقة و" : " downstream steps and "}
+              </span>
+              <span className="tabular" style={{ color: "var(--accent-500)" }}>
+                {affectedEmployees.length}
+              </span>
+              <span style={{ color: "var(--text-mid)" }}>
+                {locale === "ar" ? " موظف" : " employees"}
+              </span>
             </p>
             <p className="text-[11px] mt-0.5" style={{ color: "var(--text-lo)" }}>
               {locale === "ar"
@@ -636,7 +808,11 @@ export function JourneyMapFixModal({
             type="button"
             onClick={() => onOpenChange(false)}
             className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium"
-            style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+            style={{
+              background: "var(--surface-2)",
+              border: "1px solid var(--border)",
+              color: "var(--text-hi)",
+            }}
           >
             {locale === "ar" ? "إلغاء" : "Cancel"}
           </button>
@@ -645,7 +821,11 @@ export function JourneyMapFixModal({
             onClick={handleSubmit}
             disabled={submitting}
             className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium disabled:opacity-60"
-            style={{ background: "var(--accent-500)", color: "var(--surface-0)", border: "1px solid var(--accent-500)" }}
+            style={{
+              background: "var(--accent-500)",
+              color: "var(--surface-0)",
+              border: "1px solid var(--accent-500)",
+            }}
           >
             {submitting ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.75} />

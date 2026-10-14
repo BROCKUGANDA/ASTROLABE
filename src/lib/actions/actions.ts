@@ -3,7 +3,16 @@
  * PRD §12, §14
  */
 
-import { Employee, Owner, RequestType, owners, hrbps, getOwner, events as ALL_EVENTS, serviceRequests as ALL_REQUESTS } from "../data/pack";
+import {
+  Employee,
+  Owner,
+  RequestType,
+  owners,
+  hrbps,
+  getOwner,
+  events as ALL_EVENTS,
+  serviceRequests as ALL_REQUESTS,
+} from "../data/pack";
 import { Assessment, FrictionSignal } from "../engine/engine";
 
 export interface IntakeSchema {
@@ -23,7 +32,13 @@ export interface IntakeField {
   labelAr: string;
   type: "text" | "select" | "date" | "checkbox" | "textarea" | "number";
   required: boolean;
-  prefillFrom?: "employee.location" | "employee.stage" | "employee.startDate" | "employee.role" | "step.key" | "step.dueAt";
+  prefillFrom?:
+    | "employee.location"
+    | "employee.stage"
+    | "employee.startDate"
+    | "employee.role"
+    | "step.key"
+    | "step.dueAt";
   options?: { value: string; label: string }[];
   helpText?: string;
   helpTextAr?: string;
@@ -37,19 +52,62 @@ export const INTAKE_SCHEMAS: Record<RequestType, IntakeSchema> = {
     ownerGroup: "IT",
     slaHours: 24,
     fields: [
-      { key: "kit_type", label: "Kit type", labelAr: "نوع الجهاز", type: "select", required: true, options: [
-        { value: "standard_laptop", label: "Standard laptop (Dell Latitude)" },
-        { value: "cabin_crew", label: "Cabin crew kit (laptop + iPad mini)" },
-        { value: "replacement", label: "Replacement for lost/damaged kit" },
-      ] },
-      { key: "delivery_location", label: "Delivery location", labelAr: "مكان التسليم", type: "select", required: true, prefillFrom: "employee.location", options: [
-        { value: "DXB", label: "Dubai (DXB)" },
-        { value: "AUH", label: "Abu Dhabi (AUH)" },
-      ] },
-      { key: "stage", label: "Onboarding stage", labelAr: "مرحلة الالتحاق", type: "text", required: true, prefillFrom: "employee.stage" },
-      { key: "start_date", label: "Start date", labelAr: "تاريخ البدء", type: "date", required: true, prefillFrom: "employee.startDate" },
-      { key: "prior_ticket", label: "Prior ticket reference (if any)", labelAr: "مرجع التذكرة السابقة", type: "text", required: false },
-      { key: "notes", label: "What's going on?", labelAr: "ماذا يحدث؟", type: "textarea", required: false, helpText: "Tell us in your own words — we'll attach it as context only.", helpTextAr: "اخبرنا بكلماتك الخاصة — سنرفقه كسياق فقط." },
+      {
+        key: "kit_type",
+        label: "Kit type",
+        labelAr: "نوع الجهاز",
+        type: "select",
+        required: true,
+        options: [
+          { value: "standard_laptop", label: "Standard laptop (Dell Latitude)" },
+          { value: "cabin_crew", label: "Cabin crew kit (laptop + iPad mini)" },
+          { value: "replacement", label: "Replacement for lost/damaged kit" },
+        ],
+      },
+      {
+        key: "delivery_location",
+        label: "Delivery location",
+        labelAr: "مكان التسليم",
+        type: "select",
+        required: true,
+        prefillFrom: "employee.location",
+        options: [
+          { value: "DXB", label: "Dubai (DXB)" },
+          { value: "AUH", label: "Abu Dhabi (AUH)" },
+        ],
+      },
+      {
+        key: "stage",
+        label: "Onboarding stage",
+        labelAr: "مرحلة الالتحاق",
+        type: "text",
+        required: true,
+        prefillFrom: "employee.stage",
+      },
+      {
+        key: "start_date",
+        label: "Start date",
+        labelAr: "تاريخ البدء",
+        type: "date",
+        required: true,
+        prefillFrom: "employee.startDate",
+      },
+      {
+        key: "prior_ticket",
+        label: "Prior ticket reference (if any)",
+        labelAr: "مرجع التذكرة السابقة",
+        type: "text",
+        required: false,
+      },
+      {
+        key: "notes",
+        label: "What's going on?",
+        labelAr: "ماذا يحدث؟",
+        type: "textarea",
+        required: false,
+        helpText: "Tell us in your own words — we'll attach it as context only.",
+        helpTextAr: "اخبرنا بكلماتك الخاصة — سنرفقه كسياق فقط.",
+      },
     ],
     autoAttachedContext: ["Step state", "Prior kit events"],
     policyRef: "it-policy#kit",
@@ -61,15 +119,41 @@ export const INTAKE_SCHEMAS: Record<RequestType, IntakeSchema> = {
     ownerGroup: "IT",
     slaHours: 48,
     fields: [
-      { key: "system", label: "System", labelAr: "النظام", type: "select", required: true, options: [
-        { value: "email", label: "Email" },
-        { value: "roster", label: "Cabin crew rostering" },
-        { value: "learning", label: "Learning portal" },
-        { value: "finance", label: "Finance system (elevated)" },
-      ] },
-      { key: "role_profile", label: "Role profile", labelAr: "ملف الدور", type: "text", required: true, prefillFrom: "employee.role" },
-      { key: "manager_approver", label: "Manager approver", labelAr: "المدير المعتمد", type: "text", required: true },
-      { key: "effective_date", label: "Effective date", labelAr: "تاريخ السريان", type: "date", required: true },
+      {
+        key: "system",
+        label: "System",
+        labelAr: "النظام",
+        type: "select",
+        required: true,
+        options: [
+          { value: "email", label: "Email" },
+          { value: "roster", label: "Cabin crew rostering" },
+          { value: "learning", label: "Learning portal" },
+          { value: "finance", label: "Finance system (elevated)" },
+        ],
+      },
+      {
+        key: "role_profile",
+        label: "Role profile",
+        labelAr: "ملف الدور",
+        type: "text",
+        required: true,
+        prefillFrom: "employee.role",
+      },
+      {
+        key: "manager_approver",
+        label: "Manager approver",
+        labelAr: "المدير المعتمد",
+        type: "text",
+        required: true,
+      },
+      {
+        key: "effective_date",
+        label: "Effective date",
+        labelAr: "تاريخ السريان",
+        type: "date",
+        required: true,
+      },
     ],
     autoAttachedContext: ["Role change event", "Transfer approval"],
     policyRef: "it-policy#access",
@@ -81,10 +165,35 @@ export const INTAKE_SCHEMAS: Record<RequestType, IntakeSchema> = {
     ownerGroup: "Immigration",
     slaHours: 72,
     fields: [
-      { key: "passport_checklist", label: "Passport scan uploaded?", labelAr: "تم تحميل مسح جواز السفر؟", type: "checkbox", required: true },
-      { key: "photo_checklist", label: "Passport photo uploaded?", labelAr: "تم تحميل صورة جواز السفر؟", type: "checkbox", required: true },
-      { key: "dependants", label: "Any dependants on this visa?", labelAr: "هل هناك معالون على هذه التأشيرة؟", type: "checkbox", required: true },
-      { key: "current_step", label: "Current step", labelAr: "الخطوة الحالية", type: "text", required: true, prefillFrom: "employee.stage" },
+      {
+        key: "passport_checklist",
+        label: "Passport scan uploaded?",
+        labelAr: "تم تحميل مسح جواز السفر؟",
+        type: "checkbox",
+        required: true,
+      },
+      {
+        key: "photo_checklist",
+        label: "Passport photo uploaded?",
+        labelAr: "تم تحميل صورة جواز السفر؟",
+        type: "checkbox",
+        required: true,
+      },
+      {
+        key: "dependants",
+        label: "Any dependants on this visa?",
+        labelAr: "هل هناك معالون على هذه التأشيرة؟",
+        type: "checkbox",
+        required: true,
+      },
+      {
+        key: "current_step",
+        label: "Current step",
+        labelAr: "الخطوة الحالية",
+        type: "text",
+        required: true,
+        prefillFrom: "employee.stage",
+      },
     ],
     autoAttachedContext: ["Blocked-downstream list", "Policy section"],
     policyRef: "immigration-policy#visa",
@@ -96,13 +205,38 @@ export const INTAKE_SCHEMAS: Record<RequestType, IntakeSchema> = {
     ownerGroup: "Mobility",
     slaHours: 72,
     fields: [
-      { key: "family_size", label: "Family size", labelAr: "حجم الأسرة", type: "number", required: true },
-      { key: "arrival_date", label: "Arrival date", labelAr: "تاريخ الوصول", type: "date", required: true },
-      { key: "temporary_housing", label: "Temporary housing needed?", labelAr: "هل تحتاج سكن مؤقت؟", type: "checkbox", required: true },
-      { key: "allowance_band", label: "Allowance band", labelAr: "فئة البدل", type: "select", required: true, options: [
-        { value: "single", label: "Single — AED 14,000" },
-        { value: "dependants", label: "With dependants — AED 22,000" },
-      ] },
+      {
+        key: "family_size",
+        label: "Family size",
+        labelAr: "حجم الأسرة",
+        type: "number",
+        required: true,
+      },
+      {
+        key: "arrival_date",
+        label: "Arrival date",
+        labelAr: "تاريخ الوصول",
+        type: "date",
+        required: true,
+      },
+      {
+        key: "temporary_housing",
+        label: "Temporary housing needed?",
+        labelAr: "هل تحتاج سكن مؤقت؟",
+        type: "checkbox",
+        required: true,
+      },
+      {
+        key: "allowance_band",
+        label: "Allowance band",
+        labelAr: "فئة البدل",
+        type: "select",
+        required: true,
+        options: [
+          { value: "single", label: "Single — AED 14,000" },
+          { value: "dependants", label: "With dependants — AED 22,000" },
+        ],
+      },
     ],
     autoAttachedContext: ["Relocation policy citation", "Deadlines"],
     policyRef: "relocation-policy#allowance",
@@ -114,14 +248,39 @@ export const INTAKE_SCHEMAS: Record<RequestType, IntakeSchema> = {
     ownerGroup: "Payroll",
     slaHours: 48,
     fields: [
-      { key: "change_type", label: "Change type", labelAr: "نوع التغيير", type: "select", required: true, options: [
-        { value: "bank", label: "Bank details" },
-        { value: "allowance", label: "Allowance adjustment" },
-        { value: "transfer", label: "Transfer payroll" },
-      ] },
-      { key: "effective_date", label: "Effective date", labelAr: "تاريخ السريان", type: "date", required: true },
-      { key: "bank_confirmed", label: "Bank details confirmed?", labelAr: "تم تأكيد التفاصيل البنكية؟", type: "checkbox", required: true },
-      { key: "cycle_cutoff", label: "Payroll cycle cutoff (25th)", labelAr: "تقطع دورة الرواتب (25)", type: "date", required: true },
+      {
+        key: "change_type",
+        label: "Change type",
+        labelAr: "نوع التغيير",
+        type: "select",
+        required: true,
+        options: [
+          { value: "bank", label: "Bank details" },
+          { value: "allowance", label: "Allowance adjustment" },
+          { value: "transfer", label: "Transfer payroll" },
+        ],
+      },
+      {
+        key: "effective_date",
+        label: "Effective date",
+        labelAr: "تاريخ السريان",
+        type: "date",
+        required: true,
+      },
+      {
+        key: "bank_confirmed",
+        label: "Bank details confirmed?",
+        labelAr: "تم تأكيد التفاصيل البنكية؟",
+        type: "checkbox",
+        required: true,
+      },
+      {
+        key: "cycle_cutoff",
+        label: "Payroll cycle cutoff (25th)",
+        labelAr: "تقطع دورة الرواتب (25)",
+        type: "date",
+        required: true,
+      },
     ],
     autoAttachedContext: ["MB-04 state", "Cutoff date"],
     policyRef: "payroll-policy#transfer",
@@ -133,17 +292,37 @@ export const INTAKE_SCHEMAS: Record<RequestType, IntakeSchema> = {
     ownerGroup: "Learning",
     slaHours: 48,
     fields: [
-      { key: "course_code", label: "Course code", labelAr: "رمز الدورة", type: "select", required: true, options: [
-        { value: "AV-SAFETY", label: "Aviation Safety (GCAA)" },
-        { value: "CS-EXCEL", label: "Customer Service Excellence" },
-        { value: "EMRG-PROC", label: "Emergency Procedures" },
-        { value: "CULT-AWR", label: "Cultural Awareness" },
-      ] },
-      { key: "prerequisite_status", label: "Prerequisite access present?", labelAr: "هل الوصول المسبق موجود؟", type: "checkbox", required: true },
-      { key: "preferred_window", label: "Preferred window", labelAr: "الفترة المفضلة", type: "select", required: true, options: [
-        { value: "am", label: "Morning" },
-        { value: "pm", label: "Afternoon" },
-      ] },
+      {
+        key: "course_code",
+        label: "Course code",
+        labelAr: "رمز الدورة",
+        type: "select",
+        required: true,
+        options: [
+          { value: "AV-SAFETY", label: "Aviation Safety (GCAA)" },
+          { value: "CS-EXCEL", label: "Customer Service Excellence" },
+          { value: "EMRG-PROC", label: "Emergency Procedures" },
+          { value: "CULT-AWR", label: "Cultural Awareness" },
+        ],
+      },
+      {
+        key: "prerequisite_status",
+        label: "Prerequisite access present?",
+        labelAr: "هل الوصول المسبق موجود؟",
+        type: "checkbox",
+        required: true,
+      },
+      {
+        key: "preferred_window",
+        label: "Preferred window",
+        labelAr: "الفترة المفضلة",
+        type: "select",
+        required: true,
+        options: [
+          { value: "am", label: "Morning" },
+          { value: "pm", label: "Afternoon" },
+        ],
+      },
     ],
     autoAttachedContext: ["Prerequisite access state"],
     policyRef: "learning-policy#mandatory",
@@ -155,13 +334,33 @@ export const INTAKE_SCHEMAS: Record<RequestType, IntakeSchema> = {
     ownerGroup: "Facilities",
     slaHours: 24,
     fields: [
-      { key: "site", label: "Site", labelAr: "الموقع", type: "select", required: true, prefillFrom: "employee.location", options: [
-        { value: "DXB", label: "Dubai (DXB)" },
-        { value: "AUH", label: "Abu Dhabi (AUH)" },
-      ] },
+      {
+        key: "site",
+        label: "Site",
+        labelAr: "الموقع",
+        type: "select",
+        required: true,
+        prefillFrom: "employee.location",
+        options: [
+          { value: "DXB", label: "Dubai (DXB)" },
+          { value: "AUH", label: "Abu Dhabi (AUH)" },
+        ],
+      },
       { key: "floor", label: "Floor", labelAr: "الطابق", type: "text", required: true },
-      { key: "access_group", label: "Access group", labelAr: "مجموعة الوصول", type: "text", required: true },
-      { key: "mobility_flag", label: "Mobility case (transfer)?", labelAr: "حالة تنقل (نقل)؟", type: "checkbox", required: false },
+      {
+        key: "access_group",
+        label: "Access group",
+        labelAr: "مجموعة الوصول",
+        type: "text",
+        required: true,
+      },
+      {
+        key: "mobility_flag",
+        label: "Mobility case (transfer)?",
+        labelAr: "حالة تنقل (نقل)؟",
+        type: "checkbox",
+        required: false,
+      },
     ],
     autoAttachedContext: ["Location change event"],
     policyRef: "facilities-policy#badge",
@@ -173,10 +372,34 @@ export const INTAKE_SCHEMAS: Record<RequestType, IntakeSchema> = {
     ownerGroup: "HR",
     slaHours: 120,
     fields: [
-      { key: "from_manager", label: "From manager", labelAr: "من المدير", type: "text", required: true },
-      { key: "to_manager", label: "To manager", labelAr: "إلى المدير", type: "text", required: true },
-      { key: "handover_items", label: "Handover items", labelAr: "عناصر التسليم", type: "textarea", required: true },
-      { key: "effective_date", label: "Effective date", labelAr: "تاريخ السريان", type: "date", required: true },
+      {
+        key: "from_manager",
+        label: "From manager",
+        labelAr: "من المدير",
+        type: "text",
+        required: true,
+      },
+      {
+        key: "to_manager",
+        label: "To manager",
+        labelAr: "إلى المدير",
+        type: "text",
+        required: true,
+      },
+      {
+        key: "handover_items",
+        label: "Handover items",
+        labelAr: "عناصر التسليم",
+        type: "textarea",
+        required: true,
+      },
+      {
+        key: "effective_date",
+        label: "Effective date",
+        labelAr: "تاريخ السريان",
+        type: "date",
+        required: true,
+      },
     ],
     autoAttachedContext: ["Transfer approval"],
     policyRef: "mobility-policy#handover",
@@ -189,7 +412,7 @@ export const INTAKE_SCHEMAS: Record<RequestType, IntakeSchema> = {
 export function resolveOwner(
   type: RequestType,
   employee: Employee,
-  stepOwnerGroup?: Owner["group"]
+  stepOwnerGroup?: Owner["group"],
 ): { owner: Owner | null; path: string[]; fallbackUsed: boolean } {
   const path: string[] = [];
   // 1. Step owner in journey_map
@@ -234,7 +457,13 @@ export interface EscalationPacket {
   topSignals: { code: string; weight: number; description: string; evidenceRefs: string[] }[];
   timeline: { occurredAt: string; stepKey: string; type: string; targetVsActual?: string }[];
   blockedDownstream: string[];
-  openRequests: { ref: string; type: string; ownerGroup: string; ageHours: number; reassignCount: number }[];
+  openRequests: {
+    ref: string;
+    type: string;
+    ownerGroup: string;
+    ageHours: number;
+    reassignCount: number;
+  }[];
   decisionRequested: string;
   namedOwner: { id: string; name: string; role: string; email: string };
   backupOwner?: { id: string; name: string; role: string; email: string };
@@ -250,7 +479,7 @@ export function buildEscalationPacket(
   employee: Employee,
   assessment: Assessment,
   decisionRequested: string,
-  sharePulseSummary: boolean
+  sharePulseSummary: boolean,
 ): EscalationPacket {
   const topSignals = assessment.signals
     .sort((a, b) => b.weight - a.weight)
@@ -263,8 +492,7 @@ export function buildEscalationPacket(
     }));
 
   // Build timeline from events
-  const employeeEvents = ALL_EVENTS
-    .filter((e) => e.employeeId === employee.id)
+  const employeeEvents = ALL_EVENTS.filter((e) => e.employeeId === employee.id)
     .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
     .slice(0, 10)
     .map((e) => ({
@@ -274,15 +502,13 @@ export function buildEscalationPacket(
     }));
 
   // Open requests
-  const openReqs = ALL_REQUESTS
-    .filter((r) => r.employeeId === employee.id)
-    .map((r) => ({
-      ref: r.ref,
-      type: r.type,
-      ownerGroup: r.ownerGroup,
-      ageHours: (Date.now() - new Date(r.openedAt).getTime()) / 3600000,
-      reassignCount: r.reassignCount,
-    }));
+  const openReqs = ALL_REQUESTS.filter((r) => r.employeeId === employee.id).map((r) => ({
+    ref: r.ref,
+    type: r.type,
+    ownerGroup: r.ownerGroup,
+    ageHours: (Date.now() - new Date(r.openedAt).getTime()) / 3600000,
+    reassignCount: r.reassignCount,
+  }));
 
   // Named owner = HRBP of record
   const hrbp = getOwner(employee.hrbpId) ?? hrbps[0];
@@ -312,14 +538,18 @@ export function buildEscalationPacket(
       role: hrbp.role,
       email: hrbp.email,
     },
-    backupOwner: backup ? {
-      id: backup.id,
-      name: backup.name,
-      role: backup.role,
-      email: backup.email,
-    } : undefined,
+    backupOwner: backup
+      ? {
+          id: backup.id,
+          name: backup.name,
+          role: backup.role,
+          email: backup.email,
+        }
+      : undefined,
     consentStatement: {
-      sharedWithHrbp: sharePulseSummary ? ["journey_state", "request_telemetry", "pulse_summary"] : ["journey_state", "request_telemetry"],
+      sharedWithHrbp: sharePulseSummary
+        ? ["journey_state", "request_telemetry", "pulse_summary"]
+        : ["journey_state", "request_telemetry"],
       withheld: sharePulseSummary ? [] : ["pulse_summary", "free_text_comments"],
       freeTextExcluded: true,
     },

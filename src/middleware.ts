@@ -33,10 +33,7 @@ const SECURITY_HEADERS: ReadonlyArray<readonly [string, string]> = [
   ["Referrer-Policy", "strict-origin-when-cross-origin"],
   ["Permissions-Policy", "camera=(), microphone=(), geolocation=()"],
   ["X-DNS-Prefetch-Control", "on"],
-  [
-    "Strict-Transport-Security",
-    "max-age=63072000; includeSubDomains; preload",
-  ],
+  ["Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload"],
 ];
 
 /**
@@ -48,18 +45,12 @@ function generateRequestId(): string {
   if (c && typeof c.randomUUID === "function") {
     return c.randomUUID();
   }
-  return (
-    "rid-" +
-    Date.now().toString(36) +
-    "-" +
-    Math.random().toString(36).slice(2, 10)
-  );
+  return "rid-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
 }
 
 export function middleware(request: NextRequest): NextResponse {
   const incoming = request.headers.get("x-request-id");
-  const requestId =
-    incoming && incoming.trim().length > 0 ? incoming : generateRequestId();
+  const requestId = incoming && incoming.trim().length > 0 ? incoming : generateRequestId();
 
   // Propagate the request id to downstream route handlers by rewriting the
   // inbound request headers.

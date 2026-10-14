@@ -42,7 +42,9 @@ function sanitizeMessage(raw: string | undefined): string {
   // Drop unix-style file paths.
   msg = msg.replace(/(?:\/[\w.-]+)+(?:\?\S*)?/g, "<path>").trim();
   // Drop the digest hash if it leaked in.
-  msg = msg.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "<digest>").trim();
+  msg = msg
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "<digest>")
+    .trim();
   if (msg.length > 180) msg = msg.slice(0, 177) + "...";
   return msg || "An unexpected error occurred while loading this view.";
 }
@@ -165,16 +167,10 @@ export default function ErrorBoundary({ error, reset }: AstrolabeErrorProps) {
           </div>
         </header>
 
-        <h1
-          className="text-2xl sm:text-3xl font-semibold mb-2"
-          style={{ color: "var(--text-hi)" }}
-        >
+        <h1 className="text-2xl sm:text-3xl font-semibold mb-2" style={{ color: "var(--text-hi)" }}>
           Something went wrong
         </h1>
-        <p
-          className="text-sm sm:text-base mb-6"
-          style={{ color: "var(--text-mid)" }}
-        >
+        <p className="text-sm sm:text-base mb-6" style={{ color: "var(--text-mid)" }}>
           We captured this incident so it can be traced. No journey data was lost.
         </p>
 
@@ -277,7 +273,11 @@ export default function ErrorBoundary({ error, reset }: AstrolabeErrorProps) {
             color: "var(--text-lo)",
           }}
         >
-          <LifeBuoy className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: "var(--brand-400)" }} aria-hidden />
+          <LifeBuoy
+            className="h-3.5 w-3.5 mt-0.5 shrink-0"
+            style={{ color: "var(--brand-400)" }}
+            aria-hidden
+          />
           <p>
             If this keeps happening, tell Fatima in HR:{" "}
             <a

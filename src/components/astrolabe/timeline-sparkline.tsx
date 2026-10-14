@@ -81,11 +81,7 @@ function labelFor(type: string, locale: "en" | "ar"): string {
   return TYPE_LABEL_EN[type] ?? type.replace(/_/g, " ");
 }
 
-export function TimelineSparkline({
-  events,
-  locale = "en",
-  className,
-}: TimelineSparklineProps) {
+export function TimelineSparkline({ events, locale = "en", className }: TimelineSparklineProps) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [reduce, setReduce] = useState(false);
 
@@ -107,17 +103,10 @@ export function TimelineSparkline({
     <div
       className={cn("relative inline-flex items-center gap-1.5 h-4", className)}
       role="img"
-      aria-label={
-        locale === "ar"
-          ? `${slice.length} أحداث أخيرة`
-          : `${slice.length} recent events`
-      }
+      aria-label={locale === "ar" ? `${slice.length} أحداث أخيرة` : `${slice.length} recent events`}
     >
       {slice.length === 0 && (
-        <span
-          className="text-[10px]"
-          style={{ color: "var(--text-lo)" }}
-        >
+        <span className="text-[10px]" style={{ color: "var(--text-lo)" }}>
           {locale === "ar" ? "لا أحداث" : "No events"}
         </span>
       )}
@@ -165,11 +154,7 @@ export function TimelineSparkline({
                 role="tooltip"
               >
                 <span style={{ color }}>{labelFor(e.type, locale)}</span>
-                <span
-                  className="mx-1"
-                  style={{ color: "var(--text-lo)" }}
-                  aria-hidden="true"
-                >
+                <span className="mx-1" style={{ color: "var(--text-lo)" }} aria-hidden="true">
                   ·
                 </span>
                 <span dir="ltr">

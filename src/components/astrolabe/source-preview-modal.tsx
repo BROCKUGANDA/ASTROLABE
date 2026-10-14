@@ -192,9 +192,7 @@ export function SourcePreviewModal({
   // by `section` only (in case the lang codes don't match exactly).
   const matchingSection: PolicySection | null =
     citation && doc
-      ? (doc.sections.find(
-          (s) => s.section === citation.section && s.lang === citation.lang,
-        ) ??
+      ? (doc.sections.find((s) => s.section === citation.section && s.lang === citation.lang) ??
         doc.sections.find((s) => s.section === citation.section) ??
         null)
       : null;
@@ -331,11 +329,7 @@ export function SourcePreviewModal({
           )}
 
           {!loading && fetchError && (
-            <p
-              className="text-[13px]"
-              style={{ color: "var(--status-friction)" }}
-              role="alert"
-            >
+            <p className="text-[13px]" style={{ color: "var(--status-friction)" }} role="alert">
               {fetchError}
             </p>
           )}
@@ -367,10 +361,7 @@ export function SourcePreviewModal({
           )}
 
           {!loading && !fetchError && !matchingSection && !citation.snippet && (
-            <p
-              className="text-[13px]"
-              style={{ color: "var(--text-lo)" }}
-            >
+            <p className="text-[13px]" style={{ color: "var(--text-lo)" }}>
               {locale === "ar"
                 ? "لا يوجد نص متاح لهذا المصدر."
                 : "No source text available for this citation."}

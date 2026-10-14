@@ -14,22 +14,11 @@
 import { NOW } from "@/lib/data/pack";
 
 export type NotificationType =
-  | "step_due"
-  | "step_late"
-  | "request_update"
-  | "escalation"
-  | "pulse_prompt"
-  | "digest"
-  | "system";
+  "step_due" | "step_late" | "request_update" | "escalation" | "pulse_prompt" | "digest" | "system";
 
 export type NotificationPriority = "urgent" | "normal" | "low";
 
-export type NotificationCategory =
-  | "journey"
-  | "request"
-  | "hrbp"
-  | "pulse"
-  | "system";
+export type NotificationCategory = "journey" | "request" | "hrbp" | "pulse" | "system";
 
 export type NotificationView = "today" | "journey" | "ask" | "requests" | "me";
 
@@ -99,7 +88,8 @@ const BASE_NOTIFICATIONS: Notification[] = [
     title: "Your laptop is 3 days late",
     titleAr: "حاسوبك المحمول متأخر 3 أيام",
     body: "We ordered it on Tuesday. IT has it now and it should ship to your desk today. If it hasn't arrived by 5pm, tap below and we'll nudge IT for you.",
-    bodyAr: "طلبناه يوم الثلاثاء. قسم تقنية المعلومات لديه الآن، ومن المفترض أن يصل إلى مكتبك اليوم. إن لم يصل بحلول الساعة الخامسة مساءً، اضغط أدناه وسنذكّر تقنية المعلومات نيابة عنك.",
+    bodyAr:
+      "طلبناه يوم الثلاثاء. قسم تقنية المعلومات لديه الآن، ومن المفترض أن يصل إلى مكتبك اليوم. إن لم يصل بحلول الساعة الخامسة مساءً، اضغط أدناه وسنذكّر تقنية المعلومات نيابة عنك.",
     action: { label: "See the request", labelAr: "اعرض الطلب", view: "requests" },
     createdAt: iso(-2),
     category: "request",
@@ -112,7 +102,8 @@ const BASE_NOTIFICATIONS: Notification[] = [
     title: "Fatima in HR claimed your case",
     titleAr: "تولّت فاطمة من الموارد البشرية قضيتك",
     body: "She's your named contact now. Expect a message from her today. You can see her details and reach out any time from your Me tab.",
-    bodyAr: "هي جهة اتصالك المسمّاة الآن. انتظر رسالة منها اليوم. يمكنك الاطلاع على تفاصيلها والتواصل معها في أي وقت من تبويب حسابي.",
+    bodyAr:
+      "هي جهة اتصالك المسمّاة الآن. انتظر رسالة منها اليوم. يمكنك الاطلاع على تفاصيلها والتواصل معها في أي وقت من تبويب حسابي.",
     action: { label: "See Fatima's details", labelAr: "تفاصيل فاطمة", view: "me" },
     createdAt: iso(-3),
     category: "hrbp",
@@ -125,7 +116,8 @@ const BASE_NOTIFICATIONS: Notification[] = [
     title: "Pulse check available — 2 questions, only if you want to",
     titleAr: "فحص النبض متاح — سؤالان، فقط إن رغبت",
     body: "A quick read on how your first week is going. Skipped answers are never held against you. Pulse stays off until you say yes.",
-    bodyAr: "قراءة سريعة لكيفية سير أسبوعك الأول. الإجابات المتخطّاة لا تُستخدم ضدّك أبداً. يبقى فحص النبض متوقّفاً حتى توافق.",
+    bodyAr:
+      "قراءة سريعة لكيفية سير أسبوعك الأول. الإجابات المتخطّاة لا تُستخدم ضدّك أبداً. يبقى فحص النبض متوقّفاً حتى توافق.",
     action: { label: "Open pulse check", labelAr: "افتح فحص النبض", view: "today" },
     createdAt: iso(-4),
     category: "pulse",
@@ -138,7 +130,8 @@ const BASE_NOTIFICATIONS: Notification[] = [
     title: "Buddy assignment pending HR",
     titleAr: "تعيين الرفيق معلّق لدى الموارد البشرية",
     body: "We asked HR to pair you with a buddy for your first month. This usually takes a day. You don't need to do anything — we'll let you know when it's done.",
-    bodyAr: "طلبنا من الموارد البشرية إقرانك برفيق خلال شهرك الأول. يستغرق هذا عادةً يوماً. لا تحتاج لفعل أي شيء — سنخبرك عند الانتهاء.",
+    bodyAr:
+      "طلبنا من الموارد البشرية إقرانك برفيق خلال شهرك الأول. يستغرق هذا عادةً يوماً. لا تحتاج لفعل أي شيء — سنخبرك عند الانتهاء.",
     action: { label: "See your journey", labelAr: "اعرض رحلتك", view: "journey" },
     createdAt: iso(-5),
     category: "journey",
@@ -164,7 +157,8 @@ const BASE_NOTIFICATIONS: Notification[] = [
     title: "Training booking opens once access is provisioned",
     titleAr: "يُفتح حجز التدريب بمجرد توفير الوصول",
     body: "You can't book safety training until IT finishes your system access. We're watching that for you and will ping you the moment it clears.",
-    bodyAr: "لا يمكنك حجز تدريب السلامة حتى يكمل تقنية المعلومات وصولك للأنظمة. نراقب ذلك من أجلك وسننبّهك فور اكتماله.",
+    bodyAr:
+      "لا يمكنك حجز تدريب السلامة حتى يكمل تقنية المعلومات وصولك للأنظمة. نراقب ذلك من أجلك وسننبّهك فور اكتماله.",
     action: { label: "See your journey", labelAr: "اعرض رحلتك", view: "journey" },
     createdAt: iso(-30),
     category: "journey",
@@ -190,7 +184,8 @@ const BASE_NOTIFICATIONS: Notification[] = [
     title: "Welcome to ASTROLABE — your journey companion",
     titleAr: "مرحباً بك في ASTROLABE — رفيق رحلتك",
     body: "We're here to help you find your next step, ask a policy question, or just see where you stand. Ask us anything — every answer cites its source.",
-    bodyAr: "نحن هنا لمساعدتك في إيجاد خطوتك التالية، أو طرح سؤال سياسات، أو رؤية أين تقف. اسألنا أي شيء — كل إجابة تستشهد بمصدرها.",
+    bodyAr:
+      "نحن هنا لمساعدتك في إيجاد خطوتك التالية، أو طرح سؤال سياسات، أو رؤية أين تقف. اسألنا أي شيء — كل إجابة تستشهد بمصدرها.",
     createdAt: iso(-240),
     readAt: iso(-239),
     archivedAt: iso(-100),
@@ -209,8 +204,66 @@ interface Mutation {
 const mutations = new Map<string, Mutation>();
 let killSwitchEnabled = false;
 
+/* ---------- server-emitted notifications (prototype only) ----------
+ * Anything the server decides the employee must be told — an escalation packet
+ * being created, a case moving to a backup owner — lands here, in the same store
+ * the inbox reads. A toast on a screen is not a notification: it disappears, it
+ * is not in the inbox, and nothing can prove it happened.
+ */
+const emitted: Notification[] = [];
+let emittedSeq = 0;
+
+export interface NewNotification {
+  employeeId: string;
+  type: NotificationType;
+  priority?: NotificationPriority;
+  category: NotificationCategory;
+  title: string;
+  titleAr: string;
+  body: string;
+  bodyAr: string;
+  action?: NotificationAction;
+  createdAt?: string;
+}
+
+/**
+ * Append one notification for an employee. Returns null (and files nothing) when
+ * the kill switch is on — the caller is expected to record that it was
+ * suppressed, not to pretend the employee was told.
+ */
+export function pushNotification(input: NewNotification): Notification | null {
+  if (killSwitchEnabled) return null;
+  emittedSeq += 1;
+  const notification: Notification = {
+    id: `N-EM-${input.employeeId}-${emittedSeq}`,
+    employeeId: input.employeeId,
+    type: input.type,
+    priority: input.priority ?? "normal",
+    title: input.title,
+    titleAr: input.titleAr,
+    body: input.body,
+    bodyAr: input.bodyAr,
+    action: input.action,
+    createdAt: input.createdAt ?? NOW.toISOString(),
+    category: input.category,
+  };
+  emitted.push(notification);
+  return notification;
+}
+
+/** Everything emitted by the server for an employee, newest first. */
+export function emittedNotifications(employeeId: string): Notification[] {
+  return emitted
+    .filter((n) => n.employeeId === employeeId)
+    .map((n) => {
+      const m = mutations.get(n.id);
+      return m ? { ...n, ...m } : n;
+    })
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
 export function getNotifications(employeeId: string): Notification[] {
-  return BASE_NOTIFICATIONS
+  return [...BASE_NOTIFICATIONS, ...emitted]
     .filter((n) => n.employeeId === employeeId)
     .map((n) => {
       const m = mutations.get(n.id);
@@ -236,9 +289,7 @@ export function markRead(id: string): string {
 
 export function snooze(id: string, hours: number): string {
   const at = NOW.toISOString();
-  const snoozedUntil = new Date(
-    NOW.getTime() + hours * 3600 * 1000
-  ).toISOString();
+  const snoozedUntil = new Date(NOW.getTime() + hours * 3600 * 1000).toISOString();
   const cur = mutations.get(id) ?? {};
   mutations.set(id, { ...cur, snoozedUntil });
   return at;

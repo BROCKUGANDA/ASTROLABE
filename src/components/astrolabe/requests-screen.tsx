@@ -49,11 +49,7 @@ import { useAppStore } from "@/lib/store/app-store";
 import { StatusChip, CitationChip } from "@/components/astrolabe/widgets";
 import { Tilt3D } from "@/components/astrolabe/micro-interactions";
 import { SlaRing } from "@/components/astrolabe/sla-ring";
-import {
-  INTAKE_SCHEMAS,
-  type IntakeSchema,
-  type IntakeField,
-} from "@/lib/actions/actions";
+import { INTAKE_SCHEMAS, type IntakeSchema, type IntakeField } from "@/lib/actions/actions";
 import type { RequestType } from "@/lib/data/pack";
 import { owners as ALL_OWNERS, getOwner, NOW as PACK_NOW } from "@/lib/data/pack";
 import { Input } from "@/components/ui/input";
@@ -67,12 +63,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -174,20 +165,29 @@ function computeBreach(
   return "none";
 }
 
-function namedAssignee(assigneeId: string): { name: string; role: string; email: string; group: string } | null {
+function namedAssignee(
+  assigneeId: string,
+): { name: string; role: string; email: string; group: string } | null {
   const o = getOwner(assigneeId);
   if (!o) return null;
   return { name: o.name, role: o.role, email: o.email, group: o.group };
 }
 
-function resolveOwnerForType(type: RequestType): { name: string; role: string; email: string; group: string } | null {
+function resolveOwnerForType(
+  type: RequestType,
+): { name: string; role: string; email: string; group: string } | null {
   const schema = INTAKE_SCHEMAS[type];
   const o = ALL_OWNERS.find((x) => x.group === schema.ownerGroup);
   if (!o) return null;
   return { name: o.name, role: o.role, email: o.email, group: o.group };
 }
 
-function parsePolicyRef(ref: string): { docSlug: string; title: string; section: string; effectiveDate: string } {
+function parsePolicyRef(ref: string): {
+  docSlug: string;
+  title: string;
+  section: string;
+  effectiveDate: string;
+} {
   const [docSlug, section] = ref.split("#");
   const titleMap: Record<string, string> = {
     "relocation-policy": "Relocation Policy",
@@ -295,7 +295,8 @@ export function RequestsScreen() {
           if (!field.prefillFrom) continue;
           if (field.prefillFrom === "employee.location") pre[field.key] = employee.location;
           else if (field.prefillFrom === "employee.stage") pre[field.key] = journeyStage;
-          else if (field.prefillFrom === "employee.startDate") pre[field.key] = employee.startDate.slice(0, 10);
+          else if (field.prefillFrom === "employee.startDate")
+            pre[field.key] = employee.startDate.slice(0, 10);
           else if (field.prefillFrom === "employee.role") pre[field.key] = employee.role;
         }
         setWizardPrefill(pre);
@@ -323,7 +324,8 @@ export function RequestsScreen() {
         if (!field.prefillFrom) continue;
         if (field.prefillFrom === "employee.location") pre[field.key] = employee.location;
         else if (field.prefillFrom === "employee.stage") pre[field.key] = journeyStage;
-        else if (field.prefillFrom === "employee.startDate") pre[field.key] = employee.startDate.slice(0, 10);
+        else if (field.prefillFrom === "employee.startDate")
+          pre[field.key] = employee.startDate.slice(0, 10);
         else if (field.prefillFrom === "employee.role") pre[field.key] = employee.role;
       }
     }
@@ -332,12 +334,9 @@ export function RequestsScreen() {
   };
 
   type SubmitResult =
-    | { ok: true; id: string; duplicate: boolean }
-    | { ok: false; code: string; message: string };
+    { ok: true; id: string; duplicate: boolean } | { ok: false; code: string; message: string };
 
-  const handleSubmit = async (
-    payload: Record<string, unknown>,
-  ): Promise<SubmitResult> => {
+  const handleSubmit = async (payload: Record<string, unknown>): Promise<SubmitResult> => {
     if (!wizardType) {
       return { ok: false, code: "E_NO_TYPE", message: "No request type selected" };
     }
@@ -428,10 +427,9 @@ export function RequestsScreen() {
             : "Sent back to IT — they'll pick it up now.",
         );
       } catch (err) {
-        toast.error(
-          locale === "ar" ? "تعذّر إعادة الإرسال" : "Couldn't resubmit",
-          { description: err instanceof Error ? err.message : "Network error" },
-        );
+        toast.error(locale === "ar" ? "تعذّر إعادة الإرسال" : "Couldn't resubmit", {
+          description: err instanceof Error ? err.message : "Network error",
+        });
       }
     },
     [fetchRequests, locale],
@@ -473,9 +471,7 @@ export function RequestsScreen() {
           }}
         >
           <Plus className="w-4 h-4" strokeWidth={2} />
-          <span className="hidden sm:inline">
-            {locale === "ar" ? "طلب جديد" : "New request"}
-          </span>
+          <span className="hidden sm:inline">{locale === "ar" ? "طلب جديد" : "New request"}</span>
           <span className="sm:hidden">{locale === "ar" ? "جديد" : "New"}</span>
         </button>
       </div>
@@ -519,16 +515,9 @@ export function RequestsScreen() {
           {loading ? (
             <RequestListSkeleton />
           ) : error ? (
-            <ErrorBanner
-              message={error}
-              onRetry={fetchRequests}
-              locale={locale}
-            />
+            <ErrorBanner message={error} onRetry={fetchRequests} locale={locale} />
           ) : requests.length === 0 ? (
-            <EmptyState
-              onPickType={handlePickType}
-              locale={locale}
-            />
+            <EmptyState onPickType={handlePickType} locale={locale} />
           ) : (
             <ul className="space-y-3">
               <AnimatePresence initial={false}>
@@ -537,9 +526,7 @@ export function RequestsScreen() {
                     key={req.id}
                     req={req}
                     expanded={expandedId === req.id}
-                    onToggle={() =>
-                      setExpandedId((cur) => (cur === req.id ? null : req.id))
-                    }
+                    onToggle={() => setExpandedId((cur) => (cur === req.id ? null : req.id))}
                     onResubmit={handleResubmit}
                     locale={locale}
                     index={i}
@@ -597,10 +584,7 @@ export function RequestsScreen() {
       <Dialog open={wizardOpen} onOpenChange={setWizardOpen}>
         <DialogContent className="lg:hidden max-w-[calc(100%-1rem)] p-4 sm:p-5">
           <DialogHeader>
-            <DialogTitle
-              className="text-[15px] font-semibold"
-              style={{ color: "var(--text-hi)" }}
-            >
+            <DialogTitle className="text-[15px] font-semibold" style={{ color: "var(--text-hi)" }}>
               {locale === "ar" ? "طلب جديد" : "New request"}
             </DialogTitle>
           </DialogHeader>
@@ -679,8 +663,7 @@ function ReturnQuestionBanner({
       className="overflow-hidden"
       style={{
         borderBottom: "1px solid var(--border-soft)",
-        background:
-          "linear-gradient(180deg, rgba(201,162,39,0.08) 0%, rgba(201,162,39,0.02) 100%)",
+        background: "linear-gradient(180deg, rgba(201,162,39,0.08) 0%, rgba(201,162,39,0.02) 100%)",
       }}
     >
       {/* Sand-gold accent strip — the "your next move" cue */}
@@ -760,10 +743,7 @@ function ReturnQuestionBanner({
         </div>
 
         {/* Plain-language explainer */}
-        <p
-          className="text-[12px] mt-3 leading-relaxed"
-          style={{ color: "var(--text-mid)" }}
-        >
+        <p className="text-[12px] mt-3 leading-relaxed" style={{ color: "var(--text-mid)" }}>
           {locale === "ar"
             ? `${first} من ${ownerGroupText} يحتاج هذا لإنهاء طلبك. إجابة سريعة واحدة ويعود في طريقه.`
             : `${first} from ${ownerGroupText} needs this to finish your request. One quick answer and it's back on its way.`}
@@ -793,11 +773,7 @@ function ReturnQuestionBanner({
                   onChange={(e) => setAnswer(e.target.value)}
                   rows={3}
                   autoFocus
-                  placeholder={
-                    locale === "ar"
-                      ? "اكتب الإجابة هنا…"
-                      : "Type your answer here…"
-                  }
+                  placeholder={locale === "ar" ? "اكتب الإجابة هنا…" : "Type your answer here…"}
                   className="ast-focus mt-1.5 text-[14px] leading-relaxed"
                   style={{
                     background: "var(--surface-2)",
@@ -839,8 +815,12 @@ function ReturnQuestionBanner({
                       <CornerUpLeft className="w-4 h-4" strokeWidth={1.75} />
                     )}
                     {submitting
-                      ? (locale === "ar" ? "جارٍ الإرسال…" : "Sending…")
-                      : (locale === "ar" ? "إعادة الإرسال" : "Resubmit")}
+                      ? locale === "ar"
+                        ? "جارٍ الإرسال…"
+                        : "Sending…"
+                      : locale === "ar"
+                        ? "إعادة الإرسال"
+                        : "Resubmit"}
                   </button>
                 </div>
               </div>
@@ -982,8 +962,7 @@ function RequestCard({
 
   // Status-based depth layering — different shadow + left border + glow per status
   const depth = getRequestDepth(req.status);
-  const composeShadow = (base: string) =>
-    depth.glow ? `${base}, ${depth.glow}` : base;
+  const composeShadow = (base: string) => (depth.glow ? `${base}, ${depth.glow}` : base);
   const defaultShadow = composeShadow(depth.shadow);
   const hoverShadow = composeShadow("var(--e3)");
   const finalShadow = hovered ? hoverShadow : defaultShadow;
@@ -1004,8 +983,7 @@ function RequestCard({
   // question, show the prominent "We need one more detail" banner ABOVE the
   // normal request details. Sand-gold accent — this is a "your next move"
   // trigger, NOT an error.
-  const showReturnQuestion =
-    req.status === "returned" && !!req.returnQuestion;
+  const showReturnQuestion = req.status === "returned" && !!req.returnQuestion;
 
   // Spring drop-in — stiffness 200 / damping 24, 40ms stagger capped at 8 (320ms)
   const entranceTransition = reduce
@@ -1030,8 +1008,7 @@ function RequestCard({
       {/* Hover-lift wrapper — 2px translateY on hover (180ms) */}
       <div
         style={{
-          transform:
-            hovered && !reduce ? "translateY(-2px)" : "translateY(0)",
+          transform: hovered && !reduce ? "translateY(-2px)" : "translateY(0)",
           transition: reduce ? "none" : "transform 180ms var(--ease-standard)",
         }}
       >
@@ -1121,10 +1098,7 @@ function RequestCard({
                         )}
                         {req.ref}
                       </button>
-                      <span
-                        className="text-[11px] tabular"
-                        style={{ color: "var(--text-lo)" }}
-                      >
+                      <span className="text-[11px] tabular" style={{ color: "var(--text-lo)" }}>
                         {locale === "ar"
                           ? `فُتح ${format(new Date(req.openedAt), "d MMM")}`
                           : `Opened ${format(new Date(req.openedAt), "d MMM")}`}
@@ -1273,10 +1247,7 @@ function RequestTimeline({ req, locale }: { req: ServiceRequest; locale: "en" | 
                 <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>
                   {locale === "ar" ? ev.labelAr : ev.labelEn}
                 </p>
-                <p
-                  className="text-[10px] tabular mt-0.5"
-                  style={{ color: "var(--text-lo)" }}
-                >
+                <p className="text-[10px] tabular mt-0.5" style={{ color: "var(--text-lo)" }}>
                   {format(new Date(ev.ts), "EEEE d MMM yyyy · HH:mm")}
                 </p>
               </div>
@@ -1391,9 +1362,7 @@ function StepIndicator({ step, locale }: { step: 0 | 1 | 2; locale: "en" | "ar" 
           initial={false}
           animate={{ width: `${progress * 66.66}%` }}
           transition={
-            reduce
-              ? { duration: 0 }
-              : { type: "spring" as const, stiffness: 200, damping: 24 }
+            reduce ? { duration: 0 } : { type: "spring" as const, stiffness: 200, damping: 24 }
           }
           aria-hidden="true"
         />
@@ -1523,7 +1492,9 @@ function Wizard({
   prefill: Record<string, string>;
   onStepChange: (s: 0 | 1 | 2) => void;
   onPickType: (t: RequestType) => void;
-  onSubmit: (payload: Record<string, unknown>) => Promise<{ ok: boolean; code?: string; message?: string; id?: string; duplicate?: boolean }>;
+  onSubmit: (
+    payload: Record<string, unknown>,
+  ) => Promise<{ ok: boolean; code?: string; message?: string; id?: string; duplicate?: boolean }>;
   onReset: () => void;
   locale: "en" | "ar";
   employeeId: string;
@@ -1606,9 +1577,7 @@ function Wizard({
     if (!schema) return;
     if (!validateAll()) {
       toast.error(
-        locale === "ar"
-          ? "يرجى تصحيح الحقول المطلوبة"
-          : "Please fix the required fields",
+        locale === "ar" ? "يرجى تصحيح الحقول المطلوبة" : "Please fix the required fields",
       );
       return;
     }
@@ -1706,10 +1675,7 @@ function Step1TypeGrid({
   const types = Object.values(INTAKE_SCHEMAS);
   return (
     <div>
-      <h2
-        className="text-[15px] font-semibold mb-1"
-        style={{ color: "var(--text-hi)" }}
-      >
+      <h2 className="text-[15px] font-semibold mb-1" style={{ color: "var(--text-hi)" }}>
         {locale === "ar" ? "ما نوع الطلب؟" : "What do you need?"}
       </h2>
       <p className="text-[12px] mb-4" style={{ color: "var(--text-mid)" }}>
@@ -1745,14 +1711,17 @@ function Step1TypeGrid({
                   {locale === "ar" ? schema.labelAr : schema.label}
                 </span>
               </div>
-              <div className="flex items-center gap-2 text-[10px] tabular" style={{ color: "var(--text-lo)" }}>
+              <div
+                className="flex items-center gap-2 text-[10px] tabular"
+                style={{ color: "var(--text-lo)" }}
+              >
                 <Clock className="w-3 h-3" strokeWidth={1.75} />
                 <span>
-                  {locale === "ar"
-                    ? `${schema.slaHours}س SLA`
-                    : `${schema.slaHours}h SLA`}
+                  {locale === "ar" ? `${schema.slaHours}س SLA` : `${schema.slaHours}h SLA`}
                 </span>
-                <span aria-hidden="true" className="opacity-50">·</span>
+                <span aria-hidden="true" className="opacity-50">
+                  ·
+                </span>
                 <span>
                   {ownerLabel
                     ? locale === "ar"
@@ -1897,7 +1866,8 @@ function FieldRow({
       {label}
       {field.required && (
         <span style={{ color: "var(--status-friction)" }} aria-hidden="true">
-          {" "}*
+          {" "}
+          *
         </span>
       )}
       {prefilled && (
@@ -1919,20 +1889,13 @@ function FieldRow({
   );
 
   const errorEl = error ? (
-    <p
-      className="text-[11px] mt-1"
-      style={{ color: "var(--status-friction)" }}
-      role="alert"
-    >
+    <p className="text-[11px] mt-1" style={{ color: "var(--status-friction)" }} role="alert">
       {error}
     </p>
   ) : null;
 
   const helpEl = help ? (
-    <p
-      className="text-[11px] mt-1"
-      style={{ color: "var(--text-lo)" }}
-    >
+    <p className="text-[11px] mt-1" style={{ color: "var(--text-lo)" }}>
       {help}
     </p>
   ) : null;
@@ -1993,10 +1956,7 @@ function FieldRow({
     }
     if (field.type === "select") {
       return (
-        <Select
-          value={(value as string) ?? ""}
-          onValueChange={(v) => onChange(v)}
-        >
+        <Select value={(value as string) ?? ""} onValueChange={(v) => onChange(v)}>
           <SelectTrigger
             id={`field-${field.key}`}
             className="ast-focus h-10 w-full bg-[var(--surface-2)]"
@@ -2028,13 +1988,7 @@ function FieldRow({
             onCheckedChange={(v) => onChange(!!v)}
           />
           <span className="text-[13px]">
-            {value
-              ? locale === "ar"
-                ? "نعم"
-                : "Yes"
-              : locale === "ar"
-                ? "لا"
-                : "No"}
+            {value ? (locale === "ar" ? "نعم" : "Yes") : locale === "ar" ? "لا" : "No"}
           </span>
         </label>
       );
@@ -2070,11 +2024,7 @@ function FieldRow({
         </>
       )}
       {field.type === "checkbox" && error && (
-        <p
-          className="text-[11px] mt-1"
-          style={{ color: "var(--status-friction)" }}
-          role="alert"
-        >
+        <p className="text-[11px] mt-1" style={{ color: "var(--status-friction)" }} role="alert">
           {error}
         </p>
       )}
@@ -2109,10 +2059,7 @@ function Step3Preview({
 
   return (
     <div>
-      <h2
-        className="text-[15px] font-semibold mb-1"
-        style={{ color: "var(--text-hi)" }}
-      >
+      <h2 className="text-[15px] font-semibold mb-1" style={{ color: "var(--text-hi)" }}>
         {locale === "ar" ? "معاينة الإرسال" : "Preview before sending"}
       </h2>
       <p className="text-[12px] mb-4" style={{ color: "var(--text-mid)" }}>
@@ -2123,10 +2070,7 @@ function Step3Preview({
 
       {/* Recipient */}
       {owner && (
-        <div
-          className="ast-card-2 p-3 mb-3"
-          style={{ borderColor: "rgba(22,154,165,0.30)" }}
-        >
+        <div className="ast-card-2 p-3 mb-3" style={{ borderColor: "rgba(22,154,165,0.30)" }}>
           <p
             className="text-[10px] font-semibold uppercase tracking-[0.12em] mb-1.5"
             style={{ color: "var(--text-lo)" }}
@@ -2151,19 +2095,16 @@ function Step3Preview({
               >
                 {owner.name}
               </p>
-              <p
-                className="text-[12px] truncate"
-                style={{ color: "var(--text-mid)" }}
-              >
+              <p className="text-[12px] truncate" style={{ color: "var(--text-mid)" }}>
                 {owner.role}
-                <span className="opacity-60"> · {OWNER_GROUP_LABEL[owner.group]?.[locale === "ar" ? "ar" : "en"] ?? owner.group}</span>
+                <span className="opacity-60">
+                  {" "}
+                  · {OWNER_GROUP_LABEL[owner.group]?.[locale === "ar" ? "ar" : "en"] ?? owner.group}
+                </span>
               </p>
             </div>
           </div>
-          <p
-            className="text-[11px] mt-2 tabular"
-            style={{ color: "var(--text-lo)" }}
-          >
+          <p className="text-[11px] mt-2 tabular" style={{ color: "var(--text-lo)" }}>
             {locale === "ar"
               ? `متوقع بحلول ${format(expectedBy, "EEEE d MMM")}`
               : `Expected by ${format(expectedBy, "EEEE d MMM")}`}
@@ -2193,10 +2134,7 @@ function Step3Preview({
                     : "No"
                 : (v as string) || "—";
             return (
-              <div
-                key={field.key}
-                className="flex items-start justify-between gap-3 text-[12px]"
-              >
+              <div key={field.key} className="flex items-start justify-between gap-3 text-[12px]">
                 <dt style={{ color: "var(--text-mid)" }} className="shrink-0">
                   {locale === "ar" ? field.labelAr : field.label}
                 </dt>
@@ -2320,18 +2258,10 @@ function EmptyState({
       >
         <Inbox className="w-6 h-6" strokeWidth={1.75} />
       </div>
-      <h2
-        className="text-[16px] font-semibold mb-1"
-        style={{ color: "var(--text-hi)" }}
-      >
-        {locale === "ar"
-          ? "لا طلبات مفتوحة."
-          : "No open requests."}
+      <h2 className="text-[16px] font-semibold mb-1" style={{ color: "var(--text-hi)" }}>
+        {locale === "ar" ? "لا طلبات مفتوحة." : "No open requests."}
       </h2>
-      <p
-        className="text-[13px] mb-4 max-w-[400px] mx-auto"
-        style={{ color: "var(--text-mid)" }}
-      >
+      <p className="text-[13px] mb-4 max-w-[400px] mx-auto" style={{ color: "var(--text-mid)" }}>
         {locale === "ar"
           ? "إليك ما يحتاجه الناس عادةً في اليوم الخامس."
           : "Here is what people usually need on day 5."}
@@ -2347,10 +2277,7 @@ function EmptyState({
               className="ast-focus ast-card-2 inline-flex items-center gap-2 h-10 px-3 transition-all hover:-translate-y-0.5 hover:border-[var(--brand-500)]"
             >
               <Icon className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
-              <span
-                className="text-[12px] font-medium"
-                style={{ color: "var(--text-hi)" }}
-              >
+              <span className="text-[12px] font-medium" style={{ color: "var(--text-hi)" }}>
                 {locale === "ar" ? schema.labelAr : schema.label}
               </span>
             </button>
@@ -2397,13 +2324,8 @@ function ErrorBanner({
         <AlertTriangle className="w-5 h-5" strokeWidth={1.75} />
       </div>
       <div className="flex-1 min-w-0">
-        <p
-          className="text-[14px] font-medium"
-          style={{ color: "var(--text-hi)" }}
-        >
-          {locale === "ar"
-            ? "تعذّر تحميل طلباتك."
-            : "Couldn't load your requests."}
+        <p className="text-[14px] font-medium" style={{ color: "var(--text-hi)" }}>
+          {locale === "ar" ? "تعذّر تحميل طلباتك." : "Couldn't load your requests."}
         </p>
         <p className="text-[12px] mt-1" style={{ color: "var(--text-mid)" }}>
           {message}

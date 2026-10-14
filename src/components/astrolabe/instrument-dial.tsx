@@ -30,8 +30,7 @@ export function ScanLineOverlay({ opacity = 0.025 }: { opacity?: number }) {
       <motion.div
         className="absolute left-0 right-0 h-[60px]"
         style={{
-          background:
-            "linear-gradient(180deg, transparent, rgba(22,154,165,0.08), transparent)",
+          background: "linear-gradient(180deg, transparent, rgba(22,154,165,0.08), transparent)",
         }}
         initial={{ top: "-60px" }}
         animate={{ top: "100%" }}
@@ -109,7 +108,11 @@ export function InstrumentDial({
   const arcPath = `M ${cx + radius * Math.cos(arcStartRad)} ${cy + radius * Math.sin(arcStartRad)} A ${radius} ${radius} 0 ${largeArc} 1 ${cx + radius * Math.cos(arcRad)} ${cy + radius * Math.sin(arcRad)}`;
 
   return (
-    <div className="relative" style={{ width: size, height: size }} aria-label={`Band: ${band}, score: ${score}`}>
+    <div
+      className="relative"
+      style={{ width: size, height: size }}
+      aria-label={`Band: ${band}, score: ${score}`}
+    >
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <defs>
           <filter id={`glow-${band}`}>
@@ -132,8 +135,22 @@ export function InstrumentDial({
         />
 
         {/* Inner concentric rings */}
-        <circle cx={cx} cy={cy} r={radius - 14} fill="none" stroke="rgba(22,154,165,0.08)" strokeWidth="1" />
-        <circle cx={cx} cy={cy} r={radius - 24} fill="none" stroke="rgba(22,154,165,0.06)" strokeWidth="1" />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={radius - 14}
+          fill="none"
+          stroke="rgba(22,154,165,0.08)"
+          strokeWidth="1"
+        />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={radius - 24}
+          fill="none"
+          stroke="rgba(22,154,165,0.06)"
+          strokeWidth="1"
+        />
 
         {/* Background track arc */}
         <path

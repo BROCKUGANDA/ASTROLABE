@@ -89,16 +89,14 @@ export function VerdictCard({
   // Top 3 signals by weight (stable when weights tie — preserves API order)
   const topSignals = [...signals]
     .map((s, i) => ({ ...s, _i: i }))
-    .sort((a, b) => (b.weight - a.weight) || (a._i - b._i))
+    .sort((a, b) => b.weight - a.weight || a._i - b._i)
     .slice(0, 3);
 
   const isBlocked = band === "blocked";
   const hasSuppressed = suppressedFamilies.length > 0;
 
   // Sand-gold accent ring for Blocked — the "your next move" trigger
-  const boxShadow = isBlocked
-    ? "0 0 0 1px var(--accent-500), var(--e3)"
-    : "var(--e2)";
+  const boxShadow = isBlocked ? "0 0 0 1px var(--accent-500), var(--e3)" : "var(--e2)";
 
   return (
     <motion.section
@@ -151,22 +149,14 @@ export function VerdictCard({
             </span>
           </div>
 
-          <p
-            className="text-[14px] leading-relaxed"
-            style={{ color: "var(--text-mid)" }}
-          >
+          <p className="text-[14px] leading-relaxed" style={{ color: "var(--text-mid)" }}>
             {summary}
           </p>
 
           {topSignals.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 mt-1">
               {topSignals.map((s) => (
-                <SignalBadge
-                  key={s.code}
-                  code={s.code}
-                  weight={s.weight}
-                  hardTrip={s.hardTrip}
-                />
+                <SignalBadge key={s.code} code={s.code} weight={s.weight} hardTrip={s.hardTrip} />
               ))}
             </div>
           )}
@@ -190,10 +180,7 @@ export function VerdictCard({
           )}
 
           {hasSuppressed && (
-            <p
-              className="text-[11px] leading-relaxed mt-1"
-              style={{ color: "var(--text-lo)" }}
-            >
+            <p className="text-[11px] leading-relaxed mt-1" style={{ color: "var(--text-lo)" }}>
               {isAr
                 ? "إشارات النبض متوقّفة، لذا تعتمد هذه الواجهة على بيانات الرحلة والطلبات فقط."
                 : "Pulse signals are off, so this view uses journey and request data only."}

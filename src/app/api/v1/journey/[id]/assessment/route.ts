@@ -11,10 +11,7 @@ import { assess, trace } from "@/lib/engine/engine";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const start = Date.now();
   const { id } = await params;
   const asOfParam = req.nextUrl.searchParams.get("asOf");
@@ -40,6 +37,6 @@ export async function GET(
       servedFrom: "deterministic",
       asOf: asOf.toISOString(),
       latencyMs: Date.now() - start,
-    }
+    },
   );
 }

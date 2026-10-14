@@ -46,11 +46,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { PilotPlanPage } from "@/components/astrolabe/pilot-plan-page";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import {
-  NumberTicker,
-  Tilt3D,
-  RevealOnScroll,
-} from "@/components/astrolabe/micro-interactions";
+import { NumberTicker, Tilt3D, RevealOnScroll } from "@/components/astrolabe/micro-interactions";
 import { ScanLineOverlay } from "@/components/astrolabe/instrument-dial";
 
 /* ---------- Types ---------- */
@@ -60,7 +56,15 @@ interface Assessment {
   asOf: string;
   band: BandT;
   score: number;
-  signals: { code: string; family: string; weight: number; description: string; evidenceRefs: string[]; hardTrip?: boolean; forceBlocked?: boolean }[];
+  signals: {
+    code: string;
+    family: string;
+    weight: number;
+    description: string;
+    evidenceRefs: string[];
+    hardTrip?: boolean;
+    forceBlocked?: boolean;
+  }[];
   suppressedFamilies: string[];
   stage: string;
   dayInStage: number;
@@ -107,7 +111,15 @@ const INGESTION_SPARKLINES: number[][] = [
 /** 7-bar synthetic daily load counts for the load-trend chart. */
 const LOAD_TREND: number[] = [8, 12, 6, 15, 10, 14, 47];
 const LOAD_TREND_DAYS: string[] = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
-const LOAD_TREND_DAYS_AR: string[] = ["السبت", "الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"];
+const LOAD_TREND_DAYS_AR: string[] = [
+  "السبت",
+  "الأحد",
+  "الإثنين",
+  "الثلاثاء",
+  "الأربعاء",
+  "الخميس",
+  "الجمعة",
+];
 
 interface CorpusDoc {
   slug: string;
@@ -138,14 +150,70 @@ interface FeatureFlag {
   defaultOn: boolean;
 }
 const FEATURE_FLAGS: FeatureFlag[] = [
-  { key: "ai_compose", label: "AI Compose", labelAr: "تأليف الذكاء", description: "Policy answer composition via model", descriptionAr: "تأليف إجابات السياسة عبر النموذج", defaultOn: true },
-  { key: "semantic_cache", label: "Semantic cache", labelAr: "ذاكرة دلالية", description: "Semantic answer cache", descriptionAr: "ذاكرة الإجابات الدلالية", defaultOn: true },
-  { key: "pulse_capture", label: "Pulse capture", labelAr: "التقاط النبضة", description: "Opt-in pulse prompts", descriptionAr: "مطالبات النبضة الاختيارية", defaultOn: true },
-  { key: "auto_draft_escalation", label: "Auto-draft escalation", labelAr: "تصعيد تلقائي", description: "Auto-draft escalation packets", descriptionAr: "صياغة حزم التصعيد تلقائياً", defaultOn: true },
-  { key: "manager_view", label: "Manager view", labelAr: "رؤية المدير", description: "Manager aggregate view", descriptionAr: "رؤية المدير المجمّعة", defaultOn: true },
-  { key: "analytics_rollup", label: "Analytics rollup", labelAr: "تجميع التحليلات", description: "Cohort analytics rollups", descriptionAr: "تجميعات تحليل الفئات", defaultOn: true },
-  { key: "arabic_locale", label: "Arabic locale", labelAr: "اللغة العربية", description: "Arabic UI + citations", descriptionAr: "واجهة وإشارات عربية", defaultOn: true },
-  { key: "judge_mode", label: "Judge mode", labelAr: "وضع القاضي", description: "Judge mode scenario switcher", descriptionAr: "مبدّل سيناريوهات وضع القاضي", defaultOn: true },
+  {
+    key: "ai_compose",
+    label: "AI Compose",
+    labelAr: "تأليف الذكاء",
+    description: "Policy answer composition via model",
+    descriptionAr: "تأليف إجابات السياسة عبر النموذج",
+    defaultOn: true,
+  },
+  {
+    key: "semantic_cache",
+    label: "Semantic cache",
+    labelAr: "ذاكرة دلالية",
+    description: "Semantic answer cache",
+    descriptionAr: "ذاكرة الإجابات الدلالية",
+    defaultOn: true,
+  },
+  {
+    key: "pulse_capture",
+    label: "Pulse capture",
+    labelAr: "التقاط النبضة",
+    description: "Opt-in pulse prompts",
+    descriptionAr: "مطالبات النبضة الاختيارية",
+    defaultOn: true,
+  },
+  {
+    key: "auto_draft_escalation",
+    label: "Auto-draft escalation",
+    labelAr: "تصعيد تلقائي",
+    description: "Auto-draft escalation packets",
+    descriptionAr: "صياغة حزم التصعيد تلقائياً",
+    defaultOn: true,
+  },
+  {
+    key: "manager_view",
+    label: "Manager view",
+    labelAr: "رؤية المدير",
+    description: "Manager aggregate view",
+    descriptionAr: "رؤية المدير المجمّعة",
+    defaultOn: true,
+  },
+  {
+    key: "analytics_rollup",
+    label: "Analytics rollup",
+    labelAr: "تجميع التحليلات",
+    description: "Cohort analytics rollups",
+    descriptionAr: "تجميعات تحليل الفئات",
+    defaultOn: true,
+  },
+  {
+    key: "arabic_locale",
+    label: "Arabic locale",
+    labelAr: "اللغة العربية",
+    description: "Arabic UI + citations",
+    descriptionAr: "واجهة وإشارات عربية",
+    defaultOn: true,
+  },
+  {
+    key: "judge_mode",
+    label: "Judge mode",
+    labelAr: "وضع القاضي",
+    description: "Judge mode scenario switcher",
+    descriptionAr: "مبدّل سيناريوهات وضع القاضي",
+    defaultOn: true,
+  },
 ];
 
 interface AuditEventRow {
@@ -159,11 +227,56 @@ interface AuditEventRow {
   at: string;
 }
 const AUDIT_EVENTS: AuditEventRow[] = [
-  { id: "ae-001", actor: "system", action: "ingestion", subject: "pack", subjectId: "synthetic-2024-q4-v1", hash: "0xabc4129f7e8d2c1b", prevHash: "0x0000000000000000", at: "2024-10-19T10:00:00Z" },
-  { id: "ae-002", actor: "Fatima Al-Mansouri", action: "read_record", subject: "employee", subjectId: "E-1042", hash: "0xdef8734ab201f55c", prevHash: "0xabc4129f7e8d2c1b", at: "2024-10-19T10:42:11Z" },
-  { id: "ae-003", actor: "system", action: "assess", subject: "employee", subjectId: "E-1043", hash: "0x1237c9e4a1b8d2f0", prevHash: "0xdef8734ab201f55c", at: "2024-10-19T11:08:43Z" },
-  { id: "ae-004", actor: "Maria Santos", action: "consent", subject: "consent", subjectId: "CN-001", hash: "0x456b1d8ace2f7741", prevHash: "0x1237c9e4a1b8d2f0", at: "2024-10-19T13:59:02Z" },
-  { id: "ae-005", actor: "system", action: "escalation", subject: "escalation", subjectId: "ESC-2024-038", hash: "0x789f0a2c4e1b9d33", prevHash: "0x456b1d8ace2f7741", at: "2024-10-19T14:14:55Z" },
+  {
+    id: "ae-001",
+    actor: "system",
+    action: "ingestion",
+    subject: "pack",
+    subjectId: "synthetic-2024-q4-v1",
+    hash: "0xabc4129f7e8d2c1b",
+    prevHash: "0x0000000000000000",
+    at: "2024-10-19T10:00:00Z",
+  },
+  {
+    id: "ae-002",
+    actor: "Fatima Al-Mansouri",
+    action: "read_record",
+    subject: "employee",
+    subjectId: "E-1042",
+    hash: "0xdef8734ab201f55c",
+    prevHash: "0xabc4129f7e8d2c1b",
+    at: "2024-10-19T10:42:11Z",
+  },
+  {
+    id: "ae-003",
+    actor: "system",
+    action: "assess",
+    subject: "employee",
+    subjectId: "E-1043",
+    hash: "0x1237c9e4a1b8d2f0",
+    prevHash: "0xdef8734ab201f55c",
+    at: "2024-10-19T11:08:43Z",
+  },
+  {
+    id: "ae-004",
+    actor: "Maria Santos",
+    action: "consent",
+    subject: "consent",
+    subjectId: "CN-001",
+    hash: "0x456b1d8ace2f7741",
+    prevHash: "0x1237c9e4a1b8d2f0",
+    at: "2024-10-19T13:59:02Z",
+  },
+  {
+    id: "ae-005",
+    actor: "system",
+    action: "escalation",
+    subject: "escalation",
+    subjectId: "ESC-2024-038",
+    hash: "0x789f0a2c4e1b9d33",
+    prevHash: "0x456b1d8ace2f7741",
+    at: "2024-10-19T14:14:55Z",
+  },
 ];
 
 interface HealthDependency {
@@ -181,7 +294,14 @@ interface HealthEndpoint {
   dependencies?: HealthDependency[];
 }
 const HEALTH_ENDPOINTS: HealthEndpoint[] = [
-  { path: "GET /healthz", status: 200, body: "ok", label: "Liveness", labelAr: "الحيوية", latencyMs: 8 },
+  {
+    path: "GET /healthz",
+    status: 200,
+    body: "ok",
+    label: "Liveness",
+    labelAr: "الحيوية",
+    latencyMs: 8,
+  },
   {
     path: "GET /readyz",
     status: 200,
@@ -196,7 +316,14 @@ const HEALTH_ENDPOINTS: HealthEndpoint[] = [
       { key: "map", label: "Map", labelAr: "الخريطة" },
     ],
   },
-  { path: "GET /version", status: 200, body: "v1.0.0", label: "Version", labelAr: "الإصدار", latencyMs: 5 },
+  {
+    path: "GET /version",
+    status: 200,
+    body: "v1.0.0",
+    label: "Version",
+    labelAr: "الإصدار",
+    latencyMs: 5,
+  },
 ];
 
 const ALL_EMPLOYEE_IDS = ["E-1042", "E-1043", "E-1044", "E-1045", "E-1046"];
@@ -339,9 +466,7 @@ function applyTamper(type: TamperType): { chain: AuditEventRow[]; tamperedIds: s
 /* ---------- Skeletons ---------- */
 
 function CardSkeleton() {
-  return (
-    <div className="ast-card p-6 h-40 ast-shimmer rounded-[14px]" aria-hidden="true" />
-  );
+  return <div className="ast-card p-6 h-40 ast-shimmer rounded-[14px]" aria-hidden="true" />;
 }
 
 function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
@@ -361,12 +486,18 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
         <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
           Replay couldn&apos;t run.
         </p>
-        <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>{message}</p>
+        <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+          {message}
+        </p>
       </div>
       <button
         onClick={onRetry}
         className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium shrink-0"
-        style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+        style={{
+          background: "var(--surface-2)",
+          border: "1px solid var(--border)",
+          color: "var(--text-hi)",
+        }}
       >
         <RotateCcw className="w-4 h-4" strokeWidth={1.75} />
         Retry
@@ -484,10 +615,7 @@ function LoadTrendChart() {
   const total = LOAD_TREND.reduce((a, b) => a + b, 0);
   return (
     <RevealOnScroll index={0}>
-      <div
-        className="mt-4 pt-4"
-        style={{ borderTop: "1px solid var(--border-soft)" }}
-      >
+      <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--border-soft)" }}>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <span
             className="text-[10px] uppercase tracking-[0.12em]"
@@ -508,10 +636,7 @@ function LoadTrendChart() {
             const h = (v / max) * 100;
             const isPeak = v === max;
             return (
-              <div
-                key={i}
-                className="flex-1 flex flex-col items-center gap-1.5 min-w-0 h-full"
-              >
+              <div key={i} className="flex-1 flex flex-col items-center gap-1.5 min-w-0 h-full">
                 <div className="relative w-full flex-1 flex items-end">
                   <motion.div
                     className="w-full rounded-t-[3px] relative"
@@ -540,10 +665,7 @@ function LoadTrendChart() {
                     </span>
                   </motion.div>
                 </div>
-                <span
-                  className="text-[9px] font-mono tabular"
-                  style={{ color: "var(--text-lo)" }}
-                >
+                <span className="text-[9px] font-mono tabular" style={{ color: "var(--text-lo)" }}>
                   {locale === "ar" ? LOAD_TREND_DAYS_AR[i] : LOAD_TREND_DAYS[i]}
                 </span>
               </div>
@@ -583,7 +705,12 @@ function CoverageMeter({
     dim?: boolean;
   }> = [
     { color: "var(--brand-500)", label: "EN-only", labelAr: "إنجليزي فقط", count: enOnly },
-    { color: "var(--accent-500)", label: "EN/AR paired", labelAr: "أزواج ثنائية", count: bilingual },
+    {
+      color: "var(--accent-500)",
+      label: "EN/AR paired",
+      labelAr: "أزواج ثنائية",
+      count: bilingual,
+    },
     { color: "var(--text-lo)", label: "AR-only", labelAr: "عربي فقط", count: arOnly, dim: true },
   ];
   return (
@@ -622,9 +749,7 @@ function CoverageMeter({
         >
           <div style={{ width: `${enOnlyPct}%`, background: "var(--brand-500)" }} />
           <div style={{ width: `${bilingualPct}%`, background: "var(--accent-500)" }} />
-          <div
-            style={{ width: `${arOnlyPct}%`, background: "var(--text-lo)", opacity: 0.35 }}
-          />
+          <div style={{ width: `${arOnlyPct}%`, background: "var(--text-lo)", opacity: 0.35 }} />
         </motion.div>
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3">
@@ -671,9 +796,7 @@ function CoverageMeter({
             style={{ color: "var(--text-lo)" }}
             dir="ltr"
           >
-            {locale === "ar"
-              ? `(${bilingual} من ${total})`
-              : `(${bilingual} of ${total})`}
+            {locale === "ar" ? `(${bilingual} من ${total})` : `(${bilingual} of ${total})`}
           </span>
         </div>
       </div>
@@ -706,10 +829,7 @@ function IngestionStatTile({
         delay: reduce ? 0 : index * 0.04,
       }}
     >
-      <p
-        className="text-[10px] uppercase tracking-[0.12em]"
-        style={{ color: "var(--text-lo)" }}
-      >
+      <p className="text-[10px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
         {locale === "ar" ? row.labelAr : row.label}
       </p>
       <p
@@ -772,7 +892,13 @@ function FeatureFlagRow({
                   aria-hidden="true"
                 />
               )}
-              <span className="font-mono text-[12px] tabular" style={{ color: "var(--text-hi)" }} dir="ltr">{flag.key}</span>
+              <span
+                className="font-mono text-[12px] tabular"
+                style={{ color: "var(--text-hi)" }}
+                dir="ltr"
+              >
+                {flag.key}
+              </span>
               <span
                 className="ast-chip text-[10px]"
                 style={{
@@ -781,7 +907,7 @@ function FeatureFlagRow({
                   borderColor: isOn ? "rgba(14,159,110,0.30)" : "var(--border)",
                 }}
               >
-                {isOn ? (locale === "ar" ? "مفعّل" : "ON") : (locale === "ar" ? "معطّل" : "OFF")}
+                {isOn ? (locale === "ar" ? "مفعّل" : "ON") : locale === "ar" ? "معطّل" : "OFF"}
               </span>
             </div>
             <p className="text-[12px] mt-0.5" style={{ color: "var(--text-mid)" }}>
@@ -827,10 +953,12 @@ function IngestionReportCard() {
     setReingesting(true);
     setTimeout(() => {
       setReingesting(false);
-      toast.success(
-        locale === "ar" ? "أُعيد تحميل الحزمة" : "Pack re-ingested",
-        { description: locale === "ar" ? `${PACK_VERSION} · ${INGESTION_TOTAL} صفاً (بدون تكرار)` : `${PACK_VERSION} · ${INGESTION_TOTAL} rows validated (no duplicates)` }
-      );
+      toast.success(locale === "ar" ? "أُعيد تحميل الحزمة" : "Pack re-ingested", {
+        description:
+          locale === "ar"
+            ? `${PACK_VERSION} · ${INGESTION_TOTAL} صفاً (بدون تكرار)`
+            : `${PACK_VERSION} · ${INGESTION_TOTAL} rows validated (no duplicates)`,
+      });
     }, 850);
   };
 
@@ -848,7 +976,11 @@ function IngestionReportCard() {
             <h2 className="text-[16px] font-semibold" style={{ color: "var(--text-hi)" }}>
               {locale === "ar" ? "تقرير الابتلاع" : "Ingestion report"}
             </h2>
-            <p className="text-[11px] font-mono tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+            <p
+              className="text-[11px] font-mono tabular"
+              style={{ color: "var(--text-lo)" }}
+              dir="ltr"
+            >
               {PACK_VERSION}
             </p>
           </div>
@@ -884,17 +1016,26 @@ function IngestionReportCard() {
         ))}
       </div>
 
-      <div className="flex items-center justify-between flex-wrap gap-3 pt-3" style={{ borderTop: "1px solid var(--border-soft)" }}>
+      <div
+        className="flex items-center justify-between flex-wrap gap-3 pt-3"
+        style={{ borderTop: "1px solid var(--border-soft)" }}
+      >
         <div className="flex items-center gap-2">
           <span className="ast-dot ast-dot-steady" aria-hidden="true" />
           <span className="text-[12px]" style={{ color: "var(--text-mid)" }}>
-            {locale === "ar"
-              ? "الصفوف في الحجر الصحي"
-              : "Quarantined rows"}
+            {locale === "ar" ? "الصفوف في الحجر الصحي" : "Quarantined rows"}
           </span>
-          <span className="text-[12px] font-mono tabular" style={{ color: "var(--status-steady)" }} dir="ltr">0</span>
+          <span
+            className="text-[12px] font-mono tabular"
+            style={{ color: "var(--status-steady)" }}
+            dir="ltr"
+          >
+            0
+          </span>
           <span className="text-[11px]" style={{ color: "var(--text-lo)" }}>
-            {locale === "ar" ? `· جميع ${INGESTION_TOTAL} صفاً اجتازت التحقق` : `· all ${INGESTION_TOTAL} rows passed validation`}
+            {locale === "ar"
+              ? `· جميع ${INGESTION_TOTAL} صفاً اجتازت التحقق`
+              : `· all ${INGESTION_TOTAL} rows passed validation`}
           </span>
         </div>
         <p className="text-[11px] font-mono tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
@@ -938,16 +1079,28 @@ function QuarantineTable() {
         <table className="w-full text-[12px]">
           <thead>
             <tr style={{ borderBottom: "1px solid var(--border)" }}>
-              <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>
+              <th
+                className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium"
+                style={{ color: "var(--text-lo)" }}
+              >
                 {locale === "ar" ? "الصف" : "Row"}
               </th>
-              <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>
+              <th
+                className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium"
+                style={{ color: "var(--text-lo)" }}
+              >
                 {locale === "ar" ? "السبب" : "Reason"}
               </th>
-              <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium hidden sm:table-cell" style={{ color: "var(--text-lo)" }}>
+              <th
+                className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium hidden sm:table-cell"
+                style={{ color: "var(--text-lo)" }}
+              >
                 {locale === "ar" ? "التفاصيل" : "Detail"}
               </th>
-              <th className="text-right p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>
+              <th
+                className="text-right p-2 text-[10px] uppercase tracking-[0.1em] font-medium"
+                style={{ color: "var(--text-lo)" }}
+              >
                 {locale === "ar" ? "الحالة" : "Status"}
               </th>
             </tr>
@@ -956,9 +1109,18 @@ function QuarantineTable() {
             {/* Empty-state row */}
             <tr>
               <td colSpan={4} className="p-6 text-center">
-                <div className="inline-flex items-center gap-2 text-[12px]" style={{ color: "var(--text-lo)" }}>
-                  <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2} style={{ color: "var(--status-steady)" }} />
-                  {locale === "ar" ? "الحجر الصحي فارغ — كل شيء سليم" : "Quarantine empty — all clear"}
+                <div
+                  className="inline-flex items-center gap-2 text-[12px]"
+                  style={{ color: "var(--text-lo)" }}
+                >
+                  <CheckCircle2
+                    className="w-3.5 h-3.5"
+                    strokeWidth={2}
+                    style={{ color: "var(--status-steady)" }}
+                  />
+                  {locale === "ar"
+                    ? "الحجر الصحي فارغ — كل شيء سليم"
+                    : "Quarantine empty — all clear"}
                 </div>
               </td>
             </tr>
@@ -967,17 +1129,29 @@ function QuarantineTable() {
               style={{ borderBottom: "1px solid var(--border-soft)", opacity: 0.55 }}
               aria-label="Sample quarantined row demonstration"
             >
-              <td className="p-2 font-mono tabular" style={{ color: "var(--text-mid)" }} dir="ltr">Row 48</td>
+              <td className="p-2 font-mono tabular" style={{ color: "var(--text-mid)" }} dir="ltr">
+                Row 48
+              </td>
               <td className="p-2">
-                <span className="ast-chip font-mono text-[10px]" style={{ color: "var(--status-watch)" }}>
+                <span
+                  className="ast-chip font-mono text-[10px]"
+                  style={{ color: "var(--status-watch)" }}
+                >
                   E_VALIDATION
                 </span>
               </td>
-              <td className="p-2 hidden sm:table-cell" style={{ color: "var(--text-lo)" }} dir="ltr">
+              <td
+                className="p-2 hidden sm:table-cell"
+                style={{ color: "var(--text-lo)" }}
+                dir="ltr"
+              >
                 missing <code className="font-mono">employeeId</code> → quarantined
               </td>
               <td className="p-2 text-right">
-                <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: "var(--status-watch)" }}>
+                <span
+                  className="inline-flex items-center gap-1.5 text-[11px]"
+                  style={{ color: "var(--status-watch)" }}
+                >
                   <span className="ast-dot ast-dot-watch" aria-hidden="true" />
                   {locale === "ar" ? "محجوز" : "quarantined"}
                 </span>
@@ -1001,10 +1175,9 @@ function CorpusVersionCard() {
     setReindexing(true);
     setTimeout(() => {
       setReindexing(false);
-      toast.success(
-        locale === "ar" ? "أُعيدت فهرسة النصوص" : "Corpus re-indexed",
-        { description: `${CORPUS_VERSION} · ${CORPUS_CHUNKS} chunks · ${CORPUS_DOCS.length} docs` }
-      );
+      toast.success(locale === "ar" ? "أُعيدت فهرسة النصوص" : "Corpus re-indexed", {
+        description: `${CORPUS_VERSION} · ${CORPUS_CHUNKS} chunks · ${CORPUS_DOCS.length} docs`,
+      });
     }, 900);
   };
 
@@ -1022,7 +1195,11 @@ function CorpusVersionCard() {
             <h2 className="text-[16px] font-semibold" style={{ color: "var(--text-hi)" }}>
               {locale === "ar" ? "إصدار النصوص" : "Corpus version"}
             </h2>
-            <p className="text-[11px] font-mono tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+            <p
+              className="text-[11px] font-mono tabular"
+              style={{ color: "var(--text-lo)" }}
+              dir="ltr"
+            >
               {CORPUS_VERSION}
             </p>
           </div>
@@ -1048,38 +1225,70 @@ function CorpusVersionCard() {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
         <div className="ast-card-2 p-3">
-          <p className="text-[10px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+          <p
+            className="text-[10px] uppercase tracking-[0.12em]"
+            style={{ color: "var(--text-lo)" }}
+          >
             {locale === "ar" ? "المستندات" : "Documents"}
           </p>
-          <p className="text-[22px] font-semibold tabular mt-1" style={{ color: "var(--text-hi)" }} dir="ltr">{CORPUS_DOCS.length}</p>
+          <p
+            className="text-[22px] font-semibold tabular mt-1"
+            style={{ color: "var(--text-hi)" }}
+            dir="ltr"
+          >
+            {CORPUS_DOCS.length}
+          </p>
         </div>
         <div className="ast-card-2 p-3">
-          <p className="text-[10px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+          <p
+            className="text-[10px] uppercase tracking-[0.12em]"
+            style={{ color: "var(--text-lo)" }}
+          >
             {locale === "ar" ? "الأجزاء" : "Chunks"}
           </p>
-          <p className="text-[22px] font-semibold tabular mt-1" style={{ color: "var(--text-hi)" }} dir="ltr">{CORPUS_CHUNKS}</p>
+          <p
+            className="text-[22px] font-semibold tabular mt-1"
+            style={{ color: "var(--text-hi)" }}
+            dir="ltr"
+          >
+            {CORPUS_CHUNKS}
+          </p>
         </div>
         <div className="ast-card-2 p-3">
-          <p className="text-[10px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+          <p
+            className="text-[10px] uppercase tracking-[0.12em]"
+            style={{ color: "var(--text-lo)" }}
+          >
             {locale === "ar" ? "أزواج ثنائية" : "Bilingual pairs"}
           </p>
-          <p className="text-[22px] font-semibold tabular mt-1" style={{ color: "var(--accent-500)" }} dir="ltr">{CORPUS_BILINGUAL_PAIRS}</p>
+          <p
+            className="text-[22px] font-semibold tabular mt-1"
+            style={{ color: "var(--accent-500)" }}
+            dir="ltr"
+          >
+            {CORPUS_BILINGUAL_PAIRS}
+          </p>
         </div>
         <div className="ast-card-2 p-3">
-          <p className="text-[10px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+          <p
+            className="text-[10px] uppercase tracking-[0.12em]"
+            style={{ color: "var(--text-lo)" }}
+          >
             {locale === "ar" ? "إنجليزي فقط" : "EN-only"}
           </p>
-          <p className="text-[22px] font-semibold tabular mt-1" style={{ color: "var(--text-hi)" }} dir="ltr">{CORPUS_EN_ONLY}</p>
+          <p
+            className="text-[22px] font-semibold tabular mt-1"
+            style={{ color: "var(--text-hi)" }}
+            dir="ltr"
+          >
+            {CORPUS_EN_ONLY}
+          </p>
         </div>
       </div>
 
       <div className="flex flex-wrap gap-1.5">
         {CORPUS_DOCS.map((doc) => (
-          <span
-            key={doc.slug}
-            className="ast-chip font-mono text-[11px]"
-            title={doc.slug}
-          >
+          <span key={doc.slug} className="ast-chip font-mono text-[11px]" title={doc.slug}>
             {locale === "ar" ? doc.labelAr : doc.label}
           </span>
         ))}
@@ -1111,7 +1320,7 @@ function CorpusVersionCard() {
 function FeatureFlagsPanel() {
   const locale = useAppStore((s) => s.locale);
   const [flags, setFlags] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(FEATURE_FLAGS.map((f) => [f.key, f.defaultOn]))
+    Object.fromEntries(FEATURE_FLAGS.map((f) => [f.key, f.defaultOn])),
   );
 
   const toggle = (f: FeatureFlag) => {
@@ -1121,7 +1330,15 @@ function FeatureFlagsPanel() {
       locale === "ar"
         ? `العلم ${f.key} أصبح ${next ? "مفعّلاً" : "معطّلاً"}`
         : `Flag ${f.key} set to ${next ? "on" : "off"}`,
-      { description: next ? (locale === "ar" ? f.descriptionAr : f.description) : (locale === "ar" ? "تم الإيقاف" : "Switched off") }
+      {
+        description: next
+          ? locale === "ar"
+            ? f.descriptionAr
+            : f.description
+          : locale === "ar"
+            ? "تم الإيقاف"
+            : "Switched off",
+      },
     );
   };
 
@@ -1155,11 +1372,19 @@ function FeatureFlagsPanel() {
       <div className="ast-card-2 p-3 mb-3">
         <div className="flex items-center justify-between mb-2 gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <Activity className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--status-steady)" }} />
+            <Activity
+              className="w-3.5 h-3.5 shrink-0"
+              strokeWidth={1.75}
+              style={{ color: "var(--status-steady)" }}
+            />
             <span className="text-[12px] font-medium truncate" style={{ color: "var(--text-mid)" }}>
               {locale === "ar" ? "صحة النظام" : "System health"}
             </span>
-            <span className="text-[12px] font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">
+            <span
+              className="text-[12px] font-mono tabular"
+              style={{ color: "var(--text-hi)" }}
+              dir="ltr"
+            >
               {onCount} / {FEATURE_FLAGS.length} {locale === "ar" ? "مفعّل" : "active"}
             </span>
           </div>
@@ -1217,14 +1442,17 @@ function ReplayPanel() {
         cache: "no-store",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json: ApiEnvelope<{ jobId: string; asOf: string; results: Assessment[] }> = await res.json();
+      const json: ApiEnvelope<{ jobId: string; asOf: string; results: Assessment[] }> =
+        await res.json();
       if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
       setResults(json.data.results);
       setJobId(json.data.jobId);
       setAsOfUsed(json.data.asOf);
       toast.success(
-        locale === "ar" ? `اكتمل التشغيل المعاد · ${json.data.results.length} موظف` : `Replay complete · ${json.data.results.length} employees`,
-        { description: `job ${json.data.jobId}` }
+        locale === "ar"
+          ? `اكتمل التشغيل المعاد · ${json.data.results.length} موظف`
+          : `Replay complete · ${json.data.results.length} employees`,
+        { description: `job ${json.data.jobId}` },
       );
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Network error";
@@ -1312,12 +1540,20 @@ function ReplayPanel() {
           >
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--status-steady)" }} />
+                <CheckCircle2
+                  className="w-4 h-4"
+                  strokeWidth={1.75}
+                  style={{ color: "var(--status-steady)" }}
+                />
                 <span className="text-[12px]" style={{ color: "var(--text-mid)" }}>
                   {locale === "ar" ? "اكتمل — حتمي" : "Complete — deterministic"}
                 </span>
               </div>
-              <p className="text-[11px] font-mono tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+              <p
+                className="text-[11px] font-mono tabular"
+                style={{ color: "var(--text-lo)" }}
+                dir="ltr"
+              >
                 job {jobId} · asOf {asOfUsed ? shortDate(asOfUsed, locale) : ""}
               </p>
             </div>
@@ -1325,22 +1561,40 @@ function ReplayPanel() {
               <table className="w-full text-[12px]">
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                    <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>
+                    <th
+                      className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium"
+                      style={{ color: "var(--text-lo)" }}
+                    >
                       {locale === "ar" ? "الموظف" : "Employee"}
                     </th>
-                    <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>
+                    <th
+                      className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium"
+                      style={{ color: "var(--text-lo)" }}
+                    >
                       {locale === "ar" ? "التصنيف" : "Band"}
                     </th>
-                    <th className="text-right p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>
+                    <th
+                      className="text-right p-2 text-[10px] uppercase tracking-[0.1em] font-medium"
+                      style={{ color: "var(--text-lo)" }}
+                    >
                       {locale === "ar" ? "النتيجة" : "Score"}
                     </th>
-                    <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium hidden sm:table-cell" style={{ color: "var(--text-lo)" }}>
+                    <th
+                      className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium hidden sm:table-cell"
+                      style={{ color: "var(--text-lo)" }}
+                    >
                       {locale === "ar" ? "المرحلة" : "Stage"}
                     </th>
-                    <th className="text-right p-2 text-[10px] uppercase tracking-[0.1em] font-medium tabular" style={{ color: "var(--text-lo)" }}>
+                    <th
+                      className="text-right p-2 text-[10px] uppercase tracking-[0.1em] font-medium tabular"
+                      style={{ color: "var(--text-lo)" }}
+                    >
                       {locale === "ar" ? "يوم بالمرحلة" : "Day in stage"}
                     </th>
-                    <th className="text-right p-2 text-[10px] uppercase tracking-[0.1em] font-medium tabular" style={{ color: "var(--text-lo)" }}>
+                    <th
+                      className="text-right p-2 text-[10px] uppercase tracking-[0.1em] font-medium tabular"
+                      style={{ color: "var(--text-lo)" }}
+                    >
                       {locale === "ar" ? "إشارات" : "Signals"}
                     </th>
                   </tr>
@@ -1348,12 +1602,44 @@ function ReplayPanel() {
                 <tbody>
                   {results.map((r) => (
                     <tr key={r.employeeId} style={{ borderBottom: "1px solid var(--border-soft)" }}>
-                      <td className="p-2 font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">{r.employeeId}</td>
-                      <td className="p-2"><BandChip band={r.band} score={r.score} locale={locale} size="sm" /></td>
-                      <td className="p-2 text-right font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">{r.score}</td>
-                      <td className="p-2 hidden sm:table-cell" style={{ color: "var(--text-mid)" }} dir="ltr">{r.stage}</td>
-                      <td className="p-2 text-right tabular" style={{ color: "var(--text-mid)" }} dir="ltr">{r.dayInStage}</td>
-                      <td className="p-2 text-right tabular" style={{ color: "var(--text-mid)" }} dir="ltr">{r.signals.length}</td>
+                      <td
+                        className="p-2 font-mono tabular"
+                        style={{ color: "var(--text-hi)" }}
+                        dir="ltr"
+                      >
+                        {r.employeeId}
+                      </td>
+                      <td className="p-2">
+                        <BandChip band={r.band} score={r.score} locale={locale} size="sm" />
+                      </td>
+                      <td
+                        className="p-2 text-right font-mono tabular"
+                        style={{ color: "var(--text-hi)" }}
+                        dir="ltr"
+                      >
+                        {r.score}
+                      </td>
+                      <td
+                        className="p-2 hidden sm:table-cell"
+                        style={{ color: "var(--text-mid)" }}
+                        dir="ltr"
+                      >
+                        {r.stage}
+                      </td>
+                      <td
+                        className="p-2 text-right tabular"
+                        style={{ color: "var(--text-mid)" }}
+                        dir="ltr"
+                      >
+                        {r.dayInStage}
+                      </td>
+                      <td
+                        className="p-2 text-right tabular"
+                        style={{ color: "var(--text-mid)" }}
+                        dir="ltr"
+                      >
+                        {r.signals.length}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1451,14 +1737,14 @@ function AuditChainPanel() {
         toast.success(
           locale === "ar"
             ? `تم التحقق من السلسلة — ${r.verifiedCount}/${r.totalCount} أحداث، لا تلاعب.`
-            : `Audit chain verified — ${r.verifiedCount}/${r.totalCount} events, no tampering detected.`
+            : `Audit chain verified — ${r.verifiedCount}/${r.totalCount} events, no tampering detected.`,
         );
       } else {
         toast.error(
           locale === "ar"
             ? `⚠ كُشف التلاعب — الحدث ${r.tamperedEventId} به كسر في الهاش. آخر حدث مُتحقَّق: ${r.lastVerifiedId ?? "—"}.`
             : `⚠ TAMPER DETECTED — Event ${r.tamperedEventId} has a broken hash link. Last verified event: ${r.lastVerifiedId ?? "—"}.`,
-          { duration: 6000 }
+          { duration: 6000 },
         );
       }
     }, 550);
@@ -1482,36 +1768,31 @@ function AuditChainPanel() {
       reorder_events: "أُعيد ترتيب الأحداث",
       inject_fake: "حُقن حدث مزيف",
     };
-    toast.warning(
-      locale === "ar" ? labelAr[type] : labelEn[type],
-      {
-        description: locale === "ar"
+    toast.warning(locale === "ar" ? labelAr[type] : labelEn[type], {
+      description:
+        locale === "ar"
           ? "السلسلة الآن مكسورة — اضغط «تحقّق من السلسلة» لرؤية الكشف."
-          : "The chain is now broken — press \"Verify chain\" to see the detection.",
-      }
-    );
+          : 'The chain is now broken — press "Verify chain" to see the detection.',
+    });
   };
 
   const handleReset = () => {
     setChain(cloneChain(AUDIT_EVENTS));
     setTamperedIds([]);
     setResult(null);
-    toast.success(
-      locale === "ar" ? "أُعيدت السلسلة" : "Chain reset",
-      { description: locale === "ar" ? "5/5 أحداث سليمة." : "Restored to 5/5 verified events." }
-    );
+    toast.success(locale === "ar" ? "أُعيدت السلسلة" : "Chain reset", {
+      description: locale === "ar" ? "5/5 أحداث سليمة." : "Restored to 5/5 verified events.",
+    });
   };
 
   const handleRegenerate = () => {
     // Prototype only — re-stamp the chain hashes from a deterministic seed.
-    toast.success(
-      locale === "ar" ? "أُعيد توليد التجزئات" : "Hashes regenerated",
-      {
-        description: locale === "ar"
+    toast.success(locale === "ar" ? "أُعيد توليد التجزئات" : "Hashes regenerated", {
+      description:
+        locale === "ar"
           ? "أُعيد بناء السلسلة من البذرة المُلحقة."
           : "Chain rebuilt from the appended seed.",
-      }
-    );
+    });
   };
 
   const handleCopyHash = async (id: string, hash: string) => {
@@ -1521,10 +1802,7 @@ function AuditChainPanel() {
       }
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 1400);
-      toast.success(
-        locale === "ar" ? "نُسخ الهاش" : "Hash copied",
-        { description: hash }
-      );
+      toast.success(locale === "ar" ? "نُسخ الهاش" : "Hash copied", { description: hash });
     } catch {
       toast.error(locale === "ar" ? "تعذّر النسخ" : "Copy failed");
     }
@@ -1618,17 +1896,32 @@ function AuditChainPanel() {
       </div>
 
       {/* Color legend */}
-      <div className="flex items-center gap-3 flex-wrap mb-4 text-[10px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+      <div
+        className="flex items-center gap-3 flex-wrap mb-4 text-[10px] uppercase tracking-[0.12em]"
+        style={{ color: "var(--text-lo)" }}
+      >
         <span className="inline-flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full" style={{ background: "var(--brand-400)" }} aria-hidden="true" />
+          <span
+            className="w-2 h-2 rounded-full"
+            style={{ background: "var(--brand-400)" }}
+            aria-hidden="true"
+          />
           {locale === "ar" ? "نظام" : "System"}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full" style={{ background: "var(--accent-500)" }} aria-hidden="true" />
+          <span
+            className="w-2 h-2 rounded-full"
+            style={{ background: "var(--accent-500)" }}
+            aria-hidden="true"
+          />
           {locale === "ar" ? "إنسان" : "Human"}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full" style={{ background: "var(--status-friction)" }} aria-hidden="true" />
+          <span
+            className="w-2 h-2 rounded-full"
+            style={{ background: "var(--status-friction)" }}
+            aria-hidden="true"
+          />
           {locale === "ar" ? "مُتلاعب" : "Tampered"}
         </span>
       </div>
@@ -1656,13 +1949,13 @@ function AuditChainPanel() {
           const nodeColor = tampered
             ? "var(--status-friction)"
             : system
-            ? "var(--brand-400)"
-            : "var(--accent-500)";
+              ? "var(--brand-400)"
+              : "var(--accent-500)";
           const nodeBg = tampered
             ? "rgba(220,38,38,0.10)"
             : system
-            ? "rgba(22,154,165,0.10)"
-            : "rgba(201,162,39,0.10)";
+              ? "rgba(22,154,165,0.10)"
+              : "rgba(201,162,39,0.10)";
 
           // Connector segment ABOVE this node (between prev node and this node).
           const connectorBroken = linkBroken && !isFirst;
@@ -1708,8 +2001,19 @@ function AuditChainPanel() {
                   {/* Row 1: id · actor · action chip · date · TAMPERED badge */}
                   <div className="flex items-baseline justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                      <span className="font-mono text-[11px] tabular" style={{ color: "var(--text-lo)" }} dir="ltr">{ev.id}</span>
-                      <span className="text-[12px] font-medium truncate" style={{ color: "var(--text-hi)" }}>{ev.actor}</span>
+                      <span
+                        className="font-mono text-[11px] tabular"
+                        style={{ color: "var(--text-lo)" }}
+                        dir="ltr"
+                      >
+                        {ev.id}
+                      </span>
+                      <span
+                        className="text-[12px] font-medium truncate"
+                        style={{ color: "var(--text-hi)" }}
+                      >
+                        {ev.actor}
+                      </span>
                       <span
                         className="text-[11px] px-1.5 py-0.5 rounded font-mono"
                         style={{
@@ -1735,13 +2039,20 @@ function AuditChainPanel() {
                         </span>
                       )}
                     </div>
-                    <span className="text-[10px] tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+                    <span
+                      className="text-[10px] tabular"
+                      style={{ color: "var(--text-lo)" }}
+                      dir="ltr"
+                    >
                       {shortDate(ev.at, locale)}
                     </span>
                   </div>
 
                   {/* Row 2: subject:subjectId */}
-                  <div className="flex items-center gap-3 mt-2 flex-wrap text-[11px] font-mono tabular" style={{ color: "var(--text-lo)" }}>
+                  <div
+                    className="flex items-center gap-3 mt-2 flex-wrap text-[11px] font-mono tabular"
+                    style={{ color: "var(--text-lo)" }}
+                  >
                     <span dir="ltr">
                       <span>subject </span>
                       <span style={{ color: "var(--text-mid)" }}>{ev.subject}:</span>
@@ -1753,12 +2064,19 @@ function AuditChainPanel() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-[10px] font-mono tabular">
                     <div className="ast-card-2 p-1.5 px-2 flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
+                        <p
+                          className="uppercase tracking-[0.1em]"
+                          style={{ color: "var(--text-lo)" }}
+                        >
                           {locale === "ar" ? "سابق" : "prev"}
                         </p>
                         <p
                           style={{
-                            color: linkBroken ? "var(--status-friction)" : isFirst ? "var(--text-lo)" : "var(--text-mid)",
+                            color: linkBroken
+                              ? "var(--status-friction)"
+                              : isFirst
+                                ? "var(--text-lo)"
+                                : "var(--text-mid)",
                           }}
                           dir="ltr"
                           className={isFirst ? "italic" : ""}
@@ -1767,13 +2085,24 @@ function AuditChainPanel() {
                         </p>
                       </div>
                       {linkBroken && !isFirst && (
-                        <XCircle className="w-3.5 h-3.5 shrink-0" strokeWidth={2} style={{ color: "var(--status-friction)" }} />
+                        <XCircle
+                          className="w-3.5 h-3.5 shrink-0"
+                          strokeWidth={2}
+                          style={{ color: "var(--status-friction)" }}
+                        />
                       )}
                     </div>
                     <div className="ast-card-2 p-1.5 px-2 flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>hash</p>
-                        <p style={{ color: nodeColor }} dir="ltr">{truncateHash(ev.hash)}</p>
+                        <p
+                          className="uppercase tracking-[0.1em]"
+                          style={{ color: "var(--text-lo)" }}
+                        >
+                          hash
+                        </p>
+                        <p style={{ color: nodeColor }} dir="ltr">
+                          {truncateHash(ev.hash)}
+                        </p>
                       </div>
                       <button
                         onClick={() => handleCopyHash(ev.id, ev.hash)}
@@ -1800,7 +2129,10 @@ function AuditChainPanel() {
               {isLast && (
                 <span
                   className="absolute left-[12px] -bottom-1 w-[9px] h-[9px] rounded-b-full"
-                  style={{ background: isTampered ? "var(--status-friction)" : "var(--brand-400)", opacity: 0.6 }}
+                  style={{
+                    background: isTampered ? "var(--status-friction)" : "var(--brand-400)",
+                    opacity: 0.6,
+                  }}
                   aria-hidden="true"
                 />
               )}
@@ -1825,9 +2157,17 @@ function AuditChainPanel() {
             role="status"
           >
             {result.ok ? (
-              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={2} style={{ color: "var(--status-steady)" }} />
+              <CheckCircle2
+                className="w-4 h-4 shrink-0 mt-0.5"
+                strokeWidth={2}
+                style={{ color: "var(--status-steady)" }}
+              />
             ) : (
-              <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={2} style={{ color: "var(--status-friction)" }} />
+              <ShieldAlert
+                className="w-4 h-4 shrink-0 mt-0.5"
+                strokeWidth={2}
+                style={{ color: "var(--status-friction)" }}
+              />
             )}
             <div className="flex-1 min-w-0">
               {result.ok ? (
@@ -1852,7 +2192,11 @@ function AuditChainPanel() {
       <Dialog open={tamperOpen} onOpenChange={setTamperOpen}>
         <DialogContent
           className="sm:max-w-[560px]"
-          style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+          style={{
+            background: "var(--surface-1)",
+            border: "1px solid var(--border)",
+            color: "var(--text-hi)",
+          }}
         >
           <DialogTitle className="text-[16px] font-semibold" style={{ color: "var(--text-hi)" }}>
             {locale === "ar" ? "محاكاة تلاعب" : "Simulate tamper event"}
@@ -1860,7 +2204,7 @@ function AuditChainPanel() {
           <DialogDescription className="text-[12px]" style={{ color: "var(--text-mid)" }}>
             {locale === "ar"
               ? "اختر نوع التلاعب — سنطبّقه على السلسلة المعروضة. اضغط «تحقّق من السلسلة» بعدها لرؤية الكشف."
-              : "Pick a tamper type — we'll apply it to the rendered chain. Press \"Verify chain\" afterwards to see the detection."}
+              : 'Pick a tamper type — we\'ll apply it to the rendered chain. Press "Verify chain" afterwards to see the detection.'}
           </DialogDescription>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-3">
             <TamperOptionCard
@@ -2210,19 +2554,35 @@ function ProductionReadinessCard() {
             <CheckCircle2
               className="w-3.5 h-3.5 shrink-0"
               strokeWidth={1.75}
-              style={{ color: passPct >= 80 ? "var(--status-steady)" : passPct >= 50 ? "var(--status-watch)" : "var(--status-friction)" }}
+              style={{
+                color:
+                  passPct >= 80
+                    ? "var(--status-steady)"
+                    : passPct >= 50
+                      ? "var(--status-watch)"
+                      : "var(--status-friction)",
+              }}
             />
             <span className="text-[12px] font-medium truncate" style={{ color: "var(--text-mid)" }}>
               {locale === "ar" ? "الفحوص الناجحة" : "Checks passing"}
             </span>
-            <span className="text-[12px] font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">
+            <span
+              className="text-[12px] font-mono tabular"
+              style={{ color: "var(--text-hi)" }}
+              dir="ltr"
+            >
               {summary.pass} / {summary.total}
             </span>
           </div>
           <span
             className="text-[14px] font-semibold tabular"
             style={{
-              color: passPct >= 80 ? "var(--status-steady)" : passPct >= 50 ? "var(--status-watch)" : "var(--status-friction)",
+              color:
+                passPct >= 80
+                  ? "var(--status-steady)"
+                  : passPct >= 50
+                    ? "var(--status-watch)"
+                    : "var(--status-friction)",
             }}
             dir="ltr"
           >
@@ -2230,7 +2590,11 @@ function ProductionReadinessCard() {
           </span>
         </div>
         <Progress value={passPct} className="h-1.5" />
-        <div className="flex items-center gap-3 mt-2 text-[11px] font-mono tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+        <div
+          className="flex items-center gap-3 mt-2 text-[11px] font-mono tabular"
+          style={{ color: "var(--text-lo)" }}
+          dir="ltr"
+        >
           <span style={{ color: "var(--status-steady)" }}>● {summary.pass} pass</span>
           <span style={{ color: "var(--status-watch)" }}>● {summary.partial} partial</span>
           <span style={{ color: "var(--status-friction)" }}>● {summary.fail} fail</span>
@@ -2240,11 +2604,7 @@ function ProductionReadinessCard() {
 
       {/* 50-dot grid */}
       {err ? (
-        <div
-          className="text-[12px] py-2"
-          style={{ color: "var(--status-friction)" }}
-          role="alert"
-        >
+        <div className="text-[12px] py-2" style={{ color: "var(--status-friction)" }} role="alert">
           {err}
         </div>
       ) : items.length === 0 ? (
@@ -2280,10 +2640,17 @@ function ProductionReadinessCard() {
         </div>
       )}
 
-      <div className="flex items-center justify-between flex-wrap gap-2 pt-3 mt-1 text-[11px]" style={{ borderTop: "1px solid var(--border-soft)" }}>
+      <div
+        className="flex items-center justify-between flex-wrap gap-2 pt-3 mt-1 text-[11px]"
+        style={{ borderTop: "1px solid var(--border-soft)" }}
+      >
         <div className="flex items-center gap-3">
           {(["pass", "partial", "fail", "n/a"] as ChecklistStatus[]).map((s) => (
-            <span key={s} className="inline-flex items-center gap-1.5" style={{ color: "var(--text-mid)" }}>
+            <span
+              key={s}
+              className="inline-flex items-center gap-1.5"
+              style={{ color: "var(--text-mid)" }}
+            >
               <span
                 className="inline-block w-2 h-2 rounded-[2px]"
                 style={{ background: CHECKLIST_DOT_COLOR[s] }}
@@ -2302,10 +2669,16 @@ function ProductionReadinessCard() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
           className="sm:max-w-[920px] max-h-[88vh] overflow-y-auto"
-          style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+          style={{
+            background: "var(--surface-1)",
+            border: "1px solid var(--border)",
+            color: "var(--text-hi)",
+          }}
         >
           <DialogTitle className="text-[16px] font-semibold" style={{ color: "var(--text-hi)" }}>
-            {locale === "ar" ? "قائمة جاهزية الإنتاج — 50 بنداً" : "Production readiness checklist — 50 items"}
+            {locale === "ar"
+              ? "قائمة جاهزية الإنتاج — 50 بنداً"
+              : "Production readiness checklist — 50 items"}
           </DialogTitle>
           <DialogDescription className="text-[12px]" style={{ color: "var(--text-mid)" }}>
             {locale === "ar"
@@ -2363,10 +2736,7 @@ function ChecklistSection({
       </h3>
       <ul className="space-y-1.5">
         {items.map((it) => (
-          <li
-            key={it.id}
-            className="ast-card-2 p-2.5 flex items-start gap-2.5"
-          >
+          <li key={it.id} className="ast-card-2 p-2.5 flex items-start gap-2.5">
             <span
               className="inline-block w-2 h-2 rounded-[2px] mt-1.5 shrink-0"
               style={{ background: CHECKLIST_DOT_COLOR[it.status] }}
@@ -2374,7 +2744,11 @@ function ChecklistSection({
             />
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="text-[11px] font-mono tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+                <span
+                  className="text-[11px] font-mono tabular"
+                  style={{ color: "var(--text-lo)" }}
+                  dir="ltr"
+                >
                   #{it.id}
                 </span>
                 <span className="text-[13px] font-medium" style={{ color: "var(--text-hi)" }}>
@@ -2395,7 +2769,11 @@ function ChecklistSection({
                 {it.evidence}
               </p>
               {it.file && (
-                <p className="text-[10px] font-mono tabular mt-1" style={{ color: "var(--text-lo)" }} dir="ltr">
+                <p
+                  className="text-[10px] font-mono tabular mt-1"
+                  style={{ color: "var(--text-lo)" }}
+                  dir="ltr"
+                >
                   {it.file}
                 </p>
               )}
@@ -2420,11 +2798,17 @@ export function AdminScreen() {
       <header className="mb-6">
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
-            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--brand-400)" }}>
+            <div
+              className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
+              style={{ color: "var(--brand-400)" }}
+            >
               <Server className="w-3.5 h-3.5" strokeWidth={1.75} />
               <span>{locale === "ar" ? "وحدة الإدارة" : "Admin console"}</span>
             </div>
-            <h1 className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight" style={{ color: "var(--text-hi)" }}>
+            <h1
+              className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight"
+              style={{ color: "var(--text-hi)" }}
+            >
               {locale === "ar" ? "لوحة التشغيل" : "Operability console"}
             </h1>
             <p className="mt-1 text-[13px]" style={{ color: "var(--text-mid)" }}>
@@ -2463,9 +2847,15 @@ export function AdminScreen() {
       <Dialog open={pilotOpen} onOpenChange={setPilotOpen}>
         <DialogContent
           className="sm:max-w-[920px] max-h-[88vh] overflow-y-auto"
-          style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+          style={{
+            background: "var(--surface-1)",
+            border: "1px solid var(--border)",
+            color: "var(--text-hi)",
+          }}
         >
-          <DialogTitle className="sr-only">{locale === "ar" ? "خطة التجربة" : "Pilot plan"}</DialogTitle>
+          <DialogTitle className="sr-only">
+            {locale === "ar" ? "خطة التجربة" : "Pilot plan"}
+          </DialogTitle>
           <PilotPlanPage />
         </DialogContent>
       </Dialog>

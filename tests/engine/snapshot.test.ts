@@ -165,7 +165,12 @@ describe("golden snapshot — engine verdicts are frozen", () => {
     expect(atPrimary.length).toBe(14);
     expect(atEarlier.length).toBe(6);
     expect(atEarlier.map((c) => c.employeeId)).toEqual([
-      "E-1042", "E-1043", "E-1044", "E-1045", "E-1046", "E-1047",
+      "E-1042",
+      "E-1043",
+      "E-1044",
+      "E-1045",
+      "E-1046",
+      "E-1047",
     ]);
 
     // Every employee appears once at the primary clock and the earlier replays
@@ -216,7 +221,7 @@ describe("golden snapshot — engine verdicts are frozen", () => {
           "# with no UPDATE_SNAPSHOTS to check the baseline holds.",
           "############################################################",
           "",
-        ].join("\n")
+        ].join("\n"),
       );
       return;
     }
@@ -238,7 +243,7 @@ describe("golden snapshot — engine verdicts are frozen", () => {
           "engine verdict moved. If it was supposed to:",
           "  UPDATE_SNAPSHOTS=1 bun test tests/engine/snapshot.test.ts",
           "and commit the regenerated file with the change that caused it.",
-        ].join("\n")
+        ].join("\n"),
       );
     }
 

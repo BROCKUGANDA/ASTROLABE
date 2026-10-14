@@ -19,12 +19,12 @@ interface Star {
   x: number;
   y: number;
   r: number;
-  base: number;       // base opacity 0.2–0.6
-  twkAmp: number;     // twinkle amplitude
-  twkSpd: number;     // twinkle speed (radians / second)
-  phase: number;      // twinkle phase
-  color: string;      // teal | sand-gold
-  nav: boolean;       // navigation star (bigger, glow)
+  base: number; // base opacity 0.2–0.6
+  twkAmp: number; // twinkle amplitude
+  twkSpd: number; // twinkle speed (radians / second)
+  phase: number; // twinkle phase
+  color: string; // teal | sand-gold
+  nav: boolean; // navigation star (bigger, glow)
 }
 
 /* ---------- Shooting stars (occasional, subtle) ----------
@@ -35,23 +35,23 @@ interface Star {
    cost is negligible (a single linear-gradient stroke + a 1.5px
    arc head). */
 interface ShootingStar {
-  x: number;          // current head x (CSS px)
-  y: number;          // current head y (CSS px)
-  vx: number;         // velocity x (px/sec)
-  vy: number;         // velocity y (px/sec)
-  age: number;        // seconds since spawn
-  ttl: number;        // total lifetime (seconds)
-  trailLen: number;   // trail length (px)
-  speed: number;      // |v| (px/sec) — cached for trail math
+  x: number; // current head x (CSS px)
+  y: number; // current head y (CSS px)
+  vx: number; // velocity x (px/sec)
+  vy: number; // velocity y (px/sec)
+  age: number; // seconds since spawn
+  ttl: number; // total lifetime (seconds)
+  trailLen: number; // trail length (px)
+  speed: number; // |v| (px/sec) — cached for trail math
 }
 
-const SHOOT_MIN_INTERVAL = 8;   // seconds
-const SHOOT_MAX_INTERVAL = 12;  // seconds
-const SHOOT_TTL = 0.6;          // total streak lifetime (fade-in + hold + fade-out)
-const SHOOT_SPEED_MIN = 540;    // px/sec
-const SHOOT_SPEED_MAX = 780;    // px/sec
-const SHOOT_TRAIL_MIN = 70;     // px
-const SHOOT_TRAIL_MAX = 120;    // px
+const SHOOT_MIN_INTERVAL = 8; // seconds
+const SHOOT_MAX_INTERVAL = 12; // seconds
+const SHOOT_TTL = 0.6; // total streak lifetime (fade-in + hold + fade-out)
+const SHOOT_SPEED_MIN = 540; // px/sec
+const SHOOT_SPEED_MAX = 780; // px/sec
+const SHOOT_TRAIL_MIN = 70; // px
+const SHOOT_TRAIL_MAX = 120; // px
 
 function spawnShootingStar(w: number, h: number): ShootingStar {
   // Random direction: anywhere in a 0..90deg cone from horizontal-right,
@@ -214,13 +214,7 @@ export function ConstellationBg() {
 
     // Draw a single frame at the given virtual time t (seconds) and
     // cumulative drift offset (dx, dy) in CSS pixels.
-    function drawFrame(
-      c: CanvasRenderingContext2D,
-      ss: Star[],
-      t: number,
-      dx: number,
-      dy: number,
-    ) {
+    function drawFrame(c: CanvasRenderingContext2D, ss: Star[], t: number, dx: number, dy: number) {
       c.clearRect(0, 0, w, h);
 
       // Faint constellation lines (drawn first, behind stars)
@@ -236,10 +230,7 @@ export function ConstellationBg() {
       c.stroke();
 
       for (const s of ss) {
-        const op = Math.max(
-          0,
-          Math.min(1, s.base + Math.sin(t * s.twkSpd + s.phase) * s.twkAmp),
-        );
+        const op = Math.max(0, Math.min(1, s.base + Math.sin(t * s.twkSpd + s.phase) * s.twkAmp));
         const x = s.x + dx;
         const y = s.y + dy;
 
@@ -318,9 +309,7 @@ export function ConstellationBg() {
       }
       // Cull expired or off-screen streaks.
       if (shootingStars.length > 0) {
-        shootingStars = shootingStars.filter(
-          (s) => s.age < s.ttl && s.x < w + 60 && s.y < h + 60,
-        );
+        shootingStars = shootingStars.filter((s) => s.age < s.ttl && s.x < w + 60 && s.y < h + 60);
       }
 
       if (ts - lastDraw >= FRAME_MS) {
@@ -365,11 +354,7 @@ export function ConstellationBg() {
   }, []);
 
   return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none fixed inset-0"
-      style={{ zIndex: -1 }}
-    >
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0" style={{ zIndex: -1 }}>
       <canvas ref={canvasRef} className="block h-full w-full" />
     </div>
   );

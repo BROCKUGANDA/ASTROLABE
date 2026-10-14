@@ -10,9 +10,25 @@ import {
   type MotionValue,
 } from "framer-motion";
 import {
-  Compass, Map, MessageSquare, Inbox, User, Users, ClipboardList, Microscope,
-  Search, Command, ShieldCheck, Languages, Monitor, Sparkles, X, ArrowRight, Server,
-  HelpCircle, UserCircle,
+  Compass,
+  Map,
+  MessageSquare,
+  Inbox,
+  User,
+  Users,
+  ClipboardList,
+  Microscope,
+  Search,
+  Command,
+  ShieldCheck,
+  Languages,
+  Monitor,
+  Sparkles,
+  X,
+  ArrowRight,
+  Server,
+  HelpCircle,
+  UserCircle,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
 import { ensureSession, invalidateSession, type ConsoleRole } from "@/lib/session-client";
@@ -38,7 +54,13 @@ import { GlobalSearchModal } from "@/components/astrolabe/global-search";
 type View = "today" | "journey" | "ask" | "requests" | "me" | "help" | "profile";
 type Role = "employee" | "hrbp" | "manager" | "judge" | "admin" | "service_owner";
 
-const EMPLOYEE_TABS: { id: View; label: string; labelAr: string; Icon: typeof Compass; hint: string }[] = [
+const EMPLOYEE_TABS: {
+  id: View;
+  label: string;
+  labelAr: string;
+  Icon: typeof Compass;
+  hint: string;
+}[] = [
   { id: "today", label: "Today", labelAr: "اليوم", Icon: Compass, hint: "What now?" },
   { id: "journey", label: "Journey", labelAr: "الرحلة", Icon: Map, hint: "Full map & history" },
   { id: "ask", label: "Ask", labelAr: "اسأل", Icon: MessageSquare, hint: "Cited policy answers" },
@@ -48,14 +70,33 @@ const EMPLOYEE_TABS: { id: View; label: string; labelAr: string; Icon: typeof Co
   { id: "help", label: "Help", labelAr: "مساعدة", Icon: HelpCircle, hint: "Guides & support" },
 ];
 
-const ROLES: { id: Role; label: string; labelAr: string; Icon: typeof Compass; accent: string }[] = [
-  { id: "employee", label: "Employee", labelAr: "موظف", Icon: User, accent: "var(--brand-500)" },
-  { id: "hrbp", label: "HRBP", labelAr: "شريك الموارد", Icon: Users, accent: "var(--status-watch)" },
-  { id: "manager", label: "Manager", labelAr: "مدير", Icon: ClipboardList, accent: "var(--accent-500)" },
-  { id: "judge", label: "Judge", labelAr: "قاضٍ", Icon: Microscope, accent: "#8B5CF6" },
-  { id: "admin", label: "Admin", labelAr: "إدارة", Icon: Server, accent: "var(--brand-400)" },
-  { id: "service_owner", label: "Service owner", labelAr: "مالك الخدمة", Icon: Inbox, accent: "var(--brand-500)" },
-];
+const ROLES: { id: Role; label: string; labelAr: string; Icon: typeof Compass; accent: string }[] =
+  [
+    { id: "employee", label: "Employee", labelAr: "موظف", Icon: User, accent: "var(--brand-500)" },
+    {
+      id: "hrbp",
+      label: "HRBP",
+      labelAr: "شريك الموارد",
+      Icon: Users,
+      accent: "var(--status-watch)",
+    },
+    {
+      id: "manager",
+      label: "Manager",
+      labelAr: "مدير",
+      Icon: ClipboardList,
+      accent: "var(--accent-500)",
+    },
+    { id: "judge", label: "Judge", labelAr: "قاضٍ", Icon: Microscope, accent: "#8B5CF6" },
+    { id: "admin", label: "Admin", labelAr: "إدارة", Icon: Server, accent: "var(--brand-400)" },
+    {
+      id: "service_owner",
+      label: "Service owner",
+      labelAr: "مالك الخدمة",
+      Icon: Inbox,
+      accent: "var(--brand-500)",
+    },
+  ];
 
 const EMPLOYEES = [
   { id: "E-1042", name: "Maria Santos", journey: "Onboarding · Day 5", loc: "DXB" },
@@ -109,8 +150,7 @@ export default function Home() {
     };
   }, [role, employeeId]);
   // Derived, so a role change reads as "pending" without a second render pass.
-  const sessionState =
-    session.key === `${role}:${employeeId}` ? session.state : "pending";
+  const sessionState = session.key === `${role}:${employeeId}` ? session.state : "pending";
 
   // ⌘K command palette
   useEffect(() => {
@@ -151,22 +191,33 @@ export default function Home() {
         <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-4">
           {/* Brand */}
           <button
-            onClick={() => { setRole("employee"); setView("today"); }}
+            onClick={() => {
+              setRole("employee");
+              setView("today");
+            }}
             className="ast-focus flex items-center gap-3 group shrink-0"
             aria-label="ASTROLABE home"
           >
             <div
               className="relative flex items-center justify-center w-10 h-10 rounded-full transition-transform group-hover:rotate-12"
               style={{
-                background: "radial-gradient(circle at 30% 30%, rgba(22,154,165,0.40), rgba(11,17,28,0.4))",
+                background:
+                  "radial-gradient(circle at 30% 30%, rgba(22,154,165,0.40), rgba(11,17,28,0.4))",
                 border: "1px solid rgba(22,154,165,0.40)",
                 boxShadow: "0 0 0 1px rgba(201,162,39,0.15), 0 6px 16px rgba(22,154,165,0.20)",
               }}
             >
-              <Compass className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+              <Compass
+                className="w-4 h-4"
+                strokeWidth={1.75}
+                style={{ color: "var(--brand-400)" }}
+              />
               <span
                 className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
-                style={{ background: "var(--accent-500)", boxShadow: "0 0 6px rgba(201,162,39,0.6)" }}
+                style={{
+                  background: "var(--accent-500)",
+                  boxShadow: "0 0 6px rgba(201,162,39,0.6)",
+                }}
               />
             </div>
             <div className="flex flex-col items-start leading-none">
@@ -252,7 +303,12 @@ export default function Home() {
           {role === "employee" ? (
             <nav
               className="flex items-center gap-1 p-1.5 rounded-full overflow-x-auto"
-              style={{ background: "var(--surface-2)", border: "1px solid var(--border)", width: "fit-content", maxWidth: "100%" }}
+              style={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+                width: "fit-content",
+                maxWidth: "100%",
+              }}
               aria-label="View switcher"
             >
               {EMPLOYEE_TABS.map((t) => {
@@ -279,9 +335,7 @@ export default function Home() {
                       />
                     )}
                     <Icon className="w-4 h-4 relative z-10" strokeWidth={1.75} />
-                    <span className="relative z-10">
-                      {locale === "ar" ? t.labelAr : t.label}
-                    </span>
+                    <span className="relative z-10">{locale === "ar" ? t.labelAr : t.label}</span>
                   </button>
                 );
               })}
@@ -362,19 +416,29 @@ export default function Home() {
           >
             <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
             <span>
-              {degradedLevel === "L1" && (locale === "ar" ? "نقتبس السياسة مباشرة الآن" : "Quoting policy directly right now")}
-              {degradedLevel === "L2" && (locale === "ar" ? "بحث السياسة غير متاح — سأحيلك للمالك المناسب" : "Policy search unavailable — handing you to the right owner")}
-              {degradedLevel === "L3" && (locale === "ar" ? "طلبك في قائمة الانتظار، لم يُفقد" : "Your request is queued, not lost")}
-              {degradedLevel === "L4" && (locale === "ar" ? "وضع القراءة فقط — إليك من تتواصل معه" : "Read-only mode — here is who to contact")}
+              {degradedLevel === "L1" &&
+                (locale === "ar"
+                  ? "نقتبس السياسة مباشرة الآن"
+                  : "Quoting policy directly right now")}
+              {degradedLevel === "L2" &&
+                (locale === "ar"
+                  ? "بحث السياسة غير متاح — سأحيلك للمالك المناسب"
+                  : "Policy search unavailable — handing you to the right owner")}
+              {degradedLevel === "L3" &&
+                (locale === "ar"
+                  ? "طلبك في قائمة الانتظار، لم يُفقد"
+                  : "Your request is queued, not lost")}
+              {degradedLevel === "L4" &&
+                (locale === "ar"
+                  ? "وضع القراءة فقط — إليك من تتواصل معه"
+                  : "Read-only mode — here is who to contact")}
             </span>
           </div>
         )}
       </header>
 
       {/* ========== 3D ASTROLABE HERO (Today only, when not scrolled) ========== */}
-      <AnimatePresence>
-        {showHero && <HeroParallax key="hero" />}
-      </AnimatePresence>
+      <AnimatePresence>{showHero && <HeroParallax key="hero" />}</AnimatePresence>
 
       {/* ========== MAIN ========== */}
       <main className="flex-1 max-w-[1280px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
@@ -389,18 +453,21 @@ export default function Home() {
               </div>
             )}
             {sessionState === "failed" && (
-              <div className="rounded-[14px] border p-6" style={{ borderColor: "var(--status-friction)" }}>
+              <div
+                className="rounded-[14px] border p-6"
+                style={{ borderColor: "var(--status-friction)" }}
+              >
                 <p className="text-sm font-semibold">We could not start your session.</p>
                 <p className="mt-1 text-sm" style={{ color: "var(--text-mid)" }}>
-                  Nothing was lost. The server did not accept the identity this console asked for, so
-                  no data was loaded.
+                  Nothing was lost. The server did not accept the identity this console asked for,
+                  so no data was loaded.
                 </p>
                 <button
                   type="button"
                   onClick={() => {
                     invalidateSession();
                     void ensureSession(role as ConsoleRole, employeeId).then((ok) =>
-                      setSession({ key: `${role}:${employeeId}`, state: ok ? "ready" : "failed" })
+                      setSession({ key: `${role}:${employeeId}`, state: ok ? "ready" : "failed" }),
                     );
                   }}
                   className="mt-3 rounded-[10px] px-3 py-2 text-sm font-semibold"
@@ -464,37 +531,71 @@ export default function Home() {
 
             {/* Engine + versions */}
             <div>
-              <h4 className="text-[10px] uppercase tracking-[0.16em] mb-2" style={{ color: "var(--text-lo)" }}>
+              <h4
+                className="text-[10px] uppercase tracking-[0.16em] mb-2"
+                style={{ color: "var(--text-lo)" }}
+              >
                 {locale === "ar" ? "المحرك" : "Engine"}
               </h4>
               <ul className="space-y-1 text-[11px] tabular" style={{ color: "var(--text-mid)" }}>
-                <li className="flex justify-between"><span>{locale === "ar" ? "إصدار المحرك" : "Engine"}</span><span style={{ color: "var(--text-hi)" }}>1.0.0</span></li>
-                <li className="flex justify-between"><span>{locale === "ar" ? "إصدار الخريطة" : "Map"}</span><span style={{ color: "var(--text-hi)" }}>1.0.0</span></li>
-                <li className="flex justify-between"><span>{locale === "ar" ? "إصدار السياسات" : "Corpus"}</span><span style={{ color: "var(--text-hi)" }}>2024-Q4</span></li>
-                <li className="flex justify-between"><span>{locale === "ar" ? "حزمة البيانات" : "Data pack"}</span><span style={{ color: "var(--text-hi)" }}>synthetic</span></li>
+                <li className="flex justify-between">
+                  <span>{locale === "ar" ? "إصدار المحرك" : "Engine"}</span>
+                  <span style={{ color: "var(--text-hi)" }}>1.0.0</span>
+                </li>
+                <li className="flex justify-between">
+                  <span>{locale === "ar" ? "إصدار الخريطة" : "Map"}</span>
+                  <span style={{ color: "var(--text-hi)" }}>1.0.0</span>
+                </li>
+                <li className="flex justify-between">
+                  <span>{locale === "ar" ? "إصدار السياسات" : "Corpus"}</span>
+                  <span style={{ color: "var(--text-hi)" }}>2024-Q4</span>
+                </li>
+                <li className="flex justify-between">
+                  <span>{locale === "ar" ? "حزمة البيانات" : "Data pack"}</span>
+                  <span style={{ color: "var(--text-hi)" }}>synthetic</span>
+                </li>
               </ul>
             </div>
 
             {/* Privacy + RAI */}
             <div>
-              <h4 className="text-[10px] uppercase tracking-[0.16em] mb-2" style={{ color: "var(--text-lo)" }}>
+              <h4
+                className="text-[10px] uppercase tracking-[0.16em] mb-2"
+                style={{ color: "var(--text-lo)" }}
+              >
                 {locale === "ar" ? "الخصوصية" : "Privacy"}
               </h4>
               <ul className="space-y-1 text-[11px]" style={{ color: "var(--text-mid)" }}>
                 <li className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-3 h-3" style={{ color: "var(--status-steady)" }} strokeWidth={1.75} />
+                  <ShieldCheck
+                    className="w-3 h-3"
+                    style={{ color: "var(--status-steady)" }}
+                    strokeWidth={1.75}
+                  />
                   {locale === "ar" ? "الموافقة بوابة" : "Consent is a gate"}
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-3 h-3" style={{ color: "var(--status-steady)" }} strokeWidth={1.75} />
+                  <ShieldCheck
+                    className="w-3 h-3"
+                    style={{ color: "var(--status-steady)" }}
+                    strokeWidth={1.75}
+                  />
                   {locale === "ar" ? "ليس للأداء أو التأديب" : "Not for performance use"}
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-3 h-3" style={{ color: "var(--status-steady)" }} strokeWidth={1.75} />
+                  <ShieldCheck
+                    className="w-3 h-3"
+                    style={{ color: "var(--status-steady)" }}
+                    strokeWidth={1.75}
+                  />
                   {locale === "ar" ? "تصعيد بمسؤول اسمي" : "Named-human escalation"}
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-3 h-3" style={{ color: "var(--status-steady)" }} strokeWidth={1.75} />
+                  <ShieldCheck
+                    className="w-3 h-3"
+                    style={{ color: "var(--status-steady)" }}
+                    strokeWidth={1.75}
+                  />
                   {locale === "ar" ? "سجل تدقيق متسلسل" : "Hash-chained audit"}
                 </li>
               </ul>
@@ -502,27 +603,40 @@ export default function Home() {
 
             {/* Health */}
             <div>
-              <h4 className="text-[10px] uppercase tracking-[0.16em] mb-2" style={{ color: "var(--text-lo)" }}>
+              <h4
+                className="text-[10px] uppercase tracking-[0.16em] mb-2"
+                style={{ color: "var(--text-lo)" }}
+              >
                 {locale === "ar" ? "الصحة" : "Health"}
               </h4>
               <div className="space-y-1.5 text-[11px]">
                 <div className="flex items-center justify-between">
-                  <span style={{ color: "var(--text-mid)" }}>{locale === "ar" ? "الحالة" : "Status"}</span>
+                  <span style={{ color: "var(--text-mid)" }}>
+                    {locale === "ar" ? "الحالة" : "Status"}
+                  </span>
                   <span className="inline-flex items-center gap-1.5">
                     <span className="ast-dot ast-dot-steady" />
-                    <span style={{ color: "var(--status-steady)" }}>{locale === "ar" ? "كل الأنظمة تعمل" : "All systems"}</span>
+                    <span style={{ color: "var(--status-steady)" }}>
+                      {locale === "ar" ? "كل الأنظمة تعمل" : "All systems"}
+                    </span>
                   </span>
                 </div>
                 <div className="flex items-center justify-between tabular">
-                  <span style={{ color: "var(--text-mid)" }}>{locale === "ar" ? "زمن الاستجابة" : "Hot p95"}</span>
+                  <span style={{ color: "var(--text-mid)" }}>
+                    {locale === "ar" ? "زمن الاستجابة" : "Hot p95"}
+                  </span>
                   <span style={{ color: "var(--text-hi)" }}>28ms</span>
                 </div>
                 <div className="flex items-center justify-between tabular">
-                  <span style={{ color: "var(--text-mid)" }}>{locale === "ar" ? "معدل الامتناع" : "Abstain rate"}</span>
+                  <span style={{ color: "var(--text-mid)" }}>
+                    {locale === "ar" ? "معدل الامتناع" : "Abstain rate"}
+                  </span>
                   <span style={{ color: "var(--text-hi)" }}>12%</span>
                 </div>
                 <div className="flex items-center justify-between tabular">
-                  <span style={{ color: "var(--text-mid)" }}>{locale === "ar" ? "دقة الاستشهاد" : "Citations"}</span>
+                  <span style={{ color: "var(--text-mid)" }}>
+                    {locale === "ar" ? "دقة الاستشهاد" : "Citations"}
+                  </span>
                   <span style={{ color: "var(--status-steady)" }}>100%</span>
                 </div>
               </div>
@@ -534,7 +648,8 @@ export default function Home() {
             style={{ borderTop: "1px solid var(--border-soft)", color: "var(--text-lo)" }}
           >
             <span>
-              © 2024 ASTROLABE · {locale === "ar" ? "بيانات تركيبية فقط" : "Synthetic data only"} · {locale === "ar" ? "نموذج أولي" : "Prototype build"}
+              © 2024 ASTROLABE · {locale === "ar" ? "بيانات تركيبية فقط" : "Synthetic data only"} ·{" "}
+              {locale === "ar" ? "نموذج أولي" : "Prototype build"}
             </span>
             <span className="flex items-center gap-3">
               <span>v1.0.0</span>
@@ -544,7 +659,11 @@ export default function Home() {
               <span className="inline-flex items-center gap-1">
                 <kbd
                   className="px-1 py-0.5 rounded font-mono"
-                  style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}
+                  style={{
+                    background: "var(--surface-2)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text-mid)",
+                  }}
                 >
                   ⌘K
                 </kbd>
@@ -560,12 +679,31 @@ export default function Home() {
         {commandPaletteOpen && (
           <CommandPalette
             onClose={() => setCommandPalette(false)}
-            onNavigate={(v) => { setView(v); setRole("employee"); setCommandPalette(false); }}
-            onRole={(r) => { setRole(r); setCommandPalette(false); }}
-            onEmployee={(id) => { setEmployee(id); setCommandPalette(false); }}
-            onLocale={() => { setLocale(locale === "en" ? "ar" : "en"); setCommandPalette(false); }}
-            onPolicySearch={() => { useAppStore.getState().setPolicySearchOpen(true); setCommandPalette(false); }}
-            onGlobalSearch={() => { useAppStore.getState().setGlobalSearchOpen(true); setCommandPalette(false); }}
+            onNavigate={(v) => {
+              setView(v);
+              setRole("employee");
+              setCommandPalette(false);
+            }}
+            onRole={(r) => {
+              setRole(r);
+              setCommandPalette(false);
+            }}
+            onEmployee={(id) => {
+              setEmployee(id);
+              setCommandPalette(false);
+            }}
+            onLocale={() => {
+              setLocale(locale === "en" ? "ar" : "en");
+              setCommandPalette(false);
+            }}
+            onPolicySearch={() => {
+              useAppStore.getState().setPolicySearchOpen(true);
+              setCommandPalette(false);
+            }}
+            onGlobalSearch={() => {
+              useAppStore.getState().setGlobalSearchOpen(true);
+              setCommandPalette(false);
+            }}
           />
         )}
       </AnimatePresence>
@@ -674,12 +812,18 @@ function HeroParallax() {
           transition={{ type: "spring", stiffness: 120, damping: 18 }}
         >
           <div className="flex items-center gap-2 mb-3">
-            <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--accent-500)" }} strokeWidth={1.75} />
+            <Sparkles
+              className="w-3.5 h-3.5"
+              style={{ color: "var(--accent-500)" }}
+              strokeWidth={1.75}
+            />
             <span
               className="text-[11px] uppercase tracking-[0.18em]"
               style={{ color: "var(--accent-500)" }}
             >
-              {locale === "ar" ? "أداة ملاحة، لا أداة مراقبة" : "A navigation instrument, not a surveillance one"}
+              {locale === "ar"
+                ? "أداة ملاحة، لا أداة مراقبة"
+                : "A navigation instrument, not a surveillance one"}
             </span>
           </div>
           <h1
@@ -768,41 +912,135 @@ function CommandPalette({
   const locale = useAppStore((s) => s.locale);
 
   const items = [
-    { group: locale === "ar" ? "انتقل" : "Navigate", actions: [
-      { id: "today", label: locale === "ar" ? "اليوم" : "Today", hint: "What now?", run: () => onNavigate("today") },
-      { id: "journey", label: locale === "ar" ? "الرحلة" : "Journey", hint: "Full map", run: () => onNavigate("journey") },
-      { id: "ask", label: locale === "ar" ? "اسأل" : "Ask", hint: "Cited answers", run: () => onNavigate("ask") },
-      { id: "requests", label: locale === "ar" ? "الطلبات" : "Requests", hint: "Intake & status", run: () => onNavigate("requests") },
-      { id: "me", label: locale === "ar" ? "حسابي" : "Me", hint: "Consent & data", run: () => onNavigate("me") },
-      { id: "profile", label: locale === "ar" ? "ملفي" : "Profile", hint: "Your details", run: () => onNavigate("profile") },
-      { id: "help", label: locale === "ar" ? "مساعدة" : "Help", hint: "Guides & support", run: () => onNavigate("help") },
-    ]},
-    { group: locale === "ar" ? "الوضع" : "Mode", actions: [
-      { id: "employee", label: locale === "ar" ? "موظف" : "Employee", hint: "Journey companion", run: () => onRole("employee") },
-      { id: "hrbp", label: "HRBP", hint: "Early warning queue", run: () => onRole("hrbp") },
-      { id: "manager", label: locale === "ar" ? "مدير" : "Manager", hint: "Aggregate view", run: () => onRole("manager") },
-      { id: "judge", label: locale === "ar" ? "قاضٍ" : "Judge", hint: "Engine trace", run: () => onRole("judge") },
-      { id: "admin", label: locale === "ar" ? "إدارة" : "Admin", hint: "Operability console", run: () => onRole("admin") },
-      { id: "service_owner", label: locale === "ar" ? "مالك الخدمة" : "Service owner", hint: "Intake queue + payload", run: () => onRole("service_owner") },
-    ]},
-    { group: locale === "ar" ? "بحث" : "Search", actions: [
-      { id: "global-search", label: locale === "ar" ? "ابحث في كل شيء" : "Search everything", hint: locale === "ar" ? "سياسات · خطوات · طلبات" : "Policies · steps · requests", run: onGlobalSearch },
-      { id: "policy-search", label: locale === "ar" ? "ابحث في السياسات فقط" : "Search policies only", hint: locale === "ar" ? "عبر كل الوثائق" : "Across all docs", run: onPolicySearch },
-    ]},
-    { group: locale === "ar" ? "السيناريو" : "Scenario", actions: EMPLOYEES.map((e) => ({
-      id: e.id, label: `${e.id} · ${e.name}`, hint: e.journey, run: () => onEmployee(e.id),
-    }))},
-    { group: locale === "ar" ? "إجراءات" : "Actions", actions: [
-      { id: "locale", label: locale === "ar" ? "تبديل اللغة" : "Toggle language", hint: "EN ⇄ AR", run: onLocale },
-    ]},
+    {
+      group: locale === "ar" ? "انتقل" : "Navigate",
+      actions: [
+        {
+          id: "today",
+          label: locale === "ar" ? "اليوم" : "Today",
+          hint: "What now?",
+          run: () => onNavigate("today"),
+        },
+        {
+          id: "journey",
+          label: locale === "ar" ? "الرحلة" : "Journey",
+          hint: "Full map",
+          run: () => onNavigate("journey"),
+        },
+        {
+          id: "ask",
+          label: locale === "ar" ? "اسأل" : "Ask",
+          hint: "Cited answers",
+          run: () => onNavigate("ask"),
+        },
+        {
+          id: "requests",
+          label: locale === "ar" ? "الطلبات" : "Requests",
+          hint: "Intake & status",
+          run: () => onNavigate("requests"),
+        },
+        {
+          id: "me",
+          label: locale === "ar" ? "حسابي" : "Me",
+          hint: "Consent & data",
+          run: () => onNavigate("me"),
+        },
+        {
+          id: "profile",
+          label: locale === "ar" ? "ملفي" : "Profile",
+          hint: "Your details",
+          run: () => onNavigate("profile"),
+        },
+        {
+          id: "help",
+          label: locale === "ar" ? "مساعدة" : "Help",
+          hint: "Guides & support",
+          run: () => onNavigate("help"),
+        },
+      ],
+    },
+    {
+      group: locale === "ar" ? "الوضع" : "Mode",
+      actions: [
+        {
+          id: "employee",
+          label: locale === "ar" ? "موظف" : "Employee",
+          hint: "Journey companion",
+          run: () => onRole("employee"),
+        },
+        { id: "hrbp", label: "HRBP", hint: "Early warning queue", run: () => onRole("hrbp") },
+        {
+          id: "manager",
+          label: locale === "ar" ? "مدير" : "Manager",
+          hint: "Aggregate view",
+          run: () => onRole("manager"),
+        },
+        {
+          id: "judge",
+          label: locale === "ar" ? "قاضٍ" : "Judge",
+          hint: "Engine trace",
+          run: () => onRole("judge"),
+        },
+        {
+          id: "admin",
+          label: locale === "ar" ? "إدارة" : "Admin",
+          hint: "Operability console",
+          run: () => onRole("admin"),
+        },
+        {
+          id: "service_owner",
+          label: locale === "ar" ? "مالك الخدمة" : "Service owner",
+          hint: "Intake queue + payload",
+          run: () => onRole("service_owner"),
+        },
+      ],
+    },
+    {
+      group: locale === "ar" ? "بحث" : "Search",
+      actions: [
+        {
+          id: "global-search",
+          label: locale === "ar" ? "ابحث في كل شيء" : "Search everything",
+          hint: locale === "ar" ? "سياسات · خطوات · طلبات" : "Policies · steps · requests",
+          run: onGlobalSearch,
+        },
+        {
+          id: "policy-search",
+          label: locale === "ar" ? "ابحث في السياسات فقط" : "Search policies only",
+          hint: locale === "ar" ? "عبر كل الوثائق" : "Across all docs",
+          run: onPolicySearch,
+        },
+      ],
+    },
+    {
+      group: locale === "ar" ? "السيناريو" : "Scenario",
+      actions: EMPLOYEES.map((e) => ({
+        id: e.id,
+        label: `${e.id} · ${e.name}`,
+        hint: e.journey,
+        run: () => onEmployee(e.id),
+      })),
+    },
+    {
+      group: locale === "ar" ? "إجراءات" : "Actions",
+      actions: [
+        {
+          id: "locale",
+          label: locale === "ar" ? "تبديل اللغة" : "Toggle language",
+          hint: "EN ⇄ AR",
+          run: onLocale,
+        },
+      ],
+    },
   ];
 
   const filtered = items
     .map((g) => ({
       ...g,
-      actions: g.actions.filter((a) =>
-        a.label.toLowerCase().includes(query.toLowerCase()) ||
-        a.hint.toLowerCase().includes(query.toLowerCase())
+      actions: g.actions.filter(
+        (a) =>
+          a.label.toLowerCase().includes(query.toLowerCase()) ||
+          a.hint.toLowerCase().includes(query.toLowerCase()),
       ),
     }))
     .filter((g) => g.actions.length > 0);
@@ -838,7 +1076,11 @@ function CommandPalette({
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={locale === "ar" ? "ابحث عن إجراء، صفحة، سيناريو…" : "Search actions, views, scenarios…"}
+            placeholder={
+              locale === "ar"
+                ? "ابحث عن إجراء، صفحة، سيناريو…"
+                : "Search actions, views, scenarios…"
+            }
             className="flex-1 bg-transparent outline-none text-[14px] placeholder:opacity-50"
             style={{ color: "var(--text-hi)" }}
           />
@@ -891,9 +1133,19 @@ function CommandPalette({
           style={{ borderColor: "var(--border)", color: "var(--text-lo)" }}
         >
           <span className="flex items-center gap-2">
-            <kbd className="px-1 py-0.5 rounded font-mono" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>↑↓</kbd>
+            <kbd
+              className="px-1 py-0.5 rounded font-mono"
+              style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
+            >
+              ↑↓
+            </kbd>
             {locale === "ar" ? "تنقل" : "navigate"}
-            <kbd className="px-1 py-0.5 rounded font-mono ml-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>↵</kbd>
+            <kbd
+              className="px-1 py-0.5 rounded font-mono ml-2"
+              style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
+            >
+              ↵
+            </kbd>
             {locale === "ar" ? "اختيار" : "select"}
           </span>
           <span>ASTROLABE v1.0.0</span>

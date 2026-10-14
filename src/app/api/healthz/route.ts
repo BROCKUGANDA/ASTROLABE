@@ -25,6 +25,6 @@ export async function GET(): Promise<NextResponse> {
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
     },
-    { status: 200 }
+    { status: 200 },
   );
 }

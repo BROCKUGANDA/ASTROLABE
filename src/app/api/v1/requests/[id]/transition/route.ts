@@ -44,10 +44,7 @@ const VALID_STATUSES: ReadonlySet<ServiceRequest["status"]> = new Set([
   "cancelled",
 ]);
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const start = Date.now();
   const { id } = await params;
 
@@ -80,14 +77,9 @@ export async function POST(
     return error("E_VALIDATION", "`idempotencyKey` is required", 422);
   }
   if (!VALID_STATUSES.has(to as ServiceRequest["status"])) {
-    return error(
-      "E_VALIDATION",
-      `Unknown target status '${to}'`,
-      422,
-      {
-        hint: "Must be one of: draft, validated, submitted, acknowledged, in_progress, waiting_employee, resolved, closed, returned, reassigned, reopened, cancelled",
-      }
-    );
+    return error("E_VALIDATION", `Unknown target status '${to}'`, 422, {
+      hint: "Must be one of: draft, validated, submitted, acknowledged, in_progress, waiting_employee, resolved, closed, returned, reassigned, reopened, cancelled",
+    });
   }
 
   const request = serviceRequests.find((r) => r.id === id);
@@ -105,14 +97,9 @@ export async function POST(
       from,
       to,
     });
-    return error(
-      "E_CONFLICT",
-      `Illegal transition: '${from}' → '${to}'`,
-      409,
-      {
-        hint: `Legal transitions from '${from}' are defined in the request state machine.`,
-      }
-    );
+    return error("E_CONFLICT", `Illegal transition: '${from}' → '${to}'`, 409, {
+      hint: `Legal transitions from '${from}' are defined in the request state machine.`,
+    });
   }
 
   // Idempotency: if the request is already in the target state, treat as replay.
@@ -173,7 +160,6 @@ export async function POST(
       servedFrom,
       asOf: new Date().toISOString(),
       latencyMs: Date.now() - start,
-    }
+    },
   );
 }
-

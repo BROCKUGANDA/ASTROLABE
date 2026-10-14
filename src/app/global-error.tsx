@@ -163,10 +163,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
             >
               Something went wrong
             </h1>
-            <p
-              className="text-sm sm:text-base mb-6"
-              style={{ color: "var(--text-mid)" }}
-            >
+            <p className="text-sm sm:text-base mb-6" style={{ color: "var(--text-mid)" }}>
               The application hit an unexpected problem. We captured it so the team can investigate.
             </p>
 
@@ -265,7 +262,11 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
                 color: "var(--text-lo)",
               }}
             >
-              <LifeBuoy className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: "var(--brand-400)" }} aria-hidden />
+              <LifeBuoy
+                className="h-3.5 w-3.5 mt-0.5 shrink-0"
+                style={{ color: "var(--brand-400)" }}
+                aria-hidden
+              />
               <p>
                 If this keeps happening, tell Fatima in HR:{" "}
                 <a

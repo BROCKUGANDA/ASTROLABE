@@ -50,9 +50,7 @@ function median(values: number[]): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? (sorted[mid - 1] + sorted[mid]) / 2
-    : sorted[mid];
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
 export async function GET(req: NextRequest) {
@@ -81,35 +79,23 @@ export async function GET(req: NextRequest) {
 
   for (const key of cellKeys) {
     const [stage, ownerGroup] = key.split("|") as [string, Owner["group"]];
-    const cellSteps = ALL_STEPS.filter(
-      (s) => s.stage === stage && s.ownerGroup === ownerGroup
-    );
+    const cellSteps = ALL_STEPS.filter((s) => s.stage === stage && s.ownerGroup === ownerGroup);
 
     const completions: Completion[] = [];
     const contributors = new Set<string>();
 
     for (const employee of employees) {
       // Skip employees whose journeyType doesn't include this stage.
-      const employeeJourneySteps = cellSteps.filter(
-        (s) => s.journeyType === employee.journeyType
-      );
+      const employeeJourneySteps = cellSteps.filter((s) => s.journeyType === employee.journeyType);
       if (employeeJourneySteps.length === 0) continue;
 
-      const employeeEvents = ALL_EVENTS.filter(
-        (e) => e.employeeId === employee.id
-      );
+      const employeeEvents = ALL_EVENTS.filter((e) => e.employeeId === employee.id);
 
       for (const step of employeeJourneySteps) {
         const state = computeStepState(employee, step, employeeEvents, asOf);
-        if (
-          state.status === "done" &&
-          state.startedAt &&
-          state.completedAt
-        ) {
+        if (state.status === "done" && state.startedAt && state.completedAt) {
           const timeToCompleteHours =
-            (new Date(state.completedAt).getTime() -
-              new Date(state.startedAt).getTime()) /
-            3600000;
+            (new Date(state.completedAt).getTime() - new Date(state.startedAt).getTime()) / 3600000;
           completions.push({
             timeToCompleteHours,
             breached: timeToCompleteHours > step.targetHours,
@@ -124,8 +110,7 @@ export async function GET(req: NextRequest) {
     // that have been reassigned at least once.
     const groupRequests = ALL_REQUESTS.filter((r) => r.ownerGroup === ownerGroup);
     const reassigned = groupRequests.filter((r) => r.reassignCount > 0).length;
-    const reassignmentRate =
-      groupRequests.length > 0 ? reassigned / groupRequests.length : 0;
+    const reassignmentRate = groupRequests.length > 0 ? reassigned / groupRequests.length : 0;
 
     if (contributors.size < 5) {
       // PRD §29 item 22 / PRD §11-209 — k=5 suppression.
@@ -166,7 +151,7 @@ export async function GET(req: NextRequest) {
   cells.sort(
     (a, b) =>
       stageOrder.indexOf(a.stage) - stageOrder.indexOf(b.stage) ||
-      a.ownerGroup.localeCompare(b.ownerGroup)
+      a.ownerGroup.localeCompare(b.ownerGroup),
   );
 
   return success(
@@ -175,6 +160,6 @@ export async function GET(req: NextRequest) {
       servedFrom: "live",
       asOf: asOf.toISOString(),
       latencyMs: Date.now() - start,
-    }
+    },
   );
 }

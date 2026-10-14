@@ -50,11 +50,7 @@ export default function NotFound() {
         style={{ borderRadius: "var(--radius-lg)" }}
       >
         {/* Astrolabe illustration — brass ring + compass center */}
-        <div
-          className="relative mb-8"
-          style={{ width: 184, height: 184 }}
-          aria-hidden
-        >
+        <div className="relative mb-8" style={{ width: 184, height: 184 }} aria-hidden>
           {/* Outer halo */}
           <div
             className="absolute inset-0 rounded-full"
@@ -124,19 +120,13 @@ export default function NotFound() {
           404 · OFF-COURSE
         </span>
 
-        <h1
-          className="text-2xl sm:text-3xl font-semibold mb-3"
-          style={{ color: "var(--text-hi)" }}
-        >
+        <h1 className="text-2xl sm:text-3xl font-semibold mb-3" style={{ color: "var(--text-hi)" }}>
           Page not found
         </h1>
-        <p
-          className="text-sm sm:text-base mb-6 max-w-md"
-          style={{ color: "var(--text-mid)" }}
-        >
+        <p className="text-sm sm:text-base mb-6 max-w-md" style={{ color: "var(--text-mid)" }}>
           This page isn&apos;t on the journey map. Try the{" "}
-          <span style={{ color: "var(--brand-400)" }}>Today</span> tab, or ask
-          me a question and I&apos;ll point you to the right step.
+          <span style={{ color: "var(--brand-400)" }}>Today</span> tab, or ask me a question and
+          I&apos;ll point you to the right step.
         </p>
 
         {/* Search suggestion chip */}

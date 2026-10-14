@@ -36,9 +36,7 @@ export async function POST(req: NextRequest) {
 
   const ip = getClientIp(req);
   const userId =
-    typeof body.employeeId === "string" && body.employeeId.length > 0
-      ? body.employeeId
-      : null;
+    typeof body.employeeId === "string" && body.employeeId.length > 0 ? body.employeeId : null;
   const rlId = buildIdentifier("ask", ip, userId);
   const rl = rateLimit(rlId, RATE_LIMITS.ask.limit, RATE_LIMITS.ask.windowMs);
   if (!rl.success) {
@@ -48,15 +46,10 @@ export async function POST(req: NextRequest) {
       retrySec,
       requestId: req.headers.get("x-request-id") ?? undefined,
     });
-    const res = error(
-      "E_RATE_LIMIT",
-      "Too many questions. Please wait a moment.",
-      429,
-      {
-        hint: `Try again in ${retrySec} seconds`,
-        retryable: true,
-      }
-    );
+    const res = error("E_RATE_LIMIT", "Too many questions. Please wait a moment.", 429, {
+      hint: `Try again in ${retrySec} seconds`,
+      retryable: true,
+    });
     res.headers.set("Retry-After", String(retrySec));
     res.headers.set("X-RateLimit-Remaining", "0");
     res.headers.set("X-RateLimit-Reset", String(Math.ceil(rl.resetAt / 1000)));
@@ -103,7 +96,7 @@ export async function POST(req: NextRequest) {
       degraded: policyAnswer.degraded,
       asOf: new Date().toISOString(),
       latencyMs: Date.now() - start,
-    }
+    },
   );
   res.headers.set("X-RateLimit-Remaining", String(rl.remaining));
   res.headers.set("X-RateLimit-Reset", String(Math.ceil(rl.resetAt / 1000)));

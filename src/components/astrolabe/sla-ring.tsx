@@ -61,10 +61,8 @@ export function SlaRing({
 
   // Ratio for the ring fill is capped at 1.0 visually (full circle),
   // but the center text shows the actual percentage (which can exceed 100%).
-  const ratio =
-    targetHours > 0 ? Math.min(Math.max(elapsedHours / targetHours, 0), 1) : 0;
-  const pct =
-    targetHours > 0 ? Math.round((elapsedHours / targetHours) * 100) : 0;
+  const ratio = targetHours > 0 ? Math.min(Math.max(elapsedHours / targetHours, 0), 1) : 0;
+  const pct = targetHours > 0 ? Math.round((elapsedHours / targetHours) * 100) : 0;
 
   // SVG ring geometry — start at 12 o'clock, sweep clockwise.
   const strokeWidth = 3;
@@ -94,14 +92,7 @@ export function SlaRing({
         aria-hidden="true"
       >
         {/* Background track */}
-        <circle
-          cx={cx}
-          cy={cy}
-          r={r}
-          fill="none"
-          stroke={colors.track}
-          strokeWidth={strokeWidth}
-        />
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke={colors.track} strokeWidth={strokeWidth} />
         {/* Filled arc — animated via strokeDashoffset */}
         <motion.circle
           cx={cx}
@@ -114,16 +105,12 @@ export function SlaRing({
           transform={`rotate(-90 ${cx} ${cy})`}
           style={{
             strokeDasharray: circumference,
-            filter: isHard
-              ? `drop-shadow(0 0 2.5px ${colors.stroke})`
-              : "none",
+            filter: isHard ? `drop-shadow(0 0 2.5px ${colors.stroke})` : "none",
           }}
           initial={reduce ? false : { strokeDashoffset: circumference }}
           animate={{ strokeDashoffset: dashOffset }}
           transition={
-            reduce
-              ? { duration: 0 }
-              : { duration: 0.48, ease: [0.2, 0.8, 0.2, 1] as const }
+            reduce ? { duration: 0 } : { duration: 0.48, ease: [0.2, 0.8, 0.2, 1] as const }
           }
         />
       </svg>

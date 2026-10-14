@@ -1,0 +1,26 @@
+# Normalise line endings in the repository, not in the working copy. Without
+# this every file reads as modified on Windows (core.autocrlf) and `git status`
+# stops being a usable signal for a real change.
+* text=auto eol=lf
+
+# Binary: never diff, never normalise.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.mp4 binary
+*.mp3 binary
+*.wav binary
+*.db binary
+*.sqlite binary
+*.gz binary
+*.zip binary
+
+# Vendored or generated output: excluded from diffs and PR noise.
+bun.lock linguist-generated=true
+tests/engine/__snapshots__/** linguist-generated=true
+tool-results/** linguist-generated=true

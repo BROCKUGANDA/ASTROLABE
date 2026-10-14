@@ -45,11 +45,7 @@ const BUCKETS = new Map<string, RateBucket>();
  * @param limit        max number of hits permitted in the window
  * @param windowMs    size of the sliding window in milliseconds
  */
-export function rateLimit(
-  identifier: string,
-  limit: number,
-  windowMs: number
-): RateLimitResult {
+export function rateLimit(identifier: string, limit: number, windowMs: number): RateLimitResult {
   const now = Date.now();
   const since = now - windowMs;
 
@@ -128,11 +124,7 @@ export const RATE_LIMITS = {
  * the user across NAT'd devices but still degrades to per-IP when no
  * employee is supplied.
  */
-export function buildIdentifier(
-  scope: string,
-  ip: string,
-  userId?: string | null
-): string {
+export function buildIdentifier(scope: string, ip: string, userId?: string | null): string {
   return userId ? `${scope}:${ip}:${userId}` : `${scope}:${ip}`;
 }
 

@@ -64,6 +64,10 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      - name: Format check
+        # Formatting is enforced, not requested: `bun run format` fixes it locally.
+        run: bun run format:check
+
       - name: Test suite (signals, properties, contracts, privacy, snapshot gate)
         run: bun test tests/
 

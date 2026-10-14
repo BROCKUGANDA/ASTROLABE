@@ -297,7 +297,11 @@ function PolicySearchBody({
           border: "1px solid var(--border)",
         }}
       >
-        <Search className="w-4 h-4 shrink-0" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+        <Search
+          className="w-4 h-4 shrink-0"
+          strokeWidth={1.75}
+          style={{ color: "var(--brand-400)" }}
+        />
         <input
           type="text"
           value={query}
@@ -418,8 +422,15 @@ function PolicySearchBody({
 
         {/* Loading */}
         {loading && (
-          <div className="flex items-center justify-center py-10 gap-2 text-[13px]" style={{ color: "var(--text-mid)" }}>
-            <Loader2 className="w-4 h-4 animate-spin" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+          <div
+            className="flex items-center justify-center py-10 gap-2 text-[13px]"
+            style={{ color: "var(--text-mid)" }}
+          >
+            <Loader2
+              className="w-4 h-4 animate-spin"
+              strokeWidth={1.75}
+              style={{ color: "var(--brand-400)" }}
+            />
             {locale === "ar" ? "أبحث في السياسات…" : "Searching policies…"}
           </div>
         )}
@@ -611,10 +622,7 @@ function PolicyHitCard({
       {/* Title row */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p
-            className="text-[12px] font-semibold truncate"
-            style={{ color: "var(--text-hi)" }}
-          >
+          <p className="text-[12px] font-semibold truncate" style={{ color: "var(--text-hi)" }}>
             {locale === "ar" ? hit.titleAr : hit.title}
             <span className="opacity-60"> · </span>
             <span className="font-mono tabular" style={{ color: "var(--brand-400)" }}>
@@ -661,10 +669,7 @@ function PolicyHitCard({
         </div>
         {/* Score */}
         <div className="shrink-0 text-right">
-          <p
-            className="text-[9px] uppercase tracking-[0.12em]"
-            style={{ color: "var(--text-lo)" }}
-          >
+          <p className="text-[9px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
             {locale === "ar" ? "تطابق" : "Match"}
           </p>
           <p
@@ -694,7 +699,10 @@ function PolicyHitCard({
       </p>
 
       {/* Matched terms + open-policy CTA */}
-      <div className="mt-3 pt-2.5 flex items-center justify-between gap-2 flex-wrap" style={{ borderTop: "1px solid var(--border-soft)" }}>
+      <div
+        className="mt-3 pt-2.5 flex items-center justify-between gap-2 flex-wrap"
+        style={{ borderTop: "1px solid var(--border-soft)" }}
+      >
         <div className="flex items-center gap-1.5 flex-wrap min-w-0">
           {hit.matchedTerms.slice(0, 5).map((t) => (
             <span
@@ -767,7 +775,11 @@ export function PolicySearchTriggerButton({
             }
       }
     >
-      <Search className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: variant === "solid" ? "var(--surface-0)" : "var(--brand-400)" }} />
+      <Search
+        className="w-3.5 h-3.5"
+        strokeWidth={1.75}
+        style={{ color: variant === "solid" ? "var(--surface-0)" : "var(--brand-400)" }}
+      />
       <span>{locale === "ar" ? "ابحث في السياسات" : "Search policies"}</span>
     </button>
   );

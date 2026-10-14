@@ -38,10 +38,7 @@ import {
   Square,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
-import {
-  NumberTicker,
-  Tilt3D,
-} from "@/components/astrolabe/micro-interactions";
+import { NumberTicker, Tilt3D } from "@/components/astrolabe/micro-interactions";
 import { GlobalSearchTriggerButton } from "@/components/astrolabe/global-search";
 import { SourcePreviewModal } from "@/components/astrolabe/source-preview-modal";
 import { cn } from "@/lib/utils";
@@ -130,13 +127,15 @@ const STARTERS_AR = [
 
 /** Strip inline [^n] refs and footnote definitions; return clean markdown. */
 function stripCitations(md: string): string {
-  return md
-    // Strip footnote definition lines FIRST (before removing the [^n] markers they start with)
-    .replace(/^\[\^\d+\]:.*$/gm, "")
-    // Then strip inline [^n] references
-    .replace(/\[\^\d+\]/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  return (
+    md
+      // Strip footnote definition lines FIRST (before removing the [^n] markers they start with)
+      .replace(/^\[\^\d+\]:.*$/gm, "")
+      // Then strip inline [^n] references
+      .replace(/\[\^\d+\]/g, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim()
+  );
 }
 
 /**
@@ -222,7 +221,11 @@ export function AskScreen() {
       if (!trimmed) return;
       if (!currentEmployeeId) return;
       if (trimmed.length > 1000) {
-        toast.error(locale === "ar" ? "السؤال طويل جداً (1000 حرف كحد أقصى)" : "Question too long (max 1000 chars)");
+        toast.error(
+          locale === "ar"
+            ? "السؤال طويل جداً (1000 حرف كحد أقصى)"
+            : "Question too long (max 1000 chars)",
+        );
         return;
       }
 
@@ -277,9 +280,7 @@ export function AskScreen() {
         }
         setTurns((prev) =>
           prev.map((t) =>
-            t.id === turnId
-              ? { ...t, answer: json.data!.answer, loading: false }
-              : t,
+            t.id === turnId ? { ...t, answer: json.data!.answer, loading: false } : t,
           ),
         );
       } catch (err) {
@@ -294,7 +295,9 @@ export function AskScreen() {
               : t,
           ),
         );
-        toast.error(locale === "ar" ? "تعذّر الوصول إلى السياسة" : "Couldn't reach the policy service");
+        toast.error(
+          locale === "ar" ? "تعذّر الوصول إلى السياسة" : "Couldn't reach the policy service",
+        );
       } finally {
         // Stop animations after fetch resolves (regardless of stage reached)
         stageTimers.forEach(clearTimeout);
@@ -373,10 +376,7 @@ export function AskScreen() {
               {locale === "ar" ? "مسح" : "Clear"}
             </button>
           </div>
-          <div
-            ref={historyRef}
-            className="max-h-32 overflow-y-auto pr-1 space-y-1.5"
-          >
+          <div ref={historyRef} className="max-h-32 overflow-y-auto pr-1 space-y-1.5">
             {turns.map((t) => (
               <button
                 key={t.id}
@@ -456,10 +456,7 @@ export function AskScreen() {
           background: "linear-gradient(180deg, transparent 0%, var(--surface-0) 30%)",
         }}
       >
-        <div
-          className="ast-card p-3 sm:p-4"
-          style={{ boxShadow: "var(--e2)" }}
-        >
+        <div className="ast-card p-3 sm:p-4" style={{ boxShadow: "var(--e2)" }}>
           <div className="flex items-end gap-2">
             <div className="flex-1 min-w-0">
               <textarea
@@ -479,16 +476,10 @@ export function AskScreen() {
                 maxLength={1000}
               />
               <div className="flex items-center justify-between px-1">
-                <span
-                  className="text-[10px] font-mono tabular"
-                  style={{ color: "var(--text-lo)" }}
-                >
+                <span className="text-[10px] font-mono tabular" style={{ color: "var(--text-lo)" }}>
                   {question.length}/1000
                 </span>
-                <span
-                  className="text-[10px]"
-                  style={{ color: "var(--text-lo)" }}
-                >
+                <span className="text-[10px]" style={{ color: "var(--text-lo)" }}>
                   {locale === "ar" ? "Enter للإرسال" : "Enter to send"}
                 </span>
               </div>
@@ -505,13 +496,11 @@ export function AskScreen() {
               }}
             >
               <Send className="w-4 h-4" strokeWidth={2} />
-              <span className="hidden sm:inline">
-                {locale === "ar" ? "اسأل" : "Ask"}
-              </span>
+              <span className="hidden sm:inline">{locale === "ar" ? "اسأل" : "Ask"}</span>
             </button>
             {/* Voice input button */}
             <VoiceInputButton
-              onTranscript={(text) => setQuestion((prev) => prev ? prev + " " + text : text)}
+              onTranscript={(text) => setQuestion((prev) => (prev ? prev + " " + text : text))}
               locale={locale}
             />
           </div>
@@ -559,9 +548,7 @@ function ThreeStageProgress({
                     : isActive
                       ? "var(--brand-400)"
                       : "var(--surface-3)",
-                  border: `1px solid ${
-                    isPast || isActive ? "var(--brand-500)" : "var(--border)"
-                  }`,
+                  border: `1px solid ${isPast || isActive ? "var(--brand-500)" : "var(--border)"}`,
                 }}
                 aria-hidden="true"
               />
@@ -579,10 +566,7 @@ function ThreeStageProgress({
                   {label}
                 </p>
                 {(isActive || isPast) && (
-                  <p
-                    className="text-[10px] tabular mt-0.5"
-                    style={{ color: "var(--text-lo)" }}
-                  >
+                  <p className="text-[10px] tabular mt-0.5" style={{ color: "var(--text-lo)" }}>
                     {fmtMs(stageElapsed[i] || 0)}
                   </p>
                 )}
@@ -592,10 +576,7 @@ function ThreeStageProgress({
                   aria-hidden="true"
                   className="hidden sm:block h-[1px] w-8 shrink-0"
                   style={{
-                    background:
-                      isPast || isActive
-                        ? "var(--brand-500)"
-                        : "var(--border)",
+                    background: isPast || isActive ? "var(--brand-500)" : "var(--border)",
                   }}
                 />
               )}
@@ -603,10 +584,7 @@ function ThreeStageProgress({
           );
         })}
       </ol>
-      <p
-        className="text-[11px] mt-3"
-        style={{ color: "var(--text-lo)" }}
-      >
+      <p className="text-[11px] mt-3" style={{ color: "var(--text-lo)" }}>
         {locale === "ar"
           ? "أبحث في سياساتك الرسمية فقط — لا تخمين."
           : "I'm searching your official policies only — no guessing."}
@@ -631,11 +609,7 @@ function StartersRow({
   return (
     <section aria-label={locale === "ar" ? "أسئلة مقترحة" : "Suggested questions"}>
       <div className="flex items-center gap-2 mb-3">
-        <Sparkles
-          className="w-4 h-4"
-          strokeWidth={1.75}
-          style={{ color: "var(--brand-400)" }}
-        />
+        <Sparkles className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
         <h2
           className="text-[13px] font-semibold uppercase tracking-[0.12em]"
           style={{ color: "var(--text-hi)" }}
@@ -716,11 +690,7 @@ function TurnCard({
 
       {/* Error */}
       {!turn.loading && turn.error && (
-        <ErrorCard
-          message={turn.error}
-          locale={locale}
-          onRetry={() => onFollowUp(turn.question)}
-        />
+        <ErrorCard message={turn.error} locale={locale} onRetry={() => onFollowUp(turn.question)} />
       )}
 
       {/* Answer */}
@@ -841,9 +811,7 @@ function AnswerCard({
   const handleShareOwner = () => {
     if (!answer.ownerHint) {
       toast.info(
-        locale === "ar"
-          ? "لا يوجد مالك محدد لهذه الإجابة"
-          : "No named owner for this answer",
+        locale === "ar" ? "لا يوجد مالك محدد لهذه الإجابة" : "No named owner for this answer",
       );
       return;
     }
@@ -872,364 +840,337 @@ function AnswerCard({
 
   return (
     <>
-    <motion.div
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 220, damping: 26, duration: 0.32 }}
-      className="ast-card p-4 sm:p-5 relative"
-      style={isStale ? { borderColor: "rgba(217,119,6,0.40)" } : undefined}
-    >
-      {/* Top accent bar — 2px teal gradient, instrument signature */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 2,
-          background:
-            "linear-gradient(90deg, transparent 0%, var(--brand-500) 30%, var(--brand-400) 70%, transparent 100%)",
-          opacity: 0.7,
-          pointerEvents: "none",
-        }}
-      />
-
-      {/* Verified answer badge — top-right when groundingScore ≥ 0.95 */}
-      {isVerified && (
-        <div
-          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10"
-          style={{ pointerEvents: "none" }}
-        >
-          <VerifiedAnswerBadge locale={locale} />
-        </div>
-      )}
-
-      {/* Stale banner */}
-      {isStale && (
-        <div
-          className="flex items-start gap-2 mb-3 p-3 rounded-md text-[12px]"
-          style={{
-            background: "rgba(217,119,6,0.08)",
-            border: "1px solid rgba(217,119,6,0.25)",
-            color: "var(--status-watch)",
-          }}
-          role="status"
-        >
-          <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={1.75} />
-          <span>
-            {locale === "ar"
-              ? "بحث السياسة أعاد وثيقة قديمة — يرجى التأكيد مع المالك."
-              : "Policy search returned a stale document — please confirm with the owner."}
-          </span>
-        </div>
-      )}
-
-      {/* "Say it simply" toggle (PRD §01-016) — pill button + Simple badge */}
-      <div className="flex items-center gap-2 mb-3">
-        <button
-          type="button"
-          onClick={() => setSimple((v) => !v)}
-          aria-pressed={simple}
-          aria-label={locale === "ar" ? "ببساطة" : "Say it simply"}
-          className="ast-focus inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium transition-colors"
-          style={{
-            background: simple ? "rgba(22,154,165,0.12)" : "var(--surface-2)",
-            border: `1px solid ${simple ? "rgba(22,154,165,0.40)" : "var(--border)"}`,
-            color: simple ? "var(--brand-400)" : "var(--text-mid)",
-          }}
-        >
-          <Sparkles className="w-3.5 h-3.5" strokeWidth={1.75} />
-          {locale === "ar" ? "ببساطة" : "Say it simply"}
-        </button>
-        <AnimatePresence initial={false}>
-          {simple && (
-            <motion.span
-              initial={{ opacity: 0, scale: 0.92 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.92 }}
-              transition={{ duration: 0.14 }}
-              className="ast-chip"
-              style={{
-                color: "var(--brand-400)",
-                background: "rgba(22,154,165,0.06)",
-                borderColor: "rgba(22,154,165,0.30)",
-              }}
-            >
-              {locale === "ar" ? "مبسّط" : "Simple"}
-            </motion.span>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* Answer body — slight left padding with a teal vertical accent
-          line (instrument-themed blockquote). Streaming reveal continues
-          to work inside this wrapper. */}
-      <div
-        className="text-[15px] leading-relaxed pl-3.5 sm:pl-4 relative"
-        style={{ color: "var(--text-hi)" }}
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 220, damping: 26, duration: 0.32 }}
+        className="ast-card p-4 sm:p-5 relative"
+        style={isStale ? { borderColor: "rgba(217,119,6,0.40)" } : undefined}
       >
-        <span
+        {/* Top accent bar — 2px teal gradient, instrument signature */}
+        <div
           aria-hidden="true"
           style={{
             position: "absolute",
+            top: 0,
             left: 0,
-            top: 4,
-            bottom: 4,
-            width: 1,
+            right: 0,
+            height: 2,
             background:
-              "linear-gradient(180deg, rgba(22,154,165,0.45), rgba(22,154,165,0.08))",
-            borderRadius: 1,
+              "linear-gradient(90deg, transparent 0%, var(--brand-500) 30%, var(--brand-400) 70%, transparent 100%)",
+            opacity: 0.7,
+            pointerEvents: "none",
           }}
         />
-        {displayMd ? (
-          <ReactMarkdown
-            components={{
-              p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-              em: ({ children }) => (
-                <em style={{ color: "var(--text-mid)" }}>{children}</em>
-              ),
-              strong: ({ children }) => (
-                <strong style={{ color: "var(--text-hi)" }}>{children}</strong>
-              ),
+
+        {/* Verified answer badge — top-right when groundingScore ≥ 0.95 */}
+        {isVerified && (
+          <div
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10"
+            style={{ pointerEvents: "none" }}
+          >
+            <VerifiedAnswerBadge locale={locale} />
+          </div>
+        )}
+
+        {/* Stale banner */}
+        {isStale && (
+          <div
+            className="flex items-start gap-2 mb-3 p-3 rounded-md text-[12px]"
+            style={{
+              background: "rgba(217,119,6,0.08)",
+              border: "1px solid rgba(217,119,6,0.25)",
+              color: "var(--status-watch)",
+            }}
+            role="status"
+          >
+            <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={1.75} />
+            <span>
+              {locale === "ar"
+                ? "بحث السياسة أعاد وثيقة قديمة — يرجى التأكيد مع المالك."
+                : "Policy search returned a stale document — please confirm with the owner."}
+            </span>
+          </div>
+        )}
+
+        {/* "Say it simply" toggle (PRD §01-016) — pill button + Simple badge */}
+        <div className="flex items-center gap-2 mb-3">
+          <button
+            type="button"
+            onClick={() => setSimple((v) => !v)}
+            aria-pressed={simple}
+            aria-label={locale === "ar" ? "ببساطة" : "Say it simply"}
+            className="ast-focus inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12px] font-medium transition-colors"
+            style={{
+              background: simple ? "rgba(22,154,165,0.12)" : "var(--surface-2)",
+              border: `1px solid ${simple ? "rgba(22,154,165,0.40)" : "var(--border)"}`,
+              color: simple ? "var(--brand-400)" : "var(--text-mid)",
             }}
           >
-            {displayMd}
-          </ReactMarkdown>
-        ) : (
-          <span style={{ color: "var(--text-lo)" }}>…</span>
-        )}
-        {!done && !simple && (
-          <span
-            aria-hidden="true"
-            className="inline-block w-[2px] h-4 ml-0.5 align-middle ast-pulse-ring"
-            style={{ background: "var(--brand-400)" }}
-          />
-        )}
-      </div>
-
-      {/* Sources row — collapsed to chips by default */}
-      {answer.citations.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-[var(--border-soft)]">
-          <button
-            onClick={() => setSourcesOpen((v) => !v)}
-            className="ast-focus inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em]"
-            style={{ color: "var(--brand-400)" }}
-            aria-expanded={sourcesOpen}
-          >
-            <FileText className="w-3.5 h-3.5" strokeWidth={1.75} />
-            {locale === "ar" ? "المصادر" : "Sources"}
-            <span className="tabular">({answer.citations.length})</span>
-            {sourcesOpen ? (
-              <ChevronUp className="w-3.5 h-3.5" strokeWidth={1.75} />
-            ) : (
-              <ChevronDown className="w-3.5 h-3.5" strokeWidth={1.75} />
-            )}
+            <Sparkles className="w-3.5 h-3.5" strokeWidth={1.75} />
+            {locale === "ar" ? "ببساطة" : "Say it simply"}
           </button>
-
-          {/* Chips row — 3D citation chips (Tilt3D + Sparkles + brass dot).
-              Clicking a chip opens the source preview modal (Track 2). */}
-          {!sourcesOpen && (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {answer.citations.map((c) => (
-                <Tilt3D
-                  key={c.chunkId}
-                  maxDeg={3}
-                  as="span"
-                  style={{ display: "inline-flex" }}
-                >
-                  <CitationChip3D
-                    citation={c}
-                    locale={locale}
-                    onOpen={() => handleOpenSource(c)}
-                  />
-                </Tilt3D>
-              ))}
-            </div>
-          )}
-
-          {/* Expanded snippets */}
           <AnimatePresence initial={false}>
-            {sourcesOpen && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2 }}
-                className="mt-3 space-y-2 overflow-hidden"
+            {simple && (
+              <motion.span
+                initial={{ opacity: 0, scale: 0.92 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.92 }}
+                transition={{ duration: 0.14 }}
+                className="ast-chip"
+                style={{
+                  color: "var(--brand-400)",
+                  background: "rgba(22,154,165,0.06)",
+                  borderColor: "rgba(22,154,165,0.30)",
+                }}
               >
-                {answer.citations.map((c, i) => (
-                  <div
-                    key={c.chunkId}
-                    className="ast-card-2 p-3"
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <Tilt3D
-                        maxDeg={3}
-                        as="span"
-                        style={{ display: "inline-flex" }}
-                      >
-                        <CitationChip3D
-                          citation={c}
-                          locale={locale}
-                          onOpen={() => handleOpenSource(c)}
-                        />
-                      </Tilt3D>
-                      <span
-                        className="text-[10px] tabular font-mono shrink-0"
-                        style={{ color: "var(--text-lo)" }}
-                      >
-                        [{i + 1}]
-                      </span>
-                    </div>
-                    <p
-                      className="text-[12px] leading-relaxed"
-                      style={{ color: "var(--text-mid)" }}
-                    >
-                      “{c.snippet}”
-                    </p>
-                    <p
-                      className="text-[10px] mt-2 tabular"
-                      style={{ color: "var(--text-lo)" }}
-                    >
-                      {locale === "ar" ? "ساري منذ" : "Effective"}{" "}
-                      {format(new Date(c.effectiveDate), "d MMM yyyy")}
-                      {" · "}
-                      {locale === "ar" ? "يُراجع في" : "review"}{" "}
-                      {format(new Date(c.reviewDate), "d MMM yyyy")}
-                    </p>
-                  </div>
-                ))}
-              </motion.div>
+                {locale === "ar" ? "مبسّط" : "Simple"}
+              </motion.span>
             )}
           </AnimatePresence>
         </div>
-      )}
 
-      {/* Footer: answer id + last checked + actions */}
-      <div className="mt-4 pt-4 border-t border-[var(--border-soft)] flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-        <button
-          onClick={handleCopyAnswerId}
-          className="ast-focus inline-flex items-center gap-1.5 h-7 px-2 rounded-md text-[10px] font-mono tabular shrink-0 transition-colors hover:bg-[var(--surface-2)]"
-          style={{ color: "var(--text-lo)" }}
-          title={locale === "ar" ? "نسخ مُعرّف الإجابة" : "Copy answer ID"}
+        {/* Answer body — slight left padding with a teal vertical accent
+          line (instrument-themed blockquote). Streaming reveal continues
+          to work inside this wrapper. */}
+        <div
+          className="text-[15px] leading-relaxed pl-3.5 sm:pl-4 relative"
+          style={{ color: "var(--text-hi)" }}
         >
-          <Hash className="w-3 h-3" strokeWidth={1.75} />
-          {answer.answerId}
-        </button>
-        <span
-          className="inline-flex items-center gap-1.5 text-[10px] tabular shrink-0"
-          style={{ color: "var(--text-lo)" }}
-        >
-          <Clock className="w-3 h-3" strokeWidth={1.75} />
-          {locale === "ar" ? "آخر فحص" : "Last checked"}{" "}
-          {format(PACK_NOW, "d MMM yyyy HH:mm")}
-        </span>
-        {/* Grounding meter — animated visual bar + NumberTicker label +
+          <span
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 4,
+              bottom: 4,
+              width: 1,
+              background: "linear-gradient(180deg, rgba(22,154,165,0.45), rgba(22,154,165,0.08))",
+              borderRadius: 1,
+            }}
+          />
+          {displayMd ? (
+            <ReactMarkdown
+              components={{
+                p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                em: ({ children }) => <em style={{ color: "var(--text-mid)" }}>{children}</em>,
+                strong: ({ children }) => (
+                  <strong style={{ color: "var(--text-hi)" }}>{children}</strong>
+                ),
+              }}
+            >
+              {displayMd}
+            </ReactMarkdown>
+          ) : (
+            <span style={{ color: "var(--text-lo)" }}>…</span>
+          )}
+          {!done && !simple && (
+            <span
+              aria-hidden="true"
+              className="inline-block w-[2px] h-4 ml-0.5 align-middle ast-pulse-ring"
+              style={{ background: "var(--brand-400)" }}
+            />
+          )}
+        </div>
+
+        {/* Sources row — collapsed to chips by default */}
+        {answer.citations.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-[var(--border-soft)]">
+            <button
+              onClick={() => setSourcesOpen((v) => !v)}
+              className="ast-focus inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em]"
+              style={{ color: "var(--brand-400)" }}
+              aria-expanded={sourcesOpen}
+            >
+              <FileText className="w-3.5 h-3.5" strokeWidth={1.75} />
+              {locale === "ar" ? "المصادر" : "Sources"}
+              <span className="tabular">({answer.citations.length})</span>
+              {sourcesOpen ? (
+                <ChevronUp className="w-3.5 h-3.5" strokeWidth={1.75} />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5" strokeWidth={1.75} />
+              )}
+            </button>
+
+            {/* Chips row — 3D citation chips (Tilt3D + Sparkles + brass dot).
+              Clicking a chip opens the source preview modal (Track 2). */}
+            {!sourcesOpen && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {answer.citations.map((c) => (
+                  <Tilt3D key={c.chunkId} maxDeg={3} as="span" style={{ display: "inline-flex" }}>
+                    <CitationChip3D
+                      citation={c}
+                      locale={locale}
+                      onOpen={() => handleOpenSource(c)}
+                    />
+                  </Tilt3D>
+                ))}
+              </div>
+            )}
+
+            {/* Expanded snippets */}
+            <AnimatePresence initial={false}>
+              {sourcesOpen && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="mt-3 space-y-2 overflow-hidden"
+                >
+                  {answer.citations.map((c, i) => (
+                    <div key={c.chunkId} className="ast-card-2 p-3">
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <Tilt3D maxDeg={3} as="span" style={{ display: "inline-flex" }}>
+                          <CitationChip3D
+                            citation={c}
+                            locale={locale}
+                            onOpen={() => handleOpenSource(c)}
+                          />
+                        </Tilt3D>
+                        <span
+                          className="text-[10px] tabular font-mono shrink-0"
+                          style={{ color: "var(--text-lo)" }}
+                        >
+                          [{i + 1}]
+                        </span>
+                      </div>
+                      <p
+                        className="text-[12px] leading-relaxed"
+                        style={{ color: "var(--text-mid)" }}
+                      >
+                        “{c.snippet}”
+                      </p>
+                      <p className="text-[10px] mt-2 tabular" style={{ color: "var(--text-lo)" }}>
+                        {locale === "ar" ? "ساري منذ" : "Effective"}{" "}
+                        {format(new Date(c.effectiveDate), "d MMM yyyy")}
+                        {" · "}
+                        {locale === "ar" ? "يُراجع في" : "review"}{" "}
+                        {format(new Date(c.reviewDate), "d MMM yyyy")}
+                      </p>
+                    </div>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
+        {/* Footer: answer id + last checked + actions */}
+        <div className="mt-4 pt-4 border-t border-[var(--border-soft)] flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+          <button
+            onClick={handleCopyAnswerId}
+            className="ast-focus inline-flex items-center gap-1.5 h-7 px-2 rounded-md text-[10px] font-mono tabular shrink-0 transition-colors hover:bg-[var(--surface-2)]"
+            style={{ color: "var(--text-lo)" }}
+            title={locale === "ar" ? "نسخ مُعرّف الإجابة" : "Copy answer ID"}
+          >
+            <Hash className="w-3 h-3" strokeWidth={1.75} />
+            {answer.answerId}
+          </button>
+          <span
+            className="inline-flex items-center gap-1.5 text-[10px] tabular shrink-0"
+            style={{ color: "var(--text-lo)" }}
+          >
+            <Clock className="w-3 h-3" strokeWidth={1.75} />
+            {locale === "ar" ? "آخر فحص" : "Last checked"} {format(PACK_NOW, "d MMM yyyy HH:mm")}
+          </span>
+          {/* Grounding meter — animated visual bar + NumberTicker label +
             verified check (replaces the plain "Grounding · X%" text).
             Makes the grounding visible at a glance: the employee can SEE
             that every claim is verified. */}
-        <GroundingMeter
-          score={answer.groundingScore}
-          locale={locale}
-        />
+          <GroundingMeter score={answer.groundingScore} locale={locale} />
 
-        <div className="sm:ml-auto flex items-center gap-1.5 flex-wrap">
-          <button
-            onClick={handleCopyAnswer}
-            className="ast-focus inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[11px] font-medium transition-colors hover:bg-[var(--surface-2)]"
-            style={{ color: "var(--text-mid)" }}
-          >
-            {copied ? (
-              <Check
-                className="w-3.5 h-3.5"
-                strokeWidth={1.75}
-                style={{ color: "var(--status-steady)" }}
-              />
-            ) : (
-              <Copy className="w-3.5 h-3.5" strokeWidth={1.75} />
-            )}
-            {locale === "ar" ? "نسخ" : "Copy"}
-          </button>
-          {answer.ownerHint && (
+          <div className="sm:ml-auto flex items-center gap-1.5 flex-wrap">
             <button
-              onClick={handleShareOwner}
+              onClick={handleCopyAnswer}
               className="ast-focus inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[11px] font-medium transition-colors hover:bg-[var(--surface-2)]"
               style={{ color: "var(--text-mid)" }}
             >
-              <Share2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-              {locale === "ar" ? "إرسال للمالك" : "Share to owner"}
+              {copied ? (
+                <Check
+                  className="w-3.5 h-3.5"
+                  strokeWidth={1.75}
+                  style={{ color: "var(--status-steady)" }}
+                />
+              ) : (
+                <Copy className="w-3.5 h-3.5" strokeWidth={1.75} />
+              )}
+              {locale === "ar" ? "نسخ" : "Copy"}
             </button>
-          )}
-          <button
-            onClick={handleWrong}
-            disabled={wrongReported}
-            className="ast-focus inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[11px] font-medium transition-colors hover:bg-[var(--surface-2)] disabled:opacity-50"
-            style={
-              wrongReported
-                ? { color: "var(--status-steady)" }
-                : { color: "var(--text-mid)" }
-            }
-          >
-            {wrongReported ? (
-              <Check className="w-3.5 h-3.5" strokeWidth={1.75} />
-            ) : (
-              <ThumbsDown className="w-3.5 h-3.5" strokeWidth={1.75} />
+            {answer.ownerHint && (
+              <button
+                onClick={handleShareOwner}
+                className="ast-focus inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[11px] font-medium transition-colors hover:bg-[var(--surface-2)]"
+                style={{ color: "var(--text-mid)" }}
+              >
+                <Share2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                {locale === "ar" ? "إرسال للمالك" : "Share to owner"}
+              </button>
             )}
-            {wrongReported
-              ? locale === "ar"
-                ? "تم الإبلاغ"
-                : "Reported"
-              : locale === "ar"
-                ? "هذا خطأ"
-                : "This was wrong"}
-          </button>
-        </div>
-      </div>
-
-      {/* Follow-ups */}
-      {answer.followUps.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {answer.followUps.map((f) => (
             <button
-              key={f}
-              onClick={() => onFollowUp(f)}
-              className="ast-focus ast-chip transition-all hover:-translate-y-0.5 hover:border-[var(--brand-500)]"
-              style={{
-                color: "var(--brand-400)",
-                background: "rgba(22,154,165,0.06)",
-                borderColor: "rgba(22,154,165,0.22)",
-                cursor: "pointer",
-                height: 28,
-                paddingInline: 10,
-              }}
+              onClick={handleWrong}
+              disabled={wrongReported}
+              className="ast-focus inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-[11px] font-medium transition-colors hover:bg-[var(--surface-2)] disabled:opacity-50"
+              style={
+                wrongReported ? { color: "var(--status-steady)" } : { color: "var(--text-mid)" }
+              }
             >
-              <Sparkles className="w-3 h-3" strokeWidth={1.75} />
-              <span className="max-w-[260px] truncate">{f}</span>
+              {wrongReported ? (
+                <Check className="w-3.5 h-3.5" strokeWidth={1.75} />
+              ) : (
+                <ThumbsDown className="w-3.5 h-3.5" strokeWidth={1.75} />
+              )}
+              {wrongReported
+                ? locale === "ar"
+                  ? "تم الإبلاغ"
+                  : "Reported"
+                : locale === "ar"
+                  ? "هذا خطأ"
+                  : "This was wrong"}
             </button>
-          ))}
+          </div>
         </div>
-      )}
 
-      {/* Start this request CTA — only if answer has an actionable next step */}
-      {answer.citations.length > 0 && (
-        <div className="mt-3">
-          <StartRequestInline
-            locale={locale}
-            onStart={onStartRequest}
-          />
-        </div>
-      )}
-    </motion.div>
-    {/* Source preview modal — opens when a 3D citation chip is clicked.
+        {/* Follow-ups */}
+        {answer.followUps.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {answer.followUps.map((f) => (
+              <button
+                key={f}
+                onClick={() => onFollowUp(f)}
+                className="ast-focus ast-chip transition-all hover:-translate-y-0.5 hover:border-[var(--brand-500)]"
+                style={{
+                  color: "var(--brand-400)",
+                  background: "rgba(22,154,165,0.06)",
+                  borderColor: "rgba(22,154,165,0.22)",
+                  cursor: "pointer",
+                  height: 28,
+                  paddingInline: 10,
+                }}
+              >
+                <Sparkles className="w-3 h-3" strokeWidth={1.75} />
+                <span className="max-w-[260px] truncate">{f}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Start this request CTA — only if answer has an actionable next step */}
+        {answer.citations.length > 0 && (
+          <div className="mt-3">
+            <StartRequestInline locale={locale} onStart={onStartRequest} />
+          </div>
+        )}
+      </motion.div>
+      {/* Source preview modal — opens when a 3D citation chip is clicked.
         Renders the full policy chunk with the cited sentence highlighted
         in teal. Frosted-glass surface. */}
-    <SourcePreviewModal
-      open={sourceOpen}
-      onOpenChange={setSourceOpen}
-      citation={activeSource}
-      locale={locale}
-    />
+      <SourcePreviewModal
+        open={sourceOpen}
+        onOpenChange={setSourceOpen}
+        citation={activeSource}
+        locale={locale}
+      />
     </>
   );
 }
@@ -1324,13 +1265,7 @@ function CitationChip3D({
    - Respects prefers-reduced-motion (instant fill when reduced)
    ============================================================ */
 
-function GroundingMeter({
-  score,
-  locale,
-}: {
-  score: number;
-  locale: "en" | "ar";
-}) {
+function GroundingMeter({ score, locale }: { score: number; locale: "en" | "ar" }) {
   const pct = Math.round(score * 100);
   const [reduce, setReduce] = useState(false);
   // animatedW is null until the first rAF tick fires; before that we
@@ -1394,9 +1329,7 @@ function GroundingMeter({
     <div
       className="inline-flex items-center gap-2 shrink-0"
       title={
-        locale === "ar"
-          ? "درجة التحقق من المصدر"
-          : "How well the answer is backed by cited sources"
+        locale === "ar" ? "درجة التحقق من المصدر" : "How well the answer is backed by cited sources"
       }
     >
       <div
@@ -1588,10 +1521,7 @@ function AbstainCard({
               ? "أُحيلك إلى من يعرف هذه."
               : "I'll hand you to someone who knows this one."}
           </h3>
-          <p
-            className="text-[13px] mt-1 leading-relaxed"
-            style={{ color: "var(--text-mid)" }}
-          >
+          <p className="text-[13px] mt-1 leading-relaxed" style={{ color: "var(--text-mid)" }}>
             {reason}
           </p>
         </div>
@@ -1610,10 +1540,7 @@ function AbstainCard({
           strokeWidth={1.75}
           style={{ color: "var(--status-friction)" }}
         />
-        <p
-          className="text-[12px] leading-relaxed"
-          style={{ color: "var(--text-mid)" }}
-        >
+        <p className="text-[12px] leading-relaxed" style={{ color: "var(--text-mid)" }}>
           {locale === "ar"
             ? "ما لن أفعله: التخمين. لم أصنع إجابة من لا شيء."
             : "What I won't do: guess. I didn't fabricate an answer from nothing."}
@@ -1622,9 +1549,7 @@ function AbstainCard({
 
       {/* Named owner with role + email */}
       {owner && (
-        <div
-          className="ast-card-2 p-3.5 mb-3 flex items-center gap-3"
-        >
+        <div className="ast-card-2 p-3.5 mb-3 flex items-center gap-3">
           <div
             className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
             style={{
@@ -1642,10 +1567,7 @@ function AbstainCard({
             >
               {owner.name}
             </p>
-            <p
-              className="text-[12px] truncate"
-              style={{ color: "var(--text-mid)" }}
-            >
+            <p className="text-[12px] truncate" style={{ color: "var(--text-mid)" }}>
               {owner.role}
             </p>
             <p
@@ -1849,10 +1771,7 @@ function ErrorCard({
         <AlertTriangle className="w-5 h-5" strokeWidth={1.75} />
       </div>
       <div className="flex-1 min-w-0">
-        <p
-          className="text-[14px] font-medium"
-          style={{ color: "var(--text-hi)" }}
-        >
+        <p className="text-[14px] font-medium" style={{ color: "var(--text-hi)" }}>
           {locale === "ar"
             ? "تعذّر الوصول إلى خدمة السياسة."
             : "Couldn't reach the policy service."}
@@ -1879,13 +1798,22 @@ function ErrorCard({
 
 /* ---------- Voice input button — Web Speech API ---------- */
 
-function VoiceInputButton({ onTranscript, locale }: { onTranscript: (text: string) => void; locale: "en" | "ar" }) {
+function VoiceInputButton({
+  onTranscript,
+  locale,
+}: {
+  onTranscript: (text: string) => void;
+  locale: "en" | "ar";
+}) {
   const [listening, setListening] = useState(false);
   const [supported, setSupported] = useState(false);
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
-    const SR = typeof window !== "undefined" ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null;
+    const SR =
+      typeof window !== "undefined"
+        ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+        : null;
     if (!SR) {
       // use a microtask to avoid synchronous setState in effect
       queueMicrotask(() => setSupported(false));
@@ -1903,12 +1831,22 @@ function VoiceInputButton({ onTranscript, locale }: { onTranscript: (text: strin
     rec.onend = () => setListening(false);
     rec.onerror = () => setListening(false);
     recognitionRef.current = rec;
-    return () => { try { rec.abort(); } catch { /* noop */ } };
+    return () => {
+      try {
+        rec.abort();
+      } catch {
+        /* noop */
+      }
+    };
   }, [locale, onTranscript]);
 
   const toggle = () => {
     if (!supported) {
-      toast.error(locale === "ar" ? "الإدخال الصوتي غير مدعوم في هذا المتصفح" : "Voice input not supported in this browser");
+      toast.error(
+        locale === "ar"
+          ? "الإدخال الصوتي غير مدعوم في هذا المتصفح"
+          : "Voice input not supported in this browser",
+      );
       return;
     }
     if (listening) {
@@ -1930,7 +1868,15 @@ function VoiceInputButton({ onTranscript, locale }: { onTranscript: (text: strin
   return (
     <button
       onClick={toggle}
-      aria-label={listening ? (locale === "ar" ? "إيقاف الإدخال الصوتي" : "Stop voice input") : (locale === "ar" ? "إدخال صوتي" : "Voice input")}
+      aria-label={
+        listening
+          ? locale === "ar"
+            ? "إيقاف الإدخال الصوتي"
+            : "Stop voice input"
+          : locale === "ar"
+            ? "إدخال صوتي"
+            : "Voice input"
+      }
       aria-pressed={listening}
       className="ast-focus inline-flex items-center justify-center w-11 h-11 rounded-[10px] shrink-0 transition-all"
       style={{
@@ -1945,7 +1891,10 @@ function VoiceInputButton({ onTranscript, locale }: { onTranscript: (text: strin
         <Mic className="w-4 h-4" strokeWidth={1.75} />
       )}
       {listening && (
-        <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ast-pulse-ring" style={{ background: "var(--status-friction)" }} />
+        <span
+          className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ast-pulse-ring"
+          style={{ background: "var(--status-friction)" }}
+        />
       )}
     </button>
   );

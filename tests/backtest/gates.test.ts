@@ -50,7 +50,10 @@ const MUST_BE_GREEN = [
 
 function gate(id: string): Gate {
   const g = sc.gates.find((x) => x.id === id);
-  if (!g) throw new Error(`gate '${id}' is missing from the scorecard — the harness changed its metric ids`);
+  if (!g)
+    throw new Error(
+      `gate '${id}' is missing from the scorecard — the harness changed its metric ids`,
+    );
   return g;
 }
 
@@ -97,9 +100,13 @@ describe("2 · labelled scenarios (PRD §22 dataset b)", () => {
             c.section === l.expectedCitation?.section &&
             c.hasDoc &&
             c.hasSection &&
-            c.hasEffectiveDate
+            c.hasEffectiveDate,
         ) ?? false;
-      same(`${l.id} cites ${l.expectedCitation?.docSlug}#${l.expectedCitation?.section} with an effective date`, found, true);
+      same(
+        `${l.id} cites ${l.expectedCitation?.docSlug}#${l.expectedCitation?.section} with an effective date`,
+        found,
+        true,
+      );
     }
   });
 
@@ -123,19 +130,30 @@ describe("2 · labelled scenarios (PRD §22 dataset b)", () => {
     same(
       "L12 not-started assertion",
       l?.assertions.some((a) => a.name.includes("not-started state") && a.ok),
-      true
+      true,
     );
   });
 
   test("no labelled scenario has a failing assertion", () => {
-    const failures = sc.labelled.flatMap((l) => l.assertions.filter((a) => !a.ok).map((a) => `${l.id}: ${a.name} — ${a.detail}`));
+    const failures = sc.labelled.flatMap((l) =>
+      l.assertions.filter((a) => !a.ok).map((a) => `${l.id}: ${a.name} — ${a.detail}`),
+    );
     expect(failures).toEqual([]);
   });
 });
 
 describe("3 · adversarial cases (PRD §22 dataset c)", () => {
   test("there are exactly 8, and the injection pair is measured as a delta", () => {
-    expect(sc.adversarial.map((a) => a.id)).toEqual(["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8"]);
+    expect(sc.adversarial.map((a) => a.id)).toEqual([
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "A5",
+      "A6",
+      "A7",
+      "A8",
+    ]);
     expect(sc.adversarial.filter((a) => a.kind === "injection").length).toBeGreaterThanOrEqual(2);
   });
 
@@ -150,7 +168,9 @@ describe("3 · adversarial cases (PRD §22 dataset c)", () => {
   });
 
   test("no adversarial case has a failing assertion", () => {
-    const failures = sc.adversarial.flatMap((a) => a.assertions.filter((x) => !x.ok).map((x) => `${a.id}: ${x.name} — ${x.detail}`));
+    const failures = sc.adversarial.flatMap((a) =>
+      a.assertions.filter((x) => !x.ok).map((x) => `${a.id}: ${x.name} — ${x.detail}`),
+    );
     expect(failures).toEqual([]);
   });
 });
@@ -199,9 +219,14 @@ describe("5 · registered defects, closed and re-asserted so a regression re-ope
         events: [
           ...events,
           {
-            id: `LEAK-${employee.id}`, employeeId: employee.id, stepKey: "ob_90day_review",
-            type: "completed" as const, occurredAt: "2024-11-09T10:00:00Z",
-            recordedAt: "2024-10-19T10:00:00Z", source: "leak-test", payloadHash: "leak",
+            id: `LEAK-${employee.id}`,
+            employeeId: employee.id,
+            stepKey: "ob_90day_review",
+            type: "completed" as const,
+            occurredAt: "2024-11-09T10:00:00Z",
+            recordedAt: "2024-10-19T10:00:00Z",
+            source: "leak-test",
+            payloadHash: "leak",
           },
         ],
       };
@@ -217,7 +242,11 @@ describe("5 · registered defects, closed and re-asserted so a regression re-ope
 
 describe("6 · fairness, determinism, latency", () => {
   test("all three slice dimensions are reported even when the pack cannot support them", () => {
-    expect(sc.fairness.map((f) => f.dimension).sort()).toEqual(["locale", "location", "nationality"]);
+    expect(sc.fairness.map((f) => f.dimension).sort()).toEqual([
+      "locale",
+      "location",
+      "nationality",
+    ]);
     const nat = sc.fairness.find((f) => f.dimension === "nationality");
     expect(nat?.supported).toBe(false);
     expect(nat?.rawMaxAllSlices).toBeGreaterThan(0.15); // disclosed, not gated: n=1 slices prove nothing

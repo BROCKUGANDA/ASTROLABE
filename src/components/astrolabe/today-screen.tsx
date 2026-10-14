@@ -28,16 +28,8 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
-import {
-  SlaChip,
-  CitationChip,
-  type Band as BandT,
-} from "@/components/astrolabe/widgets";
-import {
-  PressScale,
-  RevealOnScroll,
-  Tilt3D,
-} from "@/components/astrolabe/micro-interactions";
+import { SlaChip, CitationChip, type Band as BandT } from "@/components/astrolabe/widgets";
+import { PressScale, RevealOnScroll, Tilt3D } from "@/components/astrolabe/micro-interactions";
 import { Astrolabe3D } from "@/components/three/astrolabe";
 import { VerdictCard, type VerdictSignal } from "@/components/astrolabe/verdict-card";
 import { stages as ALL_STAGES, owners as ALL_OWNERS, NOW as PACK_NOW } from "@/lib/data/pack";
@@ -150,7 +142,9 @@ const OWNER_GROUP_LABEL: Record<string, { en: string; ar: string }> = {
   Immigration: { en: "the Immigration team", ar: "فريق الهجرة" },
 };
 
-function namedOwnerForGroup(group: string): { name: string; nameAr?: string; role: string; group: string } | null {
+function namedOwnerForGroup(
+  group: string,
+): { name: string; nameAr?: string; role: string; group: string } | null {
   const o = ALL_OWNERS.find((x) => x.group === group);
   if (!o) return null;
   return { name: o.name, nameAr: o.nameAr, role: o.role, group };
@@ -191,9 +185,7 @@ function lateCopy(step: Step, locale: "en" | "ar"): string {
     return locale === "ar" ? `متأخر بـ ${days} أيام` : `${days} day${days === 1 ? "" : "s"} late`;
   }
   if (step.status === "blocked") {
-    return locale === "ar"
-      ? "محظور بانتظار خطوات أخرى"
-      : "Held up — waiting on another step";
+    return locale === "ar" ? "محظور بانتظار خطوات أخرى" : "Held up — waiting on another step";
   }
   return "";
 }
@@ -221,7 +213,6 @@ function upcomingTargetCopy(step: Step, locale: "en" | "ar"): string {
 /* Band → status shape icon (steady ○ watch ◔ friction ◆ blocked ■) */
 // (defined for parity with journey-screen; not used directly here yet)
 
-
 /* ---------- Skeleton ---------- */
 
 function TodaySkeleton() {
@@ -240,7 +231,15 @@ function TodaySkeleton() {
 
 /* ---------- Error banner ---------- */
 
-function ErrorBanner({ message, requestId, onRetry }: { message: string; requestId?: string; onRetry: () => void }) {
+function ErrorBanner({
+  message,
+  requestId,
+  onRetry,
+}: {
+  message: string;
+  requestId?: string;
+  onRetry: () => void;
+}) {
   return (
     <div
       className="ast-card p-6 flex flex-col sm:flex-row sm:items-center gap-4"
@@ -269,7 +268,11 @@ function ErrorBanner({ message, requestId, onRetry }: { message: string; request
       <button
         onClick={onRetry}
         className="ast-focus inline-flex items-center justify-center gap-2 h-11 px-4 rounded-[10px] text-[13px] font-medium shrink-0"
-        style={{ background: "var(--surface-2)", color: "var(--text-hi)", border: "1px solid var(--border)" }}
+        style={{
+          background: "var(--surface-2)",
+          color: "var(--text-hi)",
+          border: "1px solid var(--border)",
+        }}
       >
         <RotateCcw className="w-4 h-4" strokeWidth={1.75} />
         Retry
@@ -288,10 +291,7 @@ function HeroStrip({ data }: { data: JourneyMeData }) {
   const stageLbl = stageLabel(data.stage, emp.journeyType, locale);
 
   return (
-    <section
-      className="ast-card relative overflow-hidden"
-      aria-label="Employee hero"
-    >
+    <section className="ast-card relative overflow-hidden" aria-label="Employee hero">
       {/* Right-edge vertical brass-band gradient accent strip */}
       <div
         aria-hidden="true"
@@ -322,9 +322,15 @@ function HeroStrip({ data }: { data: JourneyMeData }) {
                 color: "var(--text-hi)",
               }}
             >
-              <Calendar className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+              <Calendar
+                className="w-3.5 h-3.5"
+                strokeWidth={1.75}
+                style={{ color: "var(--brand-400)" }}
+              />
               <span>
-                {locale === "ar" ? `اليوم ${data.dayInStage} · ${stageLbl}` : `Day ${data.dayInStage} of ${stageLbl}`}
+                {locale === "ar"
+                  ? `اليوم ${data.dayInStage} · ${stageLbl}`
+                  : `Day ${data.dayInStage} of ${stageLbl}`}
               </span>
             </span>
             <span
@@ -337,8 +343,12 @@ function HeroStrip({ data }: { data: JourneyMeData }) {
             >
               <Compass className="w-3.5 h-3.5" strokeWidth={1.75} />
               {emp.journeyType === "onboarding"
-                ? locale === "ar" ? "رحلة الالتحاق" : "Onboarding journey"
-                : locale === "ar" ? "رحلة تنقل" : "Mobility journey"}
+                ? locale === "ar"
+                  ? "رحلة الالتحاق"
+                  : "Onboarding journey"
+                : locale === "ar"
+                  ? "رحلة تنقل"
+                  : "Mobility journey"}
             </span>
           </div>
 
@@ -439,7 +449,13 @@ function useCountUp(target: number, duration: number): number {
 
 /* ---------- Next Best Step card ---------- */
 
-function NextBestStepCard({ data, onStart }: { data: JourneyMeData; onStart: (step: NextBestStep) => void }) {
+function NextBestStepCard({
+  data,
+  onStart,
+}: {
+  data: JourneyMeData;
+  onStart: (step: NextBestStep) => void;
+}) {
   const { locale } = useAppStore();
   const nbs = data.nextBestStep;
   const emp = data.employee;
@@ -450,10 +466,16 @@ function NextBestStepCard({ data, onStart }: { data: JourneyMeData; onStart: (st
         className="ast-card ast-glow p-6 flex items-center gap-4"
         aria-label="Next best step"
       >
-        <CheckCircle2 className="w-6 h-6 shrink-0" strokeWidth={1.75} style={{ color: "var(--status-steady)" }} />
+        <CheckCircle2
+          className="w-6 h-6 shrink-0"
+          strokeWidth={1.75}
+          style={{ color: "var(--status-steady)" }}
+        />
         <div>
           <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
-            {locale === "ar" ? "لا يوجد شيء معلّق عليك الآن." : "Nothing is pending on you right now."}
+            {locale === "ar"
+              ? "لا يوجد شيء معلّق عليك الآن."
+              : "Nothing is pending on you right now."}
           </p>
           <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
             {locale === "ar"
@@ -474,15 +496,19 @@ function NextBestStepCard({ data, onStart }: { data: JourneyMeData; onStart: (st
       : `with ${owner.name}`
     : nbs.ownerGroup;
   const dueText = fmtDateAndDistance(nbs.dueAt, locale);
-  const citation = nbs.policyRefs[0]
-    ? parsePolicyRef(nbs.policyRefs[0])
-    : null;
+  const citation = nbs.policyRefs[0] ? parsePolicyRef(nbs.policyRefs[0]) : null;
   const actorText =
     nbs.actor === "employee"
-      ? locale === "ar" ? "خطوتك للقيام بها" : "Yours to do"
+      ? locale === "ar"
+        ? "خطوتك للقيام بها"
+        : "Yours to do"
       : nbs.actor === "owner"
-        ? locale === "ar" ? "بانتظار الفريق" : "With the team"
-        : locale === "ar" ? "تلقائي" : "System";
+        ? locale === "ar"
+          ? "بانتظار الفريق"
+          : "With the team"
+        : locale === "ar"
+          ? "تلقائي"
+          : "System";
 
   return (
     <motion.section
@@ -511,24 +537,44 @@ function NextBestStepCard({ data, onStart }: { data: JourneyMeData; onStart: (st
         </div>
         <span
           className="ast-chip tabular"
-          style={{ color: "var(--accent-500)", background: "rgba(201,162,39,0.08)", borderColor: "rgba(201,162,39,0.30)" }}
+          style={{
+            color: "var(--accent-500)",
+            background: "rgba(201,162,39,0.08)",
+            borderColor: "rgba(201,162,39,0.30)",
+          }}
         >
           {actorText}
         </span>
       </div>
 
-      <h2 className="text-[20px] sm:text-[22px] font-semibold leading-snug" style={{ color: "var(--text-hi)" }}>
+      <h2
+        className="text-[20px] sm:text-[22px] font-semibold leading-snug"
+        style={{ color: "var(--text-hi)" }}
+      >
         {label}
       </h2>
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px]" style={{ color: "var(--text-mid)" }}>
+      <div
+        className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px]"
+        style={{ color: "var(--text-mid)" }}
+      >
         <span className="inline-flex items-center gap-1.5">
-          <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+          <ShieldCheck
+            className="w-3.5 h-3.5"
+            strokeWidth={1.75}
+            style={{ color: "var(--brand-400)" }}
+          />
           {ownerText}
         </span>
-        <span aria-hidden="true" className="opacity-40">·</span>
+        <span aria-hidden="true" className="opacity-40">
+          ·
+        </span>
         <span className="inline-flex items-center gap-1.5 tabular">
-          <Hourglass className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--accent-400)" }} />
+          <Hourglass
+            className="w-3.5 h-3.5"
+            strokeWidth={1.75}
+            style={{ color: "var(--accent-400)" }}
+          />
           {dueText}
         </span>
       </div>
@@ -560,15 +606,27 @@ function NextBestStepCard({ data, onStart }: { data: JourneyMeData; onStart: (st
         style={{ color: "var(--text-lo)" }}
         aria-label="engine version"
       >
-        {emp.journeyType === "onboarding" ? (locale === "ar" ? "رحلة الالتحاق" : "Onboarding") : (locale === "ar" ? "رحلة تنقل" : "Mobility")}
-        {" · "}{data.engineVersion}
+        {emp.journeyType === "onboarding"
+          ? locale === "ar"
+            ? "رحلة الالتحاق"
+            : "Onboarding"
+          : locale === "ar"
+            ? "رحلة تنقل"
+            : "Mobility"}
+        {" · "}
+        {data.engineVersion}
       </p>
     </motion.section>
   );
 }
 
 /* Parse "docSlug#section" → CitationChip shape */
-function parsePolicyRef(ref: string): { docSlug: string; title: string; section: string; effectiveDate: string } {
+function parsePolicyRef(ref: string): {
+  docSlug: string;
+  title: string;
+  section: string;
+  effectiveDate: string;
+} {
   const [docSlug, section] = ref.split("#");
   const titleMap: Record<string, string> = {
     "relocation-policy": "Relocation Policy",
@@ -594,10 +652,7 @@ function LateItemsPanel({ data }: { data: JourneyMeData }) {
   const { locale } = useAppStore();
   const late = useMemo(() => {
     return data.steps.filter(
-      (s) =>
-        s.status === "blocked" ||
-        s.breachLevel === "breached" ||
-        s.breachLevel === "hard"
+      (s) => s.status === "blocked" || s.breachLevel === "breached" || s.breachLevel === "hard",
     );
   }, [data.steps]);
 
@@ -619,7 +674,10 @@ function LateItemsPanel({ data }: { data: JourneyMeData }) {
     <section className="ast-card p-5 sm:p-6 lg:col-span-5" aria-label="Late items">
       <div className="flex items-center gap-2 mb-4">
         <Ban className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--status-friction)" }} />
-        <h3 className="text-[14px] font-semibold uppercase tracking-[0.12em]" style={{ color: "var(--text-hi)" }}>
+        <h3
+          className="text-[14px] font-semibold uppercase tracking-[0.12em]"
+          style={{ color: "var(--text-hi)" }}
+        >
           {locale === "ar" ? "العناصر المتأخرة" : "Running late"}
         </h3>
         {late.length > 0 && (
@@ -666,7 +724,10 @@ function LateItemsPanel({ data }: { data: JourneyMeData }) {
                   className="ast-card-2 p-3.5"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-[14px] font-medium leading-snug pr-2" style={{ color: "var(--text-hi)" }}>
+                    <p
+                      className="text-[14px] font-medium leading-snug pr-2"
+                      style={{ color: "var(--text-hi)" }}
+                    >
                       {label}
                     </p>
                     <SlaChip
@@ -678,7 +739,10 @@ function LateItemsPanel({ data }: { data: JourneyMeData }) {
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-2 text-[12px]">
                     <span style={{ color: "var(--text-mid)" }}>{ownerText}</span>
-                    <span className="tabular font-medium" style={{ color: "var(--status-friction)" }}>
+                    <span
+                      className="tabular font-medium"
+                      style={{ color: "var(--status-friction)" }}
+                    >
                       {lateCopy(step, locale)}
                     </span>
                   </div>
@@ -770,7 +834,7 @@ function StageRail({ data }: { data: JourneyMeData }) {
   const journeyType = data.employee.journeyType;
   const journeyStages = useMemo(
     () => ALL_STAGES.filter((s) => s.journeyType === journeyType).sort((a, b) => a.order - b.order),
-    [journeyType]
+    [journeyType],
   );
 
   const segState = (stageKey: string): "done" | "active" | "blocked" | "pending" => {
@@ -778,9 +842,7 @@ function StageRail({ data }: { data: JourneyMeData }) {
     if (stepsInStage.length === 0) return "pending";
     const allDone = stepsInStage.every((s) => s.status === "done" || s.status === "skipped");
     if (allDone) return "done";
-    const anyBlocked = stepsInStage.some(
-      (s) => s.status === "blocked" || s.breachLevel === "hard"
-    );
+    const anyBlocked = stepsInStage.some((s) => s.status === "blocked" || s.breachLevel === "hard");
     if (anyBlocked) return "blocked";
     if (stageKey === data.stage) return "active";
     // Stage before current — if not all done, mark done visually (history)
@@ -794,11 +856,17 @@ function StageRail({ data }: { data: JourneyMeData }) {
     <section className="ast-card p-5 sm:p-6" aria-label="Stage rail">
       <div className="flex items-center gap-2 mb-4">
         <Compass className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
-        <h3 className="text-[14px] font-semibold uppercase tracking-[0.12em]" style={{ color: "var(--text-hi)" }}>
+        <h3
+          className="text-[14px] font-semibold uppercase tracking-[0.12em]"
+          style={{ color: "var(--text-hi)" }}
+        >
           {locale === "ar" ? "مسار الرحلة" : "Journey rail"}
         </h3>
       </div>
-      <ol className="grid gap-2" style={{ gridTemplateColumns: `repeat(${journeyStages.length}, minmax(0, 1fr))` }}>
+      <ol
+        className="grid gap-2"
+        style={{ gridTemplateColumns: `repeat(${journeyStages.length}, minmax(0, 1fr))` }}
+      >
         {journeyStages.map((st) => {
           const state = segState(st.key);
           const isActive = st.key === data.stage;
@@ -813,14 +881,24 @@ function StageRail({ data }: { data: JourneyMeData }) {
                   style={state === "pending" ? { background: "var(--surface-3)" } : undefined}
                 />
                 {isActive && (
-                  <span className="ast-rail-beacon" style={{ left: "calc(100% - 4px)" }} aria-hidden="true" />
+                  <span
+                    className="ast-rail-beacon"
+                    style={{ left: "calc(100% - 4px)" }}
+                    aria-hidden="true"
+                  />
                 )}
               </div>
               <div className="min-w-0">
                 <p
                   className="text-[11px] sm:text-[12px] font-medium leading-tight truncate"
                   style={{
-                    color: isActive ? "var(--accent-500)" : state === "done" ? "var(--brand-400)" : state === "blocked" ? "var(--status-blocked)" : "var(--text-lo)",
+                    color: isActive
+                      ? "var(--accent-500)"
+                      : state === "done"
+                        ? "var(--brand-400)"
+                        : state === "blocked"
+                          ? "var(--status-blocked)"
+                          : "var(--text-lo)",
                   }}
                 >
                   {stageShort(st.key, journeyType, locale)}
@@ -855,10 +933,7 @@ function ComingUp({ data }: { data: JourneyMeData }) {
   // them here so the printable checklist can include both buckets.
   const late = useMemo(() => {
     return data.steps.filter(
-      (s) =>
-        s.status === "blocked" ||
-        s.breachLevel === "breached" ||
-        s.breachLevel === "hard"
+      (s) => s.status === "blocked" || s.breachLevel === "breached" || s.breachLevel === "hard",
     );
   }, [data.steps]);
 
@@ -867,9 +942,7 @@ function ComingUp({ data }: { data: JourneyMeData }) {
   // in the employee's calendar at once.
   const icsEvents = useMemo<IcsEvent[]>(() => {
     return data.steps
-      .filter(
-        (s) => s.status === "not_started" || s.status === "waiting_employee",
-      )
+      .filter((s) => s.status === "not_started" || s.status === "waiting_employee")
       .filter((s) => s.status !== "blocked" && s.blockedBy.length === 0)
       .filter((s) => Boolean(s.dueAt))
       .map((s) => {
@@ -880,8 +953,7 @@ function ComingUp({ data }: { data: JourneyMeData }) {
             ? owner.nameAr
             : owner.name
           : s.ownerGroup;
-        const policyRef =
-          s.policyRefs.length > 0 ? s.policyRefs.join(", ") : "";
+        const policyRef = s.policyRefs.length > 0 ? s.policyRefs.join(", ") : "";
         const desc =
           locale === "ar"
             ? `المالك: ${ownerText}${policyRef ? ` | مراجع: ${policyRef}` : ""}`
@@ -969,8 +1041,15 @@ function ComingUp({ data }: { data: JourneyMeData }) {
   return (
     <section className="ast-card p-5 sm:p-6" aria-label="Coming up">
       <div className="flex items-center gap-2 mb-4 flex-wrap no-print">
-        <ChevronRight className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
-        <h3 className="text-[14px] font-semibold uppercase tracking-[0.12em]" style={{ color: "var(--text-hi)" }}>
+        <ChevronRight
+          className="w-4 h-4"
+          strokeWidth={1.75}
+          style={{ color: "var(--brand-400)" }}
+        />
+        <h3
+          className="text-[14px] font-semibold uppercase tracking-[0.12em]"
+          style={{ color: "var(--text-hi)" }}
+        >
           {locale === "ar" ? "القادم" : "Coming up"}
         </h3>
         {/* Action buttons — Print checklist + Add to calendar */}
@@ -1037,11 +1116,16 @@ function ComingUp({ data }: { data: JourneyMeData }) {
                   {stageLabel(step.stage, step.journeyType, locale)}
                 </span>
               </div>
-              <p className="text-[14px] font-medium leading-snug" style={{ color: "var(--text-hi)" }}>
+              <p
+                className="text-[14px] font-medium leading-snug"
+                style={{ color: "var(--text-hi)" }}
+              >
                 {label}
               </p>
               <div className="mt-auto pt-2 flex items-center justify-between text-[12px]">
-                <span className="truncate pr-2" style={{ color: "var(--text-mid)" }}>{ownerText}</span>
+                <span className="truncate pr-2" style={{ color: "var(--text-mid)" }}>
+                  {ownerText}
+                </span>
                 <span className="tabular shrink-0" style={{ color: "var(--brand-400)" }}>
                   {upcomingTargetCopy(step, locale)}
                 </span>
@@ -1082,11 +1166,11 @@ function ComingUp({ data }: { data: JourneyMeData }) {
               <span style={{ display: "inline-block", width: "20px" }}>
                 {item.isLate ? "☒" : "☐"}
               </span>
-              <span style={{ fontWeight: item.isLate ? 600 : 400 }}>
-                {item.label}
-              </span>
+              <span style={{ fontWeight: item.isLate ? 600 : 400 }}>{item.label}</span>
               {item.isLate && (
-                <span style={{ marginLeft: "8px", color: "#B91C1C", fontSize: "11px", fontWeight: 600 }}>
+                <span
+                  style={{ marginLeft: "8px", color: "#B91C1C", fontSize: "11px", fontWeight: 600 }}
+                >
                   {locale === "ar" ? "متأخر" : "LATE"}
                 </span>
               )}
@@ -1167,7 +1251,10 @@ function PulseCard({
           <HelpCircle className="w-5 h-5" strokeWidth={1.75} />
         </div>
         <div className="min-w-0">
-          <h3 className="text-[14px] font-semibold uppercase tracking-[0.12em]" style={{ color: "var(--text-hi)" }}>
+          <h3
+            className="text-[14px] font-semibold uppercase tracking-[0.12em]"
+            style={{ color: "var(--text-hi)" }}
+          >
             {locale === "ar" ? "تقدير حالتك" : "Pulse check"}
           </h3>
           <p className="text-[13px] mt-0.5" style={{ color: "var(--text-mid)" }}>
@@ -1182,7 +1269,11 @@ function PulseCard({
             className="ast-card-2 p-4 flex items-start gap-3"
             style={{ borderColor: "rgba(22,154,165,0.30)" }}
           >
-            <Lock className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+            <Lock
+              className="w-4 h-4 shrink-0 mt-0.5"
+              strokeWidth={1.75}
+              style={{ color: "var(--brand-400)" }}
+            />
             <div className="min-w-0">
               <p className="text-[13px] leading-relaxed" style={{ color: "var(--text-mid)" }}>
                 {locale === "ar"
@@ -1197,8 +1288,12 @@ function PulseCard({
               >
                 <ShieldCheck className="w-4 h-4" strokeWidth={1.75} />
                 {granting
-                  ? (locale === "ar" ? "جارٍ التمكين..." : "Enabling…")
-                  : (locale === "ar" ? "تفعيل التقدير" : "Enable pulse capture")}
+                  ? locale === "ar"
+                    ? "جارٍ التمكين..."
+                    : "Enabling…"
+                  : locale === "ar"
+                    ? "تفعيل التقدير"
+                    : "Enable pulse capture"}
               </button>
             </div>
           </div>
@@ -1208,7 +1303,11 @@ function PulseCard({
           className="ast-card-2 p-4 flex items-center gap-3"
           style={{ borderColor: "rgba(14,159,110,0.30)" }}
         >
-          <CheckCircle2 className="w-5 h-5 shrink-0" strokeWidth={1.75} style={{ color: "var(--status-steady)" }} />
+          <CheckCircle2
+            className="w-5 h-5 shrink-0"
+            strokeWidth={1.75}
+            style={{ color: "var(--status-steady)" }}
+          />
           <p className="text-[13px]" style={{ color: "var(--text-mid)" }}>
             {locale === "ar" ? "تم الإرسال. شكراً لمشاركتك." : "Sent. Thank you for sharing."}
           </p>
@@ -1236,7 +1335,7 @@ function PulseCard({
                   aria-label={`Score ${n} of 5`}
                   className={cn(
                     "ast-focus inline-flex items-center justify-center w-11 h-11 rounded-[10px] text-[14px] font-semibold tabular transition-all",
-                    active ? "scale-105" : "hover:scale-105"
+                    active ? "scale-105" : "hover:scale-105",
                   )}
                   style={{
                     background: active ? "var(--brand-500)" : "var(--surface-2)",
@@ -1255,7 +1354,13 @@ function PulseCard({
               style={{ background: "var(--accent-500)", color: "var(--surface-0)" }}
             >
               <Send className="w-4 h-4" strokeWidth={1.75} />
-              {submitting ? (locale === "ar" ? "جارٍ الإرسال..." : "Sending…") : (locale === "ar" ? "إرسال" : "Send")}
+              {submitting
+                ? locale === "ar"
+                  ? "جارٍ الإرسال..."
+                  : "Sending…"
+                : locale === "ar"
+                  ? "إرسال"
+                  : "Send"}
             </button>
           </div>
           <p className="text-[11px] mt-3 tabular" style={{ color: "var(--text-lo)" }}>
@@ -1291,9 +1396,12 @@ export function TodayScreen() {
       // the live clock here.
       const asOf = PACK_NOW.toISOString();
       const [journeyRes, meRes] = await Promise.all([
-        fetch(`/api/v1/journey/me?employeeId=${encodeURIComponent(employeeId)}&asOf=${encodeURIComponent(asOf)}`, {
-          headers: { Accept: "application/json" },
-        }),
+        fetch(
+          `/api/v1/journey/me?employeeId=${encodeURIComponent(employeeId)}&asOf=${encodeURIComponent(asOf)}`,
+          {
+            headers: { Accept: "application/json" },
+          },
+        ),
         fetch(`/api/v1/me/data?employeeId=${encodeURIComponent(employeeId)}`, {
           headers: { Accept: "application/json" },
         }),
@@ -1356,9 +1464,10 @@ export function TodayScreen() {
         if (json.ok && json.data) {
           const ownerName = json.data.owner?.name ?? "the team";
           toast.success(locale === "ar" ? "تم إرسال الطلب" : "Request sent", {
-            description: locale === "ar"
-              ? `${nbs.labelAr} — ${ownerName} سيتولى الأمر`
-              : `${nbs.label} — ${ownerName} will handle it`,
+            description:
+              locale === "ar"
+                ? `${nbs.labelAr} — ${ownerName} سيتولى الأمر`
+                : `${nbs.label} — ${ownerName} will handle it`,
           });
         } else {
           toast.error(locale === "ar" ? "تعذّر الإرسال" : "Couldn't send", {
@@ -1371,7 +1480,7 @@ export function TodayScreen() {
         });
       }
     },
-    [data, locale]
+    [data, locale],
   );
 
   const handleGrantConsent = useCallback(async () => {
@@ -1390,9 +1499,10 @@ export function TodayScreen() {
       if (json.ok) {
         setPulseGranted(true);
         toast.success(locale === "ar" ? "تم تفعيل التقدير" : "Pulse capture enabled", {
-          description: locale === "ar"
-            ? `رقم الإيصال: ${json.data?.receiptId ?? ""}`
-            : `Receipt: ${json.data?.receiptId ?? ""}`,
+          description:
+            locale === "ar"
+              ? `رقم الإيصال: ${json.data?.receiptId ?? ""}`
+              : `Receipt: ${json.data?.receiptId ?? ""}`,
         });
       } else {
         toast.error(json.error?.message ?? "Failed");
@@ -1433,7 +1543,7 @@ export function TodayScreen() {
         toast.error(locale === "ar" ? "خطأ في الشبكة" : "Network error");
       }
     },
-    [data, employeeId, locale]
+    [data, employeeId, locale],
   );
 
   /* Render ---------------------------------------------------- */

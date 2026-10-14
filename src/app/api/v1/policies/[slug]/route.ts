@@ -8,10 +8,7 @@ import { policies } from "@/lib/data/pack";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
-) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const start = Date.now();
   const { slug } = await params;
 

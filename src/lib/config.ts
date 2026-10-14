@@ -50,12 +50,8 @@ export function validateConfig(): AppConfig {
   const databaseUrl = process.env.DATABASE_URL ?? "";
 
   if (isProd && !databaseUrl) {
-    logger.error(
-      "FATAL: DATABASE_URL is required. Set it in your environment."
-    );
-    throw new Error(
-      "FATAL: DATABASE_URL is required. Set it in your environment."
-    );
+    logger.error("FATAL: DATABASE_URL is required. Set it in your environment.");
+    throw new Error("FATAL: DATABASE_URL is required. Set it in your environment.");
   }
 
   cached = {

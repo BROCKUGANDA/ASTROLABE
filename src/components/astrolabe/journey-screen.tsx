@@ -39,7 +39,12 @@ import {
 } from "@/components/astrolabe/widgets";
 import { JourneyOrbit3D } from "@/components/three/astrolabe";
 import { RevealOnScroll } from "@/components/astrolabe/micro-interactions";
-import { stages as ALL_STAGES, owners as ALL_OWNERS, steps as ALL_STEPS, NOW as PACK_NOW } from "@/lib/data/pack";
+import {
+  stages as ALL_STAGES,
+  owners as ALL_OWNERS,
+  steps as ALL_STEPS,
+  NOW as PACK_NOW,
+} from "@/lib/data/pack";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -230,7 +235,12 @@ function stepToOrbitStatus(s: Step): "done" | "active" | "blocked" | "waiting" |
   return "todo";
 }
 
-function parsePolicyRef(ref: string): { docSlug: string; title: string; section: string; effectiveDate: string } {
+function parsePolicyRef(ref: string): {
+  docSlug: string;
+  title: string;
+  section: string;
+  effectiveDate: string;
+} {
   const [docSlug, section] = ref.split("#");
   const titleMap: Record<string, string> = {
     "relocation-policy": "Relocation Policy",
@@ -336,7 +346,11 @@ function ErrorBanner({
       <button
         onClick={onRetry}
         className="ast-focus inline-flex items-center justify-center gap-2 h-11 px-4 rounded-[10px] text-[13px] font-medium shrink-0"
-        style={{ background: "var(--surface-2)", color: "var(--text-hi)", border: "1px solid var(--border)" }}
+        style={{
+          background: "var(--surface-2)",
+          color: "var(--text-hi)",
+          border: "1px solid var(--border)",
+        }}
       >
         <RotateCcw className="w-4 h-4" strokeWidth={1.75} />
         {locale === "ar" ? "إعادة" : "Retry"}
@@ -385,14 +399,25 @@ function EmptyState({
 
       <div className="ast-card-2 p-5 w-full max-w-md text-left">
         <div className="flex items-center gap-2 mb-3">
-          <ClipboardList className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
-          <h3 className="text-[13px] font-semibold uppercase tracking-[0.12em]" style={{ color: "var(--text-hi)" }}>
+          <ClipboardList
+            className="w-4 h-4"
+            strokeWidth={1.75}
+            style={{ color: "var(--brand-400)" }}
+          />
+          <h3
+            className="text-[13px] font-semibold uppercase tracking-[0.12em]"
+            style={{ color: "var(--text-hi)" }}
+          >
             {locale === "ar" ? "قائمة ما قبل الالتحاق" : "Pre-boarding checklist"}
           </h3>
         </div>
         <ul className="space-y-2">
           {preboarding.map((item, i) => (
-            <li key={i} className="flex items-center gap-3 text-[14px]" style={{ color: "var(--text-mid)" }}>
+            <li
+              key={i}
+              className="flex items-center gap-3 text-[14px]"
+              style={{ color: "var(--text-mid)" }}
+            >
               <span
                 className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-semibold tabular shrink-0"
                 style={{ background: "var(--surface-3)", color: "var(--text-lo)" }}
@@ -414,7 +439,10 @@ function EmptyState({
             <UserCircle className="w-5 h-5" strokeWidth={1.75} />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+            <p
+              className="text-[11px] uppercase tracking-[0.12em]"
+              style={{ color: "var(--text-lo)" }}
+            >
               {locale === "ar" ? "جهة الاتصال في الموارد" : "Your HR contact"}
             </p>
             <p className="text-[14px] font-medium truncate" style={{ color: "var(--text-hi)" }}>
@@ -448,7 +476,7 @@ function OrbitHeader({ data, locale }: { data: JourneyMeData; locale: "en" | "ar
         label: locale === "ar" ? s.labelAr : s.label,
         status: stepToOrbitStatus(s),
       })),
-    [data.steps, locale]
+    [data.steps, locale],
   );
   return (
     <section className="ast-card relative overflow-hidden" aria-label="Journey orbit">
@@ -462,7 +490,11 @@ function OrbitHeader({ data, locale }: { data: JourneyMeData; locale: "en" | "ar
       </div>
       <div className="relative flex items-center justify-between gap-3 px-5 sm:px-6 pb-4">
         <div className="flex items-center gap-2 min-w-0">
-          <Compass className="w-4 h-4 shrink-0" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+          <Compass
+            className="w-4 h-4 shrink-0"
+            strokeWidth={1.75}
+            style={{ color: "var(--brand-400)" }}
+          />
           <h2 className="text-[14px] font-semibold truncate" style={{ color: "var(--text-hi)" }}>
             {locale === "ar" ? "مدار رحلتك" : "Your journey orbit"}
           </h2>
@@ -479,7 +511,7 @@ function StickyStageRail({ data, locale }: { data: JourneyMeData; locale: "en" |
   const journeyType = data.employee.journeyType;
   const journeyStages = useMemo(
     () => ALL_STAGES.filter((s) => s.journeyType === journeyType).sort((a, b) => a.order - b.order),
-    [journeyType]
+    [journeyType],
   );
 
   const { scrollY } = useScroll();
@@ -512,10 +544,7 @@ function StickyStageRail({ data, locale }: { data: JourneyMeData; locale: "en" |
       className="sticky top-0 z-30 transition-[height] duration-100"
     >
       <div className="h-full ast-card rounded-none border-l-0 border-r-0 flex items-center px-3 sm:px-4 gap-2 overflow-x-auto">
-        <ol
-          className="flex items-center gap-1 sm:gap-2 min-w-0"
-          aria-label="Stage rail"
-        >
+        <ol className="flex items-center gap-1 sm:gap-2 min-w-0" aria-label="Stage rail">
           {journeyStages.map((st, idx) => {
             const state = segState(st.key);
             const isActive = st.key === data.stage;
@@ -567,7 +596,15 @@ function StickyStageRail({ data, locale }: { data: JourneyMeData; locale: "en" |
 
 /* ---------- Blocked-by mini graph ---------- */
 
-function BlockedByGraph({ step, allSteps, locale }: { step: Step; allSteps: Step[]; locale: "en" | "ar" }) {
+function BlockedByGraph({
+  step,
+  allSteps,
+  locale,
+}: {
+  step: Step;
+  allSteps: Step[];
+  locale: "en" | "ar";
+}) {
   const chain: Step[] = [];
   const visited = new Set<string>();
   let cur: Step | undefined = step;
@@ -613,8 +650,15 @@ function BlockedByGraph({ step, allSteps, locale }: { step: Step; allSteps: Step
                   ...(i === 0 ? { boxShadow: "0 0 0 2px rgba(159,18,57,0.18)" } : {}),
                 }}
               >
-                <Ban className={`w-3.5 h-3.5 shrink-0 ${i === 0 ? "ast-pulse-ring" : ""}`} strokeWidth={1.75} style={{ color: "var(--status-blocked)" }} />
-                <span className="text-[12px] font-medium whitespace-nowrap" style={{ color: "var(--text-hi)" }}>
+                <Ban
+                  className={`w-3.5 h-3.5 shrink-0 ${i === 0 ? "ast-pulse-ring" : ""}`}
+                  strokeWidth={1.75}
+                  style={{ color: "var(--status-blocked)" }}
+                />
+                <span
+                  className="text-[12px] font-medium whitespace-nowrap"
+                  style={{ color: "var(--text-hi)" }}
+                >
                   {locale === "ar" ? s.labelAr : s.label}
                 </span>
               </div>
@@ -625,9 +669,15 @@ function BlockedByGraph({ step, allSteps, locale }: { step: Step; allSteps: Step
             {i < chain.length - 1 && (
               <svg width="24" height="12" className="shrink-0" aria-hidden="true">
                 <motion.line
-                  x1="2" y1="6" x2="22" y2="6"
-                  stroke="var(--text-lo)" strokeWidth="1.5" strokeLinecap="round"
-                  strokeDasharray="20" strokeDashoffset="20"
+                  x1="2"
+                  y1="6"
+                  x2="22"
+                  y2="6"
+                  stroke="var(--text-lo)"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeDasharray="20"
+                  strokeDashoffset="20"
                   initial={{ strokeDashoffset: 20 }}
                   animate={{ strokeDashoffset: 0 }}
                   transition={{ duration: 0.4, delay: i * 0.08 + 0.1, ease: [0.2, 0.8, 0.2, 1] }}
@@ -646,12 +696,22 @@ function BlockedByGraph({ step, allSteps, locale }: { step: Step; allSteps: Step
         {/* Arrow to the blocked step */}
         <svg width="24" height="12" className="shrink-0" aria-hidden="true">
           <motion.line
-            x1="2" y1="6" x2="22" y2="6"
-            stroke="var(--accent-500)" strokeWidth="1.5" strokeLinecap="round"
-            strokeDasharray="20" strokeDashoffset="20"
+            x1="2"
+            y1="6"
+            x2="22"
+            y2="6"
+            stroke="var(--accent-500)"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeDasharray="20"
+            strokeDashoffset="20"
             initial={{ strokeDashoffset: 20 }}
             animate={{ strokeDashoffset: 0 }}
-            transition={{ duration: 0.4, delay: chain.length * 0.08 + 0.1, ease: [0.2, 0.8, 0.2, 1] }}
+            transition={{
+              duration: 0.4,
+              delay: chain.length * 0.08 + 0.1,
+              ease: [0.2, 0.8, 0.2, 1],
+            }}
           />
           <motion.polygon
             points="20,2 24,6 20,10"
@@ -664,7 +724,11 @@ function BlockedByGraph({ step, allSteps, locale }: { step: Step; allSteps: Step
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.24, delay: chain.length * 0.08 + 0.2, ease: [0.2, 0.8, 0.2, 1] }}
+          transition={{
+            duration: 0.24,
+            delay: chain.length * 0.08 + 0.2,
+            ease: [0.2, 0.8, 0.2, 1],
+          }}
           className="flex flex-col gap-1"
         >
           <div
@@ -675,8 +739,15 @@ function BlockedByGraph({ step, allSteps, locale }: { step: Step; allSteps: Step
               boxShadow: "0 0 0 2px rgba(201,162,39,0.18)",
             }}
           >
-            <Hourglass className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--accent-500)" }} />
-            <span className="text-[12px] font-medium whitespace-nowrap" style={{ color: "var(--text-hi)" }}>
+            <Hourglass
+              className="w-3.5 h-3.5 shrink-0"
+              strokeWidth={1.75}
+              style={{ color: "var(--accent-500)" }}
+            />
+            <span
+              className="text-[12px] font-medium whitespace-nowrap"
+              style={{ color: "var(--text-hi)" }}
+            >
               {locale === "ar" ? step.labelAr : step.label}
             </span>
           </div>
@@ -717,8 +788,11 @@ function StepRow({
     : (OWNER_GROUP_LABEL[step.ownerGroup]?.[locale] ?? step.ownerGroup);
   const due = fmtDate(step.dueAt, locale);
   const stepEvents = useMemo(
-    () => events.filter((e) => e.stepKey === step.stepKey).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
-    [events, step.stepKey]
+    () =>
+      events
+        .filter((e) => e.stepKey === step.stepKey)
+        .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
+    [events, step.stepKey],
   );
   const citation = step.policyRefs[0] ? parsePolicyRef(step.policyRefs[0]) : null;
   const chainWords = blockedByChainWords(step, allSteps, locale);
@@ -733,18 +807,24 @@ function StepRow({
       className="ast-card-2 overflow-hidden"
       style={{
         opacity: step.status === "done" || step.status === "skipped" ? 0.85 : 1,
-        borderLeft: step.status === "blocked"
-          ? "3px solid var(--status-blocked)"
-          : step.status === "in_progress" || step.status === "waiting_employee" || step.status === "waiting_owner"
-          ? "2px solid var(--brand-500)"
-          : "1px solid var(--border)",
-        boxShadow: step.status === "blocked"
-          ? "var(--e3)"
-          : step.status === "in_progress" || step.status === "waiting_employee" || step.status === "waiting_owner"
-          ? "var(--e2)"
-          : step.status === "done" || step.status === "skipped"
-          ? "var(--e1)"
-          : "var(--e1)",
+        borderLeft:
+          step.status === "blocked"
+            ? "3px solid var(--status-blocked)"
+            : step.status === "in_progress" ||
+                step.status === "waiting_employee" ||
+                step.status === "waiting_owner"
+              ? "2px solid var(--brand-500)"
+              : "1px solid var(--border)",
+        boxShadow:
+          step.status === "blocked"
+            ? "var(--e3)"
+            : step.status === "in_progress" ||
+                step.status === "waiting_employee" ||
+                step.status === "waiting_owner"
+              ? "var(--e2)"
+              : step.status === "done" || step.status === "skipped"
+                ? "var(--e1)"
+                : "var(--e1)",
         transition: "box-shadow 180ms var(--ease-standard), transform 180ms var(--ease-standard)",
       }}
     >
@@ -764,14 +844,12 @@ function StepRow({
       >
         {/* Left: status icon + label */}
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
-          <Icon
-            className="w-4 h-4 shrink-0"
-            strokeWidth={2}
-            style={{ color }}
-            aria-label={band}
-          />
+          <Icon className="w-4 h-4 shrink-0" strokeWidth={2} style={{ color }} aria-label={band} />
           <div className="min-w-0">
-            <p className="text-[14px] font-medium leading-snug truncate" style={{ color: "var(--text-hi)" }}>
+            <p
+              className="text-[14px] font-medium leading-snug truncate"
+              style={{ color: "var(--text-hi)" }}
+            >
               {label}
             </p>
             <p className="text-[11px] tabular mt-0.5" style={{ color: "var(--text-lo)" }}>
@@ -828,7 +906,10 @@ function StepRow({
       </div>
 
       {/* Mobile meta line */}
-      <div className="md:hidden flex items-center gap-2 px-3.5 pb-2 -mt-1 flex-wrap text-[11px]" style={{ color: "var(--text-mid)" }}>
+      <div
+        className="md:hidden flex items-center gap-2 px-3.5 pb-2 -mt-1 flex-wrap text-[11px]"
+        style={{ color: "var(--text-mid)" }}
+      >
         <span>{ownerText}</span>
         {step.startedAt && step.status !== "done" && step.status !== "skipped" && (
           <SlaChip
@@ -843,7 +924,8 @@ function StepRow({
         )}
         {step.downstreamAtRisk > 0 && step.status !== "done" && step.status !== "skipped" && (
           <span className="tabular" style={{ color: "var(--status-watch)" }}>
-            · {locale === "ar" ? `يحجب ${step.downstreamAtRisk}` : `blocks ${step.downstreamAtRisk}`}
+            ·{" "}
+            {locale === "ar" ? `يحجب ${step.downstreamAtRisk}` : `blocks ${step.downstreamAtRisk}`}
           </span>
         )}
       </div>
@@ -858,11 +940,17 @@ function StepRow({
             transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
             className="overflow-hidden"
           >
-            <div className="p-4 pt-1 space-y-4" style={{ borderTop: "1px solid var(--border-soft)" }}>
+            <div
+              className="p-4 pt-1 space-y-4"
+              style={{ borderTop: "1px solid var(--border-soft)" }}
+            >
               {/* Blocked-by chain in words */}
               {(chainWords || showBlockedGraph) && (
                 <div className="space-y-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                  <p
+                    className="text-[11px] font-semibold uppercase tracking-[0.12em]"
+                    style={{ color: "var(--text-lo)" }}
+                  >
                     {locale === "ar" ? "لماذا هي محظورة" : "Why this is held up"}
                   </p>
                   {chainWords && (
@@ -878,7 +966,10 @@ function StepRow({
 
               {/* Timeline of events for this step */}
               <div className="space-y-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                <p
+                  className="text-[11px] font-semibold uppercase tracking-[0.12em]"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {locale === "ar" ? "أحداث هذه الخطوة" : "Events for this step"}
                 </p>
                 {stepEvents.length === 0 ? (
@@ -888,18 +979,20 @@ function StepRow({
                 ) : (
                   <ol className="space-y-1.5">
                     {stepEvents.map((ev) => (
-                      <li
-                        key={ev.id}
-                        className="flex items-center gap-3 text-[12px] py-1"
-                      >
-                        <span className="tabular shrink-0" style={{ color: "var(--text-lo)", minWidth: "8.5rem" }}>
+                      <li key={ev.id} className="flex items-center gap-3 text-[12px] py-1">
+                        <span
+                          className="tabular shrink-0"
+                          style={{ color: "var(--text-lo)", minWidth: "8.5rem" }}
+                        >
                           {fmtTime(ev.occurredAt, locale)}
                         </span>
                         <span className="font-medium" style={{ color: "var(--text-hi)" }}>
                           {eventLabel(ev.type, locale)}
                         </span>
                         <span className="opacity-60">·</span>
-                        <span style={{ color: "var(--text-mid)" }}>{sourceLabel(ev.source, locale)}</span>
+                        <span style={{ color: "var(--text-mid)" }}>
+                          {sourceLabel(ev.source, locale)}
+                        </span>
                       </li>
                     ))}
                   </ol>
@@ -909,7 +1002,10 @@ function StepRow({
               {/* Policy citation */}
               {citation && (
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                  <span
+                    className="text-[11px] font-semibold uppercase tracking-[0.12em]"
+                    style={{ color: "var(--text-lo)" }}
+                  >
                     {locale === "ar" ? "المرجع" : "Citation"}
                   </span>
                   <CitationChip citation={citation} locale={locale} />
@@ -940,7 +1036,7 @@ function StepList({
   const journeyType = data.employee.journeyType;
   const journeyStages = useMemo(
     () => ALL_STAGES.filter((s) => s.journeyType === journeyType).sort((a, b) => a.order - b.order),
-    [journeyType]
+    [journeyType],
   );
 
   const stepsByStage = useMemo(() => {
@@ -948,7 +1044,7 @@ function StepList({
     for (const st of journeyStages) {
       map.set(
         st.key,
-        data.steps.filter((s) => s.stage === st.key)
+        data.steps.filter((s) => s.stage === st.key),
       );
     }
     return map;
@@ -969,7 +1065,9 @@ function StepList({
         if (stepsInStage.length === 0) return null;
         const isActive = st.key === data.stage;
         const stageLabelTxt = locale === "ar" ? st.labelAr : st.label;
-        const doneCount = stepsInStage.filter((s) => s.status === "done" || s.status === "skipped").length;
+        const doneCount = stepsInStage.filter(
+          (s) => s.status === "done" || s.status === "skipped",
+        ).length;
         return (
           <section key={st.key} aria-label={stageLabelTxt}>
             <div
@@ -984,10 +1082,7 @@ function StepList({
               >
                 {stageLabelTxt}
               </h3>
-              <span
-                className="text-[11px] tabular shrink-0"
-                style={{ color: "var(--text-lo)" }}
-              >
+              <span className="text-[11px] tabular shrink-0" style={{ color: "var(--text-lo)" }}>
                 {doneCount}/{stepsInStage.length}
               </span>
               {isActive && (
@@ -1006,11 +1101,7 @@ function StepList({
             </div>
             <ol className="space-y-2 mt-1">
               {stepsInStage.map((step, i) => (
-                <RevealOnScroll
-                  key={step.stepKey}
-                  as="li"
-                  index={i}
-                >
+                <RevealOnScroll key={step.stepKey} as="li" index={i}>
                   <StepRow
                     step={step}
                     allSteps={data.steps}
@@ -1052,9 +1143,10 @@ function groupByWeek(events: JourneyEvent[], locale: "en" | "ar"): WeekGroup[] {
     if (!g) {
       g = {
         weekKey,
-        weekLabel: locale === "ar"
-          ? `أسبوع ${format(weekStart, "d MMM")}`
-          : `Week of ${format(weekStart, "d MMM")}`,
+        weekLabel:
+          locale === "ar"
+            ? `أسبوع ${format(weekStart, "d MMM")}`
+            : `Week of ${format(weekStart, "d MMM")}`,
         events: [],
       };
       groups.push(g);
@@ -1067,7 +1159,10 @@ function groupByWeek(events: JourneyEvent[], locale: "en" | "ar"): WeekGroup[] {
 
 function Timeline({ events, locale }: { events: JourneyEvent[]; locale: "en" | "ar" }) {
   const groups = useMemo(() => groupByWeek(events, locale), [events, locale]);
-  const sliced = useMemo(() => groups.map((g) => ({ ...g, events: g.events.slice(0, 50) })), [groups]);
+  const sliced = useMemo(
+    () => groups.map((g) => ({ ...g, events: g.events.slice(0, 50) })),
+    [groups],
+  );
 
   // Compute global index for stagger
   let globalIdx = 0;
@@ -1076,7 +1171,10 @@ function Timeline({ events, locale }: { events: JourneyEvent[]; locale: "en" | "
     <section className="ast-card p-5 sm:p-6" aria-label="Timeline">
       <div className="flex items-center gap-2 mb-4">
         <History className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
-        <h3 className="text-[14px] font-semibold uppercase tracking-[0.12em]" style={{ color: "var(--text-hi)" }}>
+        <h3
+          className="text-[14px] font-semibold uppercase tracking-[0.12em]"
+          style={{ color: "var(--text-hi)" }}
+        >
           {locale === "ar" ? "السجل الزمني" : "Timeline"}
         </h3>
         <span className="ml-auto text-[11px] tabular" style={{ color: "var(--text-lo)" }}>
@@ -1135,7 +1233,10 @@ function Timeline({ events, locale }: { events: JourneyEvent[]; locale: "en" | "
                     >
                       {eventLabel(ev.type, locale)}
                     </span>
-                    <span className="text-[11px] truncate ml-auto" style={{ color: "var(--text-lo)" }}>
+                    <span
+                      className="text-[11px] truncate ml-auto"
+                      style={{ color: "var(--text-lo)" }}
+                    >
                       {sourceLabel(ev.source, locale)}
                     </span>
                   </li>
@@ -1155,13 +1256,19 @@ function Timeline({ events, locale }: { events: JourneyEvent[]; locale: "en" | "
 
 function ScrollProgress({ data, locale }: { data: JourneyMeData; locale: "en" | "ar" }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: containerRef, offset: ["start start", "end end"] });
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start start", "end end"],
+  });
   const width = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
   const [currentStage, setCurrentStage] = useState(data.stage);
 
   const journeyStages = useMemo(
-    () => ALL_STAGES.filter((s) => s.journeyType === data.employee.journeyType).sort((a, b) => a.order - b.order),
-    [data.employee.journeyType]
+    () =>
+      ALL_STAGES.filter((s) => s.journeyType === data.employee.journeyType).sort(
+        (a, b) => a.order - b.order,
+      ),
+    [data.employee.journeyType],
   );
 
   const stageLabels = useMemo(() => {
@@ -1196,7 +1303,11 @@ function ScrollProgress({ data, locale }: { data: JourneyMeData; locale: "en" | 
       {/* Progress bar track */}
       <div className="relative h-[3px] w-full" style={{ background: "var(--surface-2)" }}>
         <motion.div
-          style={{ width, height: "100%", background: "linear-gradient(90deg, var(--brand-500), var(--accent-500))" }}
+          style={{
+            width,
+            height: "100%",
+            background: "linear-gradient(90deg, var(--brand-500), var(--accent-500))",
+          }}
         />
         {/* Stage tick marks */}
         {journeyStages.map((s, i) => {
@@ -1215,13 +1326,21 @@ function ScrollProgress({ data, locale }: { data: JourneyMeData; locale: "en" | 
                 style={{
                   width: isActive ? 8 : 5,
                   height: isActive ? 8 : 5,
-                  background: isActive ? "var(--accent-500)" : isDone ? "var(--brand-500)" : "var(--surface-3)",
+                  background: isActive
+                    ? "var(--accent-500)"
+                    : isDone
+                      ? "var(--brand-500)"
+                      : "var(--surface-3)",
                 }}
               />
               {/* Hover label */}
               <div
                 className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-                style={{ background: "var(--surface-3)", color: "var(--text-mid)", border: "1px solid var(--border)" }}
+                style={{
+                  background: "var(--surface-3)",
+                  color: "var(--text-mid)",
+                  border: "1px solid var(--border)",
+                }}
               >
                 {locale === "ar" ? s.labelAr : s.label}
               </div>
@@ -1263,9 +1382,12 @@ export function JourneyScreen() {
       // band reads match the seeded events.
       const asOf = PACK_NOW.toISOString();
       const [journeyRes, meRes] = await Promise.all([
-        fetch(`/api/v1/journey/me?employeeId=${encodeURIComponent(employeeId)}&asOf=${encodeURIComponent(asOf)}`, {
-          headers: { Accept: "application/json" },
-        }),
+        fetch(
+          `/api/v1/journey/me?employeeId=${encodeURIComponent(employeeId)}&asOf=${encodeURIComponent(asOf)}`,
+          {
+            headers: { Accept: "application/json" },
+          },
+        ),
         fetch(`/api/v1/me/data?employeeId=${encodeURIComponent(employeeId)}`, {
           headers: { Accept: "application/json" },
         }),

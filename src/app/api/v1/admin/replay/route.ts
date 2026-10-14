@@ -50,15 +50,9 @@ export async function POST(req: NextRequest) {
 
   // Surface any unknown employeeIds rather than silently skipping.
   if (requestedIds.length) {
-    const unknown = requestedIds.filter(
-      (id) => !employees.find((e) => e.id === id)
-    );
+    const unknown = requestedIds.filter((id) => !employees.find((e) => e.id === id));
     if (unknown.length > 0) {
-      return error(
-        "E_NOT_FOUND",
-        `Unknown employeeIds: ${unknown.join(", ")}`,
-        404
-      );
+      return error("E_NOT_FOUND", `Unknown employeeIds: ${unknown.join(", ")}`, 404);
     }
   }
 
@@ -72,6 +66,6 @@ export async function POST(req: NextRequest) {
       servedFrom: "deterministic",
       asOf: asOf.toISOString(),
       latencyMs: Date.now() - start,
-    }
+    },
   );
 }

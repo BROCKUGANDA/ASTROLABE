@@ -52,9 +52,10 @@ export async function GET(req: NextRequest) {
   }
 
   const clock = engineNow();
-  const population = session.role === "hrbp"
-    ? employees.filter((e) => session.scope.length === 0 || session.scope.includes(e.id))
-    : employees;
+  const population =
+    session.role === "hrbp"
+      ? employees.filter((e) => session.scope.length === 0 || session.scope.includes(e.id))
+      : employees;
 
   const items = population.map((employee) => {
     const assessment = assess(employee, clock);
@@ -62,8 +63,7 @@ export async function GET(req: NextRequest) {
       .filter((e) => e.employeeId === employee.id)
       .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
     const firstEventAt = employeeEvents[0]?.occurredAt ?? employee.startDate;
-    const leadTimeHours =
-      (clock.getTime() - new Date(firstEventAt).getTime()) / 3600000;
+    const leadTimeHours = (clock.getTime() - new Date(firstEventAt).getTime()) / 3600000;
 
     const topSignals = [...assessment.signals]
       .sort((a, b) => b.weight - a.weight)
@@ -99,9 +99,7 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  const filtered = bandFilter
-    ? items.filter((i) => i.band === bandFilter)
-    : items;
+  const filtered = bandFilter ? items.filter((i) => i.band === bandFilter) : items;
 
   filtered.sort((a, b) => {
     const sevDiff = BAND_SEVERITY[b.band] - BAND_SEVERITY[a.band];
@@ -115,6 +113,6 @@ export async function GET(req: NextRequest) {
       servedFrom: "live",
       asOf: new Date().toISOString(),
       latencyMs: Date.now() - start,
-    }
+    },
   );
 }

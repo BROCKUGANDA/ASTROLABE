@@ -53,59 +53,31 @@ const PHASES: Phase[] = [
       "Journey map validated",
       "Policy corpus owner identified",
     ],
-    stepsAr: [
-      "مالك مسمّى لكل نوع طلب",
-      "التحقق من خريطة الرحلة",
-      "تحديد مالك نص السياسات",
-    ],
+    stepsAr: ["مالك مسمّى لكل نوع طلب", "التحقق من خريطة الرحلة", "تحديد مالك نص السياسات"],
   },
   {
     weeks: "Weeks 3-4",
     weeksAr: "الأسابيع 3-4",
     title: "Dry run",
     titleAr: "تشغيل تجريبي",
-    steps: [
-      "Synthetic data only",
-      "HRBP training",
-      "Degraded-mode rehearsal",
-    ],
-    stepsAr: [
-      "بيانات تركيبية فقط",
-      "تدريب شركاء الموارد",
-      "بروفة الوضع المتدهور",
-    ],
+    steps: ["Synthetic data only", "HRBP training", "Degraded-mode rehearsal"],
+    stepsAr: ["بيانات تركيبية فقط", "تدريب شركاء الموارد", "بروفة الوضع المتدهور"],
   },
   {
     weeks: "Weeks 5-10",
     weeksAr: "الأسابيع 5-10",
     title: "Live pilot",
     titleAr: "التجربة الحية",
-    steps: [
-      "50 joiners",
-      "Daily HRBP review",
-      "Weekly threshold tuning",
-    ],
-    stepsAr: [
-      "50 ملتحقاً",
-      "مراجعة شريك الموارد يومياً",
-      "ضبط العتبات أسبوعياً",
-    ],
+    steps: ["50 joiners", "Daily HRBP review", "Weekly threshold tuning"],
+    stepsAr: ["50 ملتحقاً", "مراجعة شريك الموارد يومياً", "ضبط العتبات أسبوعياً"],
   },
   {
     weeks: "Weeks 11-12",
     weeksAr: "الأسابيع 11-12",
     title: "Evaluation",
     titleAr: "التقييم",
-    steps: [
-      "Metrics review",
-      "Exit criteria",
-      "Scale-up decision",
-    ],
-    stepsAr: [
-      "مراجعة المقاييس",
-      "معايير الخروج",
-      "قرار التوسّع",
-    ],
+    steps: ["Metrics review", "Exit criteria", "Scale-up decision"],
+    stepsAr: ["مراجعة المقاييس", "معايير الخروج", "قرار التوسّع"],
   },
 ];
 
@@ -120,14 +92,78 @@ interface OwnerMatrixRow {
 }
 
 const OWNER_MATRIX: OwnerMatrixRow[] = [
-  { type: "it_kit", typeAr: "عُدّة تقنية", owner: "Ahmed Al-Rashid (IT)", ownerAr: "أحمد الراشد (تقنية)", backup: "Priya Nair", backupAr: "بريا ناير", signedOff: true },
-  { type: "system_access", typeAr: "وصول الأنظمة", owner: "Priya Nair (IT)", ownerAr: "بريا ناير (تقنية)", backup: "Ahmed Al-Rashid", backupAr: "أحمد الراشد", signedOff: true },
-  { type: "visa", typeAr: "تأشيرة", owner: "Saeed Al-Marri (Immigration)", ownerAr: "سعيد المري (هجرة)", backup: "Rania Hassan", backupAr: "رانيا حسن", signedOff: true },
-  { type: "relocation", typeAr: "انتقال", owner: "Rania Hassan (Mobility)", ownerAr: "رانيا حسن (تنقل)", backup: "Saeed Al-Marri", backupAr: "سعيد المري", signedOff: true },
-  { type: "payroll", typeAr: "رواتب", owner: "Mona Said (Payroll)", ownerAr: "منى سعيد (رواتب)", backup: "Fatima Al-Mansouri", backupAr: "فاطمة المنصوري", signedOff: true },
-  { type: "training", typeAr: "تدريب", owner: "Lina Khoury (Learning)", ownerAr: "لينا خوري (تعلم)", backup: "Fatima Al-Mansouri", backupAr: "فاطمة المنصوري", signedOff: true },
-  { type: "facilities", typeAr: "مرافق", owner: "Omar Farouk (Facilities)", ownerAr: "عمر فاروق (مرافق)", backup: "Lina Khoury", backupAr: "لينا خوري", signedOff: true },
-  { type: "manager_handover", typeAr: "تسليم المدير", owner: "Fatima Al-Mansouri (HR)", ownerAr: "فاطمة المنصوري (موارد)", backup: "Khalid Idris", backupAr: "خالد إدريس", signedOff: true },
+  {
+    type: "it_kit",
+    typeAr: "عُدّة تقنية",
+    owner: "Ahmed Al-Rashid (IT)",
+    ownerAr: "أحمد الراشد (تقنية)",
+    backup: "Priya Nair",
+    backupAr: "بريا ناير",
+    signedOff: true,
+  },
+  {
+    type: "system_access",
+    typeAr: "وصول الأنظمة",
+    owner: "Priya Nair (IT)",
+    ownerAr: "بريا ناير (تقنية)",
+    backup: "Ahmed Al-Rashid",
+    backupAr: "أحمد الراشد",
+    signedOff: true,
+  },
+  {
+    type: "visa",
+    typeAr: "تأشيرة",
+    owner: "Saeed Al-Marri (Immigration)",
+    ownerAr: "سعيد المري (هجرة)",
+    backup: "Rania Hassan",
+    backupAr: "رانيا حسن",
+    signedOff: true,
+  },
+  {
+    type: "relocation",
+    typeAr: "انتقال",
+    owner: "Rania Hassan (Mobility)",
+    ownerAr: "رانيا حسن (تنقل)",
+    backup: "Saeed Al-Marri",
+    backupAr: "سعيد المري",
+    signedOff: true,
+  },
+  {
+    type: "payroll",
+    typeAr: "رواتب",
+    owner: "Mona Said (Payroll)",
+    ownerAr: "منى سعيد (رواتب)",
+    backup: "Fatima Al-Mansouri",
+    backupAr: "فاطمة المنصوري",
+    signedOff: true,
+  },
+  {
+    type: "training",
+    typeAr: "تدريب",
+    owner: "Lina Khoury (Learning)",
+    ownerAr: "لينا خوري (تعلم)",
+    backup: "Fatima Al-Mansouri",
+    backupAr: "فاطمة المنصوري",
+    signedOff: true,
+  },
+  {
+    type: "facilities",
+    typeAr: "مرافق",
+    owner: "Omar Farouk (Facilities)",
+    ownerAr: "عمر فاروق (مرافق)",
+    backup: "Lina Khoury",
+    backupAr: "لينا خوري",
+    signedOff: true,
+  },
+  {
+    type: "manager_handover",
+    typeAr: "تسليم المدير",
+    owner: "Fatima Al-Mansouri (HR)",
+    ownerAr: "فاطمة المنصوري (موارد)",
+    backup: "Khalid Idris",
+    backupAr: "خالد إدريس",
+    signedOff: true,
+  },
 ];
 
 interface SuccessMetricRow {
@@ -140,16 +176,61 @@ interface SuccessMetricRow {
 }
 
 const SUCCESS_METRICS: SuccessMetricRow[] = [
-  { metric: "Time-to-first-answer", metricAr: "زمن أول إجابة", target: "< 60s", targetAr: "< 60 ث", measurement: "Ask endpoint latency", measurementAr: "زمن استجابة نقطة Ask" },
-  { metric: "% requests complete on arrival", metricAr: "% طلبات مكتملة عند الوصول", target: "> 90%", targetAr: "> 90%", measurement: "Zero-clarification rate", measurementAr: "نسبة الصفر-توضيح" },
-  { metric: "Median lead time before escalation", metricAr: "وسيط زمن التصعيد", target: "> 2 days", targetAr: "> يومين", measurement: "Engine signal vs complaint event", measurementAr: "إشارة المحرك مقابل حدث الشكوى" },
-  { metric: "Stage breach rate", metricAr: "نسبة خرق المرحلة", target: "< 15%", targetAr: "< 15%", measurement: "Assessments in Friction/Blocked", measurementAr: "تقييمات في الاحتكاك/المحظور" },
-  { metric: "Employee trust score", metricAr: "درجة ثقة الموظف", target: "> 4.0/5", targetAr: "> 4.0/5", measurement: "Pulse at day 30", measurementAr: "نبضة اليوم 30" },
-  { metric: "Zero privacy incidents", metricAr: "صفر حوادث خصوصية", target: "0", targetAr: "0", measurement: "Audit chain verification", measurementAr: "التحقق من سلسلة التدقيق" },
+  {
+    metric: "Time-to-first-answer",
+    metricAr: "زمن أول إجابة",
+    target: "< 60s",
+    targetAr: "< 60 ث",
+    measurement: "Ask endpoint latency",
+    measurementAr: "زمن استجابة نقطة Ask",
+  },
+  {
+    metric: "% requests complete on arrival",
+    metricAr: "% طلبات مكتملة عند الوصول",
+    target: "> 90%",
+    targetAr: "> 90%",
+    measurement: "Zero-clarification rate",
+    measurementAr: "نسبة الصفر-توضيح",
+  },
+  {
+    metric: "Median lead time before escalation",
+    metricAr: "وسيط زمن التصعيد",
+    target: "> 2 days",
+    targetAr: "> يومين",
+    measurement: "Engine signal vs complaint event",
+    measurementAr: "إشارة المحرك مقابل حدث الشكوى",
+  },
+  {
+    metric: "Stage breach rate",
+    metricAr: "نسبة خرق المرحلة",
+    target: "< 15%",
+    targetAr: "< 15%",
+    measurement: "Assessments in Friction/Blocked",
+    measurementAr: "تقييمات في الاحتكاك/المحظور",
+  },
+  {
+    metric: "Employee trust score",
+    metricAr: "درجة ثقة الموظف",
+    target: "> 4.0/5",
+    targetAr: "> 4.0/5",
+    measurement: "Pulse at day 30",
+    measurementAr: "نبضة اليوم 30",
+  },
+  {
+    metric: "Zero privacy incidents",
+    metricAr: "صفر حوادث خصوصية",
+    target: "0",
+    targetAr: "0",
+    measurement: "Audit chain verification",
+    measurementAr: "التحقق من سلسلة التدقيق",
+  },
 ];
 
 const EXIT_CRITERIA = [
-  { en: "All success metrics met for 4 consecutive weeks", ar: "تحقيق جميع مقاييس النجاح لمدة 4 أسابيع متتالية" },
+  {
+    en: "All success metrics met for 4 consecutive weeks",
+    ar: "تحقيق جميع مقاييس النجاح لمدة 4 أسابيع متتالية",
+  },
   { en: "Zero privacy incidents", ar: "صفر حوادث خصوصية" },
   { en: "HRBP trust score > 4.0/5", ar: "درجة ثقة شريك الموارد > 4.0/5" },
   { en: "Zero-clarification rate > 90%", ar: "نسبة الصفر-توضيح > 90%" },
@@ -175,7 +256,10 @@ export function PilotPlanPage() {
           <ClipboardList className="w-3.5 h-3.5" strokeWidth={1.75} />
           <span>{isAr ? "خطة التجربة" : "Pilot plan"}</span>
         </div>
-        <h2 className="mt-2 text-[22px] sm:text-[26px] font-semibold tracking-tight" style={{ color: "var(--text-hi)" }}>
+        <h2
+          className="mt-2 text-[22px] sm:text-[26px] font-semibold tracking-tight"
+          style={{ color: "var(--text-hi)" }}
+        >
           {isAr ? "جاهزية التجربة — 12 أسبوعاً" : "Pilot readiness — 12 weeks"}
         </h2>
       </header>
@@ -205,10 +289,17 @@ export function PilotPlanPage() {
             { labelEn: "Phases", labelAr: "المراحل", value: "4" },
           ].map((s) => (
             <div key={s.labelEn} className="ast-card-2 p-3">
-              <p className="text-[10px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+              <p
+                className="text-[10px] uppercase tracking-[0.12em]"
+                style={{ color: "var(--text-lo)" }}
+              >
                 {isAr ? s.labelAr : s.labelEn}
               </p>
-              <p className="text-[18px] font-semibold tabular mt-1" style={{ color: "var(--text-hi)" }} dir="ltr">
+              <p
+                className="text-[18px] font-semibold tabular mt-1"
+                style={{ color: "var(--text-hi)" }}
+                dir="ltr"
+              >
                 {s.value}
               </p>
             </div>
@@ -251,7 +342,10 @@ export function PilotPlanPage() {
                   <span className="text-[13px] font-semibold tabular">{i + 1}</span>
                 </div>
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.12em] tabular" style={{ color: "var(--text-lo)" }}>
+                  <p
+                    className="text-[11px] uppercase tracking-[0.12em] tabular"
+                    style={{ color: "var(--text-lo)" }}
+                  >
                     {isAr ? p.weeksAr : p.weeks}
                   </p>
                   <p className="text-[14px] font-semibold" style={{ color: "var(--text-hi)" }}>
@@ -261,8 +355,16 @@ export function PilotPlanPage() {
               </div>
               <ul className="flex-1 min-w-0 flex flex-wrap items-center gap-x-4 gap-y-1.5">
                 {(isAr ? p.stepsAr : p.steps).map((s) => (
-                  <li key={s} className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: "var(--text-mid)" }}>
-                    <CheckCircle2 className="w-3 h-3" strokeWidth={2} style={{ color: "var(--status-steady)" }} />
+                  <li
+                    key={s}
+                    className="inline-flex items-center gap-1.5 text-[12px]"
+                    style={{ color: "var(--text-mid)" }}
+                  >
+                    <CheckCircle2
+                      className="w-3 h-3"
+                      strokeWidth={2}
+                      style={{ color: "var(--status-steady)" }}
+                    />
                     {s}
                   </li>
                 ))}
@@ -285,20 +387,35 @@ export function PilotPlanPage() {
             {isAr ? "مصفوفة المالكين المسمّين" : "Named owners matrix"}
           </h3>
         </div>
-        <div className="rounded-[10px] overflow-x-auto" style={{ border: "1px solid var(--border)" }}>
+        <div
+          className="rounded-[10px] overflow-x-auto"
+          style={{ border: "1px solid var(--border)" }}
+        >
           <Table>
             <TableHeader>
               <TableRow style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}>
-                <TableHead className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                <TableHead
+                  className="text-[11px] uppercase tracking-[0.12em]"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {isAr ? "نوع الطلب" : "Request type"}
                 </TableHead>
-                <TableHead className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                <TableHead
+                  className="text-[11px] uppercase tracking-[0.12em]"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {isAr ? "المالك" : "Owner"}
                 </TableHead>
-                <TableHead className="text-[11px] uppercase tracking-[0.12em] hidden sm:table-cell" style={{ color: "var(--text-lo)" }}>
+                <TableHead
+                  className="text-[11px] uppercase tracking-[0.12em] hidden sm:table-cell"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {isAr ? "البديل" : "Backup"}
                 </TableHead>
-                <TableHead className="text-[11px] uppercase tracking-[0.12em] text-right" style={{ color: "var(--text-lo)" }}>
+                <TableHead
+                  className="text-[11px] uppercase tracking-[0.12em] text-right"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {isAr ? "موقّع" : "Signed off"}
                 </TableHead>
               </TableRow>
@@ -306,22 +423,37 @@ export function PilotPlanPage() {
             <TableBody>
               {OWNER_MATRIX.map((row) => (
                 <TableRow key={row.type} style={{ borderColor: "var(--border-soft)" }}>
-                  <TableCell className="text-[12px] font-mono tabular" style={{ color: "var(--brand-400)" }}>
+                  <TableCell
+                    className="text-[12px] font-mono tabular"
+                    style={{ color: "var(--brand-400)" }}
+                  >
                     {row.type}
                   </TableCell>
-                  <TableCell className="text-[13px] font-medium" style={{ color: "var(--text-hi)" }}>
+                  <TableCell
+                    className="text-[13px] font-medium"
+                    style={{ color: "var(--text-hi)" }}
+                  >
                     {isAr ? row.ownerAr : row.owner}
                   </TableCell>
-                  <TableCell className="text-[12px] hidden sm:table-cell" style={{ color: "var(--text-mid)" }}>
+                  <TableCell
+                    className="text-[12px] hidden sm:table-cell"
+                    style={{ color: "var(--text-mid)" }}
+                  >
                     {isAr ? row.backupAr : row.backup}
                   </TableCell>
                   <TableCell className="text-right">
                     {row.signedOff ? (
-                      <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: "var(--status-steady)" }}>
+                      <span
+                        className="inline-flex items-center gap-1 text-[11px]"
+                        style={{ color: "var(--status-steady)" }}
+                      >
                         <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2} />
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: "var(--status-watch)" }}>
+                      <span
+                        className="inline-flex items-center gap-1 text-[11px]"
+                        style={{ color: "var(--status-watch)" }}
+                      >
                         <AlertTriangle className="w-3.5 h-3.5" strokeWidth={2} />
                       </span>
                     )}
@@ -351,17 +483,29 @@ export function PilotPlanPage() {
             {isAr ? "مقاييس النجاح" : "Success metrics"}
           </h3>
         </div>
-        <div className="rounded-[10px] overflow-x-auto" style={{ border: "1px solid var(--border)" }}>
+        <div
+          className="rounded-[10px] overflow-x-auto"
+          style={{ border: "1px solid var(--border)" }}
+        >
           <Table>
             <TableHeader>
               <TableRow style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}>
-                <TableHead className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                <TableHead
+                  className="text-[11px] uppercase tracking-[0.12em]"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {isAr ? "المقياس" : "Metric"}
                 </TableHead>
-                <TableHead className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                <TableHead
+                  className="text-[11px] uppercase tracking-[0.12em]"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {isAr ? "الهدف" : "Target"}
                 </TableHead>
-                <TableHead className="text-[11px] uppercase tracking-[0.12em] hidden sm:table-cell" style={{ color: "var(--text-lo)" }}>
+                <TableHead
+                  className="text-[11px] uppercase tracking-[0.12em] hidden sm:table-cell"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {isAr ? "القياس" : "Measurement"}
                 </TableHead>
               </TableRow>
@@ -369,13 +513,19 @@ export function PilotPlanPage() {
             <TableBody>
               {SUCCESS_METRICS.map((row) => (
                 <TableRow key={row.metric} style={{ borderColor: "var(--border-soft)" }}>
-                  <TableCell className="text-[13px] font-medium" style={{ color: "var(--text-hi)" }}>
+                  <TableCell
+                    className="text-[13px] font-medium"
+                    style={{ color: "var(--text-hi)" }}
+                  >
                     {isAr ? row.metricAr : row.metric}
                   </TableCell>
                   <TableCell className="text-[13px] tabular" style={{ color: "var(--brand-400)" }}>
                     {isAr ? row.targetAr : row.target}
                   </TableCell>
-                  <TableCell className="text-[12px] hidden sm:table-cell" style={{ color: "var(--text-mid)" }}>
+                  <TableCell
+                    className="text-[12px] hidden sm:table-cell"
+                    style={{ color: "var(--text-mid)" }}
+                  >
                     {isAr ? row.measurementAr : row.measurement}
                   </TableCell>
                 </TableRow>
@@ -412,8 +562,19 @@ export function PilotPlanPage() {
                   "Pilot data is isolated and can be purged.",
                 ]
             ).map((s, idx) => (
-              <li key={idx} className="flex items-start gap-2 text-[12px]" style={{ color: "var(--text-mid)" }}>
-                <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--status-watch)", transform: isAr ? "scaleX(-1)" : undefined }} />
+              <li
+                key={idx}
+                className="flex items-start gap-2 text-[12px]"
+                style={{ color: "var(--text-mid)" }}
+              >
+                <ChevronRight
+                  className="w-3.5 h-3.5 mt-0.5 shrink-0"
+                  strokeWidth={1.75}
+                  style={{
+                    color: "var(--status-watch)",
+                    transform: isAr ? "scaleX(-1)" : undefined,
+                  }}
+                />
                 {s}
               </li>
             ))}
@@ -445,8 +606,19 @@ export function PilotPlanPage() {
                   "The global kill switch is owned by the Admin role.",
                 ]
             ).map((s, idx) => (
-              <li key={idx} className="flex items-start gap-2 text-[12px]" style={{ color: "var(--text-mid)" }}>
-                <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--status-friction)", transform: isAr ? "scaleX(-1)" : undefined }} />
+              <li
+                key={idx}
+                className="flex items-start gap-2 text-[12px]"
+                style={{ color: "var(--text-mid)" }}
+              >
+                <ChevronRight
+                  className="w-3.5 h-3.5 mt-0.5 shrink-0"
+                  strokeWidth={1.75}
+                  style={{
+                    color: "var(--status-friction)",
+                    transform: isAr ? "scaleX(-1)" : undefined,
+                  }}
+                />
                 {s}
               </li>
             ))}
@@ -457,7 +629,10 @@ export function PilotPlanPage() {
       {/* Exit criteria for scale-up */}
       <section
         className="ast-card p-5 sm:p-6 mb-5"
-        style={{ borderColor: "rgba(201,162,39,0.32)", background: "linear-gradient(180deg, rgba(201,162,39,0.04), var(--surface-1))" }}
+        style={{
+          borderColor: "rgba(201,162,39,0.32)",
+          background: "linear-gradient(180deg, rgba(201,162,39,0.04), var(--surface-1))",
+        }}
       >
         <div className="flex items-center gap-2.5 mb-4">
           <div
@@ -497,7 +672,10 @@ export function PilotPlanPage() {
       </section>
 
       {/* Footer */}
-      <p className="text-[11px] text-center tabular mt-4 inline-flex items-center justify-center gap-1.5 w-full" style={{ color: "var(--text-lo)" }}>
+      <p
+        className="text-[11px] text-center tabular mt-4 inline-flex items-center justify-center gap-1.5 w-full"
+        style={{ color: "var(--text-lo)" }}
+      >
         <ShieldCheck className="w-3 h-3" strokeWidth={1.75} />
         {isAr
           ? "خطة التجربة · 12 أسبوعاً · 4 مراحل · 8 أنواع طلبات موقّعة"

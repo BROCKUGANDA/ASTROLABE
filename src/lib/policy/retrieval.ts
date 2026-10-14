@@ -80,20 +80,116 @@ export interface PolicyAnswer {
    TOKENIZER
    ============================================================ */
 const STOPWORDS = new Set([
-  "the", "a", "an", "is", "are", "of", "to", "in", "on", "for", "and", "or",
-  "what", "how", "many", "do", "i", "get", "my", "me", "with", "by", "at",
-  "be", "will", "can", "you", "please", "tell", "about", "when", "where",
-  "if", "so", "it", "this", "that", "from", "as", "have", "has", "was",
-  "were", "they", "them", "their", "we", "us", "our", "your",
+  "the",
+  "a",
+  "an",
+  "is",
+  "are",
+  "of",
+  "to",
+  "in",
+  "on",
+  "for",
+  "and",
+  "or",
+  "what",
+  "how",
+  "many",
+  "do",
+  "i",
+  "get",
+  "my",
+  "me",
+  "with",
+  "by",
+  "at",
+  "be",
+  "will",
+  "can",
+  "you",
+  "please",
+  "tell",
+  "about",
+  "when",
+  "where",
+  "if",
+  "so",
+  "it",
+  "this",
+  "that",
+  "from",
+  "as",
+  "have",
+  "has",
+  "was",
+  "were",
+  "they",
+  "them",
+  "their",
+  "we",
+  "us",
+  "our",
+  "your",
   // Arabic function words. Without these, an Arabic question scored its "content
   // match" on هي and يوم, so a topic absent from the corpus looked answerable and
   // the companion cited real policies in reply to a question they do not address.
   // Bilingual by construction means the retrieval stops in both languages.
-  "ما", "هي", "هو", "ان", "أن", "إن", "الذي", "التي", "هذه", "هذا", "عن", "في",
-  "على", "الى", "إلى", "مع", "هل", "كم", "كل", "بعض", "يوم", "او", "أو", "ثم",
-  "كان", "كانت", "يكون", "لكن", "قد", "بين", "بعد", "قبل", "حتى", "غير", "من",
-  "هنا", "الان", "الآن", "اي", "أي", "ايضاً", "أيضا", "نعم", "لا", "ذات", "ذالك",
-  "ذلك", "لذلك", "بسبب", "مثال", "جدا", "جداً", "اليوم", "غدا", "غداً", "امس",
+  "ما",
+  "هي",
+  "هو",
+  "ان",
+  "أن",
+  "إن",
+  "الذي",
+  "التي",
+  "هذه",
+  "هذا",
+  "عن",
+  "في",
+  "على",
+  "الى",
+  "إلى",
+  "مع",
+  "هل",
+  "كم",
+  "كل",
+  "بعض",
+  "يوم",
+  "او",
+  "أو",
+  "ثم",
+  "كان",
+  "كانت",
+  "يكون",
+  "لكن",
+  "قد",
+  "بين",
+  "بعد",
+  "قبل",
+  "حتى",
+  "غير",
+  "من",
+  "هنا",
+  "الان",
+  "الآن",
+  "اي",
+  "أي",
+  "ايضاً",
+  "أيضا",
+  "نعم",
+  "لا",
+  "ذات",
+  "ذالك",
+  "ذلك",
+  "لذلك",
+  "بسبب",
+  "مثال",
+  "جدا",
+  "جداً",
+  "اليوم",
+  "غدا",
+  "غداً",
+  "امس",
 ]);
 
 export function tokenize(text: string): string[] {
@@ -119,7 +215,8 @@ export function retrieve(question: string, locale: Locale, topK = 8): RetrievedC
     // BM25-ish: matched term frequency × idf-like weight
     const tf = matchedTerms.length;
     const chunkLen = chunkTokens.length;
-    const avgLen = pool.reduce((a, c) => a + tokenize(c.text + c.title + c.section).length, 0) / pool.length;
+    const avgLen =
+      pool.reduce((a, c) => a + tokenize(c.text + c.title + c.section).length, 0) / pool.length;
     const k1 = 1.5;
     const b = 0.75;
     const tfNorm = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (chunkLen / avgLen)));
@@ -148,7 +245,11 @@ export type Intent = "policy" | "journey" | "action" | "smalltalk" | "out_of_sco
 export function classifyIntent(question: string): Intent {
   const q = question.toLowerCase();
   // Out of scope: compensation disputes, legal, medical, disciplinary, another employee
-  if (/\b(salary\s+dispute|sue|lawsuit|medical|sick\s+leave\s+dispute|disciplin|warned|fired|about\s+(?:my\s+)?colleague|about\s+(?:mr|mrs|ms)\b)/i.test(q)) {
+  if (
+    /\b(salary\s+dispute|sue|lawsuit|medical|sick\s+leave\s+dispute|disciplin|warned|fired|about\s+(?:my\s+)?colleague|about\s+(?:mr|mrs|ms)\b)/i.test(
+      q,
+    )
+  ) {
     return "out_of_scope";
   }
   // The same categories in Arabic. Without these, an Arabic speaker asking to sue
@@ -168,7 +269,10 @@ export function classifyIntent(question: string): Intent {
   if (/\b\w+'s\s+(salary|pay|compensation|raise|bonus)\b/i.test(q)) {
     return "out_of_scope";
   }
-  if (/\b(salary|raise|increase\s+pay|pay\s+dispute|compensation\s+dispute)\b/.test(q) && /dispute|unfair|wrong|incorrect/.test(q)) {
+  if (
+    /\b(salary|raise|increase\s+pay|pay\s+dispute|compensation\s+dispute)\b/.test(q) &&
+    /dispute|unfair|wrong|incorrect/.test(q)
+  ) {
     return "out_of_scope";
   }
   // Action intent
@@ -178,7 +282,11 @@ export function classifyIntent(question: string): Intent {
     }
   }
   // Journey intent
-  if (/\b(where am i|what.{0,5}next|status|progress|stage|day|step|late|stuck|blocked|waiting)\b/.test(q)) {
+  if (
+    /\b(where am i|what.{0,5}next|status|progress|stage|day|step|late|stuck|blocked|waiting)\b/.test(
+      q,
+    )
+  ) {
     return "journey";
   }
   if (/\b(hello|hi|thanks|bye|good\s+(?:morning|afternoon|evening))\b/.test(q)) {
@@ -193,7 +301,7 @@ export function classifyIntent(question: string): Intent {
 export function composeExtractive(
   question: string,
   chunks: RetrievedChunk[],
-  locale: Locale
+  locale: Locale,
 ): { markdown: string; citations: Citation[]; claimsGrounded: number; claimsDropped: number } {
   if (chunks.length === 0) {
     return { markdown: "", citations: [], claimsGrounded: 0, claimsDropped: 0 };
@@ -208,7 +316,8 @@ export function composeExtractive(
       const sTokens = tokenize(s);
       const overlap = sTokens.filter((t) => qTokens.has(t)).length;
       // Boost sentences with normative content (numbers, durations, amounts)
-      const hasNormative = /\b(\d+|aed|days?|hours?|weeks?|months?|years?|must|shall|required|eligible)\b/i.test(s);
+      const hasNormative =
+        /\b(\d+|aed|days?|hours?|weeks?|months?|years?|must|shall|required|eligible)\b/i.test(s);
       const score = overlap + (hasNormative ? 0.5 : 0);
       // PRD §22 adversarial — only pick sentences that share at least one
       // content token with the question. Without this, "What's the policy
@@ -254,8 +363,8 @@ export function composeExtractive(
     }
     return `${trimmed}[^${i + 1}]`;
   });
-  const footnoteLines = citations.map((c, i) =>
-    `[^${i + 1}]: ${c.title} · §${c.section} · effective ${c.effectiveDate}`
+  const footnoteLines = citations.map(
+    (c, i) => `[^${i + 1}]: ${c.title} · §${c.section} · effective ${c.effectiveDate}`,
   );
   const markdown = parts.join("\n\n") + "\n\n" + footnoteLines.join("\n");
   return { markdown, citations, claimsGrounded: picked.length, claimsDropped: 0 };
@@ -266,7 +375,7 @@ export function composeExtractive(
    ============================================================ */
 export function validateGrounding(
   markdown: string,
-  citations: Citation[]
+  citations: Citation[],
 ): { score: number; passed: boolean; droppedClaims: number } {
   // For prototype: grounding score = (cited claims / total claims)
   // Normative claim = sentence containing numbers, durations, amounts, eligibility
@@ -294,19 +403,32 @@ export function validateGrounding(
    ABSTAIN HELPERS
    ============================================================ */
 const OUT_OF_SCOPE_HINTS: Record<string, { name: string; role: string; email: string }> = {
-  default: { name: "Fatima Al-Mansouri", role: "HRBP — Cabin Crew", email: "fatima.hrbp@astrolabe.internal" },
-  compensation: { name: "Mona Said", role: "Payroll Specialist", email: "payroll@astrolabe.internal" },
-  legal: { name: "Saeed Al-Marri", role: "Immigration Officer", email: "immigration@astrolabe.internal" },
-  medical: { name: "Fatima Al-Mansouri", role: "HRBP — Cabin Crew", email: "fatima.hrbp@astrolabe.internal" },
+  default: {
+    name: "Fatima Al-Mansouri",
+    role: "HRBP — Cabin Crew",
+    email: "fatima.hrbp@astrolabe.internal",
+  },
+  compensation: {
+    name: "Mona Said",
+    role: "Payroll Specialist",
+    email: "payroll@astrolabe.internal",
+  },
+  legal: {
+    name: "Saeed Al-Marri",
+    role: "Immigration Officer",
+    email: "immigration@astrolabe.internal",
+  },
+  medical: {
+    name: "Fatima Al-Mansouri",
+    role: "HRBP — Cabin Crew",
+    email: "fatima.hrbp@astrolabe.internal",
+  },
 };
 
 /* ============================================================
    TOP-LEVEL ANSWER
    ============================================================ */
-export function answer(
-  question: string,
-  locale: Locale = "en"
-): PolicyAnswer {
+export function answer(question: string, locale: Locale = "en"): PolicyAnswer {
   const intent = classifyIntent(question);
   const answerId = `ans-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
@@ -321,10 +443,18 @@ export function answer(
     if (/\b\w+'s\s+(salary|pay|compensation|raise|bonus)\b/i.test(q)) {
       reasonCode = "about_another_employee";
       ownerKey = "default";
-    } else if (/medical|sick/.test(q)) { reasonCode = "compensation_legal_medical_disciplinary"; ownerKey = "medical"; }
-    else if (/salary|pay|compensation/.test(q)) { reasonCode = "compensation_legal_medical_disciplinary"; ownerKey = "compensation"; }
-    else if (/visa|immigration/.test(q)) { reasonCode = "compensation_legal_medical_disciplinary"; ownerKey = "legal"; }
-    else if (/colleague|mr|mrs|ms/.test(q)) { reasonCode = "about_another_employee"; }
+    } else if (/medical|sick/.test(q)) {
+      reasonCode = "compensation_legal_medical_disciplinary";
+      ownerKey = "medical";
+    } else if (/salary|pay|compensation/.test(q)) {
+      reasonCode = "compensation_legal_medical_disciplinary";
+      ownerKey = "compensation";
+    } else if (/visa|immigration/.test(q)) {
+      reasonCode = "compensation_legal_medical_disciplinary";
+      ownerKey = "legal";
+    } else if (/colleague|mr|mrs|ms/.test(q)) {
+      reasonCode = "about_another_employee";
+    }
 
     return {
       answerId,
@@ -332,12 +462,14 @@ export function answer(
       citations: [],
       followUps: [],
       abstainReasonCode: reasonCode,
-      abstainReasonEn: reasonCode === "about_another_employee"
-        ? "I can't answer questions about another employee's pay or terms — that's private. Fatima in HR can help if you have a concern about a colleague."
-        : "I'm not certain, and I won't guess. This question needs a human who knows your case.",
-      abstainReasonAr: reasonCode === "about_another_employee"
-        ? "لا أستطيع الإجابة على أسئلة عن راتب أو شروط زميل — هذا أمر خاص. فاطمة في الموارد البشرية يمكنها المساعدة إذا كان لديك قلق بشأن زميل."
-        : "لست متأكداً، ولن أخمن. هذا السؤال يحتاج إلى شخص يعرف حالتك.",
+      abstainReasonEn:
+        reasonCode === "about_another_employee"
+          ? "I can't answer questions about another employee's pay or terms — that's private. Fatima in HR can help if you have a concern about a colleague."
+          : "I'm not certain, and I won't guess. This question needs a human who knows your case.",
+      abstainReasonAr:
+        reasonCode === "about_another_employee"
+          ? "لا أستطيع الإجابة على أسئلة عن راتب أو شروط زميل — هذا أمر خاص. فاطمة في الموارد البشرية يمكنها المساعدة إذا كان لديك قلق بشأن زميل."
+          : "لست متأكداً، ولن أخمن. هذا السؤال يحتاج إلى شخص يعرف حالتك.",
       ownerHint: OUT_OF_SCOPE_HINTS[ownerKey] ?? OUT_OF_SCOPE_HINTS.default,
       groundingScore: 0,
       servedFrom: "extractive",
@@ -355,16 +487,18 @@ export function answer(
       citations: [],
       followUps: intent === "journey" ? ["What is my next step?", "What is late?"] : [],
       abstainReasonCode: "out_of_scope",
-      abstainReasonEn: intent === "journey"
-        ? "This is a journey question — head to the Today or Journey tab for a precise answer with your own record."
-        : intent === "action"
-        ? "This looks like a request — head to the Requests tab and I'll prefill it from your journey."
-        : "Hi — I'm here to help with policy questions and your journey. What would you like to know?",
-      abstainReasonAr: intent === "journey"
-        ? "هذا سؤال عن الرحلة — انتقل إلى تبويب اليوم أو الرحلة لإجابة دقيقة من سجلك."
-        : intent === "action"
-        ? "يبدو هذا طلباً — انتقل إلى تبويب الطلبات وسأعبئه من رحلتك."
-        : "مرحباً — أنا هنا لمساعدتك في أسئلة السياسات ورحلتك. ماذا تريد أن تعرف؟",
+      abstainReasonEn:
+        intent === "journey"
+          ? "This is a journey question — head to the Today or Journey tab for a precise answer with your own record."
+          : intent === "action"
+            ? "This looks like a request — head to the Requests tab and I'll prefill it from your journey."
+            : "Hi — I'm here to help with policy questions and your journey. What would you like to know?",
+      abstainReasonAr:
+        intent === "journey"
+          ? "هذا سؤال عن الرحلة — انتقل إلى تبويب اليوم أو الرحلة لإجابة دقيقة من سجلك."
+          : intent === "action"
+            ? "يبدو هذا طلباً — انتقل إلى تبويب الطلبات وسأعبئه من رحلتك."
+            : "مرحباً — أنا هنا لمساعدتك في أسئلة السياسات ورحلتك. ماذا تريد أن تعرف؟",
       ownerHint: undefined,
       groundingScore: 0,
       servedFrom: "extractive",
@@ -383,7 +517,8 @@ export function answer(
       citations: [],
       followUps: [],
       abstainReasonCode: "corpus_unavailable",
-      abstainReasonEn: "I couldn't find any policy document matching your question. Rania in Mobility can help.",
+      abstainReasonEn:
+        "I couldn't find any policy document matching your question. Rania in Mobility can help.",
       abstainReasonAr: "لم أجد أي وثيقة سياسة تطابق سؤالك. رانيا في التنقل يمكنها المساعدة.",
       ownerHint: OUT_OF_SCOPE_HINTS.default,
       groundingScore: 0,
@@ -403,9 +538,41 @@ export function answer(
   // only "policy" / "سياسة" / "days" proves nothing, while matching "visa" proves
   // the topic even when the question is one word long.
   const GENERIC_MATCH_TOKENS = new Set([
-    "policy", "policies", "سياسة", "السياسة", "hr", "company", "employee", "employees", "day", "days",
-    "how", "many", "what", "when", "where", "will", "can", "do", "get", "am", "i", "my", "the", "are",
-    "km", "m", "cm", "hours", "hour", "week", "weeks", "month", "months", "year", "years",
+    "policy",
+    "policies",
+    "سياسة",
+    "السياسة",
+    "hr",
+    "company",
+    "employee",
+    "employees",
+    "day",
+    "days",
+    "how",
+    "many",
+    "what",
+    "when",
+    "where",
+    "will",
+    "can",
+    "do",
+    "get",
+    "am",
+    "i",
+    "my",
+    "the",
+    "are",
+    "km",
+    "m",
+    "cm",
+    "hours",
+    "hour",
+    "week",
+    "weeks",
+    "month",
+    "months",
+    "year",
+    "years",
   ]);
   const topicMatches = retrieved[0].matchedTerms.filter((t) => !GENERIC_MATCH_TOKENS.has(t));
   if (topScore < 0.5 || topicMatches.length === 0) {
@@ -415,7 +582,8 @@ export function answer(
       citations: [],
       followUps: [],
       abstainReasonCode: "low_top_chunk",
-      abstainReasonEn: "I'm not certain I found the right policy. Let me hand you to someone who knows.",
+      abstainReasonEn:
+        "I'm not certain I found the right policy. Let me hand you to someone who knows.",
       abstainReasonAr: "لست متأكداً أنني وجدت السياسة الصحيحة. دعني أحيلك إلى من يعرف.",
       ownerHint: OUT_OF_SCOPE_HINTS.default,
       groundingScore: topScore,
@@ -444,7 +612,8 @@ export function answer(
       citations: [],
       followUps: [],
       abstainReasonCode: "low_top_chunk",
-      abstainReasonEn: "I'm not certain I found the right policy. Let me hand you to someone who knows.",
+      abstainReasonEn:
+        "I'm not certain I found the right policy. Let me hand you to someone who knows.",
       abstainReasonAr: "لست متأكداً أنني وجدت السياسة الصحيحة. دعني أحيلك إلى من يعرف.",
       ownerHint: OUT_OF_SCOPE_HINTS.default,
       groundingScore: topScore,
@@ -464,8 +633,10 @@ export function answer(
       citations: composed.citations,
       followUps: [],
       abstainReasonCode: "low_grounding",
-      abstainReasonEn: "I found related policy text but couldn't verify every claim. I'll hand you to the policy owner rather than guess.",
-      abstainReasonAr: "وجدت نص سياسة ذا صلة لكنني لم أتمكن من التحقق من كل ادعاء. سأحيلك إلى مسؤول السياسة بدلاً من التخمين.",
+      abstainReasonEn:
+        "I found related policy text but couldn't verify every claim. I'll hand you to the policy owner rather than guess.",
+      abstainReasonAr:
+        "وجدت نص سياسة ذا صلة لكنني لم أتمكن من التحقق من كل ادعاء. سأحيلك إلى مسؤول السياسة بدلاً من التخمين.",
       ownerHint: OUT_OF_SCOPE_HINTS.default,
       groundingScore: grounding.score,
       servedFrom: "extractive",
@@ -483,7 +654,11 @@ export function answer(
   return {
     answerId,
     kind: "answer",
-    answerMarkdown: composed.markdown + (isStale ? "\n\n*Note: this policy is past its review date — please confirm with the owner.*" : ""),
+    answerMarkdown:
+      composed.markdown +
+      (isStale
+        ? "\n\n*Note: this policy is past its review date — please confirm with the owner.*"
+        : ""),
     citations: composed.citations,
     followUps,
     groundingScore: grounding.score,
@@ -494,13 +669,19 @@ export function answer(
   };
 }
 
-function generateFollowUps(question: string, retrieved: RetrievedChunk[], locale: Locale): string[] {
+function generateFollowUps(
+  question: string,
+  retrieved: RetrievedChunk[],
+  locale: Locale,
+): string[] {
   const followUps: string[] = [];
   // Suggest the next chunk as a follow-up
   if (retrieved[1]) {
-    followUps.push(locale === "ar"
-      ? `أخبرني المزيد عن: ${retrieved[1].chunk.section}`
-      : `Tell me more about: ${retrieved[1].chunk.section}`);
+    followUps.push(
+      locale === "ar"
+        ? `أخبرني المزيد عن: ${retrieved[1].chunk.section}`
+        : `Tell me more about: ${retrieved[1].chunk.section}`,
+    );
   }
   // Suggest a related action
   followUps.push(locale === "ar" ? "كيف أبدأ طلباً؟" : "How do I start a request?");

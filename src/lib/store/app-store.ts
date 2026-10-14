@@ -119,7 +119,8 @@ export const useAppStore = create<AppState>()(
       toggleProjector: () => set((s) => ({ projectorMode: !s.projectorMode })),
       toggleReducedMotion: () => set((s) => ({ reducedMotion: !s.reducedMotion })),
       toggleTheme: () => set((s) => ({ theme: s.theme === "dark" ? "light" : "dark" })),
-      setConsent: (purpose, granted) => set((s) => ({ consentOverrides: { ...s.consentOverrides, [purpose]: granted } })),
+      setConsent: (purpose, granted) =>
+        set((s) => ({ consentOverrides: { ...s.consentOverrides, [purpose]: granted } })),
       setDegradedLevel: (l) => set({ degradedLevel: l }),
       setAsOfOffset: (h) => set({ asOfOffsetHours: h }),
       setCommandPalette: (open) => set({ commandPaletteOpen: open }),
@@ -144,6 +145,6 @@ export const useAppStore = create<AppState>()(
         consentOverrides: s.consentOverrides,
         degradedLevel: s.degradedLevel,
       }),
-    }
-  )
+    },
+  ),
 );

@@ -24,9 +24,7 @@ import {
    plus a ref. Used internally for rendering; the public `as` prop accepts
    the wider `ElementType` (so callers can pass either an intrinsic tag name
    like "li" or a component). */
-type HostTag = ComponentType<
-  HTMLAttributes<HTMLElement> & { ref?: Ref<HTMLElement> }
->;
+type HostTag = ComponentType<HTMLAttributes<HTMLElement> & { ref?: Ref<HTMLElement> }>;
 
 /* ---------- shared hook: prefers-reduced-motion ---------- */
 
@@ -105,12 +103,7 @@ interface HoverLiftProps {
   style?: CSSProperties;
 }
 
-export function HoverLift({
-  children,
-  as,
-  className = "",
-  style,
-}: HoverLiftProps) {
+export function HoverLift({ children, as, className = "", style }: HoverLiftProps) {
   const reduce = usePrefersReducedMotion();
   const coarse = useCoarsePointer();
   const Tag = (as ?? "span") as unknown as HostTag;
@@ -227,11 +220,7 @@ interface CitationHoverProps {
   style?: CSSProperties;
 }
 
-export function CitationHover({
-  children,
-  className = "",
-  style,
-}: CitationHoverProps) {
+export function CitationHover({ children, className = "", style }: CitationHoverProps) {
   const reduce = usePrefersReducedMotion();
   const coarse = useCoarsePointer();
   const enabled = !reduce && !coarse;
@@ -265,9 +254,7 @@ export function CitationHover({
           opacity: hover && enabled ? 1 : 0,
           transition: enabled ? "opacity 180ms var(--ease-standard)" : "none",
           boxShadow:
-            hover && enabled
-              ? "0 0 8px rgba(22, 154, 165, 0.55)"
-              : "0 0 0 rgba(22, 154, 165, 0)",
+            hover && enabled ? "0 0 8px rgba(22, 154, 165, 0.55)" : "0 0 0 rgba(22, 154, 165, 0)",
           pointerEvents: "none",
         }}
       />
@@ -332,18 +319,13 @@ export function RevealOnScroll({
     : {
         opacity: shown ? 1 : 0,
         transform: shown ? "translateY(0)" : "translateY(8px)",
-        transition:
-          "opacity 320ms var(--ease-standard), transform 320ms var(--ease-standard)",
+        transition: "opacity 320ms var(--ease-standard), transform 320ms var(--ease-standard)",
         transitionDelay: `${staggerMs}ms`,
         willChange: "opacity, transform",
       };
 
   return (
-    <Tag
-      ref={ref as never}
-      className={className}
-      style={{ ...revealStyle, ...style }}
-    >
+    <Tag ref={ref as never} className={className} style={{ ...revealStyle, ...style }}>
       {children}
     </Tag>
   );
@@ -363,13 +345,7 @@ interface Tilt3DProps {
   style?: CSSProperties;
 }
 
-export function Tilt3D({
-  children,
-  maxDeg = 4,
-  as,
-  className = "",
-  style,
-}: Tilt3DProps) {
+export function Tilt3D({ children, maxDeg = 4, as, className = "", style }: Tilt3DProps) {
   const reduce = usePrefersReducedMotion();
   const coarse = useCoarsePointer();
   const enabled = !reduce && !coarse;
@@ -382,8 +358,8 @@ export function Tilt3D({
     const el = ref.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    const px = (e.clientX - rect.left) / rect.width;  // 0..1
-    const py = (e.clientY - rect.top) / rect.height;   // 0..1
+    const px = (e.clientX - rect.left) / rect.width; // 0..1
+    const py = (e.clientY - rect.top) / rect.height; // 0..1
     // Center on 0.5, then scale to [-1, 1]
     const cx = px - 0.5;
     const cy = py - 0.5;
@@ -406,9 +382,7 @@ export function Tilt3D({
       className={className}
       style={{
         transform,
-        transition: enabled
-          ? "transform 240ms var(--ease-standard)"
-          : "none",
+        transition: enabled ? "transform 240ms var(--ease-standard)" : "none",
         transformStyle: "preserve-3d",
         willChange: enabled ? "transform" : undefined,
         ...style,

@@ -16,12 +16,7 @@
 import { NextRequest } from "next/server";
 import { success, error } from "@/lib/api/envelope";
 import { guard } from "@/lib/privacy/guard";
-import {
-  serviceRequests,
-  employees,
-  type RequestType,
-  type Owner,
-} from "@/lib/data/pack";
+import { serviceRequests, employees, type RequestType, type Owner } from "@/lib/data/pack";
 import { INTAKE_SCHEMAS } from "@/lib/actions/actions";
 import { engineNow } from "@/lib/engine/engine";
 import {
@@ -74,7 +69,7 @@ export async function GET(req: NextRequest) {
       servedFrom: "live",
       asOf: new Date().toISOString(),
       latencyMs: Date.now() - start,
-    }
+    },
   );
 }
 
@@ -101,15 +96,9 @@ export async function POST(req: NextRequest) {
   // Scope: "requests" — 10 / hour per (ip + employeeId).
   const ip = getClientIp(req);
   const userId =
-    typeof body.employeeId === "string" && body.employeeId.length > 0
-      ? body.employeeId
-      : null;
+    typeof body.employeeId === "string" && body.employeeId.length > 0 ? body.employeeId : null;
   const rlId = buildIdentifier("requests", ip, userId);
-  const rl = rateLimit(
-    rlId,
-    RATE_LIMITS.requests.limit,
-    RATE_LIMITS.requests.windowMs
-  );
+  const rl = rateLimit(rlId, RATE_LIMITS.requests.limit, RATE_LIMITS.requests.windowMs);
   if (!rl.success) {
     const retrySec = formatRetrySeconds(rl.resetAt);
     logger.warn("requests rate-limited", {
@@ -124,7 +113,7 @@ export async function POST(req: NextRequest) {
       {
         hint: `Try again in ${retrySec} seconds`,
         retryable: true,
-      }
+      },
     );
     res.headers.set("Retry-After", String(retrySec));
     res.headers.set("X-RateLimit-Remaining", "0");
@@ -138,9 +127,7 @@ export async function POST(req: NextRequest) {
   const payload = body.payload ?? {};
   // An explicit key still counts, but it is a courtesy, not the dedup engine:
   // header wins over body, and neither is required any more.
-  const idempotencyKey = (
-    req.headers.get("x-idempotency-key") ?? body.idempotencyKey ?? ""
-  ).trim();
+  const idempotencyKey = (req.headers.get("x-idempotency-key") ?? body.idempotencyKey ?? "").trim();
 
   if (!employeeId) {
     const res = error("E_VALIDATION", "`employeeId` is required", 422);
@@ -180,12 +167,9 @@ export async function POST(req: NextRequest) {
     }
   }
   if (missing.length > 0) {
-    const res = error(
-      "E_VALIDATION",
-      `Missing required fields: ${missing.join(", ")}`,
-      422,
-      { hint: `Required fields for '${type}' are defined in INTAKE_SCHEMAS.` }
-    );
+    const res = error("E_VALIDATION", `Missing required fields: ${missing.join(", ")}`, 422, {
+      hint: `Required fields for '${type}' are defined in INTAKE_SCHEMAS.`,
+    });
     res.headers.set("X-RateLimit-Remaining", String(rl.remaining));
     return res;
   }
@@ -229,8 +213,8 @@ export async function POST(req: NextRequest) {
         {
           hint: "Reuse a key only for the exact same request body; use a new key for a different one.",
           retryable: false,
-        }
-      )
+        },
+      ),
     );
   }
 
@@ -242,7 +226,7 @@ export async function POST(req: NextRequest) {
     const at = assessment.openedAt;
     const hoursSinceOpened = Math.max(
       0,
-      (new Date(at).getTime() - new Date(existing.openedAt).getTime()) / 3_600_000
+      (new Date(at).getTime() - new Date(existing.openedAt).getTime()) / 3_600_000,
     );
     noteDuplicate({
       employeeId,
@@ -278,8 +262,8 @@ export async function POST(req: NextRequest) {
           servedFrom: "cache",
           asOf: at,
           latencyMs: Date.now() - start,
-        }
-      )
+        },
+      ),
     );
   }
 
@@ -301,8 +285,8 @@ export async function POST(req: NextRequest) {
             : "Owner resolution chain exhausted. Assign manually via HRBP.",
           retryable: false,
           ownerHint: noOwner?.toldInstead ?? undefined,
-        }
-      )
+        },
+      ),
     );
   }
 
@@ -317,9 +301,17 @@ export async function POST(req: NextRequest) {
         duplicate: false,
         expectedBy: record.expectedBy,
         payload: record.payload,
-        owner: { id: owner.id, name: owner.name, role: owner.role, email: owner.email } as Pick<Owner, "id" | "name" | "role" | "email">,
+        owner: { id: owner.id, name: owner.name, role: owner.role, email: owner.email } as Pick<
+          Owner,
+          "id" | "name" | "role" | "email"
+        >,
         backupOwner: resolution.backup
-          ? { id: resolution.backup.id, name: resolution.backup.name, role: resolution.backup.role, email: resolution.backup.email }
+          ? {
+              id: resolution.backup.id,
+              name: resolution.backup.name,
+              role: resolution.backup.role,
+              email: resolution.backup.email,
+            }
           : null,
         ownerResolution: {
           path: resolution.path,
@@ -332,7 +324,7 @@ export async function POST(req: NextRequest) {
         servedFrom: "live",
         asOf: assessment.openedAt,
         latencyMs: Date.now() - start,
-      }
-    )
+      },
+    ),
   );
 }

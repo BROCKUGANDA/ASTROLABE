@@ -4,12 +4,7 @@
  */
 import { NextRequest } from "next/server";
 import { success, error } from "@/lib/api/envelope";
-import {
-  pulseResponses,
-  employees,
-  getConsent,
-  type PulseResponse,
-} from "@/lib/data/pack";
+import { pulseResponses, employees, getConsent, type PulseResponse } from "@/lib/data/pack";
 import { guard } from "@/lib/privacy/guard";
 import { appendAudit } from "@/lib/privacy/audit";
 import { assess, engineNow, resolveAsOf } from "@/lib/engine/engine";
@@ -28,7 +23,11 @@ const SENSITIVE_PATTERNS: { name: string; pattern: RegExp }[] = [
   { name: "bearer_token", pattern: /\b(?:ak|sk|ghp|xoxb|ya29)[-_][A-Za-z0-9-_]{10,}\b/g },
 ];
 
-export function redactSensitive(text: string): { text: string; redacted: boolean; kinds: string[] } {
+export function redactSensitive(text: string): {
+  text: string;
+  redacted: boolean;
+  kinds: string[];
+} {
   let out = text;
   const kinds: string[] = [];
   for (const { name, pattern } of SENSITIVE_PATTERNS) {
@@ -67,7 +66,9 @@ export async function POST(req: NextRequest) {
   const auth = await guard(req, "pulse.write");
   if (!auth.ok) return auth.response;
   if (auth.session.role !== "employee" || auth.session.sub !== employeeId) {
-    return error("E_FORBIDDEN", "Only the employee can record their own pulse answer.", 403, { retryable: false });
+    return error("E_FORBIDDEN", "Only the employee can record their own pulse answer.", 403, {
+      retryable: false,
+    });
   }
 
   if (!employeeId) {
@@ -90,14 +91,9 @@ export async function POST(req: NextRequest) {
 
   // Consent gate.
   if (!getConsent(employeeId, "pulse_capture")) {
-    return error(
-      "E_CONSENT_REQUIRED",
-      "Pulse capture consent required",
-      412,
-      {
-        hint: "Enable pulse capture in Me → Consent",
-      }
-    );
+    return error("E_CONSENT_REQUIRED", "Pulse capture consent required", 412, {
+      hint: "Enable pulse capture in Me → Consent",
+    });
   }
 
   // Credentials and identifier patterns are stripped before storage, and again
@@ -120,12 +116,17 @@ export async function POST(req: NextRequest) {
   // One answer per employee, stage and day (PRD §20-391).
   const dayKey = new Date().toISOString().slice(0, 10);
   const existing = pulseResponses.find(
-    (p) => p.employeeId === employeeId && p.stage === stage && p.createdAt.slice(0, 10) === dayKey
+    (p) => p.employeeId === employeeId && p.stage === stage && p.createdAt.slice(0, 10) === dayKey,
   );
   if (existing) {
     return success(
-      { pulseId: existing.id, duplicate: true, dedupedOn: "employee+stage+day", storedComment: Boolean(existing.commentText) },
-      { servedFrom: "cache", latencyMs: Date.now() - start }
+      {
+        pulseId: existing.id,
+        duplicate: true,
+        dedupedOn: "employee+stage+day",
+        storedComment: Boolean(existing.commentText),
+      },
+      { servedFrom: "cache", latencyMs: Date.now() - start },
     );
   }
 
@@ -176,6 +177,6 @@ export async function POST(req: NextRequest) {
       servedFrom: "live",
       asOf: now.toISOString(),
       latencyMs: Date.now() - start,
-    }
+    },
   );
 }

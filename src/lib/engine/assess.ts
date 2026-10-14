@@ -171,7 +171,7 @@ function graphFor(steps: JourneyStep[]): JourneyGraph {
  */
 export function fuse(
   signals: FiredSignal[],
-  suppressed: SignalFamily[]
+  suppressed: SignalFamily[],
 ): {
   score: number;
   band: Band;
@@ -199,7 +199,13 @@ export function fuse(
       ? 0
       : scored.filter((s) => s.family === family).reduce((sum, s) => sum + s.weight, 0);
     const capped = Math.min(raw, FAMILY_CAPS[family]);
-    familyArithmetic.push({ family, raw, capped, cap: FAMILY_CAPS[family], suppressed: isSuppressed });
+    familyArithmetic.push({
+      family,
+      raw,
+      capped,
+      cap: FAMILY_CAPS[family],
+      suppressed: isSuppressed,
+    });
     score += capped;
   }
 
@@ -232,7 +238,7 @@ export function fuse(
 export function assess(
   employee: Employee,
   asOf?: string | Date,
-  data: EngineData = packData()
+  data: EngineData = packData(),
 ): Assessment {
   const clock = resolveAsOf(asOf);
   const graph = graphFor(data.steps);
@@ -243,10 +249,18 @@ export function assess(
   // pulse answer, a request or an abandoned draft recorded after T must not
   // influence an assessment made at T (PRD §22 replay-at-time, leakage test).
   const notAfter = (iso?: string) => Boolean(iso) && new Date(iso as string) <= clock;
-  const requestsAtClock = data.requests.filter((r) => r.employeeId === employee.id && notAfter(r.openedAt));
-  const pulseAtClock = data.pulse.filter((p) => p.employeeId === employee.id && notAfter(p.createdAt));
-  const answersAtClock = data.answers.filter((a) => a.employeeId === employee.id && notAfter(a.askedAt));
-  const draftsAtClock = data.drafts.filter((d) => d.employeeId === employee.id && notAfter(d.startedAt));
+  const requestsAtClock = data.requests.filter(
+    (r) => r.employeeId === employee.id && notAfter(r.openedAt),
+  );
+  const pulseAtClock = data.pulse.filter(
+    (p) => p.employeeId === employee.id && notAfter(p.createdAt),
+  );
+  const answersAtClock = data.answers.filter(
+    (a) => a.employeeId === employee.id && notAfter(a.askedAt),
+  );
+  const draftsAtClock = data.drafts.filter(
+    (d) => d.employeeId === employee.id && notAfter(d.startedAt),
+  );
   const { fired, suppressed } = computeSignals({
     employee,
     states,
@@ -303,7 +317,7 @@ export function assess(
 export function nextBestSteps(
   employee: Employee,
   asOf?: string | Date,
-  data: EngineData = packData()
+  data: EngineData = packData(),
 ): NextBestStepResult {
   const clock = resolveAsOf(asOf);
   const graph = graphFor(data.steps);
@@ -314,7 +328,9 @@ export function nextBestSteps(
     .filter((s) => s.journeyType === employee.journeyType)
     .sort((a, b) => a.order - b.order);
   const stageIdx = journeyStages.findIndex((s) => s.key === stageInfo.stage);
-  const allowed = new Set(journeyStages.slice(Math.max(0, stageIdx), stageIdx + 2).map((s) => s.key));
+  const allowed = new Set(
+    journeyStages.slice(Math.max(0, stageIdx), stageIdx + 2).map((s) => s.key),
+  );
 
   const candidates = [...states.values()].filter((s) => {
     if (s.status === "done" || s.status === "skipped") return false;
@@ -333,7 +349,10 @@ export function nextBestSteps(
       primary: null,
       secondary: [],
       nothingToDo: true,
-      explanation: [...explanation, "No actionable step: either everything is done or every open step waits on someone else."],
+      explanation: [
+        ...explanation,
+        "No actionable step: either everything is done or every open step waits on someone else.",
+      ],
     };
   }
 

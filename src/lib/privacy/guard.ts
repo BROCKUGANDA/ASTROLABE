@@ -20,9 +20,7 @@ import {
 import { appendAudit, type LawfulBasis } from "./audit";
 import { isRevoked } from "./session-store";
 
-export type Guard =
-  | { ok: true; session: Session }
-  | { ok: false; response: NextResponse };
+export type Guard = { ok: true; session: Session } | { ok: false; response: NextResponse };
 
 /** Read the session cookie from either a request or the framework cookie jar. */
 export async function readSession(req?: NextRequest): Promise<Session | null> {
@@ -71,7 +69,10 @@ export async function guard(req: NextRequest | undefined, resource: Resource): P
   }
   if (!session.scope && session.role !== "employee") {
     // A role principal without a scope can see nothing belonging to a person.
-    return { ok: false, response: error("E_FORBIDDEN", "This session has no data scope.", 403, { retryable: false }) };
+    return {
+      ok: false,
+      response: error("E_FORBIDDEN", "This session has no data scope.", 403, { retryable: false }),
+    };
   }
   return { ok: true, session };
 }
@@ -84,7 +85,7 @@ export function subjectGuard(
   session: Session,
   employeeId: string,
   action: string,
-  opts: { lawfulBasis?: LawfulBasis; purpose?: string; requestId?: string } = {}
+  opts: { lawfulBasis?: LawfulBasis; purpose?: string; requestId?: string } = {},
 ): { ok: true } | { ok: false; response: NextResponse } {
   if (!canAccessEmployee(session, employeeId)) {
     appendAudit({
@@ -108,7 +109,9 @@ export function subjectGuard(
     actorRole: session.role,
     action,
     subject: employeeId,
-    lawfulBasis: opts.lawfulBasis ?? (session.role === "employee" ? "contract_necessary" : "legitimate_interests"),
+    lawfulBasis:
+      opts.lawfulBasis ??
+      (session.role === "employee" ? "contract_necessary" : "legitimate_interests"),
     purpose: opts.purpose,
     requestId: opts.requestId,
   });
@@ -124,7 +127,7 @@ export function pulseGuard(
   session: Session,
   employeeId: string,
   purpose: string | null | undefined,
-  opts: { requestId?: string; requireReauth?: boolean; reauthWithinSeconds?: number } = {}
+  opts: { requestId?: string; requireReauth?: boolean; reauthWithinSeconds?: number } = {},
 ): { ok: true } | { ok: false; response: NextResponse } {
   if (!isPulsePurpose(purpose)) {
     return {

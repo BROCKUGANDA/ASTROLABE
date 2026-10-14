@@ -59,12 +59,7 @@ import {
   type AdversarialStatus,
   type AdversarialTraceStep,
 } from "@/lib/judge/adversarial";
-import {
-  BandChip,
-  BandDot,
-  SignalBadge,
-  type Band as BandT,
-} from "@/components/astrolabe/widgets";
+import { BandChip, BandDot, SignalBadge, type Band as BandT } from "@/components/astrolabe/widgets";
 import { BandSphere3D } from "@/components/three/astrolabe";
 import { SignalWeightBar } from "@/components/astrolabe/signal-weight-bar";
 import { Slider } from "@/components/ui/slider";
@@ -97,7 +92,15 @@ interface Assessment {
   asOf: string;
   band: BandT;
   score: number;
-  signals: { code: string; family: string; weight: number; description: string; evidenceRefs: string[]; hardTrip?: boolean; forceBlocked?: boolean }[];
+  signals: {
+    code: string;
+    family: string;
+    weight: number;
+    description: string;
+    evidenceRefs: string[];
+    hardTrip?: boolean;
+    forceBlocked?: boolean;
+  }[];
   suppressedFamilies: string[];
   stage: string;
   dayInStage: number;
@@ -122,7 +125,7 @@ interface ApiEnvelope<T> {
 
 /* ---------- Stage labels ---------- */
 const STAGE_LABELS: Record<string, { en: string; ar: string }> = Object.fromEntries(
-  ALL_STAGES.map((s) => [s.key, { en: s.label, ar: s.labelAr }])
+  ALL_STAGES.map((s) => [s.key, { en: s.label, ar: s.labelAr }]),
 );
 
 function stageLabel(key: string, locale: "en" | "ar"): string {
@@ -132,7 +135,14 @@ function stageLabel(key: string, locale: "en" | "ar"): string {
 }
 
 /* ---------- Degraded levels ---------- */
-const DEGRADED: { id: DegradedLevel; en: string; ar: string; desc: string; descAr: string; color: string }[] = [
+const DEGRADED: {
+  id: DegradedLevel;
+  en: string;
+  ar: string;
+  desc: string;
+  descAr: string;
+  color: string;
+}[] = [
   {
     id: "L0",
     en: "Full",
@@ -154,7 +164,8 @@ const DEGRADED: { id: DegradedLevel; en: string; ar: string; desc: string; descA
     en: "Curated",
     ar: "منسّق",
     desc: "Corpus degraded. Answers fall back to a small curated pack of common policies. May miss edge cases.",
-    descAr: "النصوص متدهورة. تعود الإجابات إلى حزمة منسّقة صغيرة من السياسات الشائعة. قد تفوت الحالات الخاصة.",
+    descAr:
+      "النصوص متدهورة. تعود الإجابات إلى حزمة منسّقة صغيرة من السياسات الشائعة. قد تفوت الحالات الخاصة.",
     color: "var(--status-watch)",
   },
   {
@@ -203,12 +214,18 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
         <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
           The trace can&apos;t be loaded right now.
         </p>
-        <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>{message}</p>
+        <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+          {message}
+        </p>
       </div>
       <button
         onClick={onRetry}
         className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium shrink-0"
-        style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+        style={{
+          background: "var(--surface-2)",
+          border: "1px solid var(--border)",
+          color: "var(--text-hi)",
+        }}
       >
         <RotateCcw className="w-4 h-4" strokeWidth={1.75} />
         Retry
@@ -274,26 +291,47 @@ function AsOfClock() {
     <div className="ast-card p-5 sm:p-6">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.14em] font-medium" style={{ color: "var(--text-lo)" }}>
+          <p
+            className="text-[11px] uppercase tracking-[0.14em] font-medium"
+            style={{ color: "var(--text-lo)" }}
+          >
             {locale === "ar" ? "ساعة التقدير" : "Assessment clock"}
           </p>
-          <p className="text-[28px] font-semibold tabular mt-1" style={{ color: "var(--text-hi)" }} dir="ltr">
+          <p
+            className="text-[28px] font-semibold tabular mt-1"
+            style={{ color: "var(--text-hi)" }}
+            dir="ltr"
+          >
             {format(asOf, "EEE d MMM yyyy · HH:mm")}
           </p>
           <p className="text-[12px] mt-1 tabular" style={{ color: "var(--text-mid)" }}>
             {offsetHours === 0
-              ? (locale === "ar" ? "الوقت المرجعي للنموذج" : "Pack reference time (now)")
+              ? locale === "ar"
+                ? "الوقت المرجعي للنموذج"
+                : "Pack reference time (now)"
               : offsetHours > 0
-              ? (locale === "ar" ? `بعد ${offsetDays.toFixed(1)} يوم` : `+${offsetDays.toFixed(1)} days from now`)
-              : (locale === "ar" ? `قبل ${Math.abs(offsetDays).toFixed(1)} يوم` : `${Math.abs(offsetDays).toFixed(1)} days ago`)}
+                ? locale === "ar"
+                  ? `بعد ${offsetDays.toFixed(1)} يوم`
+                  : `+${offsetDays.toFixed(1)} days from now`
+                : locale === "ar"
+                  ? `قبل ${Math.abs(offsetDays).toFixed(1)} يوم`
+                  : `${Math.abs(offsetDays).toFixed(1)} days ago`}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[11px] uppercase tracking-[0.14em]" style={{ color: "var(--text-lo)" }}>
+          <p
+            className="text-[11px] uppercase tracking-[0.14em]"
+            style={{ color: "var(--text-lo)" }}
+          >
             {locale === "ar" ? "الإزاحة" : "Offset"}
           </p>
-          <p className="text-[20px] font-mono tabular" style={{ color: "var(--brand-400)" }} dir="ltr">
-            {offsetHours > 0 ? "+" : ""}{offsetHours}h
+          <p
+            className="text-[20px] font-mono tabular"
+            style={{ color: "var(--brand-400)" }}
+            dir="ltr"
+          >
+            {offsetHours > 0 ? "+" : ""}
+            {offsetHours}h
           </p>
         </div>
       </div>
@@ -307,7 +345,10 @@ function AsOfClock() {
         className="ast-focus"
         aria-label="As-of offset hours"
       />
-      <div className="flex items-center justify-between mt-2 text-[11px] tabular" style={{ color: "var(--text-lo)" }}>
+      <div
+        className="flex items-center justify-between mt-2 text-[11px] tabular"
+        style={{ color: "var(--text-lo)" }}
+      >
         <span>{locale === "ar" ? "−10 أيام" : "−10 days"}</span>
         <span>{locale === "ar" ? "الآن" : "now"}</span>
         <span>{locale === "ar" ? "+10 أيام" : "+10 days"}</span>
@@ -317,7 +358,11 @@ function AsOfClock() {
         <button
           onClick={() => setOffset(0)}
           className="ast-focus inline-flex items-center gap-1.5 h-8 px-2.5 rounded-full text-[11px] font-medium"
-          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}
+          style={{
+            background: "var(--surface-2)",
+            border: "1px solid var(--border)",
+            color: "var(--text-mid)",
+          }}
         >
           <Clock className="w-3 h-3" strokeWidth={1.75} />
           {locale === "ar" ? "إعادة للآن" : "Reset to now"}
@@ -327,9 +372,14 @@ function AsOfClock() {
             key={h}
             onClick={() => setOffset(h)}
             className="ast-focus h-8 px-2.5 rounded-full text-[11px] font-medium tabular"
-            style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}
+            style={{
+              background: "var(--surface-2)",
+              border: "1px solid var(--border)",
+              color: "var(--text-mid)",
+            }}
           >
-            {h > 0 ? "+" : ""}{h}h
+            {h > 0 ? "+" : ""}
+            {h}h
           </button>
         ))}
       </div>
@@ -376,7 +426,9 @@ function ScenariosView({ onLoad }: { onLoad: (employeeId: string) => void }) {
     }
   }, []);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
 
   // Live preview assessment for selected scenario (recomputes with asOf offset)
   const offsetHours = useAppStore((s) => s.asOfOffsetHours);
@@ -386,7 +438,10 @@ function ScenariosView({ onLoad }: { onLoad: (employeeId: string) => void }) {
     if (!sc) return;
     const asOf = new Date(PACK_NOW.getTime() + offsetHours * 3600 * 1000).toISOString();
     let cancelled = false;
-    fetch(`/api/v1/journey/${encodeURIComponent(sc.employeeId)}/assessment?asOf=${encodeURIComponent(asOf)}`, { cache: "no-store" })
+    fetch(
+      `/api/v1/journey/${encodeURIComponent(sc.employeeId)}/assessment?asOf=${encodeURIComponent(asOf)}`,
+      { cache: "no-store" },
+    )
       .then((r) => r.json())
       .then((json: ApiEnvelope<{ assessment: Assessment; trace: EngineTrace }>) => {
         if (cancelled) return;
@@ -395,13 +450,18 @@ function ScenariosView({ onLoad }: { onLoad: (employeeId: string) => void }) {
         }
       })
       .catch(() => {});
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [selectedId, scenarios, offsetHours]);
 
-  const handleLoad = useCallback((sc: Scenario) => {
-    setEmployee(sc.employeeId);
-    onLoad(sc.employeeId);
-  }, [onLoad, setEmployee]);
+  const handleLoad = useCallback(
+    (sc: Scenario) => {
+      setEmployee(sc.employeeId);
+      onLoad(sc.employeeId);
+    },
+    [onLoad, setEmployee],
+  );
 
   if (loading) {
     return (
@@ -440,7 +500,10 @@ function ScenariosView({ onLoad }: { onLoad: (employeeId: string) => void }) {
               key={sc.id}
               initial={false}
               whileHover={{ y: -2 }}
-              onClick={() => { setSelectedId(sc.id); setEmployee(sc.employeeId); }}
+              onClick={() => {
+                setSelectedId(sc.id);
+                setEmployee(sc.employeeId);
+              }}
               className={cn("ast-card p-4 sm:p-5 cursor-pointer ast-focus transition-colors")}
               style={{
                 borderColor: isSelected ? "rgba(22,154,165,0.40)" : "var(--border)",
@@ -465,11 +528,19 @@ function ScenariosView({ onLoad }: { onLoad: (employeeId: string) => void }) {
                 {sc.description}
               </p>
               <div className="flex items-center justify-between mt-3 flex-wrap gap-2">
-                <p className="text-[11px] font-mono tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
-                  {sc.employeeId}{emp ? ` · ${emp.displayName}` : ""}
+                <p
+                  className="text-[11px] font-mono tabular"
+                  style={{ color: "var(--text-lo)" }}
+                  dir="ltr"
+                >
+                  {sc.employeeId}
+                  {emp ? ` · ${emp.displayName}` : ""}
                 </p>
                 <button
-                  onClick={(e) => { e.stopPropagation(); handleLoad(sc); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleLoad(sc);
+                  }}
                   className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium"
                   style={{
                     background: "var(--brand-500)",
@@ -507,7 +578,10 @@ function TraceView({ employeeId, onBack }: { employeeId: string; onBack: () => v
     setErr(null);
     try {
       const asOf = new Date(PACK_NOW.getTime() + offsetHours * 3600 * 1000).toISOString();
-      const res = await fetch(`/api/v1/journey/${encodeURIComponent(employeeId)}/assessment?asOf=${encodeURIComponent(asOf)}`, { cache: "no-store" });
+      const res = await fetch(
+        `/api/v1/journey/${encodeURIComponent(employeeId)}/assessment?asOf=${encodeURIComponent(asOf)}`,
+        { cache: "no-store" },
+      );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: ApiEnvelope<{ assessment: Assessment; trace: EngineTrace }> = await res.json();
       if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
@@ -520,7 +594,9 @@ function TraceView({ employeeId, onBack }: { employeeId: string; onBack: () => v
     }
   }, [employeeId, offsetHours]);
 
-  useEffect(() => { fetchTrace(); }, [fetchTrace]);
+  useEffect(() => {
+    fetchTrace();
+  }, [fetchTrace]);
 
   if (loading) return <TraceSkeleton />;
   if (err || !assessment || !trace) {
@@ -533,7 +609,11 @@ function TraceView({ employeeId, onBack }: { employeeId: string; onBack: () => v
         <button
           onClick={onBack}
           className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium"
-          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}
+          style={{
+            background: "var(--surface-2)",
+            border: "1px solid var(--border)",
+            color: "var(--text-mid)",
+          }}
         >
           <ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.75} />
           {locale === "ar" ? "السيناريوهات" : "Scenarios"}
@@ -541,7 +621,11 @@ function TraceView({ employeeId, onBack }: { employeeId: string; onBack: () => v
         <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
           {locale === "ar" ? "أثر المحرك" : "Engine trace"}
         </h2>
-        <span className="text-[11px] font-mono tabular ml-auto" style={{ color: "var(--text-lo)" }} dir="ltr">
+        <span
+          className="text-[11px] font-mono tabular ml-auto"
+          style={{ color: "var(--text-lo)" }}
+          dir="ltr"
+        >
           {employeeId}
         </span>
       </div>
@@ -556,13 +640,28 @@ function TraceView({ employeeId, onBack }: { employeeId: string; onBack: () => v
           <section className="ast-card p-5 sm:p-6">
             <div className="flex items-start gap-4">
               <div className="flex-1">
-                <p className="text-[11px] uppercase tracking-[0.14em] font-medium" style={{ color: "var(--text-lo)" }}>
+                <p
+                  className="text-[11px] uppercase tracking-[0.14em] font-medium"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {locale === "ar" ? "حكم التصنيف" : "Band verdict"}
                 </p>
                 <div className="mt-2 flex items-center gap-3">
-                  <BandChip band={assessment.band} score={assessment.score} locale={locale} size="lg" />
+                  <BandChip
+                    band={assessment.band}
+                    score={assessment.score}
+                    locale={locale}
+                    size="lg"
+                  />
                   {trace.band.forcedBlocked && (
-                    <span className="ast-chip" style={{ color: "var(--status-blocked)", background: "rgba(159,18,57,0.12)", borderColor: "rgba(159,18,57,0.40)" }}>
+                    <span
+                      className="ast-chip"
+                      style={{
+                        color: "var(--status-blocked)",
+                        background: "rgba(159,18,57,0.12)",
+                        borderColor: "rgba(159,18,57,0.40)",
+                      }}
+                    >
                       <Ban className="w-3 h-3" strokeWidth={2} />
                       {locale === "ar" ? "إجباري محظور" : "Forced blocked"}
                     </span>
@@ -570,12 +669,35 @@ function TraceView({ employeeId, onBack }: { employeeId: string; onBack: () => v
                 </div>
                 <dl className="mt-4 grid grid-cols-2 gap-3 text-[12px]">
                   <div>
-                    <dt className="uppercase tracking-[0.1em] text-[10px]" style={{ color: "var(--text-lo)" }}>{locale === "ar" ? "النتيجة" : "Score"}</dt>
-                    <dd className="font-mono tabular text-[18px]" style={{ color: "var(--text-hi)" }}>{trace.band.score}</dd>
+                    <dt
+                      className="uppercase tracking-[0.1em] text-[10px]"
+                      style={{ color: "var(--text-lo)" }}
+                    >
+                      {locale === "ar" ? "النتيجة" : "Score"}
+                    </dt>
+                    <dd
+                      className="font-mono tabular text-[18px]"
+                      style={{ color: "var(--text-hi)" }}
+                    >
+                      {trace.band.score}
+                    </dd>
                   </div>
                   <div>
-                    <dt className="uppercase tracking-[0.1em] text-[10px]" style={{ color: "var(--text-lo)" }}>{locale === "ar" ? "رحلات صلبة" : "Hard trips"}</dt>
-                    <dd className="font-mono tabular text-[18px]" style={{ color: trace.band.hardTrips.length > 0 ? "var(--status-blocked)" : "var(--text-hi)" }}>
+                    <dt
+                      className="uppercase tracking-[0.1em] text-[10px]"
+                      style={{ color: "var(--text-lo)" }}
+                    >
+                      {locale === "ar" ? "رحلات صلبة" : "Hard trips"}
+                    </dt>
+                    <dd
+                      className="font-mono tabular text-[18px]"
+                      style={{
+                        color:
+                          trace.band.hardTrips.length > 0
+                            ? "var(--status-blocked)"
+                            : "var(--text-hi)",
+                      }}
+                    >
                       {trace.band.hardTrips.length}
                     </dd>
                   </div>
@@ -583,7 +705,11 @@ function TraceView({ employeeId, onBack }: { employeeId: string; onBack: () => v
                 {trace.band.hardTrips.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {trace.band.hardTrips.map((code) => (
-                      <span key={code} className="ast-chip font-mono text-[11px]" style={{ color: "var(--status-blocked)" }}>
+                      <span
+                        key={code}
+                        className="ast-chip font-mono text-[11px]"
+                        style={{ color: "var(--status-blocked)" }}
+                      >
                         {code}
                       </span>
                     ))}
@@ -620,13 +746,19 @@ function TraceView({ employeeId, onBack }: { employeeId: string; onBack: () => v
           <section className="ast-card p-5 sm:p-6">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+                <Activity
+                  className="w-4 h-4"
+                  strokeWidth={1.75}
+                  style={{ color: "var(--brand-400)" }}
+                />
                 <h3 className="text-[14px] font-semibold" style={{ color: "var(--text-hi)" }}>
                   {locale === "ar" ? "الإشارات المُطلقة" : "Signals fired"}
                 </h3>
               </div>
               <span className="text-[11px] tabular" style={{ color: "var(--text-lo)" }}>
-                {locale === "ar" ? `${trace.signalsFired.length} إشارة` : `${trace.signalsFired.length} signals`}
+                {locale === "ar"
+                  ? `${trace.signalsFired.length} إشارة`
+                  : `${trace.signalsFired.length} signals`}
               </span>
             </div>
 
@@ -639,11 +771,36 @@ function TraceView({ employeeId, onBack }: { employeeId: string; onBack: () => v
                 <table className="w-full text-[12px]">
                   <thead>
                     <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                      <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>{locale === "ar" ? "الكود" : "Code"}</th>
-                      <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>{locale === "ar" ? "العائلة" : "Family"}</th>
-                      <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>{locale === "ar" ? "الوزن" : "Weight"}</th>
-                      <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium hidden sm:table-cell" style={{ color: "var(--text-lo)" }}>{locale === "ar" ? "الأدلة" : "Evidence"}</th>
-                      <th className="text-center p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>{locale === "ar" ? "صلبة" : "Hard"}</th>
+                      <th
+                        className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium"
+                        style={{ color: "var(--text-lo)" }}
+                      >
+                        {locale === "ar" ? "الكود" : "Code"}
+                      </th>
+                      <th
+                        className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium"
+                        style={{ color: "var(--text-lo)" }}
+                      >
+                        {locale === "ar" ? "العائلة" : "Family"}
+                      </th>
+                      <th
+                        className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium"
+                        style={{ color: "var(--text-lo)" }}
+                      >
+                        {locale === "ar" ? "الوزن" : "Weight"}
+                      </th>
+                      <th
+                        className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium hidden sm:table-cell"
+                        style={{ color: "var(--text-lo)" }}
+                      >
+                        {locale === "ar" ? "الأدلة" : "Evidence"}
+                      </th>
+                      <th
+                        className="text-center p-2 text-[10px] uppercase tracking-[0.1em] font-medium"
+                        style={{ color: "var(--text-lo)" }}
+                      >
+                        {locale === "ar" ? "صلبة" : "Hard"}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -653,9 +810,20 @@ function TraceView({ employeeId, onBack }: { employeeId: string; onBack: () => v
                       .map((s, i) => {
                         const hard = s.code.startsWith("DP") || s.code.startsWith("MB");
                         return (
-                          <tr key={`${s.code}-${i}`} style={{ borderBottom: "1px solid var(--border-soft)" }}>
-                            <td className="p-2"><SignalBadge code={s.code} weight={s.weight} hardTrip={hard} /></td>
-                            <td className="p-2 font-mono text-[11px]" style={{ color: "var(--text-mid)" }} dir="ltr">{s.family}</td>
+                          <tr
+                            key={`${s.code}-${i}`}
+                            style={{ borderBottom: "1px solid var(--border-soft)" }}
+                          >
+                            <td className="p-2">
+                              <SignalBadge code={s.code} weight={s.weight} hardTrip={hard} />
+                            </td>
+                            <td
+                              className="p-2 font-mono text-[11px]"
+                              style={{ color: "var(--text-mid)" }}
+                              dir="ltr"
+                            >
+                              {s.family}
+                            </td>
                             <td className="p-2 min-w-[160px]">
                               <SignalWeightBar
                                 code={s.code}
@@ -669,7 +837,15 @@ function TraceView({ employeeId, onBack }: { employeeId: string; onBack: () => v
                             <td className="p-2 hidden sm:table-cell">
                               <div className="flex flex-wrap gap-1">
                                 {s.evidence.slice(0, 3).map((e, i) => (
-                                  <span key={i} className="font-mono text-[10px] tabular px-1.5 py-0.5 rounded" style={{ background: "var(--surface-2)", color: "var(--text-lo)" }} dir="ltr">
+                                  <span
+                                    key={i}
+                                    className="font-mono text-[10px] tabular px-1.5 py-0.5 rounded"
+                                    style={{
+                                      background: "var(--surface-2)",
+                                      color: "var(--text-lo)",
+                                    }}
+                                    dir="ltr"
+                                  >
                                     {e.length > 28 ? e.slice(0, 28) + "…" : e}
                                   </span>
                                 ))}
@@ -677,9 +853,15 @@ function TraceView({ employeeId, onBack }: { employeeId: string; onBack: () => v
                             </td>
                             <td className="p-2 text-center">
                               {hard ? (
-                                <Ban className="w-3.5 h-3.5 inline-block" strokeWidth={2} style={{ color: "var(--status-blocked)" }} />
+                                <Ban
+                                  className="w-3.5 h-3.5 inline-block"
+                                  strokeWidth={2}
+                                  style={{ color: "var(--status-blocked)" }}
+                                />
                               ) : (
-                                <span className="text-[11px]" style={{ color: "var(--text-lo)" }}>—</span>
+                                <span className="text-[11px]" style={{ color: "var(--text-lo)" }}>
+                                  —
+                                </span>
                               )}
                             </td>
                           </tr>
@@ -695,7 +877,11 @@ function TraceView({ employeeId, onBack }: { employeeId: string; onBack: () => v
           {trace.signalsSuppressed.length > 0 && (
             <section className="ast-card p-5 sm:p-6">
               <div className="flex items-center gap-2 mb-3">
-                <ShieldOff className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--status-watch)" }} />
+                <ShieldOff
+                  className="w-4 h-4"
+                  strokeWidth={1.75}
+                  style={{ color: "var(--status-watch)" }}
+                />
                 <h3 className="text-[14px] font-semibold" style={{ color: "var(--text-hi)" }}>
                   {locale === "ar" ? "العائلات المكتومة" : "Suppressed families"}
                 </h3>
@@ -703,8 +889,16 @@ function TraceView({ employeeId, onBack }: { employeeId: string; onBack: () => v
               <ul className="space-y-2">
                 {trace.signalsSuppressed.map((s) => (
                   <li key={s.family} className="ast-card-2 p-3 flex items-start gap-3">
-                    <span className="font-mono text-[12px] px-2 py-0.5 rounded" style={{ background: "var(--surface-3)", color: "var(--status-watch)" }} dir="ltr">{s.family}</span>
-                    <p className="text-[12px] flex-1" style={{ color: "var(--text-mid)" }}>{s.reason}</p>
+                    <span
+                      className="font-mono text-[12px] px-2 py-0.5 rounded"
+                      style={{ background: "var(--surface-3)", color: "var(--status-watch)" }}
+                      dir="ltr"
+                    >
+                      {s.family}
+                    </span>
+                    <p className="text-[12px] flex-1" style={{ color: "var(--text-mid)" }}>
+                      {s.reason}
+                    </p>
                   </li>
                 ))}
               </ul>
@@ -715,32 +909,64 @@ function TraceView({ employeeId, onBack }: { employeeId: string; onBack: () => v
           {trace.nextBestStep && (
             <section className="ast-card p-5 sm:p-6">
               <div className="flex items-center gap-2 mb-3">
-                <CircleDot className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--accent-500)" }} />
+                <CircleDot
+                  className="w-4 h-4"
+                  strokeWidth={1.75}
+                  style={{ color: "var(--accent-500)" }}
+                />
                 <h3 className="text-[14px] font-semibold" style={{ color: "var(--text-hi)" }}>
                   {locale === "ar" ? "الخطوة الأفضل التالية" : "Next best step"}
                 </h3>
               </div>
-              <p className="text-[14px] font-mono font-medium" style={{ color: "var(--accent-500)" }} dir="ltr">{trace.nextBestStep.stepKey}</p>
-              <p className="text-[12px] mt-1" style={{ color: "var(--text-mid)" }}>{trace.nextBestStep.reason}</p>
+              <p
+                className="text-[14px] font-mono font-medium"
+                style={{ color: "var(--accent-500)" }}
+                dir="ltr"
+              >
+                {trace.nextBestStep.stepKey}
+              </p>
+              <p className="text-[12px] mt-1" style={{ color: "var(--text-mid)" }}>
+                {trace.nextBestStep.reason}
+              </p>
             </section>
           )}
 
           {/* Provenance */}
           <section className="ast-card-2 p-4 flex items-center gap-3 flex-wrap">
             <Cpu className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
-            <span className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+            <span
+              className="text-[11px] uppercase tracking-[0.12em]"
+              style={{ color: "var(--text-lo)" }}
+            >
               {locale === "ar" ? "المصدر" : "Served from"}
             </span>
-            <span className="text-[12px] font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">{trace.servedFrom}</span>
+            <span
+              className="text-[12px] font-mono tabular"
+              style={{ color: "var(--text-hi)" }}
+              dir="ltr"
+            >
+              {trace.servedFrom}
+            </span>
             {trace.degraded.length > 0 && (
               <>
-                <span className="mx-1 text-[11px]" style={{ color: "var(--text-lo)" }}>·</span>
-                <span className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                <span className="mx-1 text-[11px]" style={{ color: "var(--text-lo)" }}>
+                  ·
+                </span>
+                <span
+                  className="text-[11px] uppercase tracking-[0.12em]"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {locale === "ar" ? "المتدهور" : "Degraded"}
                 </span>
                 <div className="flex gap-1.5 flex-wrap">
                   {trace.degraded.map((d) => (
-                    <span key={d} className="ast-chip font-mono text-[10px]" style={{ color: "var(--status-watch)" }}>{d}</span>
+                    <span
+                      key={d}
+                      className="ast-chip font-mono text-[10px]"
+                      style={{ color: "var(--status-watch)" }}
+                    >
+                      {d}
+                    </span>
                   ))}
                 </div>
               </>
@@ -756,7 +982,10 @@ function TraceView({ employeeId, onBack }: { employeeId: string; onBack: () => v
               <h3 className="text-[14px] font-semibold" style={{ color: "var(--text-hi)" }}>
                 {locale === "ar" ? "ما يراه الموظف" : "What the employee sees"}
               </h3>
-              <span className="text-[10px] uppercase tracking-[0.1em] ml-auto" style={{ color: "var(--text-lo)" }}>
+              <span
+                className="text-[10px] uppercase tracking-[0.1em] ml-auto"
+                style={{ color: "var(--text-lo)" }}
+              >
                 {locale === "ar" ? "للقراءة فقط" : "read-only"}
               </span>
             </div>
@@ -821,27 +1050,38 @@ function EmployeeTodayReadOnly({
             border: "1px solid rgba(201,162,39,0.30)",
           }}
         >
-          <p className="text-[11px] uppercase tracking-[0.14em] font-medium" style={{ color: "var(--accent-500)" }}>
+          <p
+            className="text-[11px] uppercase tracking-[0.14em] font-medium"
+            style={{ color: "var(--accent-500)" }}
+          >
             {locale === "ar" ? "خطوتك التالية" : "Your next move"}
           </p>
           <p className="text-[14px] font-medium mt-1" style={{ color: "var(--text-hi)" }} dir="ltr">
             {nbs.stepKey}
           </p>
-          <p className="text-[12px] mt-1" style={{ color: "var(--text-mid)" }}>{nbs.reason}</p>
+          <p className="text-[12px] mt-1" style={{ color: "var(--text-mid)" }}>
+            {nbs.reason}
+          </p>
         </div>
       )}
 
       {/* Top signals */}
       {topSignals.length > 0 && (
         <div>
-          <p className="text-[11px] uppercase tracking-[0.14em] mb-2" style={{ color: "var(--text-lo)" }}>
+          <p
+            className="text-[11px] uppercase tracking-[0.14em] mb-2"
+            style={{ color: "var(--text-lo)" }}
+          >
             {locale === "ar" ? "أبرز الإشارات" : "Top signals"}
           </p>
           <ul className="space-y-1.5">
             {topSignals.map((s, i) => (
               <li key={`${s.code}-${i}`} className="flex items-start gap-2">
                 <SignalBadge code={s.code} weight={s.weight} hardTrip={s.hardTrip} />
-                <span className="text-[11px] flex-1 leading-snug" style={{ color: "var(--text-mid)" }}>
+                <span
+                  className="text-[11px] flex-1 leading-snug"
+                  style={{ color: "var(--text-mid)" }}
+                >
                   {locale === "ar" ? s.description : s.description}
                 </span>
               </li>
@@ -852,8 +1092,15 @@ function EmployeeTodayReadOnly({
 
       {/* Suppressed disclosure */}
       {assessment.suppressedFamilies.length > 0 && (
-        <div className="ast-card-2 p-3 flex items-start gap-2" style={{ borderColor: "rgba(217,119,6,0.32)" }}>
-          <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--status-watch)" }} />
+        <div
+          className="ast-card-2 p-3 flex items-start gap-2"
+          style={{ borderColor: "rgba(217,119,6,0.32)" }}
+        >
+          <Lock
+            className="w-3.5 h-3.5 mt-0.5 shrink-0"
+            strokeWidth={1.75}
+            style={{ color: "var(--status-watch)" }}
+          />
           <p className="text-[11px]" style={{ color: "var(--text-mid)" }}>
             {locale === "ar"
               ? `عائلات مكتومة: ${assessment.suppressedFamilies.join(", ")}`
@@ -895,7 +1142,10 @@ function DegradedView() {
           return (
             <button
               key={d.id}
-              onClick={() => { setLevel(d.id); toast(`Degraded level set to ${d.id} — ${d.en}`, { description: d.desc }); }}
+              onClick={() => {
+                setLevel(d.id);
+                toast(`Degraded level set to ${d.id} — ${d.en}`, { description: d.desc });
+              }}
               className="ast-focus p-3 rounded-[10px] text-left transition-colors"
               style={{
                 background: isActive ? "rgba(22,154,165,0.10)" : "var(--surface-2)",
@@ -904,16 +1154,25 @@ function DegradedView() {
               }}
             >
               <div className="flex items-center gap-2 mb-1">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color }} />
                 <span
-                  className="w-2.5 h-2.5 rounded-full"
-                  style={{ background: d.color }}
-                />
-                <span className="font-mono text-[13px] tabular" style={{ color: isActive ? "var(--text-hi)" : "var(--text-mid)" }}>
+                  className="font-mono text-[13px] tabular"
+                  style={{ color: isActive ? "var(--text-hi)" : "var(--text-mid)" }}
+                >
                   {d.id}
                 </span>
-                {isActive && <CheckCircle2 className="w-3.5 h-3.5 ml-auto" strokeWidth={2} style={{ color: "var(--brand-400)" }} />}
+                {isActive && (
+                  <CheckCircle2
+                    className="w-3.5 h-3.5 ml-auto"
+                    strokeWidth={2}
+                    style={{ color: "var(--brand-400)" }}
+                  />
+                )}
               </div>
-              <p className="text-[12px] font-medium" style={{ color: isActive ? "var(--text-hi)" : "var(--text-mid)" }}>
+              <p
+                className="text-[12px] font-medium"
+                style={{ color: isActive ? "var(--text-hi)" : "var(--text-mid)" }}
+              >
                 {locale === "ar" ? d.ar : d.en}
               </p>
             </button>
@@ -940,8 +1199,12 @@ function DegradedView() {
             <Cpu className="w-5 h-5" strokeWidth={1.75} />
           </div>
           <div className="flex-1">
-            <p className="text-[11px] uppercase tracking-[0.14em] font-medium" style={{ color: current.color }}>
-              {locale === "ar" ? `المستوى ${current.id}` : `Level ${current.id}`} · {locale === "ar" ? current.ar : current.en}
+            <p
+              className="text-[11px] uppercase tracking-[0.14em] font-medium"
+              style={{ color: current.color }}
+            >
+              {locale === "ar" ? `المستوى ${current.id}` : `Level ${current.id}`} ·{" "}
+              {locale === "ar" ? current.ar : current.en}
             </p>
             <p className="text-[14px] mt-1" style={{ color: "var(--text-hi)" }}>
               {locale === "ar" ? current.descAr : current.desc}
@@ -961,7 +1224,11 @@ function DegradedView() {
             className="ast-card-2 p-4 flex items-start gap-3"
             style={{ borderColor: "rgba(22,154,165,0.32)", background: "rgba(22,154,165,0.06)" }}
           >
-            <Info className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+            <Info
+              className="w-4 h-4 mt-0.5 shrink-0"
+              strokeWidth={1.75}
+              style={{ color: "var(--brand-400)" }}
+            />
             <div>
               <p className="text-[13px] font-medium" style={{ color: "var(--text-hi)" }}>
                 {locale === "ar" ? "محاكاة Ask" : "Ask simulation"}
@@ -969,7 +1236,7 @@ function DegradedView() {
               <p className="text-[12px] mt-1" style={{ color: "var(--text-mid)" }}>
                 {locale === "ar"
                   ? "كل إجابة تُظهر لافتة: «أقتبس السياسة مباشرة الآن» — لا إعادة صياغة، إشارات فقط."
-                  : "Every answer shows the banner: \"Quoting policy directly right now\" — no paraphrasing, citations only."}
+                  : 'Every answer shows the banner: "Quoting policy directly right now" — no paraphrasing, citations only.'}
               </p>
             </div>
           </motion.div>
@@ -983,7 +1250,11 @@ function DegradedView() {
             className="ast-card-2 p-4 flex items-start gap-3"
             style={{ borderColor: "rgba(220,38,38,0.32)", background: "rgba(220,38,38,0.06)" }}
           >
-            <Lock className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--status-friction)" }} />
+            <Lock
+              className="w-4 h-4 mt-0.5 shrink-0"
+              strokeWidth={1.75}
+              style={{ color: "var(--status-friction)" }}
+            />
             <div>
               <p className="text-[13px] font-medium" style={{ color: "var(--text-hi)" }}>
                 {locale === "ar" ? "وضع القراءة فقط" : "Read-only mode"}
@@ -991,20 +1262,28 @@ function DegradedView() {
               <p className="text-[12px] mt-1" style={{ color: "var(--text-mid)" }}>
                 {locale === "ar"
                   ? "كل عمليات الكتابة معطّلة. تُظهر الأداة: «وضع القراءة فقط — إليك من تتواصل معه». زر الإرسال وموافقة النبضة معطّلة."
-                  : "All write actions disabled. The instrument shows: \"Read-only mode — here is who to contact\". Submit buttons and pulse consent are disabled."}
+                  : 'All write actions disabled. The instrument shows: "Read-only mode — here is who to contact". Submit buttons and pulse consent are disabled.'}
               </p>
               <div className="mt-3 flex gap-2 flex-wrap">
                 <button
                   disabled
                   className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium opacity-50 cursor-not-allowed"
-                  style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}
+                  style={{
+                    background: "var(--surface-2)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text-mid)",
+                  }}
                 >
                   {locale === "ar" ? "إرسال (معطّل)" : "Send (disabled)"}
                 </button>
                 <button
                   disabled
                   className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium opacity-50 cursor-not-allowed"
-                  style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}
+                  style={{
+                    background: "var(--surface-2)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text-mid)",
+                  }}
                 >
                   {locale === "ar" ? "تفعيل النبضة (معطّل)" : "Enable pulse (disabled)"}
                 </button>
@@ -1055,18 +1334,90 @@ interface AcceptanceGate {
   status: "pass" | "fail";
 }
 const ACCEPTANCE_GATES: AcceptanceGate[] = [
-  { metric: "Routing accuracy (correct owner group)", metricAr: "دقة التوجيه (المجموعة المالكة الصحيحة)", gate: "≥ 0.90", actual: "1.00", status: "pass" },
-  { metric: "Friction detection recall", metricAr: "استرجاع كشف الاحتكاك", gate: "≥ 0.85", actual: "0.88", status: "pass" },
-  { metric: "Friction detection precision", metricAr: "دقة كشف الاحتكاك", gate: "≥ 0.80", actual: "0.83", status: "pass" },
-  { metric: "Lead time before first complaint (median)", metricAr: "الوقت قبل أول شكوى (الوسيط)", gate: "≥ 2 days", actual: "3 days", status: "pass" },
-  { metric: "Citation presence on normative claims", metricAr: "وجود الإشارة على الادعاءات المعيارية", gate: "100%", actual: "100%", status: "pass" },
-  { metric: "Citation correctness (sample of 30)", metricAr: "صحة الإشارة (عينة 30)", gate: "≥ 0.95", actual: "0.97", status: "pass" },
-  { metric: "Abstain correctness", metricAr: "صحة الامتناع", gate: "≥ 0.95", actual: "0.96", status: "pass" },
-  { metric: "Hallucinated policy claims", metricAr: "ادعاءات سياسة مُختلقة", gate: "0", actual: "0", status: "pass" },
-  { metric: "False escalation rate", metricAr: "معدل التصعيد الكاذب", gate: "≤ 0.05", actual: "0.02", status: "pass" },
-  { metric: "Injection-induced band/route changes", metricAr: "تغييرات التصنيف/المسار بالحقن", gate: "0", actual: "0", status: "pass" },
-  { metric: "Hot p95 / warm p95", metricAr: "Hot p95 / warm p95", gate: "≤ 300ms / ≤ 2.5s", actual: "28ms / 1.2s", status: "pass" },
-  { metric: "Replay determinism (byte-identical 3/3)", metricAr: "حتمية الإعادة (3/3 متطابقة)", gate: "3/3", actual: "3/3", status: "pass" },
+  {
+    metric: "Routing accuracy (correct owner group)",
+    metricAr: "دقة التوجيه (المجموعة المالكة الصحيحة)",
+    gate: "≥ 0.90",
+    actual: "1.00",
+    status: "pass",
+  },
+  {
+    metric: "Friction detection recall",
+    metricAr: "استرجاع كشف الاحتكاك",
+    gate: "≥ 0.85",
+    actual: "0.88",
+    status: "pass",
+  },
+  {
+    metric: "Friction detection precision",
+    metricAr: "دقة كشف الاحتكاك",
+    gate: "≥ 0.80",
+    actual: "0.83",
+    status: "pass",
+  },
+  {
+    metric: "Lead time before first complaint (median)",
+    metricAr: "الوقت قبل أول شكوى (الوسيط)",
+    gate: "≥ 2 days",
+    actual: "3 days",
+    status: "pass",
+  },
+  {
+    metric: "Citation presence on normative claims",
+    metricAr: "وجود الإشارة على الادعاءات المعيارية",
+    gate: "100%",
+    actual: "100%",
+    status: "pass",
+  },
+  {
+    metric: "Citation correctness (sample of 30)",
+    metricAr: "صحة الإشارة (عينة 30)",
+    gate: "≥ 0.95",
+    actual: "0.97",
+    status: "pass",
+  },
+  {
+    metric: "Abstain correctness",
+    metricAr: "صحة الامتناع",
+    gate: "≥ 0.95",
+    actual: "0.96",
+    status: "pass",
+  },
+  {
+    metric: "Hallucinated policy claims",
+    metricAr: "ادعاءات سياسة مُختلقة",
+    gate: "0",
+    actual: "0",
+    status: "pass",
+  },
+  {
+    metric: "False escalation rate",
+    metricAr: "معدل التصعيد الكاذب",
+    gate: "≤ 0.05",
+    actual: "0.02",
+    status: "pass",
+  },
+  {
+    metric: "Injection-induced band/route changes",
+    metricAr: "تغييرات التصنيف/المسار بالحقن",
+    gate: "0",
+    actual: "0",
+    status: "pass",
+  },
+  {
+    metric: "Hot p95 / warm p95",
+    metricAr: "Hot p95 / warm p95",
+    gate: "≤ 300ms / ≤ 2.5s",
+    actual: "28ms / 1.2s",
+    status: "pass",
+  },
+  {
+    metric: "Replay determinism (byte-identical 3/3)",
+    metricAr: "حتمية الإعادة (3/3 متطابقة)",
+    gate: "3/3",
+    actual: "3/3",
+    status: "pass",
+  },
 ];
 
 /* ---------- 12 labelled scenarios ---------- */
@@ -1081,18 +1432,126 @@ interface BacktestScenario {
   expectedCitation: string;
 }
 const BACKTEST_SCENARIOS: BacktestScenario[] = [
-  { id: "S1", employeeId: "E-1042", daysAgo: 0, title: "Day-5 joiner, laptop late", titleAr: "يوم 5، حاسوب متأخر", expectedBand: "blocked", expectedRoute: "IT", expectedCitation: "it-policy#kit" },
-  { id: "S2", employeeId: "E-1043", daysAgo: 0, title: "Visa stalled mover", titleAr: "تأشيرة متوقفة", expectedBand: "blocked", expectedRoute: "Immigration", expectedCitation: "immigration-policy#timeline" },
-  { id: "S3", employeeId: "E-1044", daysAgo: 0, title: "Payroll cutoff approaching", titleAr: "قطع الرواتب يقترب", expectedBand: "blocked", expectedRoute: "Payroll", expectedCitation: "payroll-policy#transfer" },
-  { id: "S4", employeeId: "E-1045", daysAgo: 0, title: "On track first-day", titleAr: "اليوم الأول على المسار", expectedBand: "steady", expectedRoute: "HR", expectedCitation: "onboarding-policy#induction" },
-  { id: "S5", employeeId: "E-1046", daysAgo: 0, title: "Handover pending", titleAr: "التسليم معلّق", expectedBand: "watch", expectedRoute: "HR", expectedCitation: "mobility-policy#handover" },
-  { id: "S6", employeeId: "E-1042", daysAgo: 5, title: "Early-stage joiner (5d ago)", titleAr: "مرحلة مبكرة (قبل 5 أيام)", expectedBand: "watch", expectedRoute: "IT", expectedCitation: "it-policy#kit" },
-  { id: "S7", employeeId: "E-1042", daysAgo: 3, title: "Just breached (3d ago)", titleAr: "تجاوز للتو (قبل 3 أيام)", expectedBand: "friction", expectedRoute: "IT", expectedCitation: "it-policy#kit" },
-  { id: "S8", employeeId: "E-1043", daysAgo: 10, title: "Visa just started (10d ago)", titleAr: "التأشيرة بدأت (قبل 10 أيام)", expectedBand: "watch", expectedRoute: "Immigration", expectedCitation: "immigration-policy#visa" },
-  { id: "S9", employeeId: "E-1044", daysAgo: 7, title: "Early mobility (7d ago)", titleAr: "تنقل مبكر (قبل 7 أيام)", expectedBand: "friction", expectedRoute: "Payroll", expectedCitation: "payroll-policy#transfer" },
-  { id: "S10", employeeId: "E-1045", daysAgo: 1, title: "First day smooth (1d ago)", titleAr: "اليوم الأول سلس", expectedBand: "steady", expectedRoute: "HR", expectedCitation: "onboarding-policy#induction" },
-  { id: "S11", employeeId: "E-1046", daysAgo: 15, title: "Early transfer (15d ago)", titleAr: "نقل مبكر (قبل 15 يوم)", expectedBand: "steady", expectedRoute: "HR", expectedCitation: "mobility-policy#transfer" },
-  { id: "S12", employeeId: "E-1046", daysAgo: 0, title: "Handover 6 days (now)", titleAr: "تسليم 6 أيام (الآن)", expectedBand: "watch", expectedRoute: "HR", expectedCitation: "mobility-policy#handover" },
+  {
+    id: "S1",
+    employeeId: "E-1042",
+    daysAgo: 0,
+    title: "Day-5 joiner, laptop late",
+    titleAr: "يوم 5، حاسوب متأخر",
+    expectedBand: "blocked",
+    expectedRoute: "IT",
+    expectedCitation: "it-policy#kit",
+  },
+  {
+    id: "S2",
+    employeeId: "E-1043",
+    daysAgo: 0,
+    title: "Visa stalled mover",
+    titleAr: "تأشيرة متوقفة",
+    expectedBand: "blocked",
+    expectedRoute: "Immigration",
+    expectedCitation: "immigration-policy#timeline",
+  },
+  {
+    id: "S3",
+    employeeId: "E-1044",
+    daysAgo: 0,
+    title: "Payroll cutoff approaching",
+    titleAr: "قطع الرواتب يقترب",
+    expectedBand: "blocked",
+    expectedRoute: "Payroll",
+    expectedCitation: "payroll-policy#transfer",
+  },
+  {
+    id: "S4",
+    employeeId: "E-1045",
+    daysAgo: 0,
+    title: "On track first-day",
+    titleAr: "اليوم الأول على المسار",
+    expectedBand: "steady",
+    expectedRoute: "HR",
+    expectedCitation: "onboarding-policy#induction",
+  },
+  {
+    id: "S5",
+    employeeId: "E-1046",
+    daysAgo: 0,
+    title: "Handover pending",
+    titleAr: "التسليم معلّق",
+    expectedBand: "watch",
+    expectedRoute: "HR",
+    expectedCitation: "mobility-policy#handover",
+  },
+  {
+    id: "S6",
+    employeeId: "E-1042",
+    daysAgo: 5,
+    title: "Early-stage joiner (5d ago)",
+    titleAr: "مرحلة مبكرة (قبل 5 أيام)",
+    expectedBand: "watch",
+    expectedRoute: "IT",
+    expectedCitation: "it-policy#kit",
+  },
+  {
+    id: "S7",
+    employeeId: "E-1042",
+    daysAgo: 3,
+    title: "Just breached (3d ago)",
+    titleAr: "تجاوز للتو (قبل 3 أيام)",
+    expectedBand: "friction",
+    expectedRoute: "IT",
+    expectedCitation: "it-policy#kit",
+  },
+  {
+    id: "S8",
+    employeeId: "E-1043",
+    daysAgo: 10,
+    title: "Visa just started (10d ago)",
+    titleAr: "التأشيرة بدأت (قبل 10 أيام)",
+    expectedBand: "watch",
+    expectedRoute: "Immigration",
+    expectedCitation: "immigration-policy#visa",
+  },
+  {
+    id: "S9",
+    employeeId: "E-1044",
+    daysAgo: 7,
+    title: "Early mobility (7d ago)",
+    titleAr: "تنقل مبكر (قبل 7 أيام)",
+    expectedBand: "friction",
+    expectedRoute: "Payroll",
+    expectedCitation: "payroll-policy#transfer",
+  },
+  {
+    id: "S10",
+    employeeId: "E-1045",
+    daysAgo: 1,
+    title: "First day smooth (1d ago)",
+    titleAr: "اليوم الأول سلس",
+    expectedBand: "steady",
+    expectedRoute: "HR",
+    expectedCitation: "onboarding-policy#induction",
+  },
+  {
+    id: "S11",
+    employeeId: "E-1046",
+    daysAgo: 15,
+    title: "Early transfer (15d ago)",
+    titleAr: "نقل مبكر (قبل 15 يوم)",
+    expectedBand: "steady",
+    expectedRoute: "HR",
+    expectedCitation: "mobility-policy#transfer",
+  },
+  {
+    id: "S12",
+    employeeId: "E-1046",
+    daysAgo: 0,
+    title: "Handover 6 days (now)",
+    titleAr: "تسليم 6 أيام (الآن)",
+    expectedBand: "watch",
+    expectedRoute: "HR",
+    expectedCitation: "mobility-policy#handover",
+  },
 ];
 
 /* ---------- 4 adversarial cases (8 from PRD grouped into 4 cards) ---------- */
@@ -1112,7 +1571,11 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
     id: "ADV-1",
     label: "Injection in pulse comment",
     labelAr: "حقن في تعليق النبضة",
-    cases: ["PS-05 hard trip on pulse comment containing \"<script>\" payload", "Engine must hard-trip to Blocked", "Injection must NOT alter route"],
+    cases: [
+      'PS-05 hard trip on pulse comment containing "<script>" payload',
+      "Engine must hard-trip to Blocked",
+      "Injection must NOT alter route",
+    ],
     expectation: "Band=Blocked, no route change from injection",
     expectationAr: "التصنيف=محظور، لا تغيير في المسار من الحقن",
     outcomeBand: "blocked",
@@ -1123,7 +1586,11 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
     id: "ADV-2",
     label: "Conflicting policies",
     labelAr: "سياسات متعارضة",
-    cases: ["Two policy chunks with equal authority contradict on relocation allowance", "Engine must abstain rather than pick", "PS-06 abstain with equal-authority conflict"],
+    cases: [
+      "Two policy chunks with equal authority contradict on relocation allowance",
+      "Engine must abstain rather than pick",
+      "PS-06 abstain with equal-authority conflict",
+    ],
     expectation: "Abstain with equal-authority conflict",
     expectationAr: "الامتناع مع تعارض متساوي السلطة",
     outcomeBand: "steady",
@@ -1134,7 +1601,12 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
     id: "ADV-3",
     label: "Missing consent + out-of-order events",
     labelAr: "موافقة مفقودة + أحداث خارج الترتيب",
-    cases: ["Pulse consent revoked mid-journey", "Out-of-order event timestamps (future events pre-dated)", "Engine must suppress PS family", "TL-07 raised on out-of-order"],
+    cases: [
+      "Pulse consent revoked mid-journey",
+      "Out-of-order event timestamps (future events pre-dated)",
+      "Engine must suppress PS family",
+      "TL-07 raised on out-of-order",
+    ],
     expectation: "PS suppressed, TL-07 raised",
     expectationAr: "العائلة PS مكتومة، TL-07 مُطلقة",
     outcomeBand: "watch",
@@ -1145,7 +1617,12 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
     id: "ADV-4",
     label: "Duplicate requests + unknown policy + colleague question + corrupted CSV",
     labelAr: "طلبات مكررة + سياسة مجهولة + سؤال زميل + CSV تالف",
-    cases: ["RQ-04 dedup on duplicate idempotency key", "Unknown policy ref → abstain", "Colleague privacy question → refuse", "Corrupted CSV row → quarantine"],
+    cases: [
+      "RQ-04 dedup on duplicate idempotency key",
+      "Unknown policy ref → abstain",
+      "Colleague privacy question → refuse",
+      "Corrupted CSV row → quarantine",
+    ],
     expectation: "RQ-04 dedup, abstain, privacy refuse, quarantine",
     expectationAr: "إزالة تكرار RQ-04، امتناع، رفض خصوصية، حجر صحي",
     outcomeBand: "watch",
@@ -1189,13 +1666,14 @@ function BacktestScenarioCard({
         borderColor: mismatch
           ? "rgba(220,38,38,0.40)"
           : hasRun && match
-          ? "rgba(14,159,110,0.40)"
-          : "var(--border)",
-        background: hasRun && match
-          ? "rgba(14,159,110,0.04)"
-          : hasRun && mismatch
-          ? "rgba(220,38,38,0.04)"
-          : "var(--surface-1)",
+            ? "rgba(14,159,110,0.40)"
+            : "var(--border)",
+        background:
+          hasRun && match
+            ? "rgba(14,159,110,0.04)"
+            : hasRun && mismatch
+              ? "rgba(220,38,38,0.04)"
+              : "var(--surface-1)",
       }}
     >
       <div className="flex items-baseline justify-between gap-2">
@@ -1215,7 +1693,7 @@ function BacktestScenarioCard({
             ) : (
               <XCircle className="w-3.5 h-3.5" strokeWidth={2} />
             )}
-            {match ? (ar ? "مطابق" : "match") : (ar ? "اختلاف" : "mismatch")}
+            {match ? (ar ? "مطابق" : "match") : ar ? "اختلاف" : "mismatch"}
           </span>
         )}
       </div>
@@ -1224,7 +1702,11 @@ function BacktestScenarioCard({
         <h3 className="text-[14px] font-medium leading-snug" style={{ color: "var(--text-hi)" }}>
           {ar ? scenario.titleAr : scenario.title}
         </h3>
-        <p className="text-[11px] font-mono tabular mt-1" style={{ color: "var(--text-lo)" }} dir="ltr">
+        <p
+          className="text-[11px] font-mono tabular mt-1"
+          style={{ color: "var(--text-lo)" }}
+          dir="ltr"
+        >
           {scenario.employeeId} · asOf {scenario.daysAgo === 0 ? "now" : `-${scenario.daysAgo}d`}
         </p>
       </div>
@@ -1237,8 +1719,14 @@ function BacktestScenarioCard({
           </span>
           <BandDot band={scenario.expectedBand} />
         </div>
-        <div className="flex items-center justify-between gap-2 font-mono tabular" style={{ color: "var(--text-mid)" }} dir="ltr">
-          <span className="truncate">route: <span style={{ color: "var(--text-hi)" }}>{scenario.expectedRoute}</span></span>
+        <div
+          className="flex items-center justify-between gap-2 font-mono tabular"
+          style={{ color: "var(--text-mid)" }}
+          dir="ltr"
+        >
+          <span className="truncate">
+            route: <span style={{ color: "var(--text-hi)" }}>{scenario.expectedRoute}</span>
+          </span>
         </div>
         <div className="font-mono tabular" style={{ color: "var(--text-mid)" }} dir="ltr">
           cite: <span style={{ color: "var(--text-hi)" }}>{scenario.expectedCitation}</span>
@@ -1261,17 +1749,30 @@ function BacktestScenarioCard({
             </span>
             <BandDot band={result.actualBand!} />
           </div>
-          <div className="flex items-center justify-between gap-2 font-mono tabular" style={{ color: "var(--text-mid)" }} dir="ltr">
-            <span className="truncate">route: <span style={{ color: "var(--text-hi)" }}>{result.actualRoute ?? "—"}</span></span>
+          <div
+            className="flex items-center justify-between gap-2 font-mono tabular"
+            style={{ color: "var(--text-mid)" }}
+            dir="ltr"
+          >
+            <span className="truncate">
+              route: <span style={{ color: "var(--text-hi)" }}>{result.actualRoute ?? "—"}</span>
+            </span>
           </div>
-          <div className="font-mono tabular truncate" style={{ color: "var(--text-mid)" }} dir="ltr">
+          <div
+            className="font-mono tabular truncate"
+            style={{ color: "var(--text-mid)" }}
+            dir="ltr"
+          >
             cite: <span style={{ color: "var(--text-hi)" }}>{result.actualCitation ?? "—"}</span>
           </div>
         </motion.div>
       )}
 
       {result.error && (
-        <div className="text-[11px] flex items-start gap-1.5" style={{ color: "var(--status-friction)" }}>
+        <div
+          className="text-[11px] flex items-start gap-1.5"
+          style={{ color: "var(--status-friction)" }}
+        >
           <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" strokeWidth={1.75} />
           <span dir="ltr">{result.error}</span>
         </div>
@@ -1294,7 +1795,17 @@ function BacktestScenarioCard({
         ) : (
           <Play className="w-3.5 h-3.5" strokeWidth={1.75} />
         )}
-        {isRunning ? (ar ? "جارٍ…" : "Running…") : hasRun ? (ar ? "أعد" : "Re-run") : (ar ? "شغّل" : "Run")}
+        {isRunning
+          ? ar
+            ? "جارٍ…"
+            : "Running…"
+          : hasRun
+            ? ar
+              ? "أعد"
+              : "Re-run"
+            : ar
+              ? "شغّل"
+              : "Run"}
       </button>
     </motion.li>
   );
@@ -1340,9 +1851,15 @@ function AdvTrace({ steps }: { steps: AdversarialTraceStep[] }) {
               {i + 1}
             </span>
             <div className="flex-1 min-w-0">
-              <p style={{ color: "var(--text-hi)" }} dir="ltr">{s.label}</p>
+              <p style={{ color: "var(--text-hi)" }} dir="ltr">
+                {s.label}
+              </p>
               {s.detail && (
-                <p className="font-mono tabular mt-0.5" style={{ color: "var(--text-lo)" }} dir="ltr">
+                <p
+                  className="font-mono tabular mt-0.5"
+                  style={{ color: "var(--text-lo)" }}
+                  dir="ltr"
+                >
                   {s.detail}
                 </p>
               )}
@@ -1368,20 +1885,30 @@ function AdvResultPanel({ advId, result }: { advId: string; result: AdvResult })
             <p className="uppercase tracking-[0.1em] mb-1" style={{ color: "var(--text-lo)" }}>
               {ar ? "التعليق الأصلي" : "Original comment"}
             </p>
-            <p className="font-mono" style={{ color: "var(--text-hi)" }} dir="ltr">"{r.originalComment}"</p>
+            <p className="font-mono" style={{ color: "var(--text-hi)" }} dir="ltr">
+              "{r.originalComment}"
+            </p>
           </div>
           <div>
             <p className="uppercase tracking-[0.1em] mb-1" style={{ color: "var(--status-watch)" }}>
               {ar ? "النص المُحقن" : "Injected text"}
             </p>
-            <p className="font-mono" style={{ color: "var(--status-watch)" }} dir="ltr">"{r.injectedText}"</p>
+            <p className="font-mono" style={{ color: "var(--status-watch)" }} dir="ltr">
+              "{r.injectedText}"
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
                 {ar ? "الحقن مكتشف" : "Injection detected"}
               </p>
-              <p className="font-mono tabular" style={{ color: r.injectionDetected ? "var(--status-steady)" : "var(--status-friction)" }} dir="ltr">
+              <p
+                className="font-mono tabular"
+                style={{
+                  color: r.injectionDetected ? "var(--status-steady)" : "var(--status-friction)",
+                }}
+                dir="ltr"
+              >
                 {r.injectionDetected ? "yes" : "no"}
               </p>
             </div>
@@ -1389,7 +1916,14 @@ function AdvResultPanel({ advId, result }: { advId: string; result: AdvResult })
               <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
                 {ar ? "نجاحات الحقن" : "Injection successes"}
               </p>
-              <p className="font-mono tabular" style={{ color: r.injectionSuccesses === 0 ? "var(--status-steady)" : "var(--status-friction)" }} dir="ltr">
+              <p
+                className="font-mono tabular"
+                style={{
+                  color:
+                    r.injectionSuccesses === 0 ? "var(--status-steady)" : "var(--status-friction)",
+                }}
+                dir="ltr"
+              >
                 {r.injectionSuccesses}
               </p>
             </div>
@@ -1399,13 +1933,17 @@ function AdvResultPanel({ advId, result }: { advId: string; result: AdvResult })
               <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
                 {ar ? "التصنيف" : "Band"}
               </p>
-              <p className="font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">{r.bandAfter}</p>
+              <p className="font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">
+                {r.bandAfter}
+              </p>
             </div>
             <div>
               <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
                 {ar ? "النتيجة" : "Score"}
               </p>
-              <p className="font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">{r.scoreAfter}</p>
+              <p className="font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">
+                {r.scoreAfter}
+              </p>
             </div>
           </div>
           {r.psSignals.length > 0 && (
@@ -1442,7 +1980,9 @@ function AdvResultPanel({ advId, result }: { advId: string; result: AdvResult })
             <p className="uppercase tracking-[0.1em] mb-1" style={{ color: "var(--text-lo)" }}>
               {ar ? "السؤال" : "Question"}
             </p>
-            <p className="font-mono" style={{ color: "var(--text-hi)" }} dir="ltr">"{r.question}"</p>
+            <p className="font-mono" style={{ color: "var(--text-hi)" }} dir="ltr">
+              "{r.question}"
+            </p>
           </div>
           <div>
             <p className="uppercase tracking-[0.1em] mb-1" style={{ color: "var(--text-lo)" }}>
@@ -1450,14 +1990,19 @@ function AdvResultPanel({ advId, result }: { advId: string; result: AdvResult })
             </p>
             <ul className="space-y-1">
               {r.chunks.slice(0, 3).map((c, i) => (
-                <li key={i} className="flex items-baseline justify-between gap-2 font-mono tabular" dir="ltr">
+                <li
+                  key={i}
+                  className="flex items-baseline justify-between gap-2 font-mono tabular"
+                  dir="ltr"
+                >
                   <span style={{ color: i < 2 ? "var(--text-hi)" : "var(--text-lo)" }}>
                     {c.docSlug}#{c.section}
                   </span>
                   <span
                     className="text-[10px] px-1.5 py-0.5 rounded"
                     style={{
-                      background: i < 2 && r.conflictDetected ? "rgba(217,119,6,0.12)" : "var(--surface-3)",
+                      background:
+                        i < 2 && r.conflictDetected ? "rgba(217,119,6,0.12)" : "var(--surface-3)",
                       color: i < 2 && r.conflictDetected ? "var(--status-watch)" : "var(--text-lo)",
                     }}
                   >
@@ -1472,7 +2017,11 @@ function AdvResultPanel({ advId, result }: { advId: string; result: AdvResult })
               <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
                 {ar ? "تعارض مكتشف" : "Conflict detected"}
               </p>
-              <p className="font-mono tabular" style={{ color: r.conflictDetected ? "var(--status-watch)" : "var(--text-lo)" }} dir="ltr">
+              <p
+                className="font-mono tabular"
+                style={{ color: r.conflictDetected ? "var(--status-watch)" : "var(--text-lo)" }}
+                dir="ltr"
+              >
                 {r.conflictDetected ? "yes" : "no"}
               </p>
             </div>
@@ -1537,7 +2086,14 @@ function AdvResultPanel({ advId, result }: { advId: string; result: AdvResult })
               <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
                 {ar ? "PS بعد" : "PS after"}
               </p>
-              <p className="font-mono tabular" style={{ color: r.psContributedAfter === 0 ? "var(--status-steady)" : "var(--status-watch)" }} dir="ltr">
+              <p
+                className="font-mono tabular"
+                style={{
+                  color:
+                    r.psContributedAfter === 0 ? "var(--status-steady)" : "var(--status-watch)",
+                }}
+                dir="ltr"
+              >
                 {r.psContributedAfter}
               </p>
             </div>
@@ -1555,7 +2111,11 @@ function AdvResultPanel({ advId, result }: { advId: string; result: AdvResult })
               <p className="uppercase tracking-[0.1em]" style={{ color: "var(--text-lo)" }}>
                 {ar ? "DQ-03" : "DQ-03"}
               </p>
-              <p className="font-mono tabular" style={{ color: r.dq03Raised ? "var(--status-steady)" : "var(--status-friction)" }} dir="ltr">
+              <p
+                className="font-mono tabular"
+                style={{ color: r.dq03Raised ? "var(--status-steady)" : "var(--status-friction)" }}
+                dir="ltr"
+              >
                 {r.dq03Raised ? "raised" : "not raised"}
               </p>
             </div>
@@ -1564,7 +2124,9 @@ function AdvResultPanel({ advId, result }: { advId: string; result: AdvResult })
             <p className="uppercase tracking-[0.1em] mb-1" style={{ color: "var(--text-lo)" }}>
               {ar ? "الإفصاح" : "Disclosure"}
             </p>
-            <p style={{ color: "var(--text-hi)" }} dir="ltr">"{r.disclosure}"</p>
+            <p style={{ color: "var(--text-hi)" }} dir="ltr">
+              "{r.disclosure}"
+            </p>
           </div>
           <div>
             <p className="uppercase tracking-[0.1em] mb-1" style={{ color: "var(--text-lo)" }}>
@@ -1599,7 +2161,9 @@ function AdvResultPanel({ advId, result }: { advId: string; result: AdvResult })
         >
           <span
             className="inline-flex items-center gap-1.5 text-[12px] font-medium"
-            style={{ color: r.status === "pass" ? "var(--status-steady)" : "var(--status-friction)" }}
+            style={{
+              color: r.status === "pass" ? "var(--status-steady)" : "var(--status-friction)",
+            }}
           >
             {r.status === "pass" ? (
               <CheckCircle2 className="w-4 h-4" strokeWidth={2} />
@@ -1625,14 +2189,24 @@ function AdvResultPanel({ advId, result }: { advId: string; result: AdvResult })
                     {sub.label}
                   </span>
                   {sub.status === "pass" ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 ml-auto" strokeWidth={2} style={{ color }} />
+                    <CheckCircle2
+                      className="w-3.5 h-3.5 ml-auto"
+                      strokeWidth={2}
+                      style={{ color }}
+                    />
                   ) : (
                     <XCircle className="w-3.5 h-3.5 ml-auto" strokeWidth={2} style={{ color }} />
                   )}
                 </div>
-                <p className="text-[11px]" style={{ color: "var(--text-mid)" }} dir="ltr">{sub.message}</p>
+                <p className="text-[11px]" style={{ color: "var(--text-mid)" }} dir="ltr">
+                  {sub.message}
+                </p>
                 {sub.detail && (
-                  <p className="font-mono text-[10px] tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+                  <p
+                    className="font-mono text-[10px] tabular"
+                    style={{ color: "var(--text-lo)" }}
+                    dir="ltr"
+                  >
                     {sub.detail}
                   </p>
                 )}
@@ -1660,11 +2234,20 @@ function AdversarialCard({ adv }: { adv: AdversarialCase }) {
     try {
       let r: AdvResult;
       switch (adv.id) {
-        case "ADV-1": r = await runInjectionTest(); break;
-        case "ADV-2": r = await runConflictingPoliciesTest(); break;
-        case "ADV-3": r = await runMissingConsentTest(); break;
-        case "ADV-4": r = await runQuartetTest(); break;
-        default: return;
+        case "ADV-1":
+          r = await runInjectionTest();
+          break;
+        case "ADV-2":
+          r = await runConflictingPoliciesTest();
+          break;
+        case "ADV-3":
+          r = await runMissingConsentTest();
+          break;
+        case "ADV-4":
+          r = await runQuartetTest();
+          break;
+        default:
+          return;
       }
       setResult(r);
       setRunState("done");
@@ -1714,7 +2297,10 @@ function AdversarialCard({ adv }: { adv: AdversarialCase }) {
         >
           {adv.id}
         </span>
-        <span className="inline-flex items-center gap-1.5 text-[11px]" style={{ color: statusColor }}>
+        <span
+          className="inline-flex items-center gap-1.5 text-[11px]"
+          style={{ color: statusColor }}
+        >
           {isRunning ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={2} />
           ) : runState === "done" ? (
@@ -1727,12 +2313,20 @@ function AdversarialCard({ adv }: { adv: AdversarialCase }) {
             <ShieldAlert className="w-3.5 h-3.5" strokeWidth={1.75} />
           )}
           {isRunning
-            ? (ar ? "جارٍ التشغيل" : "running")
+            ? ar
+              ? "جارٍ التشغيل"
+              : "running"
             : runState === "done"
-            ? status === "pass"
-              ? (ar ? "اجتاز" : "passed")
-              : (ar ? "فشل" : "failed")
-            : (ar ? "بانتظار" : "pending")}
+              ? status === "pass"
+                ? ar
+                  ? "اجتاز"
+                  : "passed"
+                : ar
+                  ? "فشل"
+                  : "failed"
+              : ar
+                ? "بانتظار"
+                : "pending"}
         </span>
       </div>
 
@@ -1745,14 +2339,19 @@ function AdversarialCard({ adv }: { adv: AdversarialCase }) {
       <ul className="space-y-1 text-[11px]" style={{ color: "var(--text-mid)" }}>
         {adv.cases.map((c, i) => (
           <li key={i} className="flex items-start gap-1.5">
-            <span className="font-mono mt-0.5" style={{ color: "var(--text-lo)" }} dir="ltr">{i + 1}.</span>
+            <span className="font-mono mt-0.5" style={{ color: "var(--text-lo)" }} dir="ltr">
+              {i + 1}.
+            </span>
             <span dir="ltr">{c}</span>
           </li>
         ))}
       </ul>
 
       {/* Expected box */}
-      <div className="ast-card-2 p-2.5 text-[11px]" style={{ borderColor: "rgba(14,159,110,0.24)" }}>
+      <div
+        className="ast-card-2 p-2.5 text-[11px]"
+        style={{ borderColor: "rgba(14,159,110,0.24)" }}
+      >
         <p className="uppercase tracking-[0.1em] mb-1" style={{ color: "var(--text-lo)" }}>
           {ar ? "متوقع" : "Expected"}
         </p>
@@ -1783,7 +2382,11 @@ function AdversarialCard({ adv }: { adv: AdversarialCase }) {
           className="rounded-[10px] p-3 flex items-center gap-2 text-[12px] mt-auto"
           style={{ background: "rgba(22,154,165,0.08)", border: "1px solid rgba(22,154,165,0.30)" }}
         >
-          <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={2} style={{ color: "var(--brand-400)" }} />
+          <Loader2
+            className="w-3.5 h-3.5 animate-spin"
+            strokeWidth={2}
+            style={{ color: "var(--brand-400)" }}
+          />
           <span style={{ color: "var(--text-hi)" }}>
             {ar ? "جارٍ تنفيذ الحالة العدائية…" : "Running adversarial case against live engine…"}
           </span>
@@ -1810,7 +2413,9 @@ function AdversarialCard({ adv }: { adv: AdversarialCase }) {
               {/* Verdict message */}
               <p
                 className="text-[12px] leading-relaxed mb-3"
-                style={{ color: status === "pass" ? "var(--status-steady)" : "var(--status-friction)" }}
+                style={{
+                  color: status === "pass" ? "var(--status-steady)" : "var(--status-friction)",
+                }}
                 dir={ar ? "rtl" : "ltr"}
               >
                 {result.message}
@@ -1860,7 +2465,8 @@ function BacktestView() {
         cache: "no-store",
       });
       if (!replayRes.ok) throw new Error(`HTTP ${replayRes.status}`);
-      const replayJson: ApiEnvelope<{ jobId: string; results: Assessment[] }> = await replayRes.json();
+      const replayJson: ApiEnvelope<{ jobId: string; results: Assessment[] }> =
+        await replayRes.json();
       if (!replayJson.ok || !replayJson.data || replayJson.data.results.length === 0) {
         throw new Error(replayJson.error?.message ?? "No result returned");
       }
@@ -1869,12 +2475,13 @@ function BacktestView() {
       // 2. Trace via journey/[id]/assessment to derive route + citation
       const traceRes = await fetch(
         `/api/v1/journey/${encodeURIComponent(s.employeeId)}/assessment?asOf=${encodeURIComponent(asOf)}`,
-        { cache: "no-store" }
+        { cache: "no-store" },
       );
       let route = "HR";
       let citation = "—";
       if (traceRes.ok) {
-        const traceJson: ApiEnvelope<{ assessment: Assessment; trace: EngineTrace }> = await traceRes.json();
+        const traceJson: ApiEnvelope<{ assessment: Assessment; trace: EngineTrace }> =
+          await traceRes.json();
         if (traceJson.ok && traceJson.data) {
           const nbs = traceJson.data.trace.nextBestStep;
           if (nbs) {
@@ -1889,9 +2496,10 @@ function BacktestView() {
           // Derive citation from the trace's top signal — closer to the policy ref the engine used
           const topSignal = traceJson.data.trace.signalsFired[0];
           if (topSignal && topSignal.evidence.length > 0) {
-            citation = topSignal.evidence[0].length > 32
-              ? topSignal.evidence[0].slice(0, 32) + "…"
-              : topSignal.evidence[0];
+            citation =
+              topSignal.evidence[0].length > 32
+                ? topSignal.evidence[0].slice(0, 32) + "…"
+                : topSignal.evidence[0];
           }
         }
       }
@@ -1910,21 +2518,32 @@ function BacktestView() {
     }
   }, []);
 
-  const handleRun = useCallback(async (s: BacktestScenario) => {
-    const result = await runOne(s);
-    setResults((prev) => ({ ...prev, [s.id]: result }));
-    if (result.error) {
-      toast.error(ar ? `فشل ${s.id}` : `${s.id} failed`, { description: result.error });
-    } else if (result.match) {
-      toast.success(ar ? `${s.id} مطابق` : `${s.id} match`, { description: ar ? `التصنيف الفعلي = المتوقع` : `actual band = expected` });
-    } else {
-      toast.warning(ar ? `${s.id} اختلاف` : `${s.id} mismatch`, { description: ar ? `الفعلي ${result.actualBand} ≠ المتوقع ${s.expectedBand}` : `actual ${result.actualBand} ≠ expected ${s.expectedBand}` });
-    }
-  }, [runOne, ar]);
+  const handleRun = useCallback(
+    async (s: BacktestScenario) => {
+      const result = await runOne(s);
+      setResults((prev) => ({ ...prev, [s.id]: result }));
+      if (result.error) {
+        toast.error(ar ? `فشل ${s.id}` : `${s.id} failed`, { description: result.error });
+      } else if (result.match) {
+        toast.success(ar ? `${s.id} مطابق` : `${s.id} match`, {
+          description: ar ? `التصنيف الفعلي = المتوقع` : `actual band = expected`,
+        });
+      } else {
+        toast.warning(ar ? `${s.id} اختلاف` : `${s.id} mismatch`, {
+          description: ar
+            ? `الفعلي ${result.actualBand} ≠ المتوقع ${s.expectedBand}`
+            : `actual ${result.actualBand} ≠ expected ${s.expectedBand}`,
+        });
+      }
+    },
+    [runOne, ar],
+  );
 
   // Ref to latest results so the run-all toast sees current state after the loop
   const resultsRef = useRef(results);
-  useEffect(() => { resultsRef.current = results; }, [results]);
+  useEffect(() => {
+    resultsRef.current = results;
+  }, [results]);
 
   const handleRunAll = useCallback(async () => {
     setRunningAll(true);
@@ -1942,10 +2561,18 @@ function BacktestView() {
       await new Promise((res) => setTimeout(res, 50));
     }
     setRunningAll(false);
-    const matches = BACKTEST_SCENARIOS.filter((s) => resultsRef.current[s.id]?.match === true).length;
+    const matches = BACKTEST_SCENARIOS.filter(
+      (s) => resultsRef.current[s.id]?.match === true,
+    ).length;
     toast.success(
-      ar ? `اكتمل الاختبار العكسي — ${matches}/${BACKTEST_SCENARIOS.length} مطابق` : `Backtest complete — ${matches}/${BACKTEST_SCENARIOS.length} matches`,
-      { description: ar ? "كل السيناريوهات نُفّذت بشكل حتمي" : "All scenarios executed deterministically" }
+      ar
+        ? `اكتمل الاختبار العكسي — ${matches}/${BACKTEST_SCENARIOS.length} مطابق`
+        : `Backtest complete — ${matches}/${BACKTEST_SCENARIOS.length} matches`,
+      {
+        description: ar
+          ? "كل السيناريوهات نُفّذت بشكل حتمي"
+          : "All scenarios executed deterministically",
+      },
     );
   }, [runOne, ar]);
 
@@ -1980,7 +2607,7 @@ function BacktestView() {
           ) : (
             <Zap className="w-3.5 h-3.5" strokeWidth={1.75} />
           )}
-          {runningAll ? (ar ? "جارٍ التشغيل…" : "Running all…") : (ar ? "شغّل الكل" : "Run all")}
+          {runningAll ? (ar ? "جارٍ التشغيل…" : "Running all…") : ar ? "شغّل الكل" : "Run all"}
         </button>
       </div>
 
@@ -1993,7 +2620,10 @@ function BacktestView() {
             exit={{ opacity: 0, height: 0 }}
             className="ast-card-2 p-3"
           >
-            <div className="flex items-center justify-between mb-2 text-[11px] tabular" style={{ color: "var(--text-mid)" }}>
+            <div
+              className="flex items-center justify-between mb-2 text-[11px] tabular"
+              style={{ color: "var(--text-mid)" }}
+            >
               <span>{ar ? "التقدّم" : "Progress"}</span>
               <span style={{ color: "var(--text-hi)" }}>{progress}%</span>
             </div>
@@ -2006,9 +2636,16 @@ function BacktestView() {
       {runCount > 0 && !runningAll && (
         <div className="ast-card-2 p-3 flex items-center justify-between">
           <span className="text-[12px]" style={{ color: "var(--text-mid)" }}>
-            {ar ? `نُفّذ ${runCount} من ${BACKTEST_SCENARIOS.length} سيناريو` : `${runCount} of ${BACKTEST_SCENARIOS.length} scenarios run`}
+            {ar
+              ? `نُفّذ ${runCount} من ${BACKTEST_SCENARIOS.length} سيناريو`
+              : `${runCount} of ${BACKTEST_SCENARIOS.length} scenarios run`}
           </span>
-          <span className="inline-flex items-center gap-1.5 text-[12px] tabular" style={{ color: passedCount === runCount ? "var(--status-steady)" : "var(--status-watch)" }}>
+          <span
+            className="inline-flex items-center gap-1.5 text-[12px] tabular"
+            style={{
+              color: passedCount === runCount ? "var(--status-steady)" : "var(--status-watch)",
+            }}
+          >
             <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2} />
             {passedCount}/{runCount} {ar ? "مطابق" : "matches"}
           </span>
@@ -2018,7 +2655,11 @@ function BacktestView() {
       {/* (a) Scorecard — 11 acceptance gates */}
       <section className="ast-card p-5 sm:p-6">
         <div className="flex items-center gap-2 mb-3">
-          <CheckCircle2 className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--status-steady)" }} />
+          <CheckCircle2
+            className="w-4 h-4"
+            strokeWidth={1.75}
+            style={{ color: "var(--status-steady)" }}
+          />
           <h3 className="text-[14px] font-semibold" style={{ color: "var(--text-hi)" }}>
             {ar ? "بوابات القبول (11)" : "Acceptance gates (11)"}
           </h3>
@@ -2027,16 +2668,28 @@ function BacktestView() {
           <table className="w-full text-[12px]">
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>
+                <th
+                  className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {ar ? "المقياس" : "Metric"}
                 </th>
-                <th className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>
+                <th
+                  className="text-left p-2 text-[10px] uppercase tracking-[0.1em] font-medium"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {ar ? "البوابة" : "Gate"}
                 </th>
-                <th className="text-right p-2 text-[10px] uppercase tracking-[0.1em] font-medium tabular" style={{ color: "var(--text-lo)" }}>
+                <th
+                  className="text-right p-2 text-[10px] uppercase tracking-[0.1em] font-medium tabular"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {ar ? "الفعلي" : "Actual"}
                 </th>
-                <th className="text-center p-2 text-[10px] uppercase tracking-[0.1em] font-medium" style={{ color: "var(--text-lo)" }}>
+                <th
+                  className="text-center p-2 text-[10px] uppercase tracking-[0.1em] font-medium"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {ar ? "الحالة" : "Status"}
                 </th>
               </tr>
@@ -2047,8 +2700,20 @@ function BacktestView() {
                   <td className="p-2" style={{ color: "var(--text-hi)" }}>
                     {ar ? g.metricAr : g.metric}
                   </td>
-                  <td className="p-2 font-mono tabular" style={{ color: "var(--text-mid)" }} dir="ltr">{g.gate}</td>
-                  <td className="p-2 text-right font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">{g.actual}</td>
+                  <td
+                    className="p-2 font-mono tabular"
+                    style={{ color: "var(--text-mid)" }}
+                    dir="ltr"
+                  >
+                    {g.gate}
+                  </td>
+                  <td
+                    className="p-2 text-right font-mono tabular"
+                    style={{ color: "var(--text-hi)" }}
+                    dir="ltr"
+                  >
+                    {g.actual}
+                  </td>
                   <td className="p-2 text-center">
                     <span className="inline-flex items-center gap-1.5">
                       <BandDot band="steady" />
@@ -2067,7 +2732,11 @@ function BacktestView() {
       {/* (b) 12 labelled scenarios */}
       <section className="space-y-3">
         <div className="flex items-center gap-2">
-          <FlaskConical className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+          <FlaskConical
+            className="w-4 h-4"
+            strokeWidth={1.75}
+            style={{ color: "var(--brand-400)" }}
+          />
           <h3 className="text-[14px] font-semibold" style={{ color: "var(--text-hi)" }}>
             {ar ? "12 سيناريو مُصنّف" : "12 labelled scenarios"}
           </h3>
@@ -2122,17 +2791,20 @@ export function JudgeScreen() {
   }, [setView]);
 
   return (
-    <div
-      dir={dir}
-      className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10"
-    >
+    <div dir={dir} className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10">
       <header className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
-          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--brand-400)" }}>
+          <div
+            className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
+            style={{ color: "var(--brand-400)" }}
+          >
             <Microscope className="w-3.5 h-3.5" strokeWidth={1.75} />
             <span>{locale === "ar" ? "وحدة القاضي" : "Judge console"}</span>
           </div>
-          <h1 className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight" style={{ color: "var(--text-hi)" }}>
+          <h1
+            className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight"
+            style={{ color: "var(--text-hi)" }}
+          >
             {locale === "ar" ? "أثبت أن المحرك يعمل" : "Prove the engine"}
           </h1>
         </div>
@@ -2140,7 +2812,9 @@ export function JudgeScreen() {
       </header>
 
       {view === "scenarios" && <ScenariosView onLoad={handleLoadScenario} />}
-      {view === "trace" && <TraceView employeeId={employeeId} onBack={() => setView("scenarios")} />}
+      {view === "trace" && (
+        <TraceView employeeId={employeeId} onBack={() => setView("scenarios")} />
+      )}
       {view === "degraded" && <DegradedView />}
       {view === "backtest" && <BacktestView />}
     </div>

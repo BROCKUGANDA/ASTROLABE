@@ -103,7 +103,10 @@ function pickBestSentence(text: string, qTokens: string[]): string {
   for (const s of sentences) {
     const sTokens = new Set(tokenize(s));
     const overlap = qTokens.filter((t) => sTokens.has(t)).length;
-    const normative = /\b(\d+|aed|days?|hours?|weeks?|months?|years?|must|shall|required|eligible)\b/i.test(s) ? 0.5 : 0;
+    const normative =
+      /\b(\d+|aed|days?|hours?|weeks?|months?|years?|must|shall|required|eligible)\b/i.test(s)
+        ? 0.5
+        : 0;
     const score = overlap + normative;
     if (score > bestScore) {
       bestScore = score;
@@ -123,10 +126,8 @@ function searchPolicies(qTokens: string[]): PolicyHit[] {
   if (qTokens.length === 0) return [];
   const pool = policies;
   const avgLen =
-    pool.reduce(
-      (a, c) => a + tokenize(c.text + " " + c.title + " " + c.section).length,
-      0,
-    ) / Math.max(1, pool.length);
+    pool.reduce((a, c) => a + tokenize(c.text + " " + c.title + " " + c.section).length, 0) /
+    Math.max(1, pool.length);
   const k1 = 1.5;
   const b = 0.75;
 
@@ -137,7 +138,8 @@ function searchPolicies(qTokens: string[]): PolicyHit[] {
     const matchedTerms = Array.from(new Set(qTokens.filter((t) => chunkSet.has(t))));
     if (matchedTerms.length === 0) continue;
     const tf = matchedTerms.length;
-    const tfNorm = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (chunkTokens.length / Math.max(1, avgLen))));
+    const tfNorm =
+      (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (chunkTokens.length / Math.max(1, avgLen))));
     const sectionMatch = qTokens.some((t) => chunk.section.toLowerCase().includes(t));
     const titleMatch = qTokens.some((t) => chunk.title.toLowerCase().includes(t));
     const raw = tfNorm + (sectionMatch ? 1.5 : 0) + (titleMatch ? 1.0 : 0);
@@ -287,12 +289,9 @@ export async function GET(req: NextRequest) {
   const employeeId = (req.nextUrl.searchParams.get("employeeId") ?? "E-1042").trim();
 
   if (q.length < MIN_QUERY) {
-    return error(
-      "E_VALIDATION",
-      `Query must be at least ${MIN_QUERY} characters`,
-      422,
-      { hint: "Try a longer search term." }
-    );
+    return error("E_VALIDATION", `Query must be at least ${MIN_QUERY} characters`, 422, {
+      hint: "Try a longer search term.",
+    });
   }
 
   const employee = employees.find((e) => e.id === employeeId);
@@ -315,7 +314,7 @@ export async function GET(req: NextRequest) {
         servedFrom: "live",
         asOf: new Date().toISOString(),
         latencyMs: Date.now() - start,
-      }
+      },
     );
   }
 

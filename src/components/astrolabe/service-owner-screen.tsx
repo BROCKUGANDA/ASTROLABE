@@ -10,7 +10,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { formatDistanceToNow, differenceInHours, format, addDays, startOfWeek, isSameDay } from "date-fns";
+import {
+  formatDistanceToNow,
+  differenceInHours,
+  format,
+  addDays,
+  startOfWeek,
+  isSameDay,
+} from "date-fns";
 import {
   Inbox,
   Copy,
@@ -84,12 +91,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-  TooltipProvider,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import {
   JourneyMapFixModal,
   type MapFixProposal,
@@ -147,20 +149,41 @@ const OWNER_GROUPS: { id: OwnerGroup; label: string; labelAr: string }[] = [
 
 const STANDARD_QUESTIONS: Record<RequestType, { en: string; ar: string }[]> = {
   it_kit: [
-    { en: "Which campus — Dubai (DXB) or Abu Dhabi (AUH)?", ar: "أي موقع — دبي (DXB) أم أبوظبي (AUH)؟" },
-    { en: "Is this a replacement for lost/damaged kit?", ar: "هل هذا بديل عن عُدّة مفقودة أو تالفة؟" },
-    { en: "What is the urgent date you need the kit by?", ar: "ما التاريخ العاجل الذي تحتاج العُدّة بحلوله؟" },
-    { en: "Which kit type — standard laptop, cabin crew, or replacement?", ar: "ما نوع العُدّة — حاسوب قياسي، طاقم المقصورة، أم بديل؟" },
+    {
+      en: "Which campus — Dubai (DXB) or Abu Dhabi (AUH)?",
+      ar: "أي موقع — دبي (DXB) أم أبوظبي (AUH)؟",
+    },
+    {
+      en: "Is this a replacement for lost/damaged kit?",
+      ar: "هل هذا بديل عن عُدّة مفقودة أو تالفة؟",
+    },
+    {
+      en: "What is the urgent date you need the kit by?",
+      ar: "ما التاريخ العاجل الذي تحتاج العُدّة بحلوله؟",
+    },
+    {
+      en: "Which kit type — standard laptop, cabin crew, or replacement?",
+      ar: "ما نوع العُدّة — حاسوب قياسي، طاقم المقصورة، أم بديل؟",
+    },
   ],
   system_access: [
-    { en: "Which system — email, roster, learning, or finance?", ar: "أي نظام — البريد، الجداول، التعلم، أم المالية؟" },
-    { en: "Who is the manager approver for elevated access?", ar: "من هو المدير المعتمد للوصول الموسّع؟" },
+    {
+      en: "Which system — email, roster, learning, or finance?",
+      ar: "أي نظام — البريد، الجداول، التعلم، أم المالية؟",
+    },
+    {
+      en: "Who is the manager approver for elevated access?",
+      ar: "من هو المدير المعتمد للوصول الموسّع؟",
+    },
     { en: "What is the effective date?", ar: "ما تاريخ السريان؟" },
   ],
   visa: [
     { en: "Has your passport scan been uploaded?", ar: "هل تم رفع مسح جواز السفر؟" },
     { en: "Are there any dependants on this visa?", ar: "هل هناك معالون على هذه التأشيرة؟" },
-    { en: "Is this role marked business-critical for expediting?", ar: "هل هذه الوظيفة مُصنّفة حرجة للأعمال للتسريع؟" },
+    {
+      en: "Is this role marked business-critical for expediting?",
+      ar: "هل هذه الوظيفة مُصنّفة حرجة للأعمال للتسريع؟",
+    },
   ],
   relocation: [
     { en: "What is your family size?", ar: "ما حجم أسرتك؟" },
@@ -168,9 +191,15 @@ const STANDARD_QUESTIONS: Record<RequestType, { en: string; ar: string }[]> = {
     { en: "Do you need temporary housing?", ar: "هل تحتاج سكناً مؤقتاً؟" },
   ],
   payroll: [
-    { en: "What is the change type — bank, allowance, or transfer?", ar: "ما نوع التغيير — بنك، بدل، أم نقل؟" },
+    {
+      en: "What is the change type — bank, allowance, or transfer?",
+      ar: "ما نوع التغيير — بنك، بدل، أم نقل؟",
+    },
     { en: "Have bank details been confirmed?", ar: "هل تم تأكيد البيانات البنكية؟" },
-    { en: "What is the effective date before the 25th cutoff?", ar: "ما تاريخ السريان قبل موعد القطع في 25؟" },
+    {
+      en: "What is the effective date before the 25th cutoff?",
+      ar: "ما تاريخ السريان قبل موعد القطع في 25؟",
+    },
   ],
   training: [
     { en: "Which course code do you need?", ar: "ما رمز الدورة التي تحتاجها؟" },
@@ -205,13 +234,20 @@ function findEmployee(id: string): Employee | undefined {
   return ALL_EMPLOYEES.find((e) => e.id === id);
 }
 
-function findAssignee(assigneeId: string): { name: string; role: string; email: string; group: string } | null {
+function findAssignee(
+  assigneeId: string,
+): { name: string; role: string; email: string; group: string } | null {
   const o = ALL_OWNERS.find((x) => x.id === assigneeId);
   if (!o) return null;
   return { name: o.name, role: o.role, email: o.email, group: o.group };
 }
 
-function parsePolicyRef(ref: string): { docSlug: string; title: string; section: string; effectiveDate: string } {
+function parsePolicyRef(ref: string): {
+  docSlug: string;
+  title: string;
+  section: string;
+  effectiveDate: string;
+} {
   const [docSlug, section] = ref.split("#");
   const titleMap: Record<string, string> = {
     "relocation-policy": "Relocation Policy",
@@ -237,8 +273,12 @@ function parsePolicyRef(ref: string): { docSlug: string; title: string; section:
  * synthesise a plausible payload using prefillFrom hints so the
  * service owner sees the same shape of data they would in production.
  */
-function buildPayloadView(schema: IntakeSchema, employee: Employee): Record<string, { label: string; labelAr: string; value: string; prefilled: boolean }> {
-  const out: Record<string, { label: string; labelAr: string; value: string; prefilled: boolean }> = {};
+function buildPayloadView(
+  schema: IntakeSchema,
+  employee: Employee,
+): Record<string, { label: string; labelAr: string; value: string; prefilled: boolean }> {
+  const out: Record<string, { label: string; labelAr: string; value: string; prefilled: boolean }> =
+    {};
   for (const field of schema.fields) {
     let value = "";
     let prefilled = false;
@@ -283,12 +323,18 @@ function buildPayloadView(schema: IntakeSchema, employee: Employee): Record<stri
 
 function fieldTypeDef(t: IntakeField["type"]): string {
   switch (t) {
-    case "select": return "select";
-    case "date": return "date";
-    case "checkbox": return "checkbox";
-    case "textarea": return "textarea";
-    case "number": return "number";
-    default: return "text";
+    case "select":
+      return "select";
+    case "date":
+      return "date";
+    case "checkbox":
+      return "checkbox";
+    case "textarea":
+      return "textarea";
+    case "number":
+      return "number";
+    default:
+      return "text";
   }
 }
 
@@ -317,12 +363,18 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
         <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
           We can&apos;t reach your queue right now.
         </p>
-        <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>{message}</p>
+        <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+          {message}
+        </p>
       </div>
       <button
         onClick={onRetry}
         className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium shrink-0"
-        style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+        style={{
+          background: "var(--surface-2)",
+          border: "1px solid var(--border)",
+          color: "var(--text-hi)",
+        }}
       >
         <RotateCcw className="w-4 h-4" strokeWidth={1.75} />
         Retry
@@ -347,7 +399,11 @@ function PayloadView({ request, locale }: { request: ServiceRequest; locale: "en
       <div className="rounded-[10px] overflow-hidden" style={{ border: "1px solid var(--border)" }}>
         <div
           className="px-3 py-2 text-[10px] uppercase tracking-[0.14em] flex items-center gap-2"
-          style={{ background: "var(--surface-2)", color: "var(--text-lo)", borderBottom: "1px solid var(--border)" }}
+          style={{
+            background: "var(--surface-2)",
+            color: "var(--text-lo)",
+            borderBottom: "1px solid var(--border)",
+          }}
         >
           <FileText className="w-3 h-3" strokeWidth={1.75} />
           {locale === "ar" ? "حمولة الطلب الكاملة" : "Full intake payload"}
@@ -362,7 +418,11 @@ function PayloadView({ request, locale }: { request: ServiceRequest; locale: "en
                 style={{ borderColor: "var(--border-soft)" }}
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-[11px] font-mono tabular shrink-0" style={{ color: "var(--text-lo)" }} dir="ltr">
+                  <span
+                    className="text-[11px] font-mono tabular shrink-0"
+                    style={{ color: "var(--text-lo)" }}
+                    dir="ltr"
+                  >
                     {field.key}
                   </span>
                   <span className="text-[12px] truncate" style={{ color: "var(--text-mid)" }}>
@@ -384,7 +444,11 @@ function PayloadView({ request, locale }: { request: ServiceRequest; locale: "en
                   )}
                 </div>
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-[13px] font-medium truncate" style={{ color: "var(--text-hi)" }} dir="ltr">
+                  <span
+                    className="text-[13px] font-medium truncate"
+                    style={{ color: "var(--text-hi)" }}
+                    dir="ltr"
+                  >
                     {v?.value || "—"}
                   </span>
                   <span
@@ -416,7 +480,10 @@ function PayloadView({ request, locale }: { request: ServiceRequest; locale: "en
 
       {/* Auto-attached context */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+        <span
+          className="text-[11px] uppercase tracking-[0.12em]"
+          style={{ color: "var(--text-lo)" }}
+        >
           {locale === "ar" ? "سياق مُرفق تلقائياً" : "Auto-attached context"}:
         </span>
         {schema.autoAttachedContext.map((ctx) => (
@@ -436,18 +503,28 @@ function PayloadView({ request, locale }: { request: ServiceRequest; locale: "en
 
       {/* Policy ref + assignee */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+        <span
+          className="text-[11px] uppercase tracking-[0.12em]"
+          style={{ color: "var(--text-lo)" }}
+        >
           {locale === "ar" ? "المرجع" : "Policy ref"}:
         </span>
         <CitationChip citation={citation} locale={locale} />
         {assignee && (
           <>
-            <span className="text-[11px] uppercase tracking-[0.12em] ml-2" style={{ color: "var(--text-lo)" }}>
+            <span
+              className="text-[11px] uppercase tracking-[0.12em] ml-2"
+              style={{ color: "var(--text-lo)" }}
+            >
               {locale === "ar" ? "المسؤول" : "Assignee"}:
             </span>
             <span
               className="ast-chip text-[11px] tabular"
-              style={{ color: "var(--text-hi)", background: "var(--surface-2)", borderColor: "var(--border)" }}
+              style={{
+                color: "var(--text-hi)",
+                background: "var(--surface-2)",
+                borderColor: "var(--border)",
+              }}
             >
               {assignee.name} · {assignee.role}
             </span>
@@ -490,7 +567,11 @@ function NeedsMoreInfoForm({
     <>
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2" style={{ color: "var(--text-hi)" }}>
-          <HelpCircle className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+          <HelpCircle
+            className="w-4 h-4"
+            strokeWidth={1.75}
+            style={{ color: "var(--brand-400)" }}
+          />
           {locale === "ar" ? "نحتاج تفصيلاً إضافياً" : "We need one more detail"}
         </DialogTitle>
         <DialogDescription style={{ color: "var(--text-mid)" }}>
@@ -503,18 +584,32 @@ function NeedsMoreInfoForm({
       <div className="space-y-4">
         {/* Standard question dropdown */}
         <div className="space-y-2">
-          <Label htmlFor="std-q" className="text-[12px] font-medium" style={{ color: "var(--text-mid)" }}>
+          <Label
+            htmlFor="std-q"
+            className="text-[12px] font-medium"
+            style={{ color: "var(--text-mid)" }}
+          >
             {locale === "ar" ? "سؤال قياسي" : "Standard question"}
           </Label>
           <Select value={question} onValueChange={setQuestion}>
             <SelectTrigger
               id="std-q"
               className="w-full h-11 text-[13px] ast-focus"
-              style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-hi)" }}
+              style={{
+                background: "var(--surface-2)",
+                borderColor: "var(--border)",
+                color: "var(--text-hi)",
+              }}
             >
               <SelectValue placeholder={locale === "ar" ? "اختر سؤالاً…" : "Pick a question…"} />
             </SelectTrigger>
-            <SelectContent style={{ background: "var(--surface-1)", borderColor: "var(--border)", color: "var(--text-hi)" }}>
+            <SelectContent
+              style={{
+                background: "var(--surface-1)",
+                borderColor: "var(--border)",
+                color: "var(--text-hi)",
+              }}
+            >
               {questions.map((q) => (
                 <SelectItem key={q.en} value={q.en} className="text-[13px]">
                   {locale === "ar" ? q.ar : q.en}
@@ -531,17 +626,29 @@ function NeedsMoreInfoForm({
 
         {/* Free-text additional detail — the ONLY free-text part */}
         <div className="space-y-2">
-          <Label htmlFor="detail" className="text-[12px] font-medium" style={{ color: "var(--text-mid)" }}>
-            {locale === "ar" ? "تفاصيل إضافية (الجزء الحر الوحيد)" : "Additional detail (only free-text part)"}
+          <Label
+            htmlFor="detail"
+            className="text-[12px] font-medium"
+            style={{ color: "var(--text-mid)" }}
+          >
+            {locale === "ar"
+              ? "تفاصيل إضافية (الجزء الحر الوحيد)"
+              : "Additional detail (only free-text part)"}
           </Label>
           <Textarea
             id="detail"
             value={detail}
             onChange={(e) => setDetail(e.target.value)}
             rows={3}
-            placeholder={locale === "ar" ? "اختياري — سياق إضافي بسيط" : "Optional — brief extra context"}
+            placeholder={
+              locale === "ar" ? "اختياري — سياق إضافي بسيط" : "Optional — brief extra context"
+            }
             className="ast-focus text-[13px]"
-            style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-hi)" }}
+            style={{
+              background: "var(--surface-2)",
+              borderColor: "var(--border)",
+              color: "var(--text-hi)",
+            }}
           />
         </div>
       </div>
@@ -550,7 +657,11 @@ function NeedsMoreInfoForm({
         <button
           onClick={onCancel}
           className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium"
-          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+          style={{
+            background: "var(--surface-2)",
+            border: "1px solid var(--border)",
+            color: "var(--text-hi)",
+          }}
         >
           {locale === "ar" ? "تراجع" : "Cancel"}
         </button>
@@ -558,7 +669,11 @@ function NeedsMoreInfoForm({
           onClick={handleSend}
           disabled={sending}
           className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium disabled:opacity-60"
-          style={{ background: "var(--brand-500)", color: "var(--surface-0)", border: "1px solid var(--brand-500)" }}
+          style={{
+            background: "var(--brand-500)",
+            color: "var(--surface-0)",
+            border: "1px solid var(--brand-500)",
+          }}
         >
           {sending ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.75} />
@@ -594,7 +709,11 @@ function NeedsMoreInfoDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="sm:max-w-[560px]"
-        style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+        style={{
+          background: "var(--surface-1)",
+          border: "1px solid var(--border)",
+          color: "var(--text-hi)",
+        }}
       >
         {open && request && (
           <NeedsMoreInfoForm
@@ -630,7 +749,9 @@ function ResolveForm({
 
   const handleResolve = () => {
     if (note.trim().length < 5) {
-      toast.error(locale === "ar" ? "اكتب ملاحظة الحل (1-2 جمل)" : "Write a resolution note (1-2 sentences)");
+      toast.error(
+        locale === "ar" ? "اكتب ملاحظة الحل (1-2 جمل)" : "Write a resolution note (1-2 sentences)",
+      );
       return;
     }
     onResolve(note);
@@ -640,7 +761,11 @@ function ResolveForm({
     <>
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2" style={{ color: "var(--text-hi)" }}>
-          <CheckCircle2 className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--status-steady)" }} />
+          <CheckCircle2
+            className="w-4 h-4"
+            strokeWidth={1.75}
+            style={{ color: "var(--status-steady)" }}
+          />
           {locale === "ar" ? "حل الطلب" : "Resolve request"}
         </DialogTitle>
         <DialogDescription style={{ color: "var(--text-mid)" }}>
@@ -651,7 +776,11 @@ function ResolveForm({
       </DialogHeader>
 
       <div className="space-y-2">
-        <Label htmlFor="note" className="text-[12px] font-medium" style={{ color: "var(--text-mid)" }}>
+        <Label
+          htmlFor="note"
+          className="text-[12px] font-medium"
+          style={{ color: "var(--text-mid)" }}
+        >
           {locale === "ar" ? "ملاحظة الحل" : "Resolution note"}
         </Label>
         <Textarea
@@ -659,14 +788,22 @@ function ResolveForm({
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={3}
-          placeholder={locale === "ar" ? "مثال: صدر حاسوب Dell Latitude لماريا في مكتب IT بدبي." : "e.g. Issued Dell Latitude to Maria at the DXB IT counter."}
+          placeholder={
+            locale === "ar"
+              ? "مثال: صدر حاسوب Dell Latitude لماريا في مكتب IT بدبي."
+              : "e.g. Issued Dell Latitude to Maria at the DXB IT counter."
+          }
           className="ast-focus text-[13px]"
-          style={{ background: "var(--surface-2)", borderColor: "var(--border)", color: "var(--text-hi)" }}
+          style={{
+            background: "var(--surface-2)",
+            borderColor: "var(--border)",
+            color: "var(--text-hi)",
+          }}
         />
         <p className="text-[11px]" style={{ color: "var(--text-lo)" }}>
           {locale === "ar"
-            ? "يُرسل هذا كإشعار للموظف: \"تم حل طلبك — إليك ما تغيّر\"."
-            : "Sent to the employee as: \"Your request is resolved — here's what changed\"."}
+            ? 'يُرسل هذا كإشعار للموظف: "تم حل طلبك — إليك ما تغيّر".'
+            : 'Sent to the employee as: "Your request is resolved — here\'s what changed".'}
         </p>
       </div>
 
@@ -674,7 +811,11 @@ function ResolveForm({
         <button
           onClick={onCancel}
           className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium"
-          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+          style={{
+            background: "var(--surface-2)",
+            border: "1px solid var(--border)",
+            color: "var(--text-hi)",
+          }}
         >
           {locale === "ar" ? "تراجع" : "Cancel"}
         </button>
@@ -682,7 +823,11 @@ function ResolveForm({
           onClick={handleResolve}
           disabled={resolving}
           className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium disabled:opacity-60"
-          style={{ background: "var(--status-steady)", color: "white", border: "1px solid var(--status-steady)" }}
+          style={{
+            background: "var(--status-steady)",
+            color: "white",
+            border: "1px solid var(--status-steady)",
+          }}
         >
           {resolving ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.75} />
@@ -718,7 +863,11 @@ function ResolveDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="sm:max-w-[520px]"
-        style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+        style={{
+          background: "var(--surface-1)",
+          border: "1px solid var(--border)",
+          color: "var(--text-hi)",
+        }}
       >
         {open && request && (
           <ResolveForm
@@ -744,7 +893,11 @@ function RequestCard({
   locale,
 }: {
   request: ServiceRequest;
-  onAction: (id: string, to: string, opts?: { note?: string; question?: string; detail?: string }) => Promise<void>;
+  onAction: (
+    id: string,
+    to: string,
+    opts?: { note?: string; question?: string; detail?: string },
+  ) => Promise<void>;
   onProposeMapFix: (request: ServiceRequest) => void;
   locale: "en" | "ar";
 }) {
@@ -769,7 +922,10 @@ function RequestCard({
     }
   };
 
-  const wrapAction = async (to: string, opts?: { note?: string; question?: string; detail?: string }) => {
+  const wrapAction = async (
+    to: string,
+    opts?: { note?: string; question?: string; detail?: string },
+  ) => {
     setPending(to);
     try {
       await onAction(request.id, to, opts);
@@ -781,7 +937,10 @@ function RequestCard({
   const canAcknowledge = request.status === "submitted";
   const canStart = request.status === "acknowledged";
   const canNeedsInfo = request.status === "in_progress" || request.status === "acknowledged";
-  const canResolve = request.status === "in_progress" || request.status === "acknowledged" || request.status === "waiting_employee";
+  const canResolve =
+    request.status === "in_progress" ||
+    request.status === "acknowledged" ||
+    request.status === "waiting_employee";
 
   return (
     <motion.article
@@ -809,7 +968,11 @@ function RequestCard({
             >
               {request.ref}
               {copied ? (
-                <Check className="w-3 h-3" strokeWidth={2} style={{ color: "var(--status-steady)" }} />
+                <Check
+                  className="w-3 h-3"
+                  strokeWidth={2}
+                  style={{ color: "var(--status-steady)" }}
+                />
               ) : (
                 <Copy className="w-3 h-3" strokeWidth={1.75} />
               )}
@@ -820,23 +983,49 @@ function RequestCard({
           </div>
           {/* Employee + age + counts */}
           <div className="flex items-center gap-2 flex-wrap mt-1.5">
-            <span className="inline-flex items-center gap-1.5 text-[12px]" style={{ color: "var(--text-mid)" }}>
+            <span
+              className="inline-flex items-center gap-1.5 text-[12px]"
+              style={{ color: "var(--text-mid)" }}
+            >
               <Users className="w-3 h-3" strokeWidth={1.75} />
               <span style={{ color: "var(--text-hi)" }}>
-                {employee ? (locale === "ar" && employee.displayNameAr ? employee.displayNameAr : employee.displayName) : request.employeeId}
+                {employee
+                  ? locale === "ar" && employee.displayNameAr
+                    ? employee.displayNameAr
+                    : employee.displayName
+                  : request.employeeId}
               </span>
-              <span className="font-mono tabular" style={{ color: "var(--text-lo)" }}>· {request.employeeId}</span>
+              <span className="font-mono tabular" style={{ color: "var(--text-lo)" }}>
+                · {request.employeeId}
+              </span>
             </span>
-            <span className="text-[12px] inline-flex items-center gap-1.5" style={{ color: "var(--text-lo)" }}>
+            <span
+              className="text-[12px] inline-flex items-center gap-1.5"
+              style={{ color: "var(--text-lo)" }}
+            >
               <Clock className="w-3 h-3" strokeWidth={1.75} />
               <span className="tabular">
-                {locale === "ar" ? `فُتح ${formatDistanceToNow(new Date(request.openedAt), { addSuffix: false, locale: undefined as never })}` : `opened ${formatDistanceToNow(new Date(request.openedAt), { addSuffix: false })} ago`}
+                {locale === "ar"
+                  ? `فُتح ${formatDistanceToNow(new Date(request.openedAt), { addSuffix: false, locale: undefined as never })}`
+                  : `opened ${formatDistanceToNow(new Date(request.openedAt), { addSuffix: false })} ago`}
               </span>
             </span>
-            <span className="text-[11px] inline-flex items-center gap-1 tabular" style={{ color: request.reassignCount > 0 ? "var(--status-watch)" : "var(--text-lo)" }}>
-              {locale === "ar" ? `إعادة ${request.reassignCount}` : `reassigns ${request.reassignCount}`}
+            <span
+              className="text-[11px] inline-flex items-center gap-1 tabular"
+              style={{
+                color: request.reassignCount > 0 ? "var(--status-watch)" : "var(--text-lo)",
+              }}
+            >
+              {locale === "ar"
+                ? `إعادة ${request.reassignCount}`
+                : `reassigns ${request.reassignCount}`}
             </span>
-            <span className="text-[11px] inline-flex items-center gap-1 tabular" style={{ color: request.returnCount > 0 ? "var(--status-friction)" : "var(--text-lo)" }}>
+            <span
+              className="text-[11px] inline-flex items-center gap-1 tabular"
+              style={{
+                color: request.returnCount > 0 ? "var(--status-friction)" : "var(--text-lo)",
+              }}
+            >
               {locale === "ar" ? `إرجاع ${request.returnCount}` : `returns ${request.returnCount}`}
             </span>
           </div>
@@ -845,7 +1034,12 @@ function RequestCard({
         {/* Status + SLA */}
         <div className="flex items-center gap-2 flex-wrap">
           <StatusChip status={request.status} locale={locale} />
-          <SlaChip elapsedHours={elapsedHours} targetHours={request.slaHours} breachLevel={breach} locale={locale} />
+          <SlaChip
+            elapsedHours={elapsedHours}
+            targetHours={request.slaHours}
+            breachLevel={breach}
+            locale={locale}
+          />
         </div>
       </div>
 
@@ -854,11 +1048,18 @@ function RequestCard({
         <button
           onClick={() => setExpanded((v) => !v)}
           className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium"
-          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+          style={{
+            background: "var(--surface-2)",
+            border: "1px solid var(--border)",
+            color: "var(--text-hi)",
+          }}
         >
           <Eye className="w-3.5 h-3.5" strokeWidth={1.75} />
           {locale === "ar" ? "عرض الحمولة" : "View payload"}
-          <ChevronDown className={cn("w-3 h-3 transition-transform", expanded && "rotate-180")} strokeWidth={1.75} />
+          <ChevronDown
+            className={cn("w-3 h-3 transition-transform", expanded && "rotate-180")}
+            strokeWidth={1.75}
+          />
         </button>
 
         {canAcknowledge && (
@@ -866,7 +1067,11 @@ function RequestCard({
             onClick={() => wrapAction("acknowledged")}
             disabled={pending !== null}
             className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium disabled:opacity-60"
-            style={{ background: "var(--surface-2)", border: "1px solid rgba(22,154,165,0.32)", color: "var(--brand-400)" }}
+            style={{
+              background: "var(--surface-2)",
+              border: "1px solid rgba(22,154,165,0.32)",
+              color: "var(--brand-400)",
+            }}
           >
             {pending === "acknowledged" ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.75} />
@@ -882,7 +1087,11 @@ function RequestCard({
             onClick={() => wrapAction("in_progress")}
             disabled={pending !== null}
             className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium disabled:opacity-60"
-            style={{ background: "var(--brand-500)", border: "1px solid var(--brand-500)", color: "var(--surface-0)" }}
+            style={{
+              background: "var(--brand-500)",
+              border: "1px solid var(--brand-500)",
+              color: "var(--surface-0)",
+            }}
           >
             {pending === "in_progress" ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.75} />
@@ -898,7 +1107,11 @@ function RequestCard({
             onClick={() => setNeedsOpen(true)}
             disabled={pending !== null}
             className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium disabled:opacity-60"
-            style={{ background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.32)", color: "var(--status-watch)" }}
+            style={{
+              background: "rgba(217,119,6,0.08)",
+              border: "1px solid rgba(217,119,6,0.32)",
+              color: "var(--status-watch)",
+            }}
           >
             <HelpCircle className="w-3.5 h-3.5" strokeWidth={1.75} />
             {locale === "ar" ? "نحتاج تفصيلاً" : "Needs more info"}
@@ -910,7 +1123,11 @@ function RequestCard({
             onClick={() => setResolveOpen(true)}
             disabled={pending !== null}
             className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium disabled:opacity-60"
-            style={{ background: "rgba(14,159,110,0.08)", border: "1px solid rgba(14,159,110,0.32)", color: "var(--status-steady)" }}
+            style={{
+              background: "rgba(14,159,110,0.08)",
+              border: "1px solid rgba(14,159,110,0.32)",
+              color: "var(--status-steady)",
+            }}
           >
             {pending === "resolved" ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.75} />
@@ -959,7 +1176,9 @@ function RequestCard({
         onOpenChange={setNeedsOpen}
         request={request}
         sending={pending === "returned"}
-        onSend={(q, d) => wrapAction("returned", { question: q, detail: d }).then(() => setNeedsOpen(false))}
+        onSend={(q, d) =>
+          wrapAction("returned", { question: q, detail: d }).then(() => setNeedsOpen(false))
+        }
         locale={locale}
       />
       <ResolveDialog
@@ -1024,11 +1243,36 @@ function computeBreachReasons(items: ServiceRequest[]): BreachReason[] {
   // Baseline — prototype padding so the chart reads even on a 4-row queue.
   const BASE = 2;
   return [
-    { key: "waiting_employee", label: "Waiting on employee", labelAr: "بانتظار الموظف", count: waitingEmployee + BASE },
-    { key: "waiting_downstream", label: "Waiting on downstream team", labelAr: "بانتظار فريق لاحق", count: waitingDownstream + BASE },
-    { key: "incomplete_intake", label: "Incomplete intake", labelAr: "إدخال ناقص", count: incompleteIntake + BASE },
-    { key: "queue_overload", label: "Queue overload", labelAr: "ازدحام القائمة", count: queueOverload + BASE },
-    { key: "ambiguous_request", label: "Ambiguous request", labelAr: "طلب غامض", count: ambiguous + BASE },
+    {
+      key: "waiting_employee",
+      label: "Waiting on employee",
+      labelAr: "بانتظار الموظف",
+      count: waitingEmployee + BASE,
+    },
+    {
+      key: "waiting_downstream",
+      label: "Waiting on downstream team",
+      labelAr: "بانتظار فريق لاحق",
+      count: waitingDownstream + BASE,
+    },
+    {
+      key: "incomplete_intake",
+      label: "Incomplete intake",
+      labelAr: "إدخال ناقص",
+      count: incompleteIntake + BASE,
+    },
+    {
+      key: "queue_overload",
+      label: "Queue overload",
+      labelAr: "ازدحام القائمة",
+      count: queueOverload + BASE,
+    },
+    {
+      key: "ambiguous_request",
+      label: "Ambiguous request",
+      labelAr: "طلب غامض",
+      count: ambiguous + BASE,
+    },
   ];
 }
 
@@ -1083,7 +1327,11 @@ function BreachReasonsChart({ items, locale }: { items: ServiceRequest[]; locale
   return (
     <div className="ast-card-2 p-4">
       <div className="flex items-center gap-2 mb-3">
-        <BarChart3 className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+        <BarChart3
+          className="w-3.5 h-3.5"
+          strokeWidth={1.75}
+          style={{ color: "var(--brand-400)" }}
+        />
         <h3 className="text-[13px] font-semibold" style={{ color: "var(--text-hi)" }}>
           {locale === "ar" ? "لماذا تُخرق التذاكر" : "Why tickets breach"}
         </h3>
@@ -1094,10 +1342,16 @@ function BreachReasonsChart({ items, locale }: { items: ServiceRequest[]; locale
           const sharePct = total > 0 ? Math.round((r.count / total) * 100) : 0;
           return (
             <li key={r.key} className="flex items-center gap-3">
-              <div className="w-[140px] sm:w-[200px] shrink-0 text-[12px]" style={{ color: "var(--text-mid)" }}>
+              <div
+                className="w-[140px] sm:w-[200px] shrink-0 text-[12px]"
+                style={{ color: "var(--text-mid)" }}
+              >
                 {locale === "ar" ? r.labelAr : r.label}
               </div>
-              <div className="flex-1 h-5 rounded-full overflow-hidden" style={{ background: "var(--surface-3)" }}>
+              <div
+                className="flex-1 h-5 rounded-full overflow-hidden"
+                style={{ background: "var(--surface-3)" }}
+              >
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${pct}%` }}
@@ -1107,8 +1361,16 @@ function BreachReasonsChart({ items, locale }: { items: ServiceRequest[]; locale
                 />
               </div>
               <div className="w-[78px] text-right shrink-0 flex items-center justify-end gap-1.5">
-                <span className="text-[12px] font-mono tabular" style={{ color: "var(--text-hi)" }} dir="ltr">{r.count}</span>
-                <span className="text-[10px] tabular" style={{ color: "var(--text-lo)" }} dir="ltr">{sharePct}%</span>
+                <span
+                  className="text-[12px] font-mono tabular"
+                  style={{ color: "var(--text-hi)" }}
+                  dir="ltr"
+                >
+                  {r.count}
+                </span>
+                <span className="text-[10px] tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+                  {sharePct}%
+                </span>
               </div>
             </li>
           );
@@ -1158,10 +1420,7 @@ function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; local
   );
 
   // Compute the current week (Mon-Sun) from PACK_NOW.
-  const weekStart = useMemo(
-    () => startOfWeek(PACK_NOW, { weekStartsOn: 1 }),
-    [],
-  );
+  const weekStart = useMemo(() => startOfWeek(PACK_NOW, { weekStartsOn: 1 }), []);
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
     [weekStart],
@@ -1173,7 +1432,9 @@ function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; local
     const rand = mulberry32(hashStr("cap-seed-v1"));
     return Array.from({ length: 7 }, () => 2 + Math.floor(rand() * 3)); // 2..4
   });
-  const [leaveByDay, setLeaveByDay] = useState<boolean[]>(() => Array.from({ length: 7 }, () => false));
+  const [leaveByDay, setLeaveByDay] = useState<boolean[]>(() =>
+    Array.from({ length: 7 }, () => false),
+  );
   const [saving, setSaving] = useState(false);
 
   // Per-day committed count — synthetic, deterministic. The total is
@@ -1211,7 +1472,8 @@ function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; local
   const totalCapacity = capacityByDay.reduce((a, b) => a + b, 0);
   const totalCommitted = committedByDay.reduce((a, b) => a + b, 0);
   const totalAvailable = Math.max(0, totalCapacity - totalCommitted);
-  const currentUtilization = totalCapacity > 0 ? Math.round((totalCommitted / totalCapacity) * 100) : 0;
+  const currentUtilization =
+    totalCapacity > 0 ? Math.round((totalCommitted / totalCapacity) * 100) : 0;
 
   const handleCapacityChange = (i: number, value: number) => {
     setCapacityByDay((prev) => {
@@ -1233,14 +1495,11 @@ function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; local
     setSaving(true);
     try {
       await new Promise((r) => setTimeout(r, 280));
-      toast.success(
-        ar ? "حُفظت الطاقة الأسبوعية" : "Weekly capacity saved",
-        {
-          description: ar
-            ? `الطاقة: ${totalCapacity} · ملتزم: ${totalCommitted} · متاح: ${totalAvailable}`
-            : `Capacity ${totalCapacity} · committed ${totalCommitted} · available ${totalAvailable}`,
-        },
-      );
+      toast.success(ar ? "حُفظت الطاقة الأسبوعية" : "Weekly capacity saved", {
+        description: ar
+          ? `الطاقة: ${totalCapacity} · ملتزم: ${totalCommitted} · متاح: ${totalAvailable}`
+          : `Capacity ${totalCapacity} · committed ${totalCommitted} · available ${totalAvailable}`,
+      });
     } catch (e) {
       toast.error(ar ? "تعذّر الحفظ" : "Couldn't save", {
         description: e instanceof Error ? e.message : undefined,
@@ -1255,8 +1514,8 @@ function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; local
     totalAvailable > 5
       ? "var(--accent-500)"
       : totalAvailable >= 1
-      ? "var(--status-watch)"
-      : "var(--status-friction)";
+        ? "var(--status-watch)"
+        : "var(--status-friction)";
 
   // Utilization warning
   const overloaded = currentUtilization > 90;
@@ -1270,16 +1529,17 @@ function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; local
         <h3 className="text-[13px] font-semibold" style={{ color: "var(--text-hi)" }}>
           {ar ? "تقويم الطاقة الأسبوعي" : "Weekly capacity calendar"}
         </h3>
-        <span className="text-[10px] uppercase tracking-[0.10em] ml-auto" style={{ color: "var(--text-lo)" }} dir="ltr">
+        <span
+          className="text-[10px] uppercase tracking-[0.10em] ml-auto"
+          style={{ color: "var(--text-lo)" }}
+          dir="ltr"
+        >
           {format(weekStart, "d MMM")} → {format(addDays(weekStart, 6), "d MMM")}
         </span>
       </div>
 
       {/* 7-day calendar */}
-      <div
-        className="grid grid-cols-7 gap-1.5 mb-3"
-        style={{ minWidth: 0 }}
-      >
+      <div className="grid grid-cols-7 gap-1.5 mb-3" style={{ minWidth: 0 }}>
         {days.map((day, i) => {
           const isWeekend = i === 4 || i === 5; // Fri(4) / Sat(5) — UAE weekend
           const isToday = isSameDay(day, PACK_NOW);
@@ -1293,8 +1553,8 @@ function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; local
             available === 0
               ? "var(--status-friction)"
               : available === 1
-              ? "var(--status-watch)"
-              : "var(--brand-400)";
+                ? "var(--status-watch)"
+                : "var(--brand-400)";
 
           return (
             <div
@@ -1304,7 +1564,9 @@ function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; local
                 background: dimmed ? "var(--surface-3)" : "var(--surface-2)",
                 border: `1px solid ${isToday ? "var(--brand-500)" : dimmed ? "var(--border-soft)" : "var(--border)"}`,
                 opacity: dimmed ? 0.62 : 1,
-                boxShadow: isToday ? "0 0 0 1px var(--brand-500), 0 4px 12px rgba(22,154,165,0.12)" : undefined,
+                boxShadow: isToday
+                  ? "0 0 0 1px var(--brand-500), 0 4px 12px rgba(22,154,165,0.12)"
+                  : undefined,
               }}
             >
               {/* Day name + date */}
@@ -1348,17 +1610,27 @@ function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; local
 
               {/* Committed */}
               <div>
-                <span className="text-[8px] uppercase tracking-[0.06em]" style={{ color: "var(--text-lo)" }}>
+                <span
+                  className="text-[8px] uppercase tracking-[0.06em]"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {ar ? "ملتزم" : "Committed"}
                 </span>
-                <p className="text-[14px] font-semibold tabular leading-none" style={{ color: "var(--text-hi)" }} dir="ltr">
+                <p
+                  className="text-[14px] font-semibold tabular leading-none"
+                  style={{ color: "var(--text-hi)" }}
+                  dir="ltr"
+                >
                   {committed}
                 </p>
               </div>
 
               {/* Capacity (editable) */}
               <div>
-                <span className="text-[8px] uppercase tracking-[0.06em]" style={{ color: "var(--text-lo)" }}>
+                <span
+                  className="text-[8px] uppercase tracking-[0.06em]"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {ar ? "الطاقة" : "Capacity"}
                 </span>
                 <Input
@@ -1382,10 +1654,17 @@ function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; local
 
               {/* Available */}
               <div>
-                <span className="text-[8px] uppercase tracking-[0.06em]" style={{ color: "var(--text-lo)" }}>
+                <span
+                  className="text-[8px] uppercase tracking-[0.06em]"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {ar ? "متاح" : "Available"}
                 </span>
-                <p className="text-[14px] font-semibold tabular leading-none" style={{ color: availColor }} dir="ltr">
+                <p
+                  className="text-[14px] font-semibold tabular leading-none"
+                  style={{ color: availColor }}
+                  dir="ltr"
+                >
                   {available}
                 </p>
               </div>
@@ -1395,15 +1674,13 @@ function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; local
                 onClick={() => handleLeaveToggle(i)}
                 className="ast-focus inline-flex items-center justify-center h-6 px-1.5 rounded-full text-[8px] font-medium transition-colors mt-auto"
                 style={{
-                  background: onLeave
-                    ? "rgba(217,119,6,0.12)"
-                    : "var(--surface-3)",
+                  background: onLeave ? "rgba(217,119,6,0.12)" : "var(--surface-3)",
                   color: onLeave ? "var(--status-watch)" : "var(--text-lo)",
                   border: `1px solid ${onLeave ? "rgba(217,119,6,0.30)" : "var(--border)"}`,
                 }}
               >
                 <Moon className="w-2.5 h-2.5" strokeWidth={1.75} />
-                {onLeave ? (ar ? "إجازة" : "On leave") : (ar ? "إجازة؟" : "Leave?")}
+                {onLeave ? (ar ? "إجازة" : "On leave") : ar ? "إجازة؟" : "Leave?"}
               </button>
             </div>
           );
@@ -1411,32 +1688,50 @@ function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; local
       </div>
 
       {/* Weekly summary */}
-      <div
-        className="rounded-[10px] p-3 mb-3"
-        style={{ background: "var(--surface-3)" }}
-      >
+      <div className="rounded-[10px] p-3 mb-3" style={{ background: "var(--surface-3)" }}>
         <div className="grid grid-cols-3 gap-3 mb-2">
           <div>
-            <p className="text-[9px] uppercase tracking-[0.10em]" style={{ color: "var(--text-lo)" }}>
+            <p
+              className="text-[9px] uppercase tracking-[0.10em]"
+              style={{ color: "var(--text-lo)" }}
+            >
               {ar ? "إجمالي الطاقة" : "Total capacity"}
             </p>
-            <p className="text-[20px] font-semibold tabular leading-none mt-1" style={{ color: "var(--text-hi)" }} dir="ltr">
+            <p
+              className="text-[20px] font-semibold tabular leading-none mt-1"
+              style={{ color: "var(--text-hi)" }}
+              dir="ltr"
+            >
               {totalCapacity}
             </p>
           </div>
           <div>
-            <p className="text-[9px] uppercase tracking-[0.10em]" style={{ color: "var(--text-lo)" }}>
+            <p
+              className="text-[9px] uppercase tracking-[0.10em]"
+              style={{ color: "var(--text-lo)" }}
+            >
               {ar ? "إجمالي ملتزم" : "Total committed"}
             </p>
-            <p className="text-[20px] font-semibold tabular leading-none mt-1" style={{ color: "var(--text-hi)" }} dir="ltr">
+            <p
+              className="text-[20px] font-semibold tabular leading-none mt-1"
+              style={{ color: "var(--text-hi)" }}
+              dir="ltr"
+            >
               {totalCommitted}
             </p>
           </div>
           <div>
-            <p className="text-[9px] uppercase tracking-[0.10em]" style={{ color: "var(--text-lo)" }}>
+            <p
+              className="text-[9px] uppercase tracking-[0.10em]"
+              style={{ color: "var(--text-lo)" }}
+            >
               {ar ? "إجمالي متاح" : "Total available"}
             </p>
-            <p className="text-[20px] font-semibold tabular leading-none mt-1" style={{ color: headlineColor }} dir="ltr">
+            <p
+              className="text-[20px] font-semibold tabular leading-none mt-1"
+              style={{ color: headlineColor }}
+              dir="ltr"
+            >
               {totalAvailable}
             </p>
           </div>
@@ -1449,14 +1744,14 @@ function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; local
               totalAvailable > 5
                 ? "rgba(201,162,39,0.08)"
                 : totalAvailable >= 1
-                ? "rgba(217,119,6,0.08)"
-                : "rgba(220,38,38,0.08)",
+                  ? "rgba(217,119,6,0.08)"
+                  : "rgba(220,38,38,0.08)",
             border: `1px solid ${
               totalAvailable > 5
                 ? "rgba(201,162,39,0.30)"
                 : totalAvailable >= 1
-                ? "rgba(217,119,6,0.30)"
-                : "rgba(220,38,38,0.30)"
+                  ? "rgba(217,119,6,0.30)"
+                  : "rgba(220,38,38,0.30)"
             }`,
             color: headlineColor,
           }}
@@ -1468,21 +1763,25 @@ function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; local
                 ? "الأسبوع ممتلئ — لا يمكنك استقبال المزيد"
                 : "This week you're full — no more tickets"
               : ar
-              ? `هذا الأسبوع يمكنك معالجة ${totalAvailable} تذاكر إضافية`
-              : `This week you can handle ${totalAvailable} more ticket${totalAvailable === 1 ? "" : "s"}`}
+                ? `هذا الأسبوع يمكنك معالجة ${totalAvailable} تذاكر إضافية`
+                : `This week you can handle ${totalAvailable} more ticket${totalAvailable === 1 ? "" : "s"}`}
           </span>
         </div>
       </div>
 
       {/* 4-week utilization trend + warning */}
-      <div
-        className="rounded-[10px] p-3"
-        style={{ background: "var(--surface-3)" }}
-      >
+      <div className="rounded-[10px] p-3" style={{ background: "var(--surface-3)" }}>
         <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
           <div className="flex items-center gap-2">
-            <Activity className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
-            <span className="text-[10px] uppercase tracking-[0.10em] font-medium" style={{ color: "var(--text-lo)" }}>
+            <Activity
+              className="w-3.5 h-3.5"
+              strokeWidth={1.75}
+              style={{ color: "var(--brand-400)" }}
+            />
+            <span
+              className="text-[10px] uppercase tracking-[0.10em] font-medium"
+              style={{ color: "var(--text-lo)" }}
+            >
               {ar ? "اتجاه الاستخدام (4 أسابيع)" : "Utilization trend (4 weeks)"}
             </span>
           </div>
@@ -1492,19 +1791,19 @@ function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; local
               background: overloaded
                 ? "rgba(217,119,6,0.12)"
                 : hasCapacity
-                ? "rgba(22,154,165,0.12)"
-                : "var(--surface-2)",
+                  ? "rgba(22,154,165,0.12)"
+                  : "var(--surface-2)",
               color: overloaded
                 ? "var(--status-watch)"
                 : hasCapacity
-                ? "var(--brand-400)"
-                : "var(--text-mid)",
+                  ? "var(--brand-400)"
+                  : "var(--text-mid)",
               border: `1px solid ${
                 overloaded
                   ? "rgba(217,119,6,0.32)"
                   : hasCapacity
-                  ? "rgba(22,154,165,0.32)"
-                  : "var(--border)"
+                    ? "rgba(22,154,165,0.32)"
+                    : "var(--border)"
               }`,
             }}
           >
@@ -1533,7 +1832,11 @@ function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; local
             const isThis = i === utilizationTrend.length - 1;
             return (
               <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
-                <span className="text-[8px] tabular" style={{ color: isThis ? "var(--brand-400)" : "var(--text-lo)" }} dir="ltr">
+                <span
+                  className="text-[8px] tabular"
+                  style={{ color: isThis ? "var(--brand-400)" : "var(--text-lo)" }}
+                  dir="ltr"
+                >
                   {v}%
                 </span>
                 <div
@@ -1541,11 +1844,12 @@ function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; local
                   style={{
                     height: `${height}%`,
                     minHeight: 4,
-                    background: v > 90
-                      ? "linear-gradient(180deg, var(--status-watch) 0%, var(--status-friction) 100%)"
-                      : isThis
-                      ? "linear-gradient(180deg, var(--brand-400) 0%, var(--brand-500) 100%)"
-                      : "linear-gradient(180deg, var(--surface-3) 0%, var(--surface-2) 100%)",
+                    background:
+                      v > 90
+                        ? "linear-gradient(180deg, var(--status-watch) 0%, var(--status-friction) 100%)"
+                        : isThis
+                          ? "linear-gradient(180deg, var(--brand-400) 0%, var(--brand-500) 100%)"
+                          : "linear-gradient(180deg, var(--surface-3) 0%, var(--surface-2) 100%)",
                   }}
                 />
               </div>
@@ -1571,7 +1875,11 @@ function CapacityDeclaration({ items, locale }: { items: ServiceRequest[]; local
         onClick={handleSave}
         disabled={saving}
         className="ast-focus inline-flex items-center gap-2 h-10 px-4 rounded-full text-[12px] font-medium disabled:opacity-60 w-full sm:w-auto justify-center mt-3"
-        style={{ background: "var(--accent-500)", color: "var(--surface-0)", border: "1px solid var(--accent-500)" }}
+        style={{
+          background: "var(--accent-500)",
+          color: "var(--surface-0)",
+          border: "1px solid var(--accent-500)",
+        }}
       >
         {saving ? (
           <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.75} />
@@ -1608,14 +1916,20 @@ function SlaTrendChart({ locale }: { locale: "en" | "ar" }) {
   const stepX = (W - pad * 2) / (TREND_DATA.length - 1);
   const y = (v: number) => H - pad - ((v - min) / (max - min)) * (H - pad * 2);
   const x = (i: number) => pad + i * stepX;
-  const linePath = TREND_DATA.map((v, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
+  const linePath = TREND_DATA.map(
+    (v, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`,
+  ).join(" ");
   const areaPath = `${linePath} L ${x(TREND_DATA.length - 1).toFixed(1)} ${H - pad} L ${x(0).toFixed(1)} ${H - pad} Z`;
 
   return (
     <div className="ast-card-2 p-4">
       <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <Activity className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+          <Activity
+            className="w-3.5 h-3.5"
+            strokeWidth={1.75}
+            style={{ color: "var(--brand-400)" }}
+          />
           <h3 className="text-[13px] font-semibold" style={{ color: "var(--text-hi)" }}>
             {locale === "ar" ? "اتجاه نسبة الخرق (7 أيام)" : "Breach-rate trend (7 days)"}
           </h3>
@@ -1634,14 +1948,23 @@ function SlaTrendChart({ locale }: { locale: "en" | "ar" }) {
             <TrendingUp className="w-3 h-3" strokeWidth={2} />
           )}
           {locale === "ar"
-            ? improving ? "الاتجاه: يتحسن" : "الاتجاه: يسوء"
-            : improving ? "Trend: improving" : "Trend: worsening"}
+            ? improving
+              ? "الاتجاه: يتحسن"
+              : "الاتجاه: يسوء"
+            : improving
+              ? "Trend: improving"
+              : "Trend: worsening"}
         </span>
       </div>
 
       <TooltipProvider delayDuration={0}>
         <div className="relative w-full">
-          <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[64px]" role="img" aria-label="7-day breach rate trend">
+          <svg
+            viewBox={`0 0 ${W} ${H}`}
+            className="w-full h-[64px]"
+            role="img"
+            aria-label="7-day breach rate trend"
+          >
             <defs>
               <linearGradient id="sla-trend-fill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--brand-500)" stopOpacity="0.32" />
@@ -1762,17 +2085,30 @@ function OwnerPerfTable({ group, locale }: { group: OwnerGroup; locale: "en" | "
   ];
 
   const SortIcon = ({ k }: { k: SortKey }) => {
-    if (sortKey !== k) return <ArrowUpDown className="w-3 h-3 inline-block ml-1 opacity-50" strokeWidth={1.75} />;
-    return sortDir === "asc"
-      ? <ChevronUp className="w-3 h-3 inline-block ml-1" strokeWidth={2} style={{ color: "var(--brand-400)" }} />
-      : <ChevronDown className="w-3 h-3 inline-block ml-1" strokeWidth={2} style={{ color: "var(--brand-400)" }} />;
+    if (sortKey !== k)
+      return <ArrowUpDown className="w-3 h-3 inline-block ml-1 opacity-50" strokeWidth={1.75} />;
+    return sortDir === "asc" ? (
+      <ChevronUp
+        className="w-3 h-3 inline-block ml-1"
+        strokeWidth={2}
+        style={{ color: "var(--brand-400)" }}
+      />
+    ) : (
+      <ChevronDown
+        className="w-3 h-3 inline-block ml-1"
+        strokeWidth={2}
+        style={{ color: "var(--brand-400)" }}
+      />
+    );
   };
 
   if (rows.length === 0) {
     return (
       <div className="ast-card-2 p-4">
         <p className="text-[12px]" style={{ color: "var(--text-lo)" }}>
-          {locale === "ar" ? "لا يوجد مالكو خدمات في هذه المجموعة بعد." : "No service owners in this group yet."}
+          {locale === "ar"
+            ? "لا يوجد مالكو خدمات في هذه المجموعة بعد."
+            : "No service owners in this group yet."}
         </p>
       </div>
     );
@@ -1780,7 +2116,10 @@ function OwnerPerfTable({ group, locale }: { group: OwnerGroup; locale: "en" | "
 
   return (
     <div className="ast-card-2 overflow-hidden">
-      <div className="flex items-center gap-2 p-3" style={{ borderBottom: "1px solid var(--border-soft)" }}>
+      <div
+        className="flex items-center gap-2 p-3"
+        style={{ borderBottom: "1px solid var(--border-soft)" }}
+      >
         <Award className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
         <h3 className="text-[13px] font-semibold" style={{ color: "var(--text-hi)" }}>
           {locale === "ar" ? "أداء المالكين" : "Owner performance"}
@@ -1792,7 +2131,10 @@ function OwnerPerfTable({ group, locale }: { group: OwnerGroup; locale: "en" | "
       <Table>
         <TableHeader>
           <TableRow style={{ borderColor: "var(--border)" }}>
-            <TableHead className="text-[11px] uppercase tracking-[0.10em]" style={{ color: "var(--text-lo)" }}>
+            <TableHead
+              className="text-[11px] uppercase tracking-[0.10em]"
+              style={{ color: "var(--text-lo)" }}
+            >
               {locale === "ar" ? "المالك" : "Owner"}
             </TableHead>
             {columns.map((c) => (
@@ -1832,25 +2174,49 @@ function OwnerPerfTable({ group, locale }: { group: OwnerGroup; locale: "en" | "
                         {locale === "ar" ? "الأفضل" : "Top performer"}
                       </span>
                     )}
-                    <span className="text-[11px] block w-full" style={{ color: "var(--text-lo)" }}>{r.role}</span>
+                    <span className="text-[11px] block w-full" style={{ color: "var(--text-lo)" }}>
+                      {r.role}
+                    </span>
                   </div>
                 </TableCell>
-                <TableCell className="text-[13px] tabular text-right" style={{ color: "var(--text-hi)" }} dir="ltr">
+                <TableCell
+                  className="text-[13px] tabular text-right"
+                  style={{ color: "var(--text-hi)" }}
+                  dir="ltr"
+                >
                   {r.ticketsHandled}
                 </TableCell>
-                <TableCell className="text-[13px] tabular text-right" style={{ color: "var(--text-hi)" }} dir="ltr">
+                <TableCell
+                  className="text-[13px] tabular text-right"
+                  style={{ color: "var(--text-hi)" }}
+                  dir="ltr"
+                >
                   {r.medianResolveHours.toFixed(0)}h
                 </TableCell>
                 <TableCell
                   className="text-[13px] tabular text-right"
-                  style={{ color: r.breachRate >= 15 ? "var(--status-friction)" : r.breachRate >= 8 ? "var(--status-watch)" : "var(--status-steady)" }}
+                  style={{
+                    color:
+                      r.breachRate >= 15
+                        ? "var(--status-friction)"
+                        : r.breachRate >= 8
+                          ? "var(--status-watch)"
+                          : "var(--status-steady)",
+                  }}
                   dir="ltr"
                 >
                   {r.breachRate.toFixed(0)}%
                 </TableCell>
                 <TableCell
                   className="text-[13px] tabular text-right"
-                  style={{ color: r.zeroClarificationRate >= 80 ? "var(--status-steady)" : r.zeroClarificationRate >= 60 ? "var(--accent-500)" : "var(--status-watch)" }}
+                  style={{
+                    color:
+                      r.zeroClarificationRate >= 80
+                        ? "var(--status-steady)"
+                        : r.zeroClarificationRate >= 60
+                          ? "var(--accent-500)"
+                          : "var(--status-watch)",
+                  }}
                   dir="ltr"
                 >
                   {r.zeroClarificationRate.toFixed(0)}%
@@ -1923,17 +2289,26 @@ function SlaDashboard({
               {locale === "ar" ? "لوحة SLA" : "SLA dashboard"}
             </h2>
             <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>
-              {locale === "ar" ? "مقاييس الزمن الحقيقي لمجموعة المالكين هذه" : "Live metrics for this owner group"}
+              {locale === "ar"
+                ? "مقاييس الزمن الحقيقي لمجموعة المالكين هذه"
+                : "Live metrics for this owner group"}
             </p>
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {stats.map((s) => (
             <div key={s.label} className="ast-card-2 p-4">
-              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+              <p
+                className="text-[11px] uppercase tracking-[0.12em]"
+                style={{ color: "var(--text-lo)" }}
+              >
                 {s.label}
               </p>
-              <p className="text-[26px] font-semibold tabular mt-1.5" style={{ color: s.color }} dir="ltr">
+              <p
+                className="text-[26px] font-semibold tabular mt-1.5"
+                style={{ color: s.color }}
+                dir="ltr"
+              >
                 {s.value}
               </p>
               <p className="text-[11px] tabular mt-1" style={{ color: "var(--text-lo)" }}>
@@ -1989,7 +2364,11 @@ function EmptyState({ group, locale }: { group: OwnerGroup; locale: "en" | "ar" 
             <span
               key={s.type}
               className="ast-chip text-[12px]"
-              style={{ color: "var(--text-mid)", background: "var(--surface-2)", borderColor: "var(--border)" }}
+              style={{
+                color: "var(--text-mid)",
+                background: "var(--surface-2)",
+                borderColor: "var(--border)",
+              }}
             >
               {locale === "ar" ? s.labelAr : s.label}
             </span>
@@ -2011,32 +2390,52 @@ type NotifChannel = "in_app" | "email" | "push";
 type NotifPrefs = Record<string, Record<NotifChannel, boolean>>;
 
 const NOTIF_CATEGORIES: { id: string; label: string; labelAr: string; Icon: typeof BellRing }[] = [
-  { id: "new_ticket", label: "New ticket assigned", labelAr: "تذكرة جديدة مسندة إليك", Icon: Inbox },
-  { id: "returned", label: "Ticket returned to you", labelAr: "تذكرة أُعيدت إليك", Icon: RotateCcw },
+  {
+    id: "new_ticket",
+    label: "New ticket assigned",
+    labelAr: "تذكرة جديدة مسندة إليك",
+    Icon: Inbox,
+  },
+  {
+    id: "returned",
+    label: "Ticket returned to you",
+    labelAr: "تذكرة أُعيدت إليك",
+    Icon: RotateCcw,
+  },
   { id: "sla_breach", label: "SLA breach", labelAr: "اختراق SLA", Icon: AlertTriangle },
   { id: "daily_digest", label: "Daily digest", labelAr: "ملخص يومي", Icon: Calendar },
   { id: "weekly_digest", label: "Weekly digest", labelAr: "ملخص أسبوعي", Icon: FileText },
-  { id: "escalation", label: "Escalation about your queue", labelAr: "تصعيد بشأن قائمتك", Icon: TrendingUp },
+  {
+    id: "escalation",
+    label: "Escalation about your queue",
+    labelAr: "تصعيد بشأن قائمتك",
+    Icon: TrendingUp,
+  },
 ];
 
-const NOTIF_CHANNELS: { id: NotifChannel; label: string; labelAr: string; Icon: typeof BellRing }[] = [
+const NOTIF_CHANNELS: {
+  id: NotifChannel;
+  label: string;
+  labelAr: string;
+  Icon: typeof BellRing;
+}[] = [
   { id: "in_app", label: "In-app", labelAr: "داخل التطبيق", Icon: AppWindow },
   { id: "email", label: "Email", labelAr: "البريد", Icon: Mail },
   { id: "push", label: "Push", labelAr: "إشعار فوري", Icon: Smartphone },
 ];
 
 const DEFAULT_NOTIF_PREFS: NotifPrefs = {
-  new_ticket:     { in_app: true,  email: true,  push: false },
-  returned:       { in_app: true,  email: false, push: false },
-  sla_breach:     { in_app: true,  email: true,  push: true  },
-  daily_digest:   { in_app: true,  email: false, push: false },
-  weekly_digest:  { in_app: false, email: true,  push: false },
-  escalation:     { in_app: true,  email: true,  push: true  },
+  new_ticket: { in_app: true, email: true, push: false },
+  returned: { in_app: true, email: false, push: false },
+  sla_breach: { in_app: true, email: true, push: true },
+  daily_digest: { in_app: true, email: false, push: false },
+  weekly_digest: { in_app: false, email: true, push: false },
+  escalation: { in_app: true, email: true, push: true },
 };
 
 function NotificationPreferencesPanel({ locale }: { locale: "en" | "ar" }) {
-  const [prefs, setPrefs] = useState<NotifPrefs>(() =>
-    JSON.parse(JSON.stringify(DEFAULT_NOTIF_PREFS)) as NotifPrefs
+  const [prefs, setPrefs] = useState<NotifPrefs>(
+    () => JSON.parse(JSON.stringify(DEFAULT_NOTIF_PREFS)) as NotifPrefs,
   );
   const [quietEnabled, setQuietEnabled] = useState(true);
   const [quietFrom, setQuietFrom] = useState("22:00");
@@ -2059,10 +2458,11 @@ function NotificationPreferencesPanel({ locale }: { locale: "en" | "ar" }) {
       toast.success(
         locale === "ar" ? "حُفظت تفضيلات الإشعارات" : "Notification preferences saved",
         {
-          description: locale === "ar"
-            ? "سنحترم تفضيلاتك — فقط عند الحاجة إليك."
-            : "We'll respect your channels — only when something needs you.",
-        }
+          description:
+            locale === "ar"
+              ? "سنحترم تفضيلاتك — فقط عند الحاجة إليك."
+              : "We'll respect your channels — only when something needs you.",
+        },
       );
     }, 480);
   };
@@ -2071,26 +2471,18 @@ function NotificationPreferencesPanel({ locale }: { locale: "en" | "ar" }) {
     const next = !muted;
     setMuted(next);
     if (next) {
-      toast.warning(
-        locale === "ar"
-          ? "كُتمت كل الإشعارات"
-          : "All notifications muted",
-        {
-          description: locale === "ar"
+      toast.warning(locale === "ar" ? "كُتمت كل الإشعارات" : "All notifications muted", {
+        description:
+          locale === "ar"
             ? "لن ترى شيئاً حتى تُلغي الكتم."
             : "You'll see nothing until you unmute.",
-          duration: 5000,
-        }
-      );
+        duration: 5000,
+      });
     } else {
-      toast.success(
-        locale === "ar" ? "أُلغي كتم الإشعارات" : "Notifications unmuted",
-        {
-          description: locale === "ar"
-            ? "عادت قنواتك المفضّلة."
-            : "Your preferred channels are back.",
-        }
-      );
+      toast.success(locale === "ar" ? "أُلغي كتم الإشعارات" : "Notifications unmuted", {
+        description:
+          locale === "ar" ? "عادت قنواتك المفضّلة." : "Your preferred channels are back.",
+      });
     }
   };
 
@@ -2113,7 +2505,11 @@ function NotificationPreferencesPanel({ locale }: { locale: "en" | "ar" }) {
             <BellRing className="w-4.5 h-4.5" strokeWidth={1.75} />
           </div>
           <div>
-            <h2 id="notif-prefs-title" className="text-[16px] font-semibold" style={{ color: "var(--text-hi)" }}>
+            <h2
+              id="notif-prefs-title"
+              className="text-[16px] font-semibold"
+              style={{ color: "var(--text-hi)" }}
+            >
               {locale === "ar" ? "كيف تريد أن نُنبّهك" : "How you want to be notified"}
             </h2>
             <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>
@@ -2135,8 +2531,12 @@ function NotificationPreferencesPanel({ locale }: { locale: "en" | "ar" }) {
         >
           <BellOff className="w-3.5 h-3.5" strokeWidth={1.75} />
           {muted
-            ? (locale === "ar" ? "ارفع الكتم" : "Unmute all")
-            : (locale === "ar" ? "اكتم الكل" : "Mute all")}
+            ? locale === "ar"
+              ? "ارفع الكتم"
+              : "Unmute all"
+            : locale === "ar"
+              ? "اكتم الكل"
+              : "Mute all"}
         </button>
       </div>
 
@@ -2151,7 +2551,11 @@ function NotificationPreferencesPanel({ locale }: { locale: "en" | "ar" }) {
             style={{ borderColor: "rgba(220,38,38,0.30)", background: "rgba(220,38,38,0.04)" }}
             role="status"
           >
-            <Volume2 className="w-4 h-4 shrink-0 mt-0.5" strokeWidth={1.75} style={{ color: "var(--status-friction)" }} />
+            <Volume2
+              className="w-4 h-4 shrink-0 mt-0.5"
+              strokeWidth={1.75}
+              style={{ color: "var(--status-friction)" }}
+            />
             <p className="text-[12px]" style={{ color: "var(--text-hi)" }}>
               {locale === "ar"
                 ? "كتمت كل القنوات. لن تصلك إشعارات دفع أو بريد أو إشعار داخل التطبيق حتى ترفع الكتم."
@@ -2163,7 +2567,11 @@ function NotificationPreferencesPanel({ locale }: { locale: "en" | "ar" }) {
 
       {/* Matrix table */}
       <div className="mt-4 -mx-2 overflow-x-auto">
-        <table className="w-full text-[12px]" role="grid" aria-label={locale === "ar" ? "مصفوفة الإشعارات" : "Notification matrix"}>
+        <table
+          className="w-full text-[12px]"
+          role="grid"
+          aria-label={locale === "ar" ? "مصفوفة الإشعارات" : "Notification matrix"}
+        >
           <thead>
             <tr style={{ borderBottom: "1px solid var(--border)" }}>
               <th
@@ -2201,7 +2609,11 @@ function NotificationPreferencesPanel({ locale }: { locale: "en" | "ar" }) {
                 >
                   <td className="p-2">
                     <div className="flex items-center gap-2">
-                      <Icon className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+                      <Icon
+                        className="w-3.5 h-3.5 shrink-0"
+                        strokeWidth={1.75}
+                        style={{ color: "var(--brand-400)" }}
+                      />
                       <span className="text-[13px]" style={{ color: "var(--text-hi)" }}>
                         {locale === "ar" ? cat.labelAr : cat.label}
                       </span>
@@ -2211,7 +2623,8 @@ function NotificationPreferencesPanel({ locale }: { locale: "en" | "ar" }) {
                     <td key={c.id} className="p-2 text-center">
                       <label className="inline-flex items-center justify-center w-11 h-11 cursor-pointer ast-focus rounded">
                         <span className="sr-only">
-                          {locale === "ar" ? cat.labelAr : cat.label} · {locale === "ar" ? c.labelAr : c.label}
+                          {locale === "ar" ? cat.labelAr : cat.label} ·{" "}
+                          {locale === "ar" ? c.labelAr : c.label}
                         </span>
                         <Checkbox
                           checked={muted ? false : rowPrefs[c.id]}
@@ -2254,7 +2667,11 @@ function NotificationPreferencesPanel({ locale }: { locale: "en" | "ar" }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Label htmlFor="quiet-switch" className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+            <Label
+              htmlFor="quiet-switch"
+              className="text-[12px]"
+              style={{ color: "var(--text-mid)" }}
+            >
               {locale === "ar" ? "مُفعّل" : "Enabled"}
             </Label>
             <Switch
@@ -2266,9 +2683,15 @@ function NotificationPreferencesPanel({ locale }: { locale: "en" | "ar" }) {
           </div>
         </div>
 
-        <div className={`grid grid-cols-1 sm:grid-cols-3 gap-3 ${quietEnabled ? "" : "opacity-50 pointer-events-none"}`}>
+        <div
+          className={`grid grid-cols-1 sm:grid-cols-3 gap-3 ${quietEnabled ? "" : "opacity-50 pointer-events-none"}`}
+        >
           <div>
-            <Label htmlFor="quiet-from" className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+            <Label
+              htmlFor="quiet-from"
+              className="text-[11px] uppercase tracking-[0.12em]"
+              style={{ color: "var(--text-lo)" }}
+            >
               {locale === "ar" ? "من" : "From"}
             </Label>
             <Input
@@ -2286,7 +2709,11 @@ function NotificationPreferencesPanel({ locale }: { locale: "en" | "ar" }) {
             />
           </div>
           <div>
-            <Label htmlFor="quiet-to" className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+            <Label
+              htmlFor="quiet-to"
+              className="text-[11px] uppercase tracking-[0.12em]"
+              style={{ color: "var(--text-lo)" }}
+            >
               {locale === "ar" ? "إلى" : "To"}
             </Label>
             <Input
@@ -2304,7 +2731,11 @@ function NotificationPreferencesPanel({ locale }: { locale: "en" | "ar" }) {
             />
           </div>
           <div>
-            <Label htmlFor="quiet-tz" className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+            <Label
+              htmlFor="quiet-tz"
+              className="text-[11px] uppercase tracking-[0.12em]"
+              style={{ color: "var(--text-lo)" }}
+            >
               {locale === "ar" ? "المنطقة الزمنية" : "Timezone"}
             </Label>
             <Input
@@ -2377,19 +2808,18 @@ export function ServiceOwnerScreen() {
   // PRD §11-217 — pending journey-map fix proposals + modal trigger state.
   const [proposals, setProposals] = useState<MapFixProposal[]>([]);
   const [mapFixOpen, setMapFixOpen] = useState(false);
-  const [mapFixRequest, setMapFixRequest] = useState<{ ref: string; type: RequestType } | null>(null);
+  const [mapFixRequest, setMapFixRequest] = useState<{ ref: string; type: RequestType } | null>(
+    null,
+  );
 
   const handleProposeMapFix = useCallback((request: ServiceRequest) => {
     setMapFixRequest({ ref: request.ref, type: request.type });
     setMapFixOpen(true);
   }, []);
 
-  const handleSubmitProposal = useCallback(
-    (proposal: MapFixProposal) => {
-      setProposals((prev) => [proposal, ...prev]);
-    },
-    [],
-  );
+  const handleSubmitProposal = useCallback((proposal: MapFixProposal) => {
+    setProposals((prev) => [proposal, ...prev]);
+  }, []);
 
   const fetchQueue = useCallback(async () => {
     setLoading(true);
@@ -2397,7 +2827,8 @@ export function ServiceOwnerScreen() {
     try {
       const res = await fetch(`/api/v1/requests`, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json: ApiEnvelope<{ items: ServiceRequest[]; nextCursor: string | null }> = await res.json();
+      const json: ApiEnvelope<{ items: ServiceRequest[]; nextCursor: string | null }> =
+        await res.json();
       if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
       // Merge with any locally-mutated seeds (so transitions persist in-session)
       // by combining server items with SEED_REQUESTS that may have been mutated.
@@ -2421,10 +2852,15 @@ export function ServiceOwnerScreen() {
   // Zero-clarification rate = items with returnCount === 0 / total items
   const zeroClarificationCount = filtered.filter((r) => r.returnCount === 0).length;
   const totalFiltered = filtered.length;
-  const zeroClarificationRate = totalFiltered > 0 ? (zeroClarificationCount / totalFiltered) * 100 : 100;
+  const zeroClarificationRate =
+    totalFiltered > 0 ? (zeroClarificationCount / totalFiltered) * 100 : 100;
 
   const handleAction = useCallback(
-    async (id: string, to: string, opts?: { note?: string; question?: string; detail?: string }) => {
+    async (
+      id: string,
+      to: string,
+      opts?: { note?: string; question?: string; detail?: string },
+    ) => {
       try {
         // PRD §11-212 — when returning with "needs more info", persist the
         // structured question on the request via the transition endpoint's
@@ -2483,19 +2919,21 @@ export function ServiceOwnerScreen() {
 
         if (to === "returned") {
           // Also bump the return count locally
-          setItems((prev) => prev.map((r) => (r.id === id ? { ...r, returnCount: r.returnCount + 1 } : r)));
+          setItems((prev) =>
+            prev.map((r) => (r.id === id ? { ...r, returnCount: r.returnCount + 1 } : r)),
+          );
           toast.success(
             locale === "ar"
               ? "تم إشعار الموظف: نحتاج تفصيلاً إضافياً — تحقق من تبويب الطلبات"
               : "Employee notified: We need one more detail — check your Requests tab",
-            { description: opts?.question }
+            { description: opts?.question },
           );
         } else if (to === "resolved") {
           toast.success(
             locale === "ar"
               ? "تم إشعار الموظف: تم حل طلبك — إليك ما تغيّر"
               : "Employee notified: Your request is resolved — here's what changed",
-            { description: opts?.note }
+            { description: opts?.note },
           );
         } else if (to === "acknowledged") {
           toast.success(locale === "ar" ? "تم الاستلام" : "Acknowledged", { description: id });
@@ -2508,7 +2946,7 @@ export function ServiceOwnerScreen() {
         });
       }
     },
-    [items, locale]
+    [items, locale],
   );
 
   return (
@@ -2517,11 +2955,17 @@ export function ServiceOwnerScreen() {
       <header className="mb-6">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--brand-400)" }}>
+            <div
+              className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
+              style={{ color: "var(--brand-400)" }}
+            >
               <Inbox className="w-3.5 h-3.5" strokeWidth={1.75} />
               <span>{locale === "ar" ? "وحدة مالك الخدمة" : "Service owner console"}</span>
             </div>
-            <h1 className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight" style={{ color: "var(--text-hi)" }}>
+            <h1
+              className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight"
+              style={{ color: "var(--text-hi)" }}
+            >
               {locale === "ar" ? "قائمة الانتظار" : "Your queue"}
             </h1>
             <p className="mt-1 text-[13px]" style={{ color: "var(--text-mid)" }}>
@@ -2535,24 +2979,30 @@ export function ServiceOwnerScreen() {
           {proposals.length > 0 && (
             <button
               type="button"
-              onClick={() => toast.info(
-                locale === "ar"
-                  ? `${proposals.length} اقتراحات إصلاح خريطة بانتظار المراجعة`
-                  : `${proposals.length} map-fix proposal${proposals.length === 1 ? "" : "s"} awaiting review`,
-                {
-                  description: proposals
-                    .slice(0, 3)
-                    .map((p) => `${p.requestRef} · ${p.stepKey}`)
-                    .join("\n"),
-                },
-              )}
+              onClick={() =>
+                toast.info(
+                  locale === "ar"
+                    ? `${proposals.length} اقتراحات إصلاح خريطة بانتظار المراجعة`
+                    : `${proposals.length} map-fix proposal${proposals.length === 1 ? "" : "s"} awaiting review`,
+                  {
+                    description: proposals
+                      .slice(0, 3)
+                      .map((p) => `${p.requestRef} · ${p.stepKey}`)
+                      .join("\n"),
+                  },
+                )
+              }
               className="ast-focus inline-flex items-center gap-2 h-9 px-3 rounded-full text-[12px] font-medium whitespace-nowrap"
               style={{
                 background: "rgba(201,162,39,0.08)",
                 border: "1px solid rgba(201,162,39,0.32)",
                 color: "var(--accent-500)",
               }}
-              aria-label={locale === "ar" ? `${proposals.length} اقتراحات بانتظار المراجعة` : `${proposals.length} proposals awaiting review`}
+              aria-label={
+                locale === "ar"
+                  ? `${proposals.length} اقتراحات بانتظار المراجعة`
+                  : `${proposals.length} proposals awaiting review`
+              }
             >
               <MapPin className="w-3.5 h-3.5" strokeWidth={1.75} />
               <span>{locale === "ar" ? "اقتراحات قيد الانتظار" : "Pending proposals"}</span>
@@ -2575,7 +3025,10 @@ export function ServiceOwnerScreen() {
       <div className="ast-card p-4 sm:p-5 mb-6">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] uppercase tracking-[0.14em] mr-1" style={{ color: "var(--text-lo)" }}>
+            <span
+              className="text-[11px] uppercase tracking-[0.14em] mr-1"
+              style={{ color: "var(--text-lo)" }}
+            >
               {locale === "ar" ? "المجموعة" : "Group"}
             </span>
             <div
@@ -2609,12 +3062,19 @@ export function ServiceOwnerScreen() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] uppercase tracking-[0.14em]" style={{ color: "var(--text-lo)" }}>
+            <span
+              className="text-[11px] uppercase tracking-[0.14em]"
+              style={{ color: "var(--text-lo)" }}
+            >
               {locale === "ar" ? "في القائمة" : "In queue"}
             </span>
             <span
               className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[12px] font-semibold tabular"
-              style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+              style={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+                color: "var(--text-hi)",
+              }}
             >
               {totalFiltered}
             </span>
@@ -2630,7 +3090,8 @@ export function ServiceOwnerScreen() {
             <div
               className="flex items-center justify-center w-10 h-10 rounded-full shrink-0"
               style={{
-                background: zeroClarificationRate === 100 ? "rgba(14,159,110,0.10)" : "rgba(201,162,39,0.08)",
+                background:
+                  zeroClarificationRate === 100 ? "rgba(14,159,110,0.10)" : "rgba(201,162,39,0.08)",
                 color: zeroClarificationRate === 100 ? "var(--status-steady)" : "var(--accent-500)",
               }}
             >
@@ -2642,7 +3103,10 @@ export function ServiceOwnerScreen() {
                 <span style={{ color: "var(--text-mid)" }}> / </span>
                 <span className="tabular">{totalFiltered}</span>
                 <span style={{ color: "var(--text-mid)" }}>
-                  {" "}{locale === "ar" ? "تذكرة احتاجت جولة توضيح" : "tickets needed a clarification round-trip"}
+                  {" "}
+                  {locale === "ar"
+                    ? "تذكرة احتاجت جولة توضيح"
+                    : "tickets needed a clarification round-trip"}
                 </span>
               </p>
               <p className="text-[11px] mt-0.5" style={{ color: "var(--text-lo)" }}>
@@ -2653,12 +3117,17 @@ export function ServiceOwnerScreen() {
             </div>
           </div>
           <div className="text-right">
-            <p className="text-[10px] uppercase tracking-[0.14em]" style={{ color: "var(--text-lo)" }}>
+            <p
+              className="text-[10px] uppercase tracking-[0.14em]"
+              style={{ color: "var(--text-lo)" }}
+            >
               {locale === "ar" ? "نسبة الصفر-توضيح" : "Zero-clarification rate"}
             </p>
             <p
               className="text-[24px] font-semibold tabular"
-              style={{ color: zeroClarificationRate === 100 ? "var(--status-steady)" : "var(--accent-500)" }}
+              style={{
+                color: zeroClarificationRate === 100 ? "var(--status-steady)" : "var(--accent-500)",
+              }}
               dir="ltr"
             >
               {zeroClarificationRate.toFixed(0)}%

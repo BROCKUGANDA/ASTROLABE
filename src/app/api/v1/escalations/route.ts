@@ -85,14 +85,9 @@ export async function POST(req: NextRequest) {
     return error("E_VALIDATION", "`decisionRequested` is required", 422);
   }
   if (!namedOwnerId) {
-    return error(
-      "E_UNPROCESSABLE",
-      "Named owner required for escalation",
-      422,
-      {
-        hint: "Escalations must be addressed to a named human — pass `namedOwnerId`.",
-      }
-    );
+    return error("E_UNPROCESSABLE", "Named owner required for escalation", 422, {
+      hint: "Escalations must be addressed to a named human — pass `namedOwnerId`.",
+    });
   }
 
   const employee = employees.find((e) => e.id === employeeId);
@@ -103,23 +98,13 @@ export async function POST(req: NextRequest) {
   // Verify named owner exists (HRBP, manager, or functional owner).
   const namedOwner = getOwner(namedOwnerId);
   if (!namedOwner) {
-    return error(
-      "E_NOT_FOUND",
-      `Named owner ${namedOwnerId} not found`,
-      404,
-      {
-        hint: "Use an id from owners/managers/hrbps (e.g. HRBP-1, MGR-1, O-HR-1).",
-      }
-    );
+    return error("E_NOT_FOUND", `Named owner ${namedOwnerId} not found`, 404, {
+      hint: "Use an id from owners/managers/hrbps (e.g. HRBP-1, MGR-1, O-HR-1).",
+    });
   }
 
   const assessment = assess(employee);
-  const packet = buildEscalationPacket(
-    employee,
-    assessment,
-    decisionRequested,
-    sharePulseSummary
-  );
+  const packet = buildEscalationPacket(employee, assessment, decisionRequested, sharePulseSummary);
 
   // Override the named owner with the caller's choice (the builder defaults to HRBP).
   const packetWithNamedOwner = {

@@ -40,13 +40,7 @@ import type { Locale } from "date-fns";
 /* ---------- Types (mirror the API envelope) ---------- */
 
 type NotificationType =
-  | "step_due"
-  | "step_late"
-  | "request_update"
-  | "escalation"
-  | "pulse_prompt"
-  | "digest"
-  | "system";
+  "step_due" | "step_late" | "request_update" | "escalation" | "pulse_prompt" | "digest" | "system";
 
 type NotificationPriority = "urgent" | "normal" | "low";
 
@@ -139,16 +133,8 @@ function dateBucket(iso: string): "today" | "yesterday" | "earlier" {
   const now = PACK_NOW;
   const dayMs = 24 * 3600 * 1000;
   // Compare calendar days in UTC (synthetic data is UTC).
-  const startOfToday = Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate()
-  );
-  const startOfThat = Date.UTC(
-    d.getUTCFullYear(),
-    d.getUTCMonth(),
-    d.getUTCDate()
-  );
+  const startOfToday = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const startOfThat = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
   const diffDays = Math.round((startOfToday - startOfThat) / dayMs);
   if (diffDays <= 0) return "today";
   if (diffDays === 1) return "yesterday";
@@ -181,10 +167,14 @@ export function NotificationsBell() {
     try {
       const res = await fetch(
         `/api/v1/notifications?employeeId=${encodeURIComponent(employeeId)}`,
-        { cache: "no-store" }
+        { cache: "no-store" },
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = (await res.json()) as { ok: boolean; data: NotificationsData | null; error?: { message?: string } | null };
+      const json = (await res.json()) as {
+        ok: boolean;
+        data: NotificationsData | null;
+        error?: { message?: string } | null;
+      };
       if (!json.ok || !json.data) {
         throw new Error(json.error?.message ?? "Failed to load notifications");
       }
@@ -208,7 +198,7 @@ export function NotificationsBell() {
   const items = data?.items ?? [];
   const unreadCount = useMemo(
     () => items.filter((n) => !n.readAt && !n.archivedAt).length,
-    [items]
+    [items],
   );
 
   const filtered = useMemo(() => {
@@ -258,7 +248,7 @@ export function NotificationsBell() {
         setPendingAction(null);
       }
     },
-    [fetchNotifications, isAr]
+    [fetchNotifications, isAr],
   );
 
   const markAllRead = useCallback(async () => {
@@ -272,13 +262,11 @@ export function NotificationsBell() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: n.id, action: "read" }),
-          })
-        )
+          }),
+        ),
       );
       await fetchNotifications();
-      toast.success(
-        isAr ? `تمّ تعليم ${unread.length} كمقروء` : `Marked ${unread.length} as read`
-      );
+      toast.success(isAr ? `تمّ تعليم ${unread.length} كمقروء` : `Marked ${unread.length} as read`);
     } catch {
       toast.error(isAr ? "تعذّر التحديث" : "Couldn't mark all read");
     } finally {
@@ -302,18 +290,16 @@ export function NotificationsBell() {
           toast.warning(
             isAr
               ? "تمّ إيقاف كل الإشعارات الصادرة فوراً"
-              : "All outbound notifications stopped — instantly"
+              : "All outbound notifications stopped — instantly",
           );
         } else {
-          toast.success(
-            isAr ? "استؤنفت الإشعارات" : "Notifications resumed"
-          );
+          toast.success(isAr ? "استؤنفت الإشعارات" : "Notifications resumed");
         }
       } catch {
         toast.error(isAr ? "تعذّر تبديل المفتاح" : "Couldn't toggle the switch");
       }
     },
-    [isAr]
+    [isAr],
   );
 
   const handleActionClick = useCallback(
@@ -325,7 +311,7 @@ export function NotificationsBell() {
       if (!n.readAt) void postAction(n.id, "read");
       setOpen(false);
     },
-    [postAction, setRole, setView]
+    [postAction, setRole, setView],
   );
 
   const killSwitchOn = data?.killSwitch ?? false;
@@ -423,10 +409,7 @@ export function NotificationsBell() {
                     <Bell className="w-3.5 h-3.5" strokeWidth={1.75} />
                   </div>
                   <div className="flex flex-col leading-none">
-                    <span
-                      className="text-[14px] font-semibold"
-                      style={{ color: "var(--text-hi)" }}
-                    >
+                    <span className="text-[14px] font-semibold" style={{ color: "var(--text-hi)" }}>
                       {isAr ? "الإشعارات" : "Notifications"}
                     </span>
                     <span
@@ -438,8 +421,8 @@ export function NotificationsBell() {
                           ? `${unreadCount} غير مقروء`
                           : `${unreadCount} unread`
                         : isAr
-                        ? "كل شيء مقروء"
-                        : "All caught up"}
+                          ? "كل شيء مقروء"
+                          : "All caught up"}
                     </span>
                   </div>
                 </div>
@@ -458,9 +441,7 @@ export function NotificationsBell() {
                     }}
                   >
                     <CheckCheck className="w-3 h-3" strokeWidth={1.75} />
-                    <span className="hidden sm:inline">
-                      {isAr ? "قراءة الكل" : "Mark all"}
-                    </span>
+                    <span className="hidden sm:inline">{isAr ? "قراءة الكل" : "Mark all"}</span>
                   </button>
                   <button
                     onClick={() => setOpen(false)}
@@ -495,10 +476,10 @@ export function NotificationsBell() {
                     t.id === "all"
                       ? items.filter((n) => !n.archivedAt).length
                       : t.id === "unread"
-                      ? unreadCount
-                      : t.id === "urgent"
-                      ? items.filter((n) => n.priority === "urgent" && !n.archivedAt).length
-                      : items.filter((n) => !!n.archivedAt).length;
+                        ? unreadCount
+                        : t.id === "urgent"
+                          ? items.filter((n) => n.priority === "urgent" && !n.archivedAt).length
+                          : items.filter((n) => !!n.archivedAt).length;
                   return (
                     <button
                       key={t.id}
@@ -513,10 +494,7 @@ export function NotificationsBell() {
                     >
                       {isAr ? t.labelAr : t.label}
                       {count > 0 && (
-                        <span
-                          className="tabular text-[10px] opacity-80"
-                          aria-hidden="true"
-                        >
+                        <span className="tabular text-[10px] opacity-80" aria-hidden="true">
                           {count}
                         </span>
                       )}
@@ -544,10 +522,7 @@ export function NotificationsBell() {
                       style={{ color: "var(--status-friction)" }}
                       strokeWidth={1.75}
                     />
-                    <p
-                      className="text-[12px] mb-3"
-                      style={{ color: "var(--text-mid)" }}
-                    >
+                    <p className="text-[12px] mb-3" style={{ color: "var(--text-mid)" }}>
                       {error}
                     </p>
                     <button
@@ -575,12 +550,12 @@ export function NotificationsBell() {
                             ? "اليوم"
                             : "Today"
                           : bucket === "yesterday"
-                          ? isAr
-                            ? "أمس"
-                            : "Yesterday"
-                          : isAr
-                          ? "أقدم"
-                          : "Earlier";
+                            ? isAr
+                              ? "أمس"
+                              : "Yesterday"
+                            : isAr
+                              ? "أقدم"
+                              : "Earlier";
                       return (
                         <section key={bucket} className="mb-1">
                           <div
@@ -634,12 +609,8 @@ export function NotificationsBell() {
                     <span className="tabular" style={{ color: "var(--text-hi)" }}>
                       {data?.quietHours.start}–{data?.quietHours.end}
                     </span>{" "}
-                    <span style={{ color: "var(--text-lo)" }}>
-                      ({data?.quietHours.tz})
-                    </span>
-                    {isAr
-                      ? " — لن نزعجك خلالها."
-                      : " — we won't disturb you then."}
+                    <span style={{ color: "var(--text-lo)" }}>({data?.quietHours.tz})</span>
+                    {isAr ? " — لن نزعجك خلالها." : " — we won't disturb you then."}
                   </span>
                 </div>
 
@@ -647,23 +618,15 @@ export function NotificationsBell() {
                 <div
                   className="flex items-center gap-3 p-2.5 rounded-lg"
                   style={{
-                    background: killSwitchOn
-                      ? "rgba(220,38,38,0.08)"
-                      : "var(--surface-3)",
-                    border: `1px solid ${
-                      killSwitchOn ? "rgba(220,38,38,0.30)" : "var(--border)"
-                    }`,
+                    background: killSwitchOn ? "rgba(220,38,38,0.08)" : "var(--surface-3)",
+                    border: `1px solid ${killSwitchOn ? "rgba(220,38,38,0.30)" : "var(--border)"}`,
                   }}
                 >
                   <div
                     className="flex items-center justify-center w-8 h-8 rounded-full shrink-0"
                     style={{
-                      background: killSwitchOn
-                        ? "rgba(220,38,38,0.14)"
-                        : "var(--surface-2)",
-                      color: killSwitchOn
-                        ? "var(--status-friction)"
-                        : "var(--text-mid)",
+                      background: killSwitchOn ? "rgba(220,38,38,0.14)" : "var(--surface-2)",
+                      color: killSwitchOn ? "var(--status-friction)" : "var(--text-mid)",
                     }}
                   >
                     {killSwitchOn ? (
@@ -676,9 +639,7 @@ export function NotificationsBell() {
                     <div
                       className="text-[12px] font-semibold leading-tight"
                       style={{
-                        color: killSwitchOn
-                          ? "var(--status-friction)"
-                          : "var(--text-hi)",
+                        color: killSwitchOn ? "var(--status-friction)" : "var(--text-hi)",
                       }}
                     >
                       {isAr ? "إيقاف كل الإشعارات" : "Stop all notifications"}
@@ -692,16 +653,14 @@ export function NotificationsBell() {
                           ? "كل الإشعارات الصادرة متوقفة الآن."
                           : "All outbound notifications are off right now."
                         : isAr
-                        ? "مفتاح إيقاف فوري لكل الرسائل."
-                        : "Instant kill switch for every outbound message."}
+                          ? "مفتاح إيقاف فوري لكل الرسائل."
+                          : "Instant kill switch for every outbound message."}
                     </div>
                   </div>
                   <Switch
                     checked={killSwitchOn}
                     onCheckedChange={toggleKillSwitch}
-                    aria-label={
-                      isAr ? "مفتاح إيقاف الإشعارات" : "Notification kill switch"
-                    }
+                    aria-label={isAr ? "مفتاح إيقاف الإشعارات" : "Notification kill switch"}
                     className="data-[state=checked]:bg-[var(--status-friction)]"
                   />
                 </div>
@@ -805,10 +764,7 @@ function NotificationCard({
             </div>
 
             {/* body */}
-            <p
-              className="text-[12px] leading-relaxed mt-1"
-              style={{ color: "var(--text-mid)" }}
-            >
+            <p className="text-[12px] leading-relaxed mt-1" style={{ color: "var(--text-mid)" }}>
               {body}
             </p>
 
@@ -922,7 +878,10 @@ function NotificationCard({
 
             {/* archived-only: restore hint */}
             {isArchived && (
-              <div className="mt-2 flex items-center gap-1.5 text-[10px]" style={{ color: "var(--text-lo)" }}>
+              <div
+                className="mt-2 flex items-center gap-1.5 text-[10px]"
+                style={{ color: "var(--text-lo)" }}
+              >
                 <Archive className="w-3 h-3" strokeWidth={1.75} />
                 {isAr ? "مؤرشف" : "Archived"}
               </div>
@@ -970,20 +929,14 @@ function EmptyState({ isAr, filter }: { isAr: boolean; filter: Filter }) {
       <div
         className="relative flex items-center justify-center w-14 h-14 rounded-full mb-4"
         style={{
-          background: "radial-gradient(circle at 35% 35%, rgba(22,154,165,0.18), rgba(11,17,28,0.4))",
+          background:
+            "radial-gradient(circle at 35% 35%, rgba(22,154,165,0.18), rgba(11,17,28,0.4))",
           border: "1px solid rgba(22,154,165,0.28)",
         }}
       >
-        <Sparkles
-          className="w-5 h-5"
-          style={{ color: "var(--brand-400)" }}
-          strokeWidth={1.75}
-        />
+        <Sparkles className="w-5 h-5" style={{ color: "var(--brand-400)" }} strokeWidth={1.75} />
       </div>
-      <h3
-        className="text-[14px] font-semibold mb-1"
-        style={{ color: "var(--text-hi)" }}
-      >
+      <h3 className="text-[14px] font-semibold mb-1" style={{ color: "var(--text-hi)" }}>
         {isAr ? m.titleAr : m.title}
       </h3>
       <p className="text-[12px]" style={{ color: "var(--text-lo)" }}>

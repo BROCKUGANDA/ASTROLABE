@@ -49,17 +49,10 @@ import {
   type Band as BandT,
 } from "@/components/astrolabe/widgets";
 import { HrbpDigestModal } from "@/components/astrolabe/hrbp-digest-modal";
-import {
-  Tilt3D,
-  NumberTicker,
-  RevealOnScroll,
-} from "@/components/astrolabe/micro-interactions";
+import { Tilt3D, NumberTicker, RevealOnScroll } from "@/components/astrolabe/micro-interactions";
 import { SignalWeightBar } from "@/components/astrolabe/signal-weight-bar";
 import { TimelineSparkline } from "@/components/astrolabe/timeline-sparkline";
-import {
-  InstrumentDial,
-  ScanLineOverlay,
-} from "@/components/astrolabe/instrument-dial";
+import { InstrumentDial, ScanLineOverlay } from "@/components/astrolabe/instrument-dial";
 import {
   Select,
   SelectContent,
@@ -83,7 +76,13 @@ import { hrbps as ALL_HRBPS } from "@/lib/data/pack";
 
 /* ---------- Types ---------- */
 
-type Purpose = "journey_assistance" | "pulse_capture" | "share_pulse_summary" | "comment_retention" | "aggregate_analytics" | "manager_visibility";
+type Purpose =
+  | "journey_assistance"
+  | "pulse_capture"
+  | "share_pulse_summary"
+  | "comment_retention"
+  | "aggregate_analytics"
+  | "manager_visibility";
 
 interface QueueItem {
   employeeId: string;
@@ -104,7 +103,16 @@ interface Assessment {
   asOf: string;
   band: BandT;
   score: number;
-  signals: { code: string; family: string; weight: number; description: string; descriptionAr: string; evidenceRefs: string[]; hardTrip?: boolean; forceBlocked?: boolean }[];
+  signals: {
+    code: string;
+    family: string;
+    weight: number;
+    description: string;
+    descriptionAr: string;
+    evidenceRefs: string[];
+    hardTrip?: boolean;
+    forceBlocked?: boolean;
+  }[];
   suppressedFamilies: string[];
   stage: string;
   dayInStage: number;
@@ -133,7 +141,13 @@ interface EscalationPacket {
   topSignals: { code: string; weight: number; description: string; evidenceRefs: string[] }[];
   timeline: { occurredAt: string; stepKey: string; type: string; targetVsActual?: string }[];
   blockedDownstream: string[];
-  openRequests: { ref: string; type: string; ownerGroup: string; ageHours: number; reassignCount: number }[];
+  openRequests: {
+    ref: string;
+    type: string;
+    ownerGroup: string;
+    ageHours: number;
+    reassignCount: number;
+  }[];
   decisionRequested: string;
   namedOwner: { id: string; name: string; role: string; email: string };
   backupOwner?: { id: string; name: string; role: string; email: string };
@@ -217,12 +231,18 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
         <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
           The queue can&apos;t be loaded right now.
         </p>
-        <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>{message}</p>
+        <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+          {message}
+        </p>
       </div>
       <button
         onClick={onRetry}
         className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium shrink-0"
-        style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+        style={{
+          background: "var(--surface-2)",
+          border: "1px solid var(--border)",
+          color: "var(--text-hi)",
+        }}
       >
         <RotateCcw className="w-4 h-4" strokeWidth={1.75} />
         Retry
@@ -299,7 +319,9 @@ function QueueView({ onOpenPacket }: { onOpenPacket: (employeeId: string) => voi
     }
   }, []);
 
-  useEffect(() => { fetchQ(); }, [fetchQ]);
+  useEffect(() => {
+    fetchQ();
+  }, [fetchQ]);
 
   const handleClaim = useCallback(async (item: QueueItem) => {
     setClaiming(item.employeeId);
@@ -334,7 +356,11 @@ function QueueView({ onOpenPacket }: { onOpenPacket: (employeeId: string) => voi
         <button
           onClick={fetchQ}
           className="ast-focus inline-flex items-center gap-2 h-9 px-3 rounded-full text-[12px] font-medium"
-          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}
+          style={{
+            background: "var(--surface-2)",
+            border: "1px solid var(--border)",
+            color: "var(--text-mid)",
+          }}
         >
           <RefreshCw className="w-3.5 h-3.5" strokeWidth={1.75} />
           {locale === "ar" ? "تحديث" : "Refresh"}
@@ -350,10 +376,14 @@ function QueueView({ onOpenPacket }: { onOpenPacket: (employeeId: string) => voi
             <CheckCircle2 className="w-6 h-6" strokeWidth={1.75} />
           </div>
           <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
-            {locale === "ar" ? "لا أحد في احتكاك أو أعلى اليوم." : "No one in Friction or above today."}
+            {locale === "ar"
+              ? "لا أحد في احتكاك أو أعلى اليوم."
+              : "No one in Friction or above today."}
           </p>
           <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
-            {locale === "ar" ? "تحقق لاحقاً، أو تصفّح بقية القائمة أدناه." : "Check back later, or browse the watch list below."}
+            {locale === "ar"
+              ? "تحقق لاحقاً، أو تصفّح بقية القائمة أدناه."
+              : "Check back later, or browse the watch list below."}
           </p>
         </div>
       ) : (
@@ -375,7 +405,10 @@ function QueueView({ onOpenPacket }: { onOpenPacket: (employeeId: string) => voi
       {/* Watch + steady (collapsed by default-ish) */}
       {rest.length > 0 && (
         <details className="ast-card p-4" style={{ borderColor: "var(--border-soft)" }}>
-          <summary className="cursor-pointer text-[13px] font-medium flex items-center gap-2" style={{ color: "var(--text-mid)" }}>
+          <summary
+            className="cursor-pointer text-[13px] font-medium flex items-center gap-2"
+            style={{ color: "var(--text-mid)" }}
+          >
             <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.75} />
             {locale === "ar"
               ? `${rest.length} موظف تحت المراقبة أو مستقر`
@@ -454,10 +487,7 @@ function QueueRow({
     >
       <Tilt3D maxDeg={2}>
         <div
-          className={cn(
-            "relative ast-card",
-            compact ? "p-3" : "p-4 sm:p-5",
-          )}
+          className={cn("relative ast-card", compact ? "p-3" : "p-4 sm:p-5")}
           style={{
             // Depth shadow on hover / preview-open (180ms).
             boxShadow: isPreviewOpen ? "var(--e3)" : "var(--e2)",
@@ -484,32 +514,18 @@ function QueueRow({
           <div className="flex items-start gap-3 sm:gap-4 flex-wrap pl-1">
             {/* Rank + band + score */}
             <div className="flex items-center gap-3 shrink-0">
-              <span
-                className="text-[12px] tabular font-mono"
-                style={{ color: "var(--text-lo)" }}
-              >
+              <span className="text-[12px] tabular font-mono" style={{ color: "var(--text-lo)" }}>
                 #{rank}
               </span>
-              <BandChip
-                band={item.band}
-                score={item.score}
-                locale={locale}
-                size="lg"
-              />
+              <BandChip band={item.band} score={item.score} locale={locale} size="lg" />
             </div>
 
             {/* Name + stage */}
             <div className="flex-1 min-w-0">
-              <p
-                className="text-[15px] font-medium truncate"
-                style={{ color: "var(--text-hi)" }}
-              >
+              <p className="text-[15px] font-medium truncate" style={{ color: "var(--text-hi)" }}>
                 {item.employeeName}
               </p>
-              <p
-                className="text-[12px] mt-0.5"
-                style={{ color: "var(--text-mid)" }}
-              >
+              <p className="text-[12px] mt-0.5" style={{ color: "var(--text-mid)" }}>
                 {stageLabel(item.stage, locale)}
                 <span className="mx-1.5">·</span>
                 <span className="tabular">
@@ -549,10 +565,7 @@ function QueueRow({
                   >
                     {locale === "ar" ? "المقترح" : "Suggested"}
                   </span>
-                  <span
-                    className="text-[12px] font-medium"
-                    style={{ color: "var(--text-hi)" }}
-                  >
+                  <span className="text-[12px] font-medium" style={{ color: "var(--text-hi)" }}>
                     {item.suggestedOwner.name}
                   </span>
                 </div>
@@ -567,8 +580,8 @@ function QueueRow({
                       ? "إخفاء المعاينة"
                       : "Hide preview"
                     : locale === "ar"
-                    ? "إظهار المعاينة"
-                    : "Show preview"
+                      ? "إظهار المعاينة"
+                      : "Show preview"
                 }
                 className="ast-focus md:hidden inline-flex items-center justify-center w-9 h-9 rounded-full"
                 style={{
@@ -597,8 +610,12 @@ function QueueRow({
               >
                 <Hand className="w-3.5 h-3.5" strokeWidth={1.75} />
                 {claiming
-                  ? (locale === "ar" ? "..." : "Claiming…")
-                  : (locale === "ar" ? "تولّى" : "Claim")}
+                  ? locale === "ar"
+                    ? "..."
+                    : "Claiming…"
+                  : locale === "ar"
+                    ? "تولّى"
+                    : "Claim"}
               </button>
               <button
                 onClick={onOpen}
@@ -646,10 +663,7 @@ function QueueRow({
                     </h5>
                     <ul className="space-y-2.5">
                       {item.topSignals.length === 0 && (
-                        <li
-                          className="text-[12px]"
-                          style={{ color: "var(--text-mid)" }}
-                        >
+                        <li className="text-[12px]" style={{ color: "var(--text-mid)" }}>
                           {locale === "ar" ? "لا إشارات." : "No signals."}
                         </li>
                       )}
@@ -659,9 +673,7 @@ function QueueRow({
                             code={s.code}
                             weight={s.weight}
                             family={s.code.split("-")[0]}
-                            hardTrip={
-                              s.code.startsWith("DP") || s.code.startsWith("MB")
-                            }
+                            hardTrip={s.code.startsWith("DP") || s.code.startsWith("MB")}
                             variant="detailed"
                             description={s.description}
                             locale={locale}
@@ -679,10 +691,7 @@ function QueueRow({
                     >
                       {locale === "ar" ? "آخر 10 أحداث" : "Recent activity"}
                     </h5>
-                    <TimelineSparkline
-                      events={item.recentEvents ?? []}
-                      locale={locale}
-                    />
+                    <TimelineSparkline events={item.recentEvents ?? []} locale={locale} />
                   </div>
 
                   {/* Open full packet */}
@@ -731,21 +740,15 @@ function parseElapsedHours(evidenceRefs: string[]): number | null {
 
 /** Bar fill colour by lead-time bucket (Track 2 spec). */
 function leadTimeColor(days: number): string {
-  if (days < 3) return "var(--brand-500)";        // teal — fresh
-  if (days <= 7) return "var(--status-watch)";    // amber — brewing
-  return "var(--status-friction)";                // red — stale
+  if (days < 3) return "var(--brand-500)"; // teal — fresh
+  if (days <= 7) return "var(--status-watch)"; // amber — brewing
+  return "var(--status-friction)"; // red — stale
 }
 
 /* LeadTimeBar — horizontal bar showing how long ago the signal fired
    relative to NOW. Animated fill on mount (480ms ease-out). Respects
    prefers-reduced-motion via the store's `reducedMotion` flag. */
-function LeadTimeBar({
-  evidenceRefs,
-  locale,
-}: {
-  evidenceRefs: string[];
-  locale: "en" | "ar";
-}) {
+function LeadTimeBar({ evidenceRefs, locale }: { evidenceRefs: string[]; locale: "en" | "ar" }) {
   const reducedMotion = useAppStore((s) => s.reducedMotion);
   const elapsedHours = useMemo(() => parseElapsedHours(evidenceRefs), [evidenceRefs]);
 
@@ -772,8 +775,8 @@ function LeadTimeBar({
         ? "اليوم"
         : "today"
       : locale === "ar"
-      ? `قبل ${daysAgo} يوم`
-      : `${daysAgo} day${daysAgo === 1 ? "" : "s"} ago`;
+        ? `قبل ${daysAgo} يوم`
+        : `${daysAgo} day${daysAgo === 1 ? "" : "s"} ago`;
 
   return (
     <div className="mt-2.5">
@@ -799,11 +802,7 @@ function LeadTimeBar({
             }}
             initial={false}
             animate={{ width: `${shown * 100}%` }}
-            transition={
-              reducedMotion
-                ? { duration: 0 }
-                : { duration: 0.48, ease: [0, 0, 0.2, 1] }
-            }
+            transition={reducedMotion ? { duration: 0 } : { duration: 0.48, ease: [0, 0, 0.2, 1] }}
           />
         </div>
         <span
@@ -820,13 +819,7 @@ function LeadTimeBar({
 
 /* SectionDivider — teal hairline divider with a small section icon.
    Used to separate each packet-preview section (Track 3 spec). */
-function SectionDivider({
-  icon: Icon,
-  label,
-}: {
-  icon: typeof Activity;
-  label: string;
-}) {
+function SectionDivider({ icon: Icon, label }: { icon: typeof Activity; label: string }) {
   return (
     <div className="flex items-center gap-2 mb-3">
       <div
@@ -837,11 +830,7 @@ function SectionDivider({
         }}
         aria-hidden="true"
       >
-        <Icon
-          className="w-3 h-3"
-          strokeWidth={1.75}
-          style={{ color: "var(--brand-400)" }}
-        />
+        <Icon className="w-3 h-3" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
       </div>
       <h4
         className="text-[11px] uppercase tracking-[0.12em] font-medium shrink-0"
@@ -852,8 +841,7 @@ function SectionDivider({
       <div
         className="flex-1 h-px min-w-[20px]"
         style={{
-          background:
-            "linear-gradient(90deg, rgba(22,154,165,0.28), rgba(22,154,165,0))",
+          background: "linear-gradient(90deg, rgba(22,154,165,0.28), rgba(22,154,165,0))",
         }}
         aria-hidden="true"
       />
@@ -907,7 +895,9 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
     setLoading(true);
     setErr(null);
     try {
-      const res = await fetch(`/api/v1/journey/${encodeURIComponent(employeeId)}/assessment`, { cache: "no-store" });
+      const res = await fetch(`/api/v1/journey/${encodeURIComponent(employeeId)}/assessment`, {
+        cache: "no-store",
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: ApiEnvelope<{ assessment: Assessment; trace: EngineTrace }> = await res.json();
       if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
@@ -919,7 +909,7 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
       setDecision(
         locale === "ar"
           ? `يرجى مراجعة ${top?.code ?? "الوضع"} لموظف في ${stageLabel(a.stage, "ar")} — التصنيف ${a.band}.`
-          : `Please review ${top?.code ?? "the situation"} for an employee in ${stageLabel(a.stage, "en")} — band ${a.band}.`
+          : `Please review ${top?.code ?? "the situation"} for an employee in ${stageLabel(a.stage, "en")} — band ${a.band}.`,
       );
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Network error");
@@ -928,7 +918,9 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
     }
   }, [employeeId, locale]);
 
-  useEffect(() => { fetchAssessment(); }, [fetchAssessment]);
+  useEffect(() => {
+    fetchAssessment();
+  }, [fetchAssessment]);
 
   // Pulse-suppressed banner
   const pulseSuppressed = useMemo(() => {
@@ -993,7 +985,11 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
         <button
           onClick={onBack}
           className="ast-focus inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[12px] font-medium"
-          style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}
+          style={{
+            background: "var(--surface-2)",
+            border: "1px solid var(--border)",
+            color: "var(--text-mid)",
+          }}
         >
           <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.75} />
           {locale === "ar" ? "القائمة" : "Queue"}
@@ -1012,7 +1008,11 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
           className="ast-card-2 p-3 mb-4 flex items-start gap-3"
           style={{ borderColor: "rgba(217,119,6,0.32)", background: "rgba(217,119,6,0.06)" }}
         >
-          <Lock className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--status-watch)" }} />
+          <Lock
+            className="w-4 h-4 mt-0.5 shrink-0"
+            strokeWidth={1.75}
+            style={{ color: "var(--status-watch)" }}
+          />
           <p className="text-[13px]" style={{ color: "var(--text-mid)" }}>
             {locale === "ar"
               ? "نبضة مكتومة — يستخدم هذا العرض بيانات الرحلة والطلبات فقط."
@@ -1078,14 +1078,34 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           {/* Named owner selector */}
           <div>
-            <label className="text-[11px] uppercase tracking-[0.12em] font-medium" style={{ color: "var(--text-lo)" }}>
+            <label
+              className="text-[11px] uppercase tracking-[0.12em] font-medium"
+              style={{ color: "var(--text-lo)" }}
+            >
               {locale === "ar" ? "المسؤول المُسمّى" : "Named owner"}
             </label>
-            <Select value={namedOwnerId} onValueChange={setNamedOwnerId} disabled={!!packet && !editMode}>
-              <SelectTrigger className="ast-focus h-11 mt-1.5" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}>
+            <Select
+              value={namedOwnerId}
+              onValueChange={setNamedOwnerId}
+              disabled={!!packet && !editMode}
+            >
+              <SelectTrigger
+                className="ast-focus h-11 mt-1.5"
+                style={{
+                  background: "var(--surface-2)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text-hi)",
+                }}
+              >
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}>
+              <SelectContent
+                style={{
+                  background: "var(--surface-1)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text-hi)",
+                }}
+              >
                 {ALL_HRBPS.map((h) => (
                   <SelectItem key={h.id} value={h.id}>
                     {h.name} · {h.role}
@@ -1097,11 +1117,14 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
 
           {/* Share pulse toggle */}
           <div>
-            <label className="text-[11px] uppercase tracking-[0.12em] font-medium" style={{ color: "var(--text-lo)" }}>
+            <label
+              className="text-[11px] uppercase tracking-[0.12em] font-medium"
+              style={{ color: "var(--text-lo)" }}
+            >
               {locale === "ar" ? "مشاركة ملخص النبضة" : "Share pulse summary"}
             </label>
             <button
-              onClick={() => !packet || editMode ? setSharePulse((v) => !v) : null}
+              onClick={() => (!packet || editMode ? setSharePulse((v) => !v) : null)}
               disabled={(!!packet && !editMode) || pulseSuppressed}
               className="ast-focus w-full h-11 mt-1.5 px-3 rounded-full text-[13px] font-medium flex items-center justify-between disabled:opacity-60"
               style={{
@@ -1113,8 +1136,12 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
               <span className="flex items-center gap-2">
                 <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
                 {sharePulse
-                  ? (locale === "ar" ? "يُشارك الملخص (1–5)" : "Share summary (1–5)")
-                  : (locale === "ar" ? "لا تُشارك الملخص" : "Don't share summary")}
+                  ? locale === "ar"
+                    ? "يُشارك الملخص (1–5)"
+                    : "Share summary (1–5)"
+                  : locale === "ar"
+                    ? "لا تُشارك الملخص"
+                    : "Don't share summary"}
               </span>
               {pulseSuppressed && (
                 <Lock className="w-3 h-3" strokeWidth={1.75} style={{ color: "var(--text-lo)" }} />
@@ -1137,17 +1164,27 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
             >
               <UserCog className="w-4 h-4" strokeWidth={1.75} />
               {building
-                ? (locale === "ar" ? "جارٍ البناء..." : "Building…")
+                ? locale === "ar"
+                  ? "جارٍ البناء..."
+                  : "Building…"
                 : packet
-                ? (locale === "ar" ? "أعد بناء الطرد" : "Rebuild packet")
-                : (locale === "ar" ? "ابنِ الطرد" : "Build packet")}
+                  ? locale === "ar"
+                    ? "أعد بناء الطرد"
+                    : "Rebuild packet"
+                  : locale === "ar"
+                    ? "ابنِ الطرد"
+                    : "Build packet"}
             </button>
           ) : (
             <>
               <button
                 onClick={() => setEditMode(true)}
                 className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium"
-                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+                style={{
+                  background: "var(--surface-2)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text-hi)",
+                }}
               >
                 <Edit3 className="w-4 h-4" strokeWidth={1.75} />
                 {locale === "ar" ? "تحرير الملخص" : "Edit summary"}
@@ -1155,7 +1192,11 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
               <button
                 onClick={() => setEditMode(true)}
                 className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium"
-                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+                style={{
+                  background: "var(--surface-2)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text-hi)",
+                }}
               >
                 <UserCog className="w-4 h-4" strokeWidth={1.75} />
                 {locale === "ar" ? "تعيين لمالك الخدمة" : "Assign to service owner"}
@@ -1199,7 +1240,10 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
             {/* ===== Header ===== Track 1: InstrumentDial 160px on the right */}
             <div className="flex items-start justify-between gap-4 flex-wrap relative">
               <div className="flex-1 min-w-[200px]">
-                <p className="text-[11px] uppercase tracking-[0.16em] font-mono" style={{ color: "var(--text-lo)" }}>
+                <p
+                  className="text-[11px] uppercase tracking-[0.16em] font-mono"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {packet.id}
                 </p>
                 <h3 className="text-[18px] font-semibold mt-1" style={{ color: "var(--text-hi)" }}>
@@ -1212,7 +1256,15 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
                     {locale === "ar" ? `يوم ${packet.dayInStage}` : `Day ${packet.dayInStage}`}
                   </span>
                   <span className="mx-1.5">·</span>
-                  <span>{packet.journeyType === "onboarding" ? (locale === "ar" ? "التحاق" : "Onboarding") : (locale === "ar" ? "تنقل" : "Mobility")}</span>
+                  <span>
+                    {packet.journeyType === "onboarding"
+                      ? locale === "ar"
+                        ? "التحاق"
+                        : "Onboarding"
+                      : locale === "ar"
+                        ? "تنقل"
+                        : "Mobility"}
+                  </span>
                 </p>
               </div>
 
@@ -1249,10 +1301,7 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
 
             {/* ===== Situation ===== */}
             <RevealOnScroll index={0} className="relative">
-              <SectionDivider
-                icon={Activity}
-                label={locale === "ar" ? "الوضع" : "Situation"}
-              />
+              <SectionDivider icon={Activity} label={locale === "ar" ? "الوضع" : "Situation"} />
               <p className="text-[14px] leading-relaxed" style={{ color: "var(--text-hi)" }}>
                 {locale === "ar"
                   ? `${packet.employeeName} في ${stageLabel(packet.stage, "ar")}، يوم ${packet.dayInStage}. التصنيف ${packet.band} (${packet.score}). أبرز إشارة: ${packet.topSignals[0]?.code ?? "—"}.`
@@ -1262,18 +1311,25 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
 
             {/* ===== Evidence — Track 2: lead-time bar per top signal ===== */}
             <RevealOnScroll index={1} className="relative">
-              <SectionDivider
-                icon={ListChecks}
-                label={locale === "ar" ? "الأدلة" : "Evidence"}
-              />
+              <SectionDivider icon={ListChecks} label={locale === "ar" ? "الأدلة" : "Evidence"} />
               <ul className="space-y-2">
                 {packet.topSignals.map((s, i) => (
                   <li key={`${s.code}-${i}`} className="ast-card-2 p-3 flex items-start gap-3">
-                    <SignalBadge code={s.code} weight={s.weight} hardTrip={s.code.startsWith("DP") || s.code.startsWith("MB")} />
+                    <SignalBadge
+                      code={s.code}
+                      weight={s.weight}
+                      hardTrip={s.code.startsWith("DP") || s.code.startsWith("MB")}
+                    />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[12px]" style={{ color: "var(--text-hi)" }}>{s.description}</p>
+                      <p className="text-[12px]" style={{ color: "var(--text-hi)" }}>
+                        {s.description}
+                      </p>
                       {s.evidenceRefs.length > 0 && (
-                        <p className="text-[11px] font-mono mt-1 tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+                        <p
+                          className="text-[11px] font-mono mt-1 tabular"
+                          style={{ color: "var(--text-lo)" }}
+                          dir="ltr"
+                        >
                           {s.evidenceRefs.join(" · ")}
                         </p>
                       )}
@@ -1308,7 +1364,8 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
                   style={{ color: "var(--text-lo)" }}
                   dir="ltr"
                 >
-                  {packet.timeline.length}{locale === "ar" ? " حدث" : " events"}
+                  {packet.timeline.length}
+                  {locale === "ar" ? " حدث" : " events"}
                 </span>
               </div>
               <ol className="space-y-1.5 max-h-96 overflow-y-auto pr-1">
@@ -1328,11 +1385,21 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
                         }}
                         aria-hidden="true"
                       />
-                      <span className="font-mono text-[11px]" style={{ color: "var(--text-lo)" }} dir="ltr">
+                      <span
+                        className="font-mono text-[11px]"
+                        style={{ color: "var(--text-lo)" }}
+                        dir="ltr"
+                      >
                         {format(new Date(e.occurredAt), "d MMM HH:mm")}
                       </span>
                       <span style={{ color: "var(--text-lo)" }}>·</span>
-                      <span className="font-mono text-[11px]" style={{ color: "var(--brand-400)" }} dir="ltr">{e.stepKey}</span>
+                      <span
+                        className="font-mono text-[11px]"
+                        style={{ color: "var(--brand-400)" }}
+                        dir="ltr"
+                      >
+                        {e.stepKey}
+                      </span>
                       <span style={{ color: "var(--text-lo)" }}>·</span>
                       <span>{e.type.replace(/_/g, " ")}</span>
                       {e.targetVsActual && (
@@ -1362,7 +1429,11 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
                 />
                 <div className="flex flex-wrap gap-1.5">
                   {packet.blockedDownstream.map((k) => (
-                    <span key={k} className="ast-chip font-mono text-[11px]" style={{ color: "var(--status-friction)" }}>
+                    <span
+                      key={k}
+                      className="ast-chip font-mono text-[11px]"
+                      style={{ color: "var(--status-friction)" }}
+                    >
                       {k}
                     </span>
                   ))}
@@ -1382,14 +1453,27 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
                     const ageDays = Math.max(0, Math.round(r.ageHours / 24));
                     return (
                       <li key={r.ref} className="ast-card-2 p-3 flex items-center gap-3 flex-wrap">
-                        <span className="font-mono text-[11px] tabular" style={{ color: "var(--brand-400)" }} dir="ltr">{r.ref}</span>
-                        <span className="text-[12px]" style={{ color: "var(--text-mid)" }}>{r.type.replace(/_/g, " ")}</span>
+                        <span
+                          className="font-mono text-[11px] tabular"
+                          style={{ color: "var(--brand-400)" }}
+                          dir="ltr"
+                        >
+                          {r.ref}
+                        </span>
+                        <span className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+                          {r.type.replace(/_/g, " ")}
+                        </span>
                         <span className="text-[11px] tabular" style={{ color: "var(--text-lo)" }}>
                           {locale === "ar" ? `العمر ${ageDays} يوم` : `age ${ageDays}d`}
                         </span>
                         {r.reassignCount > 0 && (
-                          <span className="ast-chip text-[10px]" style={{ color: "var(--status-watch)" }}>
-                            {locale === "ar" ? `أُعيد تعيينها ${r.reassignCount}×` : `reassigned ${r.reassignCount}×`}
+                          <span
+                            className="ast-chip text-[10px]"
+                            style={{ color: "var(--status-watch)" }}
+                          >
+                            {locale === "ar"
+                              ? `أُعيد تعيينها ${r.reassignCount}×`
+                              : `reassigned ${r.reassignCount}×`}
                           </span>
                         )}
                       </li>
@@ -1421,27 +1505,50 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
 
             {/* ===== Owner ===== */}
             <RevealOnScroll index={6} className="relative">
-              <SectionDivider
-                icon={UserCog}
-                label={locale === "ar" ? "المالك" : "Owner"}
-              />
+              <SectionDivider icon={UserCog} label={locale === "ar" ? "المالك" : "Owner"} />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="ast-card-2 p-3">
-                  <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                  <p
+                    className="text-[11px] uppercase tracking-[0.12em]"
+                    style={{ color: "var(--text-lo)" }}
+                  >
                     {locale === "ar" ? "المسؤول المُسمّى" : "Named owner"}
                   </p>
-                  <p className="text-[14px] font-medium mt-1" style={{ color: "var(--text-hi)" }}>{packet.namedOwner.name}</p>
-                  <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>{packet.namedOwner.role}</p>
-                  <p className="text-[11px] font-mono mt-1 tabular" style={{ color: "var(--brand-400)" }} dir="ltr">{packet.namedOwner.email}</p>
+                  <p className="text-[14px] font-medium mt-1" style={{ color: "var(--text-hi)" }}>
+                    {packet.namedOwner.name}
+                  </p>
+                  <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+                    {packet.namedOwner.role}
+                  </p>
+                  <p
+                    className="text-[11px] font-mono mt-1 tabular"
+                    style={{ color: "var(--brand-400)" }}
+                    dir="ltr"
+                  >
+                    {packet.namedOwner.email}
+                  </p>
                 </div>
                 {packet.backupOwner && (
                   <div className="ast-card-2 p-3">
-                    <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                    <p
+                      className="text-[11px] uppercase tracking-[0.12em]"
+                      style={{ color: "var(--text-lo)" }}
+                    >
                       {locale === "ar" ? "البديل" : "Backup"}
                     </p>
-                    <p className="text-[14px] font-medium mt-1" style={{ color: "var(--text-hi)" }}>{packet.backupOwner.name}</p>
-                    <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>{packet.backupOwner.role}</p>
-                    <p className="text-[11px] font-mono mt-1 tabular" style={{ color: "var(--brand-400)" }} dir="ltr">{packet.backupOwner.email}</p>
+                    <p className="text-[14px] font-medium mt-1" style={{ color: "var(--text-hi)" }}>
+                      {packet.backupOwner.name}
+                    </p>
+                    <p className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+                      {packet.backupOwner.role}
+                    </p>
+                    <p
+                      className="text-[11px] font-mono mt-1 tabular"
+                      style={{ color: "var(--brand-400)" }}
+                      dir="ltr"
+                    >
+                      {packet.backupOwner.email}
+                    </p>
                   </div>
                 )}
               </div>
@@ -1455,10 +1562,20 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
               />
               <div
                 className="p-4 rounded-[10px] flex items-start gap-3"
-                style={{ background: "rgba(22,154,165,0.06)", border: "1px solid rgba(22,154,165,0.22)" }}
+                style={{
+                  background: "rgba(22,154,165,0.06)",
+                  border: "1px solid rgba(22,154,165,0.22)",
+                }}
               >
-                <Lock className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
-                <p className="text-[12px] leading-relaxed flex-1 min-w-0" style={{ color: "var(--text-mid)" }}>
+                <Lock
+                  className="w-4 h-4 mt-0.5 shrink-0"
+                  strokeWidth={1.75}
+                  style={{ color: "var(--brand-400)" }}
+                />
+                <p
+                  className="text-[12px] leading-relaxed flex-1 min-w-0"
+                  style={{ color: "var(--text-mid)" }}
+                >
                   <span className="font-medium" style={{ color: "var(--text-hi)" }}>
                     {locale === "ar" ? "مُشارك مع شريك الموارد البشرية: " : "Shared with HRBP: "}
                   </span>
@@ -1467,10 +1584,13 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
                   <span className="font-medium" style={{ color: "var(--text-hi)" }}>
                     {locale === "ar" ? "مكتوم: " : "Withheld: "}
                   </span>
-                  {packet.consentStatement.withheld.join(", ").replace(/_/g, " ") || (locale === "ar" ? "—" : "none")}
+                  {packet.consentStatement.withheld.join(", ").replace(/_/g, " ") ||
+                    (locale === "ar" ? "—" : "none")}
                   <br />
                   <span className="font-medium" style={{ color: "var(--text-hi)" }}>
-                    {locale === "ar" ? "النص الحر مستثنى افتراضياً." : "Free-text excluded by default."}
+                    {locale === "ar"
+                      ? "النص الحر مستثنى افتراضياً."
+                      : "Free-text excluded by default."}
                   </span>
                 </p>
               </div>
@@ -1482,7 +1602,11 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
       {/* Send-packet confirmation */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent
-          style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+          style={{
+            background: "var(--surface-1)",
+            border: "1px solid var(--border)",
+            color: "var(--text-hi)",
+          }}
         >
           <DialogHeader>
             <DialogTitle style={{ color: "var(--text-hi)" }}>
@@ -1498,7 +1622,11 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
             <DialogClose asChild>
               <button
                 className="ast-focus inline-flex items-center h-11 px-4 rounded-full text-[13px] font-medium"
-                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+                style={{
+                  background: "var(--surface-2)",
+                  border: "1px solid var(--border)",
+                  color: "var(--text-hi)",
+                }}
               >
                 {locale === "ar" ? "تراجع" : "Cancel"}
               </button>
@@ -1507,10 +1635,20 @@ function EmployeeView({ employeeId, onBack }: { employeeId: string; onBack: () =
               onClick={handleSend}
               disabled={sending}
               className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium"
-              style={{ background: "var(--accent-500)", color: "var(--surface-0)", border: "1px solid var(--accent-500)" }}
+              style={{
+                background: "var(--accent-500)",
+                color: "var(--surface-0)",
+                border: "1px solid var(--accent-500)",
+              }}
             >
               <Send className="w-4 h-4" strokeWidth={1.75} />
-              {sending ? (locale === "ar" ? "جارٍ الإرسال..." : "Sending…") : (locale === "ar" ? "أرسل" : "Send")}
+              {sending
+                ? locale === "ar"
+                  ? "جارٍ الإرسال..."
+                  : "Sending…"
+                : locale === "ar"
+                  ? "أرسل"
+                  : "Send"}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -1544,7 +1682,9 @@ function StallsView() {
     }
   }, []);
 
-  useEffect(() => { fetchCells(); }, [fetchCells]);
+  useEffect(() => {
+    fetchCells();
+  }, [fetchCells]);
 
   // Build matrix
   const matrix = useMemo(() => {
@@ -1559,7 +1699,9 @@ function StallsView() {
     }
     // Preserve stage order via STAGE_LABELS insertion
     const stageOrder = Object.keys(STAGE_LABELS);
-    const stages = Array.from(stageSet).sort((a, b) => stageOrder.indexOf(a) - stageOrder.indexOf(b));
+    const stages = Array.from(stageSet).sort(
+      (a, b) => stageOrder.indexOf(a) - stageOrder.indexOf(b),
+    );
     const groups = Array.from(groupSet).sort();
     return { stages, groups, map };
   }, [cells]);
@@ -1618,7 +1760,11 @@ function StallsView() {
             <button
               key={f.en}
               className="ast-focus h-8 px-2.5 rounded-full text-[11px] font-medium"
-              style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}
+              style={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+                color: "var(--text-mid)",
+              }}
             >
               {locale === "ar" ? f.ar : f.en}
             </button>
@@ -1631,11 +1777,18 @@ function StallsView() {
         <table className="w-full border-collapse min-w-[640px]">
           <thead>
             <tr>
-              <th className="text-left p-2 text-[11px] uppercase tracking-[0.12em] font-medium" style={{ color: "var(--text-lo)" }}>
+              <th
+                className="text-left p-2 text-[11px] uppercase tracking-[0.12em] font-medium"
+                style={{ color: "var(--text-lo)" }}
+              >
                 {locale === "ar" ? "المرحلة / المالك" : "Stage / Owner"}
               </th>
               {matrix.groups.map((g) => (
-                <th key={g} className="p-2 text-center text-[11px] uppercase tracking-[0.08em] font-medium" style={{ color: "var(--text-lo)" }}>
+                <th
+                  key={g}
+                  className="p-2 text-center text-[11px] uppercase tracking-[0.08em] font-medium"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {g}
                 </th>
               ))}
@@ -1658,12 +1811,21 @@ function StallsView() {
                           background: cellColor(c),
                           border: `1px solid ${cellBorder(c)}`,
                         }}
-                        title={suppressed ? "Not enough data to show safely (n<5)" : `n=${c?.n ?? 0}`}
+                        title={
+                          suppressed ? "Not enough data to show safely (n<5)" : `n=${c?.n ?? 0}`
+                        }
                       >
                         {suppressed ? (
                           <div className="flex flex-col items-center text-center gap-1.5 h-full justify-center">
-                            <Hourglass className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--text-lo)" }} />
-                            <p className="text-[10px] leading-tight" style={{ color: "var(--text-lo)" }}>
+                            <Hourglass
+                              className="w-3.5 h-3.5"
+                              strokeWidth={1.75}
+                              style={{ color: "var(--text-lo)" }}
+                            />
+                            <p
+                              className="text-[10px] leading-tight"
+                              style={{ color: "var(--text-lo)" }}
+                            >
                               {locale === "ar"
                                 ? "بيانات غير كافية (n<5)"
                                 : "Not enough data to show safely (n<5)"}
@@ -1671,9 +1833,15 @@ function StallsView() {
                           </div>
                         ) : (
                           <div className="space-y-1">
-                            <p className="text-[18px] font-semibold tabular" style={{ color: "var(--text-hi)" }}>
+                            <p
+                              className="text-[18px] font-semibold tabular"
+                              style={{ color: "var(--text-hi)" }}
+                            >
                               {((c?.medianTimeToCompleteHours ?? 0) / 24).toFixed(1)}
-                              <span className="text-[11px] font-normal ml-1" style={{ color: "var(--text-mid)" }}>
+                              <span
+                                className="text-[11px] font-normal ml-1"
+                                style={{ color: "var(--text-mid)" }}
+                              >
                                 {locale === "ar" ? "يوم" : "days"}
                               </span>
                             </p>
@@ -1689,7 +1857,11 @@ function StallsView() {
                                 {Math.round((c?.reassignmentRate ?? 0) * 100)}%
                               </span>
                             </p>
-                            <p className="text-[9px] font-mono tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
+                            <p
+                              className="text-[9px] font-mono tabular"
+                              style={{ color: "var(--text-lo)" }}
+                              dir="ltr"
+                            >
                               n={c?.n ?? 0}
                             </p>
                           </div>
@@ -1705,7 +1877,10 @@ function StallsView() {
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-3 mt-4 flex-wrap text-[11px]" style={{ color: "var(--text-mid)" }}>
+      <div
+        className="flex items-center gap-3 mt-4 flex-wrap text-[11px]"
+        style={{ color: "var(--text-mid)" }}
+      >
         <span>{locale === "ar" ? "السرعة:" : "Speed:"}</span>
         <span className="inline-flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-sm" style={{ background: "rgba(22,154,165,0.36)" }} />
@@ -1739,10 +1914,13 @@ export function HrbpScreen() {
   const [digestOpen, setDigestOpen] = useState(false);
   const dir = locale === "ar" ? "rtl" : "ltr";
 
-  const openPacket = useCallback((employeeId: string) => {
-    setSelectedEmployeeId(employeeId);
-    setView("employee");
-  }, [setView]);
+  const openPacket = useCallback(
+    (employeeId: string) => {
+      setSelectedEmployeeId(employeeId);
+      setView("employee");
+    },
+    [setView],
+  );
 
   const backToQueue = useCallback(() => {
     setView("queue");
@@ -1750,17 +1928,20 @@ export function HrbpScreen() {
   }, [setView]);
 
   return (
-    <div
-      dir={dir}
-      className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10"
-    >
+    <div dir={dir} className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10">
       <header className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
-          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--brand-400)" }}>
+          <div
+            className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
+            style={{ color: "var(--brand-400)" }}
+          >
             <ListOrdered className="w-3.5 h-3.5" strokeWidth={1.75} />
             <span>{locale === "ar" ? "وحدة شريك الموارد البشرية" : "HRBP console"}</span>
           </div>
-          <h1 className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight" style={{ color: "var(--text-hi)" }}>
+          <h1
+            className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight"
+            style={{ color: "var(--text-hi)" }}
+          >
             {locale === "ar" ? "أول من يحتاج مساعدة اليوم" : "Who needs you first today"}
           </h1>
         </div>
@@ -1778,7 +1959,9 @@ export function HrbpScreen() {
             aria-label={locale === "ar" ? "الملخّص الأسبوعي" : "Weekly digest"}
           >
             <Mail className="w-3.5 h-3.5" strokeWidth={1.75} />
-            <span className="hidden sm:inline">{locale === "ar" ? "الملخّص الأسبوعي" : "Weekly digest"}</span>
+            <span className="hidden sm:inline">
+              {locale === "ar" ? "الملخّص الأسبوعي" : "Weekly digest"}
+            </span>
             <span className="sm:hidden">{locale === "ar" ? "ملخّص" : "Digest"}</span>
           </button>
           <HrbpTabs />
@@ -1786,31 +1969,36 @@ export function HrbpScreen() {
       </header>
 
       {view === "queue" && <QueueView onOpenPacket={openPacket} />}
-      {view === "employee" && (
-        selectedEmployeeId
-          ? <EmployeeView employeeId={selectedEmployeeId} onBack={backToQueue} />
-          : (
-            <div className="ast-card p-10 flex flex-col items-center text-center">
-              <div
-                className="flex items-center justify-center w-14 h-14 rounded-full mb-4"
-                style={{ background: "var(--surface-2)", color: "var(--text-mid)" }}
-              >
-                <User className="w-6 h-6" strokeWidth={1.75} />
-              </div>
-              <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
-                {locale === "ar" ? "اختر موظفاً من القائمة لعرض الطرد." : "Pick someone from the queue to view their packet."}
-              </p>
-              <button
-                onClick={() => setView("queue")}
-                className="ast-focus mt-4 inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium"
-                style={{ background: "var(--brand-500)", color: "var(--surface-0)", border: "1px solid var(--brand-500)" }}
-              >
-                <ListOrdered className="w-4 h-4" strokeWidth={1.75} />
-                {locale === "ar" ? "افتح القائمة" : "Open queue"}
-              </button>
+      {view === "employee" &&
+        (selectedEmployeeId ? (
+          <EmployeeView employeeId={selectedEmployeeId} onBack={backToQueue} />
+        ) : (
+          <div className="ast-card p-10 flex flex-col items-center text-center">
+            <div
+              className="flex items-center justify-center w-14 h-14 rounded-full mb-4"
+              style={{ background: "var(--surface-2)", color: "var(--text-mid)" }}
+            >
+              <User className="w-6 h-6" strokeWidth={1.75} />
             </div>
-          )
-      )}
+            <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+              {locale === "ar"
+                ? "اختر موظفاً من القائمة لعرض الطرد."
+                : "Pick someone from the queue to view their packet."}
+            </p>
+            <button
+              onClick={() => setView("queue")}
+              className="ast-focus mt-4 inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium"
+              style={{
+                background: "var(--brand-500)",
+                color: "var(--surface-0)",
+                border: "1px solid var(--brand-500)",
+              }}
+            >
+              <ListOrdered className="w-4 h-4" strokeWidth={1.75} />
+              {locale === "ar" ? "افتح القائمة" : "Open queue"}
+            </button>
+          </div>
+        ))}
       {view === "stalls" && <StallsView />}
 
       {/* PRD §10-198 — Weekly digest modal */}

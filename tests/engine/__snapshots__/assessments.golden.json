@@ -72,6 +72,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "PS-01",
+            "counts": true,
             "dataQuality": false,
             "description": "You told us at first_week that you felt unsure (2/5).",
             "descriptionAr": "أخبرتنا في first_week بأنك غير متأكد (2/5).",
@@ -89,6 +90,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "RQ-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Request SR-2024-091 has been open 3 days against a 24h target.",
             "descriptionAr": "الطلب SR-2024-091 مفتوح منذ 3 يوماً مقابل 24 ساعة.",
@@ -107,6 +109,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Laptop and phone issued is past its 24h target.",
             "descriptionAr": "إصدار الكمبيوتر والهاتف تجاوز هدفه البالغ 24 ساعة.",
@@ -123,6 +126,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-03",
+            "counts": true,
             "dataQuality": false,
             "description": "We said laptop and phone by day 2. It has been 5 days and it is not done.",
             "descriptionAr": "قلنا laptop and phone by day 2. مضت 5 أيام ولم يكتمل.",
@@ -140,6 +144,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-06",
+            "counts": true,
             "dataQuality": false,
             "description": "Laptop and phone issued is still late after working days and holidays are taken into account.",
             "descriptionAr": "إصدار الكمبيوتر والهاتف ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
@@ -236,6 +241,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "DP-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Visa approved is not finished and it holds up 4 later steps.",
             "descriptionAr": "الموافقة على التأشيرة غير مكتمل ويحجب 4 خطوات لاحقة.",
@@ -256,6 +262,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "DP-02",
+            "counts": true,
             "dataQuality": false,
             "description": "The visa step Visa approved has been open for 8 days. Nothing else can finish until it does.",
             "descriptionAr": "خطوة التأشيرة الموافقة على التأشيرة مفتوحة منذ 8 يوماً.",
@@ -273,6 +280,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "PS-04",
+            "counts": true,
             "dataQuality": true,
             "description": "Feedback answers are switched off, so this view uses journey and request data only.",
             "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
@@ -290,6 +298,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "RQ-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Request SR-2024-094 has been open 7 days against a 72h target.",
             "descriptionAr": "الطلب SR-2024-094 مفتوح منذ 7 يوماً مقابل 72 ساعة.",
@@ -308,6 +317,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-05",
+            "counts": true,
             "dataQuality": false,
             "description": "Nothing has happened on this journey for 7 days.",
             "descriptionAr": "لم يحدث شيء على هذه الرحلة منذ 7 يوماً.",
@@ -406,6 +416,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "MB-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Your start date in the new role passed 4 days ago and the access profile has not changed.",
             "descriptionAr": "تاريخ السريان مضى عليه 4 يوماً وملف الوصول لم يتغير.",
@@ -423,6 +434,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "MB-04",
+            "counts": true,
             "dataQuality": false,
             "description": "The pay change is not confirmed and the payroll cutoff is in 6 days. If it slips you are paid wrong for a month.",
             "descriptionAr": "تغيير الراتب غير مؤكد وتقطع الرواتب بعد 6 يوماً.",
@@ -440,6 +452,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "PS-04",
+            "counts": true,
             "dataQuality": true,
             "description": "Feedback answers are switched off, so this view uses journey and request data only.",
             "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
@@ -457,6 +470,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "RQ-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Request SR-2024-098 has been open 4 days against a 48h target.",
             "descriptionAr": "الطلب SR-2024-098 مفتوح منذ 4 يوماً مقابل 48 ساعة.",
@@ -475,6 +489,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-01",
+            "counts": true,
             "dataQuality": false,
             "description": "New role access profile is past its 72h target.",
             "descriptionAr": "ملف الوصول للدور الجديد تجاوز هدفه البالغ 72 ساعة.",
@@ -491,6 +506,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Payroll change confirmed is past its 48h target.",
             "descriptionAr": "تأكيد تغيير الرواتب تجاوز هدفه البالغ 48 ساعة.",
@@ -507,6 +523,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-05",
+            "counts": true,
             "dataQuality": false,
             "description": "Nothing has happened on this journey for 4 days.",
             "descriptionAr": "لم يحدث شيء على هذه الرحلة منذ 4 يوماً.",
@@ -523,6 +540,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-06",
+            "counts": true,
             "dataQuality": false,
             "description": "Payroll change confirmed is still late after working days and holidays are taken into account.",
             "descriptionAr": "تأكيد تغيير الرواتب ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
@@ -619,6 +637,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "DP-06",
+            "counts": true,
             "dataQuality": false,
             "description": "The relocation allowance is not settled and the housing deadline is 0 days away.",
             "descriptionAr": "بدل الانتقال غير محسم وموعد السكن بعد 0 يوماً.",
@@ -636,6 +655,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "EN-03",
+            "counts": true,
             "dataQuality": false,
             "description": "Your checklist has not been opened in 16 days.",
             "descriptionAr": "لم تُفتح قائمتك منذ 16 يوماً.",
@@ -652,6 +672,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "PS-01",
+            "counts": true,
             "dataQuality": false,
             "description": "You told us at first_week that you felt unsure (2/5).",
             "descriptionAr": "أخبرتنا في first_week بأنك غير متأكد (2/5).",
@@ -669,6 +690,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "PS-03",
+            "counts": true,
             "dataQuality": false,
             "description": "Your words match \"ignored or blocked\". We do not score how you feel; this is a keyword match you can read.",
             "descriptionAr": "كلامك يطابق \"تم تجاهلي\". هذه مطابقة كلمات وليست تقييماً.",
@@ -686,6 +708,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Systems access provisioned is past its 48h target.",
             "descriptionAr": "توفير الوصول للأنظمة تجاوز هدفه البالغ 48 ساعة.",
@@ -782,6 +805,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "DP-05",
+            "counts": true,
             "dataQuality": false,
             "description": "The transfer is approved and the releasing manager has not started the handover for 6 days.",
             "descriptionAr": "النقل معتمد ولم يبدأ تسليم المدير السابق منذ 6 يوماً.",
@@ -798,6 +822,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "EN-03",
+            "counts": true,
             "dataQuality": false,
             "description": "Your checklist has not been opened in 34 days.",
             "descriptionAr": "لم تُفتح قائمتك منذ 34 يوماً.",
@@ -814,6 +839,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "MB-04",
+            "counts": true,
             "dataQuality": false,
             "description": "The pay change is not confirmed and the payroll cutoff is in 6 days. If it slips you are paid wrong for a month.",
             "descriptionAr": "تغيير الراتب غير مؤكد وتقطع الرواتب بعد 6 يوماً.",
@@ -831,6 +857,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "PS-04",
+            "counts": true,
             "dataQuality": true,
             "description": "Feedback answers are switched off, so this view uses journey and request data only.",
             "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
@@ -848,6 +875,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Releasing manager handover is past its 120h target.",
             "descriptionAr": "تسليم المدير السابق تجاوز هدفه البالغ 120 ساعة.",
@@ -864,6 +892,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-05",
+            "counts": true,
             "dataQuality": false,
             "description": "Nothing has happened on this journey for 6 days.",
             "descriptionAr": "لم يحدث شيء على هذه الرحلة منذ 6 يوماً.",
@@ -893,7 +922,7 @@
       "assessment": {
         "asOf": "2024-10-19T10:00:00.000Z",
         "band": "blocked",
-        "bandReason": "Score 51 from capped family totals → blocked.",
+        "bandReason": "Score 50 from capped family totals → blocked.",
         "corpusVersion": "policies-2024-q4-v1",
         "dataQualityOnly": false,
         "dayInStage": 11,
@@ -944,9 +973,9 @@
           },
           {
             "cap": 12,
-            "capped": 6,
+            "capped": 5,
             "family": "DQ",
-            "raw": 6,
+            "raw": 5,
             "suppressed": false
           }
         ],
@@ -956,12 +985,13 @@
         ],
         "hrbpEligible": true,
         "mapVersion": "map-1.0.0",
-        "score": 51,
+        "score": 50,
         "signalPackVersion": "signals-1.1.0",
         "signals": [
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "DP-02",
+            "counts": true,
             "dataQuality": false,
             "description": "The visa step Visa application submitted has been open for 9 days. Nothing else can finish until it does.",
             "descriptionAr": "خطوة التأشيرة تقديم طلب التأشيرة مفتوحة منذ 9 يوماً.",
@@ -979,6 +1009,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "DP-06",
+            "counts": true,
             "dataQuality": false,
             "description": "The relocation allowance is not settled and the housing deadline is 13 days away.",
             "descriptionAr": "بدل الانتقال غير محسم وموعد السكن بعد 13 يوماً.",
@@ -996,6 +1027,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "DQ-03",
+            "counts": false,
             "dataQuality": true,
             "description": "1 event(s) are dated in the future. They are excluded from your status.",
             "descriptionAr": "1 حدث بتاريخ مستقبلي، مستبعد من حالتك.",
@@ -1011,6 +1043,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "DQ-04",
+            "counts": true,
             "dataQuality": true,
             "description": "You appear in two journeys at once. We run both and put the nearer deadline first.",
             "descriptionAr": "تظهر في رحلتين في وقت واحد.",
@@ -1028,6 +1061,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "DQ-05",
+            "counts": true,
             "dataQuality": true,
             "description": "1 activity record(s) refer to steps not in your journey map. We list them as unmapped instead of dropping them.",
             "descriptionAr": "1 نشاط يشير إلى خطوات غير موجودة في الخريطة.",
@@ -1044,6 +1078,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "EN-01",
+            "counts": true,
             "dataQuality": false,
             "description": "We could not answer 3 questions in the last day. That is on us, not on you.",
             "descriptionAr": "لم نتمكن من الإجابة على 3 أسئلة خلال يوم.",
@@ -1061,6 +1096,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "EN-02",
+            "counts": true,
             "dataQuality": false,
             "description": "You have asked about the same thing 3 times this week (visa:dependants).",
             "descriptionAr": "سألت عن نفس الشيء 3 مرات هذا الأسبوع.",
@@ -1078,6 +1114,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "EN-04",
+            "counts": true,
             "dataQuality": false,
             "description": "You have asked for a person 2 times. A human should already be on this.",
             "descriptionAr": "طلبت شخصاً 2 مرات.",
@@ -1094,6 +1131,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "EN-05",
+            "counts": true,
             "dataQuality": false,
             "description": "The visa form was started and left 2 times — it is asking for something you do not have.",
             "descriptionAr": "نموذج visa بدأ وغادر 2 مرات.",
@@ -1110,6 +1148,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "PS-04",
+            "counts": true,
             "dataQuality": true,
             "description": "Feedback answers are switched off, so this view uses journey and request data only.",
             "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
@@ -1127,6 +1166,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "RQ-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Request SR-2024-101 has been open 1 days against a 24h target.",
             "descriptionAr": "الطلب SR-2024-101 مفتوح منذ 1 يوماً مقابل 24 ساعة.",
@@ -1145,6 +1185,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "RQ-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Request SR-2024-103 has been open 6 days against a 72h target.",
             "descriptionAr": "الطلب SR-2024-103 مفتوح منذ 6 يوماً مقابل 72 ساعة.",
@@ -1163,6 +1204,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "RQ-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Request SR-2024-104 has been open 4 days against a 24h target.",
             "descriptionAr": "الطلب SR-2024-104 مفتوح منذ 4 يوماً مقابل 24 ساعة.",
@@ -1181,6 +1223,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "RQ-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Request SR-2024-105 has been open 7 days against a 48h target.",
             "descriptionAr": "الطلب SR-2024-105 مفتوح منذ 7 يوماً مقابل 48 ساعة.",
@@ -1199,6 +1242,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "RQ-02",
+            "counts": true,
             "dataQuality": false,
             "description": "Request SR-2024-104 has been passed between queues 3 times.",
             "descriptionAr": "الطلب SR-2024-104 نُقل بين الطوابير 3 مرات.",
@@ -1216,6 +1260,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "RQ-03",
+            "counts": true,
             "dataQuality": false,
             "description": "Request SR-2024-104 was sent back 2 times as incomplete.",
             "descriptionAr": "الطلب SR-2024-104 أُرجع 2 مرات كغير مكتمل.",
@@ -1233,6 +1278,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "RQ-04",
+            "counts": true,
             "dataQuality": false,
             "description": "You asked for \"it_kit\" twice within 72 hours (SR-2024-101 and SR-2024-102).",
             "descriptionAr": "طلبت \"it_kit\" مرتين خلال 72 ساعة.",
@@ -1250,6 +1296,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "RQ-05",
+            "counts": true,
             "dataQuality": false,
             "description": "Request SR-2024-103 has no owner we can reach (O-LEFT-9). We will tell you who we told instead.",
             "descriptionAr": "الطلب SR-2024-103 لا مالك له يمكن الوصول إليه.",
@@ -1267,6 +1314,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "RQ-06",
+            "counts": true,
             "dataQuality": false,
             "description": "Request SR-2024-104 was closed and had to be reopened.",
             "descriptionAr": "الطلب SR-2024-104 أُغلق وأعيد فتحه.",
@@ -1284,6 +1332,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "RQ-07",
+            "counts": true,
             "dataQuality": false,
             "description": "Request SR-2024-105 is waiting on you, not on the company.",
             "descriptionAr": "الطلب SR-2024-105 ينتظرك أنت.",
@@ -1301,6 +1350,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Relocation allowance confirmed is past its 72h target.",
             "descriptionAr": "تأكيد بدل الانتقال تجاوز هدفه البالغ 72 ساعة.",
@@ -1317,6 +1367,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Visa application submitted is past its 168h target.",
             "descriptionAr": "تقديم طلب التأشيرة تجاوز هدفه البالغ 168 ساعة.",
@@ -1334,6 +1385,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-06",
+            "counts": true,
             "dataQuality": false,
             "description": "Relocation allowance confirmed is still late after working days and holidays are taken into account.",
             "descriptionAr": "تأكيد بدل الانتقال ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
@@ -1350,6 +1402,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-07",
+            "counts": true,
             "dataQuality": false,
             "description": "ID badge issued was completed before the step it depends on. We show both, and we do not rewrite history.",
             "descriptionAr": "إصدار بطاقة الهوية اكتمل قبل الخطوة التي يعتمد عليها.",
@@ -1458,6 +1511,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "EN-03",
+            "counts": true,
             "dataQuality": false,
             "description": "Your checklist has not been opened in 25 days.",
             "descriptionAr": "لم تُفتح قائمتك منذ 25 يوماً.",
@@ -1474,6 +1528,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "MB-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Your start date in the new role passed 9 days ago and the access profile has not changed.",
             "descriptionAr": "تاريخ السريان مضى عليه 9 يوماً وملف الوصول لم يتغير.",
@@ -1491,6 +1546,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "MB-02",
+            "counts": true,
             "dataQuality": false,
             "description": "You moved from DXB to AUH and nobody has opened a relocation case.",
             "descriptionAr": "انتقلت من DXB إلى AUH دون ملف انتقال.",
@@ -1509,6 +1565,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "MB-03",
+            "counts": true,
             "dataQuality": false,
             "description": "Two managers still think they have you, 9 days after your effective date.",
             "descriptionAr": "مديران ما يزالان يظنان أنك معهما.",
@@ -1526,6 +1583,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "MB-04",
+            "counts": true,
             "dataQuality": false,
             "description": "The pay change is not confirmed and the payroll cutoff is in 6 days. If it slips you are paid wrong for a month.",
             "descriptionAr": "تغيير الراتب غير مؤكد وتقطع الرواتب بعد 6 يوماً.",
@@ -1543,6 +1601,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "MB-05",
+            "counts": true,
             "dataQuality": false,
             "description": "Previous-team equipment is 11 days overdue for return.",
             "descriptionAr": "معدات الفريق السابق متأخرة 11 يوماً.",
@@ -1560,6 +1619,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "PS-04",
+            "counts": true,
             "dataQuality": true,
             "description": "Feedback answers are switched off, so this view uses journey and request data only.",
             "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
@@ -1577,6 +1637,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Previous team assets returned is past its 240h target.",
             "descriptionAr": "إرجاع أصول الفريق السابق تجاوز هدفه البالغ 240 ساعة.",
@@ -1593,6 +1654,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-01",
+            "counts": true,
             "dataQuality": false,
             "description": "New role access profile is past its 72h target.",
             "descriptionAr": "ملف الوصول للدور الجديد تجاوز هدفه البالغ 72 ساعة.",
@@ -1609,6 +1671,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Payroll change confirmed is past its 48h target.",
             "descriptionAr": "تأكيد تغيير الرواتب تجاوز هدفه البالغ 48 ساعة.",
@@ -1625,6 +1688,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Dual reporting resolved is past its 168h target.",
             "descriptionAr": "حل التقارير المزدوج تجاوز هدفه البالغ 168 ساعة.",
@@ -1641,6 +1705,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-02",
+            "counts": true,
             "dataQuality": false,
             "description": "Payroll change confirmed has taken more than double its target time.",
             "descriptionAr": "تأكيد تغيير الرواتب استغرق أكثر من ضعف الوقت المستهدف.",
@@ -1658,6 +1723,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-06",
+            "counts": true,
             "dataQuality": false,
             "description": "Previous team assets returned is still late after working days and holidays are taken into account.",
             "descriptionAr": "إرجاع أصول الفريق السابق ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
@@ -1674,6 +1740,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-06",
+            "counts": true,
             "dataQuality": false,
             "description": "New role access profile is still late after working days and holidays are taken into account.",
             "descriptionAr": "ملف الوصول للدور الجديد ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
@@ -1690,6 +1757,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-06",
+            "counts": true,
             "dataQuality": false,
             "description": "Payroll change confirmed is still late after working days and holidays are taken into account.",
             "descriptionAr": "تأكيد تغيير الرواتب ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
@@ -1786,6 +1854,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "PS-04",
+            "counts": true,
             "dataQuality": true,
             "description": "Feedback answers are switched off, so this view uses journey and request data only.",
             "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
@@ -1883,6 +1952,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "DP-06",
+            "counts": true,
             "dataQuality": false,
             "description": "The relocation allowance is not settled and the housing deadline is 3 days away.",
             "descriptionAr": "بدل الانتقال غير محسم وموعد السكن بعد 3 يوماً.",
@@ -1900,6 +1970,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "EN-03",
+            "counts": true,
             "dataQuality": false,
             "description": "Your checklist has not been opened in 9 days.",
             "descriptionAr": "لم تُفتح قائمتك منذ 9 يوماً.",
@@ -1916,6 +1987,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "PS-04",
+            "counts": true,
             "dataQuality": true,
             "description": "Feedback answers are switched off, so this view uses journey and request data only.",
             "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
@@ -1933,6 +2005,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "RQ-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Request SR-2024-106 has been open 3 days against a 24h target.",
             "descriptionAr": "الطلب SR-2024-106 مفتوح منذ 3 يوماً مقابل 24 ساعة.",
@@ -1951,6 +2024,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-04",
+            "counts": true,
             "dataQuality": false,
             "description": "The first day is in 3 day(s) and 33% of the before-you-arrive steps are done.",
             "descriptionAr": "اليوم الأول بعد 3 يوم و33% من الخطوات السابقة مكتمل.",
@@ -1968,6 +2042,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-05",
+            "counts": true,
             "dataQuality": false,
             "description": "Nothing has happened on this journey for 9 days.",
             "descriptionAr": "لم يحدث شيء على هذه الرحلة منذ 9 يوماً.",
@@ -2064,6 +2139,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "PS-04",
+            "counts": true,
             "dataQuality": true,
             "description": "Feedback answers are switched off, so this view uses journey and request data only.",
             "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
@@ -2161,6 +2237,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "DP-06",
+            "counts": true,
             "dataQuality": false,
             "description": "The relocation allowance is not settled and the housing deadline is 0 days away.",
             "descriptionAr": "بدل الانتقال غير محسم وموعد السكن بعد 0 يوماً.",
@@ -2178,6 +2255,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "EN-03",
+            "counts": true,
             "dataQuality": false,
             "description": "Your checklist has not been opened in 9 days.",
             "descriptionAr": "لم تُفتح قائمتك منذ 9 يوماً.",
@@ -2194,6 +2272,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "PS-04",
+            "counts": true,
             "dataQuality": true,
             "description": "Feedback answers are switched off, so this view uses journey and request data only.",
             "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
@@ -2211,6 +2290,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-03",
+            "counts": true,
             "dataQuality": false,
             "description": "We said laptop and phone by day 2. It has been 4 days and it is not done.",
             "descriptionAr": "قلنا laptop and phone by day 2. مضت 4 أيام ولم يكتمل.",
@@ -2228,6 +2308,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-05",
+            "counts": true,
             "dataQuality": false,
             "description": "Nothing has happened on this journey for 4 days.",
             "descriptionAr": "لم يحدث شيء على هذه الرحلة منذ 4 يوماً.",
@@ -2324,6 +2405,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "EN-03",
+            "counts": true,
             "dataQuality": false,
             "description": "Your checklist has not been opened in 26 days.",
             "descriptionAr": "لم تُفتح قائمتك منذ 26 يوماً.",
@@ -2340,6 +2422,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "MB-02",
+            "counts": true,
             "dataQuality": false,
             "description": "You moved from DXB to SHJ and nobody has opened a relocation case.",
             "descriptionAr": "انتقلت من DXB إلى SHJ دون ملف انتقال.",
@@ -2358,6 +2441,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "MB-03",
+            "counts": true,
             "dataQuality": false,
             "description": "Two managers still think they have you, 14 days after your effective date.",
             "descriptionAr": "مديران ما يزالان يظنان أنك معهما.",
@@ -2375,6 +2459,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "MB-06",
+            "counts": true,
             "dataQuality": false,
             "description": "Mandatory training for the new role has not been booked, 14 days after your start date.",
             "descriptionAr": "التدريب الإلزامي لم يُحجز منذ 14 يوماً.",
@@ -2392,6 +2477,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "PS-04",
+            "counts": true,
             "dataQuality": true,
             "description": "Feedback answers are switched off, so this view uses journey and request data only.",
             "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
@@ -2409,6 +2495,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Previous team assets returned is past its 240h target.",
             "descriptionAr": "إرجاع أصول الفريق السابق تجاوز هدفه البالغ 240 ساعة.",
@@ -2425,6 +2512,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-05",
+            "counts": true,
             "dataQuality": false,
             "description": "Nothing has happened on this journey for 12 days.",
             "descriptionAr": "لم يحدث شيء على هذه الرحلة منذ 12 يوماً.",
@@ -2441,6 +2529,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-06",
+            "counts": true,
             "dataQuality": false,
             "description": "Previous team assets returned is still late after working days and holidays are taken into account.",
             "descriptionAr": "إرجاع أصول الفريق السابق ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
@@ -2537,6 +2626,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "DP-03",
+            "counts": true,
             "dataQuality": false,
             "description": "Systems access provisioned started and then stopped, waiting on a document or an asset.",
             "descriptionAr": "توفير الوصول للأنظمة بدأ ثم توقف بانتظار مستند أو أصل.",
@@ -2553,6 +2643,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "PS-04",
+            "counts": true,
             "dataQuality": true,
             "description": "Feedback answers are switched off, so this view uses journey and request data only.",
             "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
@@ -2570,6 +2661,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Systems access provisioned is past its 48h target.",
             "descriptionAr": "توفير الوصول للأنظمة تجاوز هدفه البالغ 48 ساعة.",
@@ -2587,6 +2679,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Buddy assigned is past its 24h target.",
             "descriptionAr": "تعيين المرافق تجاوز هدفه البالغ 24 ساعة.",
@@ -2603,6 +2696,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-06",
+            "counts": true,
             "dataQuality": false,
             "description": "Systems access provisioned is still late after working days and holidays are taken into account.",
             "descriptionAr": "توفير الوصول للأنظمة ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
@@ -2619,6 +2713,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-06",
+            "counts": true,
             "dataQuality": false,
             "description": "Buddy assigned is still late after working days and holidays are taken into account.",
             "descriptionAr": "تعيين المرافق ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
@@ -2717,6 +2812,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "DP-04",
+            "counts": true,
             "dataQuality": false,
             "description": "Mandatory training booked is in motion but Systems access provisioned is not ready.",
             "descriptionAr": "حجز التدريب الإلزامي جارٍ لكن توفير الوصول للأنظمة غير جاهز.",
@@ -2733,6 +2829,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "PS-04",
+            "counts": true,
             "dataQuality": true,
             "description": "Feedback answers are switched off, so this view uses journey and request data only.",
             "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
@@ -2750,6 +2847,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "RQ-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Request SR-2024-107 has been open 4 days against a 48h target.",
             "descriptionAr": "الطلب SR-2024-107 مفتوح منذ 4 يوماً مقابل 48 ساعة.",
@@ -2768,6 +2866,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Mandatory training booked is past its 72h target.",
             "descriptionAr": "حجز التدريب الإلزامي تجاوز هدفه البالغ 72 ساعة.",
@@ -2785,6 +2884,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Buddy assigned is past its 24h target.",
             "descriptionAr": "تعيين المرافق تجاوز هدفه البالغ 24 ساعة.",
@@ -2801,6 +2901,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-02",
+            "counts": true,
             "dataQuality": false,
             "description": "Buddy assigned has taken more than double its target time.",
             "descriptionAr": "تعيين المرافق استغرق أكثر من ضعف الوقت المستهدف.",
@@ -2818,6 +2919,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-06",
+            "counts": true,
             "dataQuality": false,
             "description": "Mandatory training booked is still late after working days and holidays are taken into account.",
             "descriptionAr": "حجز التدريب الإلزامي ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
@@ -2834,6 +2936,7 @@
           {
             "asOf": "2024-10-19T10:00:00.000Z",
             "code": "TL-06",
+            "counts": true,
             "dataQuality": false,
             "description": "Buddy assigned is still late after working days and holidays are taken into account.",
             "descriptionAr": "تعيين المرافق ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
@@ -2863,7 +2966,7 @@
       "assessment": {
         "asOf": "2024-10-16T10:00:00.000Z",
         "band": "watch",
-        "bandReason": "Score 11 from capped family totals → watch.",
+        "bandReason": "Score 10 from capped family totals → watch.",
         "corpusVersion": "policies-2024-q4-v1",
         "dataQualityOnly": false,
         "dayInStage": 1,
@@ -2914,9 +3017,9 @@
           },
           {
             "cap": 12,
-            "capped": 1,
+            "capped": 0,
             "family": "DQ",
-            "raw": 1,
+            "raw": 0,
             "suppressed": false
           }
         ],
@@ -2924,12 +3027,13 @@
         "hardTrips": [],
         "hrbpEligible": false,
         "mapVersion": "map-1.0.0",
-        "score": 11,
+        "score": 10,
         "signalPackVersion": "signals-1.1.0",
         "signals": [
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "DQ-03",
+            "counts": false,
             "dataQuality": true,
             "description": "2 event(s) are dated in the future. They are excluded from your status.",
             "descriptionAr": "2 حدث بتاريخ مستقبلي، مستبعد من حالتك.",
@@ -2946,6 +3050,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "PS-04",
+            "counts": true,
             "dataQuality": true,
             "description": "Feedback answers are switched off, so this view uses journey and request data only.",
             "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
@@ -2963,6 +3068,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "TL-03",
+            "counts": true,
             "dataQuality": false,
             "description": "We said badge on day 1. It has been 2 days and it is not done.",
             "descriptionAr": "قلنا badge on day 1. مضت 2 أيام ولم يكتمل.",
@@ -2980,6 +3086,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "TL-03",
+            "counts": true,
             "dataQuality": false,
             "description": "We said laptop and phone by day 2. It has been 2 days and it is not done.",
             "descriptionAr": "قلنا laptop and phone by day 2. مضت 2 أيام ولم يكتمل.",
@@ -3077,6 +3184,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "DP-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Visa approved is not finished and it holds up 4 later steps.",
             "descriptionAr": "الموافقة على التأشيرة غير مكتمل ويحجب 4 خطوات لاحقة.",
@@ -3097,6 +3205,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "PS-04",
+            "counts": true,
             "dataQuality": true,
             "description": "Feedback answers are switched off, so this view uses journey and request data only.",
             "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
@@ -3114,6 +3223,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "RQ-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Request SR-2024-094 has been open 4 days against a 72h target.",
             "descriptionAr": "الطلب SR-2024-094 مفتوح منذ 4 يوماً مقابل 72 ساعة.",
@@ -3132,6 +3242,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "TL-05",
+            "counts": true,
             "dataQuality": false,
             "description": "Nothing has happened on this journey for 4 days.",
             "descriptionAr": "لم يحدث شيء على هذه الرحلة منذ 4 يوماً.",
@@ -3228,6 +3339,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "PS-04",
+            "counts": true,
             "dataQuality": true,
             "description": "Feedback answers are switched off, so this view uses journey and request data only.",
             "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
@@ -3258,7 +3370,7 @@
       "assessment": {
         "asOf": "2024-10-16T10:00:00.000Z",
         "band": "watch",
-        "bandReason": "Score 9 from capped family totals → watch.",
+        "bandReason": "Score 8 from capped family totals → watch.",
         "corpusVersion": "policies-2024-q4-v1",
         "dataQualityOnly": false,
         "dayInStage": 16,
@@ -3309,9 +3421,9 @@
           },
           {
             "cap": 12,
-            "capped": 1,
+            "capped": 0,
             "family": "DQ",
-            "raw": 1,
+            "raw": 0,
             "suppressed": false
           }
         ],
@@ -3319,12 +3431,13 @@
         "hardTrips": [],
         "hrbpEligible": false,
         "mapVersion": "map-1.0.0",
-        "score": 9,
+        "score": 8,
         "signalPackVersion": "signals-1.1.0",
         "signals": [
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "DP-06",
+            "counts": true,
             "dataQuality": false,
             "description": "The relocation allowance is not settled and the housing deadline is 1 days away.",
             "descriptionAr": "بدل الانتقال غير محسم وموعد السكن بعد 1 يوماً.",
@@ -3342,6 +3455,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "DQ-03",
+            "counts": false,
             "dataQuality": true,
             "description": "3 event(s) are dated in the future. They are excluded from your status.",
             "descriptionAr": "3 حدث بتاريخ مستقبلي، مستبعد من حالتك.",
@@ -3359,6 +3473,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "PS-04",
+            "counts": true,
             "dataQuality": true,
             "description": "Feedback answers are switched off, so this view uses journey and request data only.",
             "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
@@ -3376,6 +3491,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "TL-05",
+            "counts": true,
             "dataQuality": false,
             "description": "Nothing has happened on this journey for 5 days.",
             "descriptionAr": "لم يحدث شيء على هذه الرحلة منذ 5 يوماً.",
@@ -3472,6 +3588,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "EN-03",
+            "counts": true,
             "dataQuality": false,
             "description": "Your checklist has not been opened in 31 days.",
             "descriptionAr": "لم تُفتح قائمتك منذ 31 يوماً.",
@@ -3488,6 +3605,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "PS-04",
+            "counts": true,
             "dataQuality": true,
             "description": "Feedback answers are switched off, so this view uses journey and request data only.",
             "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
@@ -3518,7 +3636,7 @@
       "assessment": {
         "asOf": "2024-10-16T10:00:00.000Z",
         "band": "blocked",
-        "bandReason": "Score 26 from capped family totals → blocked.",
+        "bandReason": "Score 25 from capped family totals → blocked.",
         "corpusVersion": "policies-2024-q4-v1",
         "dataQualityOnly": false,
         "dayInStage": 8,
@@ -3569,9 +3687,9 @@
           },
           {
             "cap": 12,
-            "capped": 4,
+            "capped": 3,
             "family": "DQ",
-            "raw": 4,
+            "raw": 3,
             "suppressed": false
           }
         ],
@@ -3579,12 +3697,13 @@
         "hardTrips": [],
         "hrbpEligible": true,
         "mapVersion": "map-1.0.0",
-        "score": 26,
+        "score": 25,
         "signalPackVersion": "signals-1.1.0",
         "signals": [
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "DQ-03",
+            "counts": false,
             "dataQuality": true,
             "description": "3 event(s) are dated in the future. They are excluded from your status.",
             "descriptionAr": "3 حدث بتاريخ مستقبلي، مستبعد من حالتك.",
@@ -3602,6 +3721,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "DQ-04",
+            "counts": true,
             "dataQuality": true,
             "description": "You appear in two journeys at once. We run both and put the nearer deadline first.",
             "descriptionAr": "تظهر في رحلتين في وقت واحد.",
@@ -3619,6 +3739,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "EN-03",
+            "counts": true,
             "dataQuality": false,
             "description": "Your checklist has not been opened in 6 days.",
             "descriptionAr": "لم تُفتح قائمتك منذ 6 يوماً.",
@@ -3635,6 +3756,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "PS-04",
+            "counts": true,
             "dataQuality": true,
             "description": "Feedback answers are switched off, so this view uses journey and request data only.",
             "descriptionAr": "إجابات التغذية الراجعة مطفأة، لذا يستخدم هذا العرض بيانات الرحلة والطلبات فقط.",
@@ -3652,6 +3774,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "RQ-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Request SR-2024-105 has been open 4 days against a 48h target.",
             "descriptionAr": "الطلب SR-2024-105 مفتوح منذ 4 يوماً مقابل 48 ساعة.",
@@ -3670,6 +3793,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "RQ-02",
+            "counts": true,
             "dataQuality": false,
             "description": "Request SR-2024-104 has been passed between queues 3 times.",
             "descriptionAr": "الطلب SR-2024-104 نُقل بين الطوابير 3 مرات.",
@@ -3687,6 +3811,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "RQ-03",
+            "counts": true,
             "dataQuality": false,
             "description": "Request SR-2024-104 was sent back 2 times as incomplete.",
             "descriptionAr": "الطلب SR-2024-104 أُرجع 2 مرات كغير مكتمل.",
@@ -3704,6 +3829,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "RQ-05",
+            "counts": true,
             "dataQuality": false,
             "description": "Request SR-2024-103 has no owner we can reach (O-LEFT-9). We will tell you who we told instead.",
             "descriptionAr": "الطلب SR-2024-103 لا مالك له يمكن الوصول إليه.",
@@ -3721,6 +3847,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "RQ-06",
+            "counts": true,
             "dataQuality": false,
             "description": "Request SR-2024-104 was closed and had to be reopened.",
             "descriptionAr": "الطلب SR-2024-104 أُغلق وأعيد فتحه.",
@@ -3738,6 +3865,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "TL-01",
+            "counts": true,
             "dataQuality": false,
             "description": "Relocation allowance confirmed is past its 72h target.",
             "descriptionAr": "تأكيد بدل الانتقال تجاوز هدفه البالغ 72 ساعة.",
@@ -3754,6 +3882,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "TL-06",
+            "counts": true,
             "dataQuality": false,
             "description": "Relocation allowance confirmed is still late after working days and holidays are taken into account.",
             "descriptionAr": "تأكيد بدل الانتقال ما يزال متأخراً بعد احتساب أيام العمل والعطلات.",
@@ -3770,6 +3899,7 @@
           {
             "asOf": "2024-10-16T10:00:00.000Z",
             "code": "TL-07",
+            "counts": true,
             "dataQuality": false,
             "description": "ID badge issued was completed before the step it depends on. We show both, and we do not rewrite history.",
             "descriptionAr": "إصدار بطاقة الهوية اكتمل قبل الخطوة التي يعتمد عليها.",

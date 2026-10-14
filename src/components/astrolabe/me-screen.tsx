@@ -39,11 +39,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
 import { Switch } from "@/components/ui/switch";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Table,
   TableBody,
@@ -63,17 +59,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { PrivacyPage } from "@/components/astrolabe/privacy-page";
-import {
-  NumberTicker,
-  RevealOnScroll,
-  Tilt3D,
-} from "@/components/astrolabe/micro-interactions";
+import { NumberTicker, RevealOnScroll, Tilt3D } from "@/components/astrolabe/micro-interactions";
 import { NOW as PACK_NOW } from "@/lib/data/pack";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -117,9 +105,33 @@ interface MeDataEmployee {
 
 interface MeData {
   employee: MeDataEmployee;
-  journeyEvents: { id: string; stepKey: string; type: string; occurredAt: string; recordedAt: string; source: string }[];
-  serviceRequests: { id: string; ref: string; type: string; ownerGroup: string; assignee: string; status: string; openedAt: string; slaHours: number; reassignCount: number; returnCount: number }[];
-  pulseResponses: { id: string; stage: string; score: number; commentRef?: string; createdAt: string }[];
+  journeyEvents: {
+    id: string;
+    stepKey: string;
+    type: string;
+    occurredAt: string;
+    recordedAt: string;
+    source: string;
+  }[];
+  serviceRequests: {
+    id: string;
+    ref: string;
+    type: string;
+    ownerGroup: string;
+    assignee: string;
+    status: string;
+    openedAt: string;
+    slaHours: number;
+    reassignCount: number;
+    returnCount: number;
+  }[];
+  pulseResponses: {
+    id: string;
+    stage: string;
+    score: number;
+    commentRef?: string;
+    createdAt: string;
+  }[];
   pulseConsentGranted: boolean;
   consentRecords: ConsentRecord[];
   auditEvents: unknown[];
@@ -155,7 +167,8 @@ const PURPOSES: PurposeMeta[] = [
     key: "journey_assistance",
     labelEn: "Journey assistance",
     labelAr: "مساعدة الرحلة",
-    descEn: "Help me with onboarding and mobility steps. The instrument reads my journey to suggest the next best move.",
+    descEn:
+      "Help me with onboarding and mobility steps. The instrument reads my journey to suggest the next best move.",
     descAr: "ساعدني في خطوات الالتحاق والتنقل. تقرأ الأداة رحلتي لاقتراح الخطوة التالية الأفضل.",
     noChangeEn: "Required for use — cannot be turned off.",
     noChangeAr: "ضرورية للاستخدام — لا يمكن إيقافها.",
@@ -168,36 +181,47 @@ const PURPOSES: PurposeMeta[] = [
     labelAr: "نبضة من سؤالين",
     descEn: "Only if you want to: can I ask two quick questions to spot problems early?",
     descAr: "فقط إذا رغبت: هل يمكنني طرح سؤالين سريعين لرصد المشاكل مبكراً؟",
-    noChangeEn: "Your pulse score and any comment will not be captured. The band uses journey + request data only.",
-    noChangeAr: "لن يتم تسجيل درجة نبضتك أو أي تعليق. يعتمد التصنيف على بيانات الرحلة والطلبات فقط.",
+    noChangeEn:
+      "Your pulse score and any comment will not be captured. The band uses journey + request data only.",
+    noChangeAr:
+      "لن يتم تسجيل درجة نبضتك أو أي تعليق. يعتمد التصنيف على بيانات الرحلة والطلبات فقط.",
     defaultOn: false,
   },
   {
     key: "share_pulse_summary",
     labelEn: "Share pulse summary with HRBP",
     labelAr: "مشاركة ملخص النبضة مع شريك الموارد البشرية",
-    descEn: "If I capture a pulse, may I share the summary (1–5 score, no comment text) with my HRBP only when an escalation is built?",
-    descAr: "إذا سجّلت نبضة، هل أشارك الملخص (درجة 1–5، بدون نص التعليق) مع شريك الموارد البشرية فقط عند بناء تصعيد؟",
-    noChangeEn: "HRBP sees journey state + request telemetry only — never the pulse score, never any comment.",
-    noChangeAr: "يرى شريك الموارد البشرية حالة الرحلة وبيانات الطلبات فقط — لا درجة النبضة ولا أي تعليق.",
+    descEn:
+      "If I capture a pulse, may I share the summary (1–5 score, no comment text) with my HRBP only when an escalation is built?",
+    descAr:
+      "إذا سجّلت نبضة، هل أشارك الملخص (درجة 1–5، بدون نص التعليق) مع شريك الموارد البشرية فقط عند بناء تصعيد؟",
+    noChangeEn:
+      "HRBP sees journey state + request telemetry only — never the pulse score, never any comment.",
+    noChangeAr:
+      "يرى شريك الموارد البشرية حالة الرحلة وبيانات الطلبات فقط — لا درجة النبضة ولا أي تعليق.",
     defaultOn: false,
   },
   {
     key: "comment_retention",
     labelEn: "Retain my comment text",
     labelAr: "الاحتفاظ بنص تعليقي",
-    descEn: "When I leave a comment on a pulse, may I keep that text on file so I can read it back later?",
+    descEn:
+      "When I leave a comment on a pulse, may I keep that text on file so I can read it back later?",
     descAr: "عندما أكتب تعليقاً على نبضة، هل أحتفظ بالنص في ملفي لمراجعته لاحقاً؟",
-    noChangeEn: "Comments are not retained — only the 1–5 score is kept. You will not be able to read past comments.",
-    noChangeAr: "لا يتم الاحتفاظ بالتعليقات — يُحتفظ فقط بدرجة 1–5. لن تتمكن من قراءة التعليقات السابقة.",
+    noChangeEn:
+      "Comments are not retained — only the 1–5 score is kept. You will not be able to read past comments.",
+    noChangeAr:
+      "لا يتم الاحتفاظ بالتعليقات — يُحتفظ فقط بدرجة 1–5. لن تتمكن من قراءة التعليقات السابقة.",
     defaultOn: false,
   },
   {
     key: "manager_visibility",
     labelEn: "Show manager my obligations",
     labelAr: "إظهار التزاماتي لمديري",
-    descEn: "May my line manager see the steps they own on my journey, and aggregate completion? They never see my pulse, comments, or friction score.",
-    descAr: "هل يرى مديري المباشر الخطوات التي يملكها في رحلتي ونسبة الإنجاز الكلية؟ لا يرى أبداً نبضتي أو تعليقاتي أو درجة الاحتكاك.",
+    descEn:
+      "May my line manager see the steps they own on my journey, and aggregate completion? They never see my pulse, comments, or friction score.",
+    descAr:
+      "هل يرى مديري المباشر الخطوات التي يملكها في رحلتي ونسبة الإنجاز الكلية؟ لا يرى أبداً نبضتي أو تعليقاتي أو درجة الاحتكاك.",
     noChangeEn: "Your manager sees only their own to-do list — not your journey, not your stage.",
     noChangeAr: "يرى مديرك فقط قائمة مهامه الخاصة — ليس رحلتك ولا مرحلتك.",
     defaultOn: true,
@@ -206,8 +230,10 @@ const PURPOSES: PurposeMeta[] = [
     key: "aggregate_analytics",
     labelEn: "Aggregate analytics",
     labelAr: "تحليلات مجمّعة",
-    descEn: "May the platform use fully de-identified, k≥5 aggregate stats to find systemic stalls (e.g., 'visa step is slow for everyone')?",
-    descAr: "هل تستخدم المنصة إحصاءات مجمّعة مجهولة الهوية (k≥5) لرصد الاختناقات النظامية (مثل: 'تأشيرة بطيئة للجميع')؟",
+    descEn:
+      "May the platform use fully de-identified, k≥5 aggregate stats to find systemic stalls (e.g., 'visa step is slow for everyone')?",
+    descAr:
+      "هل تستخدم المنصة إحصاءات مجمّعة مجهولة الهوية (k≥5) لرصد الاختناقات النظامية (مثل: 'تأشيرة بطيئة للجميع')؟",
     noChangeEn: "Your data is excluded from systemic-stall analytics. Insights may be sparser.",
     noChangeAr: "تُستثنى بياناتك من تحليلات الاختناقات النظامية. قد تكون الرؤى أقل.",
     defaultOn: true,
@@ -225,7 +251,7 @@ function latestConsent(records: ConsentRecord[], purpose: Purpose): ConsentRecor
 function purposeGranted(
   records: ConsentRecord[],
   overrides: Record<string, boolean>,
-  meta: PurposeMeta
+  meta: PurposeMeta,
 ): boolean {
   if (typeof overrides[meta.key] === "boolean") return overrides[meta.key];
   const latest = latestConsent(records, meta.key);
@@ -237,12 +263,7 @@ function purposeGranted(
    Audit timeline — types, action metadata, synthetic entries
    ============================================================ */
 
-type AuditAction =
-  | "read_record"
-  | "consent_change"
-  | "export"
-  | "escalation"
-  | "ingestion";
+type AuditAction = "read_record" | "consent_change" | "export" | "escalation" | "ingestion";
 
 interface AuditEntry {
   id: string;
@@ -410,7 +431,7 @@ function buildAuditTimeline(viewLog: MeData["viewLog"]): AuditEntry[] {
 function computePrivacyScore(
   records: ConsentRecord[],
   overrides: Record<string, boolean>,
-  hasExported: boolean
+  hasExported: boolean,
 ): number {
   // Base 40 — journey_assistance is required and always on
   let score = 40;
@@ -421,7 +442,12 @@ function computePrivacyScore(
   return score;
 }
 
-function privacyScoreColor(score: number): { color: string; glow: string; label: string; labelAr: string } {
+function privacyScoreColor(score: number): {
+  color: string;
+  glow: string;
+  label: string;
+  labelAr: string;
+} {
   if (score >= 80) {
     return {
       color: "var(--brand-500)",
@@ -471,13 +497,7 @@ function describeArc(cx: number, cy: number, r: number, start: number, end: numb
    <PrivacyMeter> — animated SVG semicircle gauge
    ============================================================ */
 
-function PrivacyMeter({
-  score,
-  reducedMotion,
-}: {
-  score: number;
-  reducedMotion: boolean;
-}) {
+function PrivacyMeter({ score, reducedMotion }: { score: number; reducedMotion: boolean }) {
   const { color, glow } = privacyScoreColor(score);
   const cx = 110;
   const cy = 110;
@@ -523,14 +543,7 @@ function PrivacyMeter({
         const ly = cy - Math.sin(a) * 110 + 3;
         return (
           <g key={tick}>
-            <line
-              x1={x1}
-              y1={y1}
-              x2={x2}
-              y2={y2}
-              stroke="var(--text-lo)"
-              strokeWidth="1"
-            />
+            <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--text-lo)" strokeWidth="1" />
             <text
               x={lx}
               y={ly}
@@ -591,7 +604,10 @@ function PrivacyScoreCard({
                   /100
                 </span>
               </div>
-              <span className="text-[11px] uppercase tracking-[0.14em] mt-1" style={{ color: "var(--text-lo)" }}>
+              <span
+                className="text-[11px] uppercase tracking-[0.14em] mt-1"
+                style={{ color: "var(--text-lo)" }}
+              >
                 {locale === "ar" ? "تحكّمك في الخصوصية" : "Your privacy control"}
               </span>
             </div>
@@ -600,11 +616,17 @@ function PrivacyScoreCard({
 
         {/* Label + CTA */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--brand-400)" }}>
+          <div
+            className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em]"
+            style={{ color: "var(--brand-400)" }}
+          >
             <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
             <span>{locale === "ar" ? "درجة الخصوصية" : "Privacy score"}</span>
           </div>
-          <p className="text-[14px] sm:text-[15px] mt-2 leading-relaxed" style={{ color: "var(--text-hi)" }}>
+          <p
+            className="text-[14px] sm:text-[15px] mt-2 leading-relaxed"
+            style={{ color: "var(--text-hi)" }}
+          >
             {locale === "ar" ? meta.labelAr : meta.label}
           </p>
           <ul className="text-[12px] mt-3 space-y-1" style={{ color: "var(--text-mid)" }}>
@@ -624,8 +646,8 @@ function PrivacyScoreCard({
                   ? "اطّلعت على تصدير بياناتك (+15)"
                   : "لم تطلّع على تصدير بياناتك بعد (+15 متاحة)"
                 : hasExported
-                ? "You've viewed your data export (+15)"
-                : "You haven't viewed your data export yet (+15 available)"}
+                  ? "You've viewed your data export (+15)"
+                  : "You haven't viewed your data export yet (+15 available)"}
             </li>
           </ul>
           <button
@@ -700,18 +722,27 @@ function AuditTimeline({
         aria-live="polite"
       >
         {entries.length === 0 ? (
-          <span>{locale === "ar" ? "لا أحد اطلع على سجلك بعد." : "Nobody has accessed your record yet."}</span>
+          <span>
+            {locale === "ar" ? "لا أحد اطلع على سجلك بعد." : "Nobody has accessed your record yet."}
+          </span>
         ) : (
           <>
             <span className="font-medium tabular" style={{ color: "var(--text-hi)" }}>
               {uniqueActors.length}
             </span>
-            <span> {locale === "ar" ? "شخص اطلع على سجلك: " : " people have accessed your record: "}</span>
+            <span>
+              {" "}
+              {locale === "ar" ? "شخص اطلع على سجلك: " : " people have accessed your record: "}
+            </span>
             {uniqueActors.map((a, i) => (
               <Fragment key={`${a.name}-${a.role}`}>
                 {i > 0 && <span style={{ color: "var(--text-lo)" }}> · </span>}
                 <span style={{ color: "var(--text-hi)" }}>{a.name}</span>
-                <span style={{ color: "var(--text-lo)" }}> ({a.role}{a.count > 1 ? `, ${a.count}` : ""})</span>
+                <span style={{ color: "var(--text-lo)" }}>
+                  {" "}
+                  ({a.role}
+                  {a.count > 1 ? `, ${a.count}` : ""})
+                </span>
               </Fragment>
             ))}
           </>
@@ -751,10 +782,7 @@ function AuditTimeline({
 
       {/* Empty state */}
       {filtered.length === 0 ? (
-        <div
-          className="ast-card-2 p-6 text-center"
-          style={{ borderColor: "var(--border-soft)" }}
-        >
+        <div className="ast-card-2 p-6 text-center" style={{ borderColor: "var(--border-soft)" }}>
           <ShieldCheck
             className="w-7 h-7 mx-auto mb-3"
             strokeWidth={1.5}
@@ -785,12 +813,7 @@ function AuditTimeline({
               addSuffix: true,
             });
             return (
-              <RevealOnScroll
-                key={entry.id}
-                as="li"
-                index={Math.min(i, 6)}
-                className="relative"
-              >
+              <RevealOnScroll key={entry.id} as="li" index={Math.min(i, 6)} className="relative">
                 {/* Node — colored circle on the spine */}
                 <span
                   aria-hidden="true"
@@ -819,10 +842,16 @@ function AuditTimeline({
                         <span className="font-medium">{entry.actor}</span>
                         <span style={{ color: "var(--text-lo)" }}> · {entry.role}</span>
                       </p>
-                      <p className="text-[13px] mt-0.5 leading-snug" style={{ color: "var(--text-mid)" }}>
+                      <p
+                        className="text-[13px] mt-0.5 leading-snug"
+                        style={{ color: "var(--text-mid)" }}
+                      >
                         {locale === "ar" ? meta.verbAr : meta.verbEn}
                       </p>
-                      <p className="text-[12px] mt-1 leading-snug" style={{ color: "var(--text-lo)" }}>
+                      <p
+                        className="text-[12px] mt-1 leading-snug"
+                        style={{ color: "var(--text-lo)" }}
+                      >
                         {entry.purpose}
                       </p>
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -898,7 +927,11 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
       <button
         onClick={onRetry}
         className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium shrink-0"
-        style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+        style={{
+          background: "var(--surface-2)",
+          border: "1px solid var(--border)",
+          color: "var(--text-hi)",
+        }}
       >
         <RotateCcw className="w-4 h-4" strokeWidth={1.75} />
         Retry
@@ -956,7 +989,9 @@ export function MeScreen() {
     setLoading(true);
     setErr(null);
     try {
-      const res = await fetch(`/api/v1/me/data?employeeId=${encodeURIComponent(employeeId)}`, { cache: "no-store" });
+      const res = await fetch(`/api/v1/me/data?employeeId=${encodeURIComponent(employeeId)}`, {
+        cache: "no-store",
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: ApiEnvelope<MeData> = await res.json();
       if (!json.ok || !json.data) throw new Error(json.error?.message ?? "Unknown error");
@@ -1034,7 +1069,7 @@ export function MeScreen() {
         setPendingPurpose(null);
       }
     },
-    [employeeId, fetchData, setConsent, triggerRipple]
+    [employeeId, fetchData, setConsent, triggerRipple],
   );
 
   const handleRevokeAll = useCallback(async () => {
@@ -1056,7 +1091,8 @@ export function MeScreen() {
     }
     setRevokeOpen(false);
     toast("All optional consents revoked", {
-      description: "Pulse, sharing, comment retention, manager visibility, and analytics are off. Journey assistance remains on.",
+      description:
+        "Pulse, sharing, comment retention, manager visibility, and analytics are off. Journey assistance remains on.",
     });
     await fetchData();
   }, [data, employeeId, fetchData, overrides, setConsent]);
@@ -1073,7 +1109,9 @@ export function MeScreen() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     setHasExportedData(true);
-    toast.success("Exported as JSON", { description: `${employeeId} · snapshot ${data.snapshotAt.slice(0, 10)}` });
+    toast.success("Exported as JSON", {
+      description: `${employeeId} · snapshot ${data.snapshotAt.slice(0, 10)}`,
+    });
   }, [data, employeeId]);
 
   const handleExportPdf = useCallback(() => {
@@ -1104,7 +1142,7 @@ export function MeScreen() {
     });
     if (!data) return;
     const target = PURPOSES.find(
-      (p) => !p.required && purposeGranted(data.consentRecords, overrides, p)
+      (p) => !p.required && purposeGranted(data.consentRecords, overrides, p),
     );
     if (target) {
       setHighlightPurpose(target.key);
@@ -1186,17 +1224,20 @@ export function MeScreen() {
   /* ---------- Render ---------- */
 
   return (
-    <div
-      dir={dir}
-      className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10"
-    >
+    <div dir={dir} className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10">
       {/* Heading */}
       <header className="mb-6">
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--brand-400)" }}>
+        <div
+          className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
+          style={{ color: "var(--brand-400)" }}
+        >
           <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
           <span>{locale === "ar" ? "مركز الخصوصية" : "Privacy center"}</span>
         </div>
-        <h1 className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight" style={{ color: "var(--text-hi)" }}>
+        <h1
+          className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight"
+          style={{ color: "var(--text-hi)" }}
+        >
           {locale === "ar" ? "بياناتك ملكك" : "Your data is yours"}
         </h1>
       </header>
@@ -1217,7 +1258,10 @@ export function MeScreen() {
             <ShieldCheck className="w-5 h-5" strokeWidth={1.75} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[15px] sm:text-[16px] font-medium" style={{ color: "var(--text-hi)" }}>
+            <p
+              className="text-[15px] sm:text-[16px] font-medium"
+              style={{ color: "var(--text-hi)" }}
+            >
               {locale === "ar"
                 ? "بياناتك ملكك. لا نستخدمها أبداً لتقييم الأداء أو الإجراءات التأديبية أو قرارات التأشيرة."
                 : "Your data is yours. We never use it for performance, discipline, or visa decisions."}
@@ -1229,7 +1273,10 @@ export function MeScreen() {
             </p>
             <a
               href="#"
-              onClick={(e) => { e.preventDefault(); setPrivacyOpen(true); }}
+              onClick={(e) => {
+                e.preventDefault();
+                setPrivacyOpen(true);
+              }}
               className="ast-focus inline-flex items-center gap-1.5 mt-3 text-[13px] font-medium"
               style={{ color: "var(--brand-400)" }}
             >
@@ -1244,9 +1291,15 @@ export function MeScreen() {
       <Dialog open={privacyOpen} onOpenChange={setPrivacyOpen}>
         <DialogContent
           className="sm:max-w-[820px] max-h-[88vh] overflow-y-auto"
-          style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+          style={{
+            background: "var(--surface-1)",
+            border: "1px solid var(--border)",
+            color: "var(--text-hi)",
+          }}
         >
-          <DialogTitle className="sr-only">{locale === "ar" ? "الخصوصية بالكامل" : "Privacy in full"}</DialogTitle>
+          <DialogTitle className="sr-only">
+            {locale === "ar" ? "الخصوصية بالكامل" : "Privacy in full"}
+          </DialogTitle>
           <PrivacyPage />
         </DialogContent>
       </Dialog>
@@ -1277,7 +1330,11 @@ export function MeScreen() {
                 className="ast-card-2 p-4 mb-6 flex items-start gap-3"
                 style={{ borderColor: "rgba(217,119,6,0.32)", background: "rgba(217,119,6,0.06)" }}
               >
-                <Info className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--status-watch)" }} />
+                <Info
+                  className="w-4 h-4 mt-0.5 shrink-0"
+                  strokeWidth={1.75}
+                  style={{ color: "var(--status-watch)" }}
+                />
                 <p className="text-[13px]" style={{ color: "var(--text-mid)" }}>
                   {locale === "ar"
                     ? "نبضتك متوقفة. يستخدم هذا العرض بيانات الرحلة والطلبات فقط."
@@ -1312,8 +1369,8 @@ export function MeScreen() {
                 const accentColor = meta.required
                   ? "var(--accent-500)"
                   : granted
-                  ? "var(--brand-500)"
-                  : "var(--border)";
+                    ? "var(--brand-500)"
+                    : "var(--border)";
                 return (
                   <Tilt3D key={meta.key} maxDeg={2} as="li">
                     <motion.div
@@ -1332,14 +1389,13 @@ export function MeScreen() {
                       whileHover={reducedMotion ? undefined : { y: -2 }}
                       className={cn(
                         "relative ast-card-2 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-start gap-4 transition-shadow",
-                        !granted && !meta.required && "opacity-70"
+                        !granted && !meta.required && "opacity-70",
                       )}
                       style={{
                         borderLeftColor: accentColor,
                         borderLeftWidth: "3px",
-                        boxShadow: granted && !meta.required
-                          ? "inset 0 0 0 0 transparent"
-                          : undefined,
+                        boxShadow:
+                          granted && !meta.required ? "inset 0 0 0 0 transparent" : undefined,
                       }}
                     >
                       {/* Highlight flash — sand-gold ring on Improve-my-privacy target */}
@@ -1374,7 +1430,10 @@ export function MeScreen() {
 
                       <div className="flex-1 min-w-0 relative">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+                          <h3
+                            className="text-[15px] font-medium"
+                            style={{ color: "var(--text-hi)" }}
+                          >
                             {locale === "ar" ? meta.labelAr : meta.labelEn}
                           </h3>
                           {meta.required && (
@@ -1403,15 +1462,19 @@ export function MeScreen() {
                               {locale === "ar" ? "مُفعّل" : "Active"}
                             </span>
                           ) : (
-                            <span className="ast-chip">
-                              {locale === "ar" ? "متوقف" : "Off"}
-                            </span>
+                            <span className="ast-chip">{locale === "ar" ? "متوقف" : "Off"}</span>
                           )}
                         </div>
-                        <p className="text-[13px] mt-2 leading-relaxed" style={{ color: "var(--text-mid)" }}>
+                        <p
+                          className="text-[13px] mt-2 leading-relaxed"
+                          style={{ color: "var(--text-mid)" }}
+                        >
                           {locale === "ar" ? meta.descAr : meta.descEn}
                         </p>
-                        <p className="text-[12px] mt-2 leading-relaxed" style={{ color: "var(--text-lo)" }}>
+                        <p
+                          className="text-[12px] mt-2 leading-relaxed"
+                          style={{ color: "var(--text-lo)" }}
+                        >
                           <span className="font-medium" style={{ color: "var(--text-mid)" }}>
                             {locale === "ar" ? "إذا رفضت: " : "What changes if you say no: "}
                           </span>
@@ -1483,7 +1546,11 @@ export function MeScreen() {
                                     strokeWidth={1.75}
                                     style={{ color: "var(--accent-500)" }}
                                   />
-                                  <Switch checked disabled aria-label={`${meta.labelEn} — required`} />
+                                  <Switch
+                                    checked
+                                    disabled
+                                    aria-label={`${meta.labelEn} — required`}
+                                  />
                                 </div>
                               </TooltipTrigger>
                               <TooltipContent side="left">
@@ -1505,8 +1572,12 @@ export function MeScreen() {
                               </TooltipTrigger>
                               <TooltipContent side="left">
                                 {granted
-                                  ? locale === "ar" ? "اضغط لإيقافه" : "Click to revoke"
-                                  : locale === "ar" ? "اضغط للتفعيل" : "Click to grant"}
+                                  ? locale === "ar"
+                                    ? "اضغط لإيقافه"
+                                    : "Click to revoke"
+                                  : locale === "ar"
+                                    ? "اضغط للتفعيل"
+                                    : "Click to grant"}
                               </TooltipContent>
                             </Tooltip>
                           )}
@@ -1531,15 +1602,23 @@ export function MeScreen() {
                     }}
                   >
                     <Trash2 className="w-4 h-4" strokeWidth={1.75} />
-                    {locale === "ar" ? "إيقاف كل الموافقات الاختيارية" : "Revoke all optional consents"}
+                    {locale === "ar"
+                      ? "إيقاف كل الموافقات الاختيارية"
+                      : "Revoke all optional consents"}
                   </button>
                 </AlertDialogTrigger>
                 <AlertDialogContent
-                  style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+                  style={{
+                    background: "var(--surface-1)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text-hi)",
+                  }}
                 >
                   <AlertDialogHeader>
                     <AlertDialogTitle style={{ color: "var(--text-hi)" }}>
-                      {locale === "ar" ? "إيقاف كل الموافقات الاختيارية؟" : "Revoke all optional consents?"}
+                      {locale === "ar"
+                        ? "إيقاف كل الموافقات الاختيارية؟"
+                        : "Revoke all optional consents?"}
                     </AlertDialogTitle>
                     <AlertDialogDescription style={{ color: "var(--text-mid)" }}>
                       {locale === "ar"
@@ -1550,14 +1629,22 @@ export function MeScreen() {
                   <AlertDialogFooter>
                     <AlertDialogCancel
                       className="ast-focus"
-                      style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+                      style={{
+                        background: "var(--surface-2)",
+                        border: "1px solid var(--border)",
+                        color: "var(--text-hi)",
+                      }}
                     >
                       {locale === "ar" ? "تراجع" : "Cancel"}
                     </AlertDialogCancel>
                     <AlertDialogAction
                       onClick={handleRevokeAll}
                       className="ast-focus"
-                      style={{ background: "var(--status-friction)", color: "white", border: "1px solid var(--status-friction)" }}
+                      style={{
+                        background: "var(--status-friction)",
+                        color: "white",
+                        border: "1px solid var(--status-friction)",
+                      }}
                     >
                       {locale === "ar" ? "أوقف الكل" : "Revoke all"}
                     </AlertDialogAction>
@@ -1608,23 +1695,43 @@ export function MeScreen() {
               </div>
             </div>
 
-            <div className="rounded-[10px] overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+            <div
+              className="rounded-[10px] overflow-hidden"
+              style={{ border: "1px solid var(--border)" }}
+            >
               <Table>
                 <TableHeader>
-                  <TableRow style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}>
-                    <TableHead className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                  <TableRow
+                    style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}
+                  >
+                    <TableHead
+                      className="text-[11px] uppercase tracking-[0.12em]"
+                      style={{ color: "var(--text-lo)" }}
+                    >
                       {locale === "ar" ? "المصدر" : "Source"}
                     </TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                    <TableHead
+                      className="text-[11px] uppercase tracking-[0.12em]"
+                      style={{ color: "var(--text-lo)" }}
+                    >
                       {locale === "ar" ? "الغرض" : "Purpose"}
                     </TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-[0.12em] hidden sm:table-cell" style={{ color: "var(--text-lo)" }}>
+                    <TableHead
+                      className="text-[11px] uppercase tracking-[0.12em] hidden sm:table-cell"
+                      style={{ color: "var(--text-lo)" }}
+                    >
                       {locale === "ar" ? "الاحتفاظ" : "Retention"}
                     </TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-[0.12em] hidden md:table-cell" style={{ color: "var(--text-lo)" }}>
+                    <TableHead
+                      className="text-[11px] uppercase tracking-[0.12em] hidden md:table-cell"
+                      style={{ color: "var(--text-lo)" }}
+                    >
                       {locale === "ar" ? "آخر مشاهدة" : "Last viewed"}
                     </TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-[0.12em] text-right" style={{ color: "var(--text-lo)" }}>
+                    <TableHead
+                      className="text-[11px] uppercase tracking-[0.12em] text-right"
+                      style={{ color: "var(--text-lo)" }}
+                    >
                       <span className="tabular">{locale === "ar" ? "العدد" : "Count"}</span>
                     </TableHead>
                     <TableHead className="w-10" />
@@ -1641,75 +1748,98 @@ export function MeScreen() {
                           style={{ borderColor: "var(--border-soft)" }}
                           onClick={() => setExpandedRow(isOpen ? null : row.source)}
                         >
-                              <TableCell className="font-medium text-[13px]" style={{ color: "var(--text-hi)" }}>
-                                <div className="flex items-center gap-2">
-                                  {suppressed ? (
-                                    <Lock className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--text-lo)" }} />
-                                  ) : (
-                                    <Unlock className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
-                                  )}
-                                  {row.source}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-[13px]" style={{ color: "var(--text-mid)" }}>
-                                {row.purpose}
-                              </TableCell>
-                              <TableCell className="text-[12px] hidden sm:table-cell" style={{ color: "var(--text-mid)" }}>
-                                {row.retention}
-                              </TableCell>
-                              <TableCell className="text-[12px] hidden md:table-cell tabular" style={{ color: "var(--text-mid)" }}>
-                                {row.lastViewed === "—"
-                                  ? "—"
-                                  : format(new Date(row.lastViewed), "d MMM HH:mm")}
-                              </TableCell>
-                              <TableCell className="text-right tabular text-[13px]" style={{ color: "var(--text-hi)" }}>
-                                {suppressed ? "—" : row.count}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {suppressed ? (
-                                  <span className="text-[11px]" style={{ color: "var(--text-lo)" }}>
-                                    {locale === "ar" ? "مكتوم" : "suppressed"}
-                                  </span>
-                                ) : (
-                                  <ChevronDown
-                                    className={cn("w-4 h-4 transition-transform", isOpen && "rotate-180")}
-                                    strokeWidth={1.75}
-                                    style={{ color: "var(--text-mid)" }}
-                                  />
+                          <TableCell
+                            className="font-medium text-[13px]"
+                            style={{ color: "var(--text-hi)" }}
+                          >
+                            <div className="flex items-center gap-2">
+                              {suppressed ? (
+                                <Lock
+                                  className="w-3.5 h-3.5 shrink-0"
+                                  strokeWidth={1.75}
+                                  style={{ color: "var(--text-lo)" }}
+                                />
+                              ) : (
+                                <Unlock
+                                  className="w-3.5 h-3.5 shrink-0"
+                                  strokeWidth={1.75}
+                                  style={{ color: "var(--brand-400)" }}
+                                />
+                              )}
+                              {row.source}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-[13px]" style={{ color: "var(--text-mid)" }}>
+                            {row.purpose}
+                          </TableCell>
+                          <TableCell
+                            className="text-[12px] hidden sm:table-cell"
+                            style={{ color: "var(--text-mid)" }}
+                          >
+                            {row.retention}
+                          </TableCell>
+                          <TableCell
+                            className="text-[12px] hidden md:table-cell tabular"
+                            style={{ color: "var(--text-mid)" }}
+                          >
+                            {row.lastViewed === "—"
+                              ? "—"
+                              : format(new Date(row.lastViewed), "d MMM HH:mm")}
+                          </TableCell>
+                          <TableCell
+                            className="text-right tabular text-[13px]"
+                            style={{ color: "var(--text-hi)" }}
+                          >
+                            {suppressed ? "—" : row.count}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {suppressed ? (
+                              <span className="text-[11px]" style={{ color: "var(--text-lo)" }}>
+                                {locale === "ar" ? "مكتوم" : "suppressed"}
+                              </span>
+                            ) : (
+                              <ChevronDown
+                                className={cn(
+                                  "w-4 h-4 transition-transform",
+                                  isOpen && "rotate-180",
                                 )}
-                              </TableCell>
+                                strokeWidth={1.75}
+                                style={{ color: "var(--text-mid)" }}
+                              />
+                            )}
+                          </TableCell>
                         </TableRow>
                         {isOpen && (
                           <tr style={{ background: "var(--surface-2)" }}>
-                              <td colSpan={6} className="p-0">
-                                <motion.div
-                                  initial={reducedMotion ? false : { opacity: 0 }}
-                                  animate={{ opacity: 1 }}
-                                  transition={{ duration: 0.2 }}
-                                  className="p-4 sm:p-5"
-                                >
-                                  {suppressed ? (
-                                    <p className="text-[12px]" style={{ color: "var(--text-lo)" }}>
-                                      {locale === "ar"
-                                        ? "هذا الصف مكتوم لأن موافقة النبضة متوقفة."
-                                        : "This row is suppressed because pulse capture consent is off."}
-                                    </p>
-                                  ) : (
-                                    <pre
-                                      className="text-[11px] font-mono leading-relaxed max-h-72 overflow-auto rounded p-3"
-                                      style={{
-                                        background: "var(--surface-0)",
-                                        border: "1px solid var(--border)",
-                                        color: "var(--text-mid)",
-                                        direction: "ltr",
-                                      }}
-                                    >
-                                      {JSON.stringify(row.sample, null, 2)}
-                                    </pre>
-                                  )}
-                                </motion.div>
-                              </td>
-                            </tr>
+                            <td colSpan={6} className="p-0">
+                              <motion.div
+                                initial={reducedMotion ? false : { opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ duration: 0.2 }}
+                                className="p-4 sm:p-5"
+                              >
+                                {suppressed ? (
+                                  <p className="text-[12px]" style={{ color: "var(--text-lo)" }}>
+                                    {locale === "ar"
+                                      ? "هذا الصف مكتوم لأن موافقة النبضة متوقفة."
+                                      : "This row is suppressed because pulse capture consent is off."}
+                                  </p>
+                                ) : (
+                                  <pre
+                                    className="text-[11px] font-mono leading-relaxed max-h-72 overflow-auto rounded p-3"
+                                    style={{
+                                      background: "var(--surface-0)",
+                                      border: "1px solid var(--border)",
+                                      color: "var(--text-mid)",
+                                      direction: "ltr",
+                                    }}
+                                  >
+                                    {JSON.stringify(row.sample, null, 2)}
+                                  </pre>
+                                )}
+                              </motion.div>
+                            </td>
+                          </tr>
                         )}
                       </Fragment>
                     );
@@ -1720,11 +1850,7 @@ export function MeScreen() {
           </section>
 
           {/* Audit timeline — replaces the flat view log */}
-          <AuditTimeline
-            entries={auditEntries}
-            locale={locale}
-            reducedMotion={reducedMotion}
-          />
+          <AuditTimeline entries={auditEntries} locale={locale} reducedMotion={reducedMotion} />
 
           {/* Footer — receipt anchor */}
           <p className="mt-6 text-[11px] text-center tabular" style={{ color: "var(--text-lo)" }}>

@@ -16,19 +16,10 @@ import { createHash } from "node:crypto";
 import { logger } from "../logger";
 
 export type LawfulBasis =
-  | "contract_necessary"
-  | "legitimate_interests"
-  | "consent"
-  | "legal_obligation";
+  "contract_necessary" | "legitimate_interests" | "consent" | "legal_obligation";
 
 export type ActorRole =
-  | "employee"
-  | "hrbp"
-  | "manager"
-  | "service_owner"
-  | "admin"
-  | "judge"
-  | "system";
+  "employee" | "hrbp" | "manager" | "service_owner" | "admin" | "judge" | "system";
 
 export interface AuditRow {
   seq: number;
@@ -145,17 +136,35 @@ export function viewLogFor(subject: string): {
 export function verifyChain(): ChainVerification {
   const verifiedAt = new Date().toISOString();
   if (rows.length === 0) {
-    return { length: 0, valid: false, brokenAt: 0, reason: "empty chain — nothing has been recorded yet", verifiedAt };
+    return {
+      length: 0,
+      valid: false,
+      brokenAt: 0,
+      reason: "empty chain — nothing has been recorded yet",
+      verifiedAt,
+    };
   }
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const expectedPrev = i === 0 ? GENESIS : rows[i - 1].hash;
     if (row.prevHash !== expectedPrev) {
-      return { length: rows.length, valid: false, brokenAt: row.seq, reason: "prev hash does not match the preceding row", verifiedAt };
+      return {
+        length: rows.length,
+        valid: false,
+        brokenAt: row.seq,
+        reason: "prev hash does not match the preceding row",
+        verifiedAt,
+      };
     }
     const { hash, ...base } = row;
     if (digestOf(base) !== hash) {
-      return { length: rows.length, valid: false, brokenAt: row.seq, reason: "row content does not match its own hash", verifiedAt };
+      return {
+        length: rows.length,
+        valid: false,
+        brokenAt: row.seq,
+        reason: "row content does not match its own hash",
+        verifiedAt,
+      };
     }
   }
   return { length: rows.length, valid: true, brokenAt: null, reason: null, verifiedAt };
@@ -170,7 +179,11 @@ export function __tamperForTesting(seq: number, patch: Partial<AuditRow>): boole
   if (!row) return false;
   Object.assign(row, patch);
   const verification = verifyChain();
-  logger.info("audit chain tamper test", { seq, valid: verification.valid, brokenAt: verification.brokenAt });
+  logger.info("audit chain tamper test", {
+    seq,
+    valid: verification.valid,
+    brokenAt: verification.brokenAt,
+  });
   return verification.valid;
 }
 

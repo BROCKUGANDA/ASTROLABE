@@ -44,7 +44,8 @@ function waivedBy(pkgName, advisory) {
       e.package === pkgName &&
       (e.advisoryId === undefined ||
         String(e.advisoryId) === String(advisory.id) ||
-        (typeof e.titleIncludes === "string" && String(advisory.title ?? "").includes(e.titleIncludes)))
+        (typeof e.titleIncludes === "string" &&
+          String(advisory.title ?? "").includes(e.titleIncludes))),
   );
 }
 
@@ -59,7 +60,9 @@ for (const [pkg, advisories] of Object.entries(report)) {
     if (waiver) {
       waived.push(`${pkg} ${severity} — ${waiver.reason}`);
     } else {
-      blocking.push(`${pkg}@${advisory.vulnerable_versions ?? "?"} ${severity}: ${advisory.title} (${advisory.url ?? "no url"})`);
+      blocking.push(
+        `${pkg}@${advisory.vulnerable_versions ?? "?"} ${severity}: ${advisory.title} (${advisory.url ?? "no url"})`,
+      );
     }
   }
 }
@@ -77,5 +80,5 @@ if (blocking.length > 0) {
 
 const total = Object.keys(report).length;
 console.log(
-  `Dependency gate passed: ${blocking.length} unaccepted, ${waived.length} waived across ${total} package(s) with advisories in the production tree.`
+  `Dependency gate passed: ${blocking.length} unaccepted, ${waived.length} waived across ${total} package(s) with advisories in the production tree.`,
 );

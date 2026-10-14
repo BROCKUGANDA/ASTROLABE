@@ -52,7 +52,9 @@ export async function GET(req: NextRequest) {
   if (!permitted.ok) return permitted.response;
 
   if (!employeeId) {
-    return error("E_VALIDATION", "An employee id is required.", 422, { hint: "?employeeId=E-1042" });
+    return error("E_VALIDATION", "An employee id is required.", 422, {
+      hint: "?employeeId=E-1042",
+    });
   }
 
   const employee = employees.find((e) => e.id === employeeId);
@@ -105,7 +107,9 @@ export async function GET(req: NextRequest) {
   const myPulseResponses = pulseConsent
     ? pulseResponses
         .filter((p) => p.employeeId === employeeId)
-        .map((p) => (commentConsent ? p : { ...p, commentText: undefined, commentRef: p.commentRef }))
+        .map((p) =>
+          commentConsent ? p : { ...p, commentText: undefined, commentRef: p.commentRef },
+        )
     : [];
 
   const myConsentRecords = consentRecords.filter((c) => c.employeeId === employeeId);
@@ -126,9 +130,21 @@ export async function GET(req: NextRequest) {
     viewLog,
     // Who currently holds a copy of this data, in their own terms.
     sharedWith: [
-      { party: employeeRecord.hrbp?.name ?? "HR business partner", reason: "early warning on stalled journeys", carries: "journey and request evidence only" },
-      { party: "Line manager", reason: "steps they themselves own", carries: "owned steps and cohort aggregates; no sentiment, no scores" },
-      { party: "Service owners", reason: "a routed request", carries: "the payload the employee confirmed" },
+      {
+        party: employeeRecord.hrbp?.name ?? "HR business partner",
+        reason: "early warning on stalled journeys",
+        carries: "journey and request evidence only",
+      },
+      {
+        party: "Line manager",
+        reason: "steps they themselves own",
+        carries: "owned steps and cohort aggregates; no sentiment, no scores",
+      },
+      {
+        party: "Service owners",
+        reason: "a routed request",
+        carries: "the payload the employee confirmed",
+      },
     ],
     chainLength: chain.length,
     auditChainVerified: chain.valid,
@@ -136,7 +152,12 @@ export async function GET(req: NextRequest) {
     printableLink: `/api/v1/me/data?format=print&employeeId=${encodeURIComponent(employeeId)}`,
     generatedAt: new Date().toISOString(),
     snapshotAt: NOW.toISOString(),
-    purposeLimitation: { performanceUse: PERFORMANCE_USE, disciplinaryUse: "forbidden", promotionUse: "forbidden", visaDecisionUse: "forbidden" },
+    purposeLimitation: {
+      performanceUse: PERFORMANCE_USE,
+      disciplinaryUse: "forbidden",
+      promotionUse: "forbidden",
+      visaDecisionUse: "forbidden",
+    },
   };
 
   if (format === "print") {
@@ -151,12 +172,19 @@ export async function GET(req: NextRequest) {
   }
 
   if (format === "json") {
-    return new NextResponse(JSON.stringify({ ok: true, data, meta: { requestId: `sar-${employeeId}`, exportedAt: data.generatedAt } }, null, 2), {
-      headers: {
-        "content-type": "application/json",
-        "content-disposition": `attachment; filename="astrolabe-${employeeId}-my-data.json"`,
+    return new NextResponse(
+      JSON.stringify(
+        { ok: true, data, meta: { requestId: `sar-${employeeId}`, exportedAt: data.generatedAt } },
+        null,
+        2,
+      ),
+      {
+        headers: {
+          "content-type": "application/json",
+          "content-disposition": `attachment; filename="astrolabe-${employeeId}-my-data.json"`,
+        },
       },
-    });
+    );
   }
 
   return success(data, {
@@ -166,7 +194,10 @@ export async function GET(req: NextRequest) {
   });
 }
 
-function printableSubjectAccess(employee: Record<string, unknown>, data: Record<string, unknown>): string {
+function printableSubjectAccess(
+  employee: Record<string, unknown>,
+  data: Record<string, unknown>,
+): string {
   const rowsOf = (items: unknown[], label: string) =>
     `<h2>${label}</h2><table><tbody>${(items || [])
       .slice(0, 200)
@@ -187,5 +218,8 @@ ${rowsOf((data as { viewLog?: unknown[] }).viewLog ?? [], "Who has viewed this r
 }
 
 function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+  return value.replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string,
+  );
 }

@@ -56,9 +56,7 @@ export async function GET(): Promise<NextResponse> {
     engine: ENGINE_VERSION ? "ok" : "down",
   };
 
-  const allOk = (Object.values(checks) as CheckStatus[]).every(
-    (s) => s === "ok"
-  );
+  const allOk = (Object.values(checks) as CheckStatus[]).every((s) => s === "ok");
 
   if (!allOk) {
     logger.warn("readyz reporting degraded", { checks });
@@ -70,6 +68,6 @@ export async function GET(): Promise<NextResponse> {
       checks,
       timestamp: new Date().toISOString(),
     },
-    { status: allOk ? 200 : 503 }
+    { status: allOk ? 200 : 503 },
   );
 }

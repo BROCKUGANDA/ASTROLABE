@@ -16,14 +16,16 @@
  *    sentence, or decline to.
  */
 
-import {
-  calendarFor,
-  addWorkingHours,
-} from "@/lib/engine/calendar";
+import { calendarFor, addWorkingHours } from "@/lib/engine/calendar";
 import { resolveAsOf } from "@/lib/engine/clock";
 import type { Employee } from "@/lib/data/pack";
 import type { EscalationPacket } from "@/lib/actions/actions";
-import { backupFor, personById, DEFAULT_DIRECTORY, type OwnerDirectory } from "@/lib/requests/directory";
+import {
+  backupFor,
+  personById,
+  DEFAULT_DIRECTORY,
+  type OwnerDirectory,
+} from "@/lib/requests/directory";
 import { pushNotification } from "@/lib/notifications/store";
 
 /** PRD §14 — a named human owes an acknowledgement within 4 working hours. */
@@ -93,7 +95,7 @@ export function ackDeadlineFor(createdAtIso: string, location: string): string {
     ACK_SLA_WORKING_HOURS,
     calendarFor(location),
     [],
-    new Date(createdAtIso)
+    new Date(createdAtIso),
   );
 }
 
@@ -107,7 +109,7 @@ export function findExistingEscalation(
   employeeId: string,
   rootCause: string,
   now: Date = resolveAsOf(null),
-  windowMs: number = ESCALATION_DEDUP_WINDOW_MS
+  windowMs: number = ESCALATION_DEDUP_WINDOW_MS,
 ): StoredEscalation | null {
   let best: StoredEscalation | null = null;
   for (const stored of escalations.values()) {
@@ -167,7 +169,7 @@ export function recordEscalation(input: RecordEscalationInput): StoredEscalation
         at,
         action: "created",
         actor: input.packet.namedOwner.name,
-      detail: `Escalation opened for ${input.rootCause}. Acknowledgement due ${deadline} (4 working hours, ${location} calendar).`,
+        detail: `Escalation opened for ${input.rootCause}. Acknowledgement due ${deadline} (4 working hours, ${location} calendar).`,
       },
     ],
   };
@@ -222,7 +224,7 @@ export function noteEscalationDuplicate(stored: StoredEscalation, at: string): S
 export function acknowledgeEscalation(
   id: string,
   actorId: string,
-  nowIso?: string | Date | null
+  nowIso?: string | Date | null,
 ): StoredEscalation | null {
   const stored = escalations.get(id);
   if (!stored) return null;
@@ -261,7 +263,7 @@ export interface RerouteResult {
  */
 export function rerouteExpiredAcknowledgements(
   nowIso?: string | Date | null,
-  directory: OwnerDirectory = DEFAULT_DIRECTORY
+  directory: OwnerDirectory = DEFAULT_DIRECTORY,
 ): RerouteResult {
   const now = resolveAsOf(nowIso ?? null);
   const at = now.toISOString();
@@ -338,7 +340,7 @@ export function rerouteExpiredAcknowledgements(
 export function respondToEscalation(
   id: string,
   employeeId: string,
-  response: EmployeeResponse
+  response: EmployeeResponse,
 ): { stored?: StoredEscalation; error?: string } {
   const stored = escalations.get(id);
   if (!stored) return { error: "not_found" };
@@ -349,7 +351,10 @@ export function respondToEscalation(
     at: response.at,
     action: response.kind === "sentence" ? "employee_sentence" : "employee_declined",
     actor: stored.packet.employeeName,
-    detail: response.kind === "sentence" ? `Employee added one sentence.` : `Employee declined to add anything.`,
+    detail:
+      response.kind === "sentence"
+        ? `Employee added one sentence.`
+        : `Employee declined to add anything.`,
   });
   return { stored };
 }

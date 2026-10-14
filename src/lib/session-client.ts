@@ -22,7 +22,10 @@ export function invalidateSession(): void {
   inflight = null;
 }
 
-async function post(body: Record<string, unknown>, headers: Record<string, string> = {}): Promise<boolean> {
+async function post(
+  body: Record<string, unknown>,
+  headers: Record<string, string> = {},
+): Promise<boolean> {
   const response = await fetch("/api/v1/auth/sign-in", {
     method: "POST",
     credentials: "same-origin",
@@ -31,7 +34,10 @@ async function post(body: Record<string, unknown>, headers: Record<string, strin
   });
   if (!response.ok) return false;
   const payload = await response.json();
-  signedInAs = { role: payload.data?.signedInAs?.role ?? "employee", subject: payload.data?.signedInAs?.id ?? "" };
+  signedInAs = {
+    role: payload.data?.signedInAs?.role ?? "employee",
+    subject: payload.data?.signedInAs?.id ?? "",
+  };
   return true;
 }
 
@@ -42,7 +48,11 @@ async function post(body: Record<string, unknown>, headers: Record<string, strin
  */
 export async function ensureSession(role: ConsoleRole, employeeId: string): Promise<boolean> {
   const subject = `${role}:${role === "employee" ? employeeId : "shared"}`;
-  if (signedInAs && `${signedInAs.role}:${signedInAs.subject}` === subject && signedInAs.role === role) {
+  if (
+    signedInAs &&
+    `${signedInAs.role}:${signedInAs.subject}` === subject &&
+    signedInAs.role === role
+  ) {
     return true;
   }
   if (inflight) return inflight;
@@ -64,7 +74,10 @@ export async function ensureSession(role: ConsoleRole, employeeId: string): Prom
 
 /** Re-authenticate for consent changes and data exports (PRD §29 030, 263). */
 export async function reauthenticate(): Promise<boolean> {
-  const response = await fetch("/api/v1/auth/session", { method: "PUT", credentials: "same-origin" });
+  const response = await fetch("/api/v1/auth/session", {
+    method: "PUT",
+    credentials: "same-origin",
+  });
   return response.ok;
 }
 

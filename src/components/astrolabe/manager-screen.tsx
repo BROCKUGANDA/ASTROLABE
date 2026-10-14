@@ -45,17 +45,8 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
 import { StatusChip } from "@/components/astrolabe/widgets";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-} from "@/components/ui/collapsible";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -66,12 +57,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { NOW as PACK_NOW } from "@/lib/data/pack";
 import { toast } from "sonner";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 /* ---------- Types ---------- */
@@ -195,12 +181,18 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
         <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
           We can&apos;t reach your cohort right now.
         </p>
-        <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>{message}</p>
+        <p className="text-[13px] mt-1" style={{ color: "var(--text-mid)" }}>
+          {message}
+        </p>
       </div>
       <button
         onClick={onRetry}
         className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium shrink-0"
-        style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+        style={{
+          background: "var(--surface-2)",
+          border: "1px solid var(--border)",
+          color: "var(--text-hi)",
+        }}
       >
         <RotateCcw className="w-4 h-4" strokeWidth={1.75} />
         Retry
@@ -226,9 +218,7 @@ function PrivacyBanner({ locale }: { locale: "en" | "ar" }) {
       </div>
       <div>
         <p className="text-[14px] font-medium" style={{ color: "var(--text-hi)" }}>
-          {locale === "ar"
-            ? "هذه ليست أداة مراقبة."
-            : "This is not a monitoring tool."}
+          {locale === "ar" ? "هذه ليست أداة مراقبة." : "This is not a monitoring tool."}
         </p>
         <p className="text-[12px] mt-1 leading-relaxed" style={{ color: "var(--text-mid)" }}>
           {locale === "ar"
@@ -311,7 +301,9 @@ export function ManagerScreen() {
     }
   }, []);
 
-  useEffect(() => { fetchCohort(); }, [fetchCohort]);
+  useEffect(() => {
+    fetchCohort();
+  }, [fetchCohort]);
 
   // Aggregate metrics
   const stats = useMemo(() => {
@@ -366,16 +358,12 @@ export function ManagerScreen() {
   }, [allObligations]);
 
   const handleNudgeDaily = useCallback(() => {
-    toast.success(
-      locale === "ar"
-        ? "جُدول التنبيه اليومي"
-        : "Daily nudge scheduled",
-      {
-        description: locale === "ar"
+    toast.success(locale === "ar" ? "جُدول التنبيه اليومي" : "Daily nudge scheduled", {
+      description:
+        locale === "ar"
           ? "سنُذكّرك كل صباح حتى تنتهي هذه الخطوات."
           : "We'll remind you every morning until these are done.",
-      }
-    );
+    });
   }, [locale]);
 
   const handleSnoozeToday = useCallback(() => {
@@ -389,25 +377,18 @@ export function ManagerScreen() {
       },
       ...prev,
     ]);
-    toast.success(
-      locale === "ar"
-        ? "أُجّل حتى الغد 09:00"
-        : "Snoozed until tomorrow 09:00",
-      {
-        description: locale === "ar"
-          ? "سنُذكّرك عندها."
-          : "We'll remind you then.",
-      }
-    );
+    toast.success(locale === "ar" ? "أُجّل حتى الغد 09:00" : "Snoozed until tomorrow 09:00", {
+      description: locale === "ar" ? "سنُذكّرك عندها." : "We'll remind you then.",
+    });
   }, [locale]);
 
   const handleNudge = useCallback(
     (schedule: NudgeSchedule, step: OwnedStep, employee: CohortItem) => {
       const labels: Record<NudgeSchedule, { en: string; ar: string }> = {
-        "1h":       { en: "in 1 hour",       ar: "بعد ساعة" },
-        "4h":       { en: "in 4 hours",      ar: "بعد 4 ساعات" },
-        tomorrow:   { en: "tomorrow at 09:00", ar: "غداً 09:00" },
-        never:      { en: "Never",            ar: "أبدًا" },
+        "1h": { en: "in 1 hour", ar: "بعد ساعة" },
+        "4h": { en: "in 4 hours", ar: "بعد 4 ساعات" },
+        tomorrow: { en: "tomorrow at 09:00", ar: "غداً 09:00" },
+        never: { en: "Never", ar: "أبدًا" },
       };
       const lbl = labels[schedule];
       if (schedule === "never") {
@@ -423,7 +404,7 @@ export function ManagerScreen() {
         ]);
         toast.warning(
           locale === "ar" ? "لن نُذكّرك بهذه الخطوة" : "We won't nudge you about this step",
-          { description: `${step.label} · ${employee.employeeName}` }
+          { description: `${step.label} · ${employee.employeeName}` },
         );
       } else {
         setNudgeHistory((prev) => [
@@ -436,29 +417,29 @@ export function ManagerScreen() {
           },
           ...prev,
         ]);
-        toast.success(
-          locale === "ar" ? "جُدول التنبيه" : "Nudge scheduled",
-          {
-            description: `${step.label} · ${employee.employeeName} · ${locale === "ar" ? lbl.ar : lbl.en}`,
-          }
-        );
+        toast.success(locale === "ar" ? "جُدول التنبيه" : "Nudge scheduled", {
+          description: `${step.label} · ${employee.employeeName} · ${locale === "ar" ? lbl.ar : lbl.en}`,
+        });
       }
     },
-    [locale]
+    [locale],
   );
 
   return (
-    <div
-      dir={dir}
-      className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10"
-    >
+    <div dir={dir} className="max-w-[1180px] mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10">
       <header className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
-          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--brand-400)" }}>
+          <div
+            className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
+            style={{ color: "var(--brand-400)" }}
+          >
             <Users className="w-3.5 h-3.5" strokeWidth={1.75} />
             <span>{locale === "ar" ? "وحدة المدير" : "Manager console"}</span>
           </div>
-          <h1 className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight" style={{ color: "var(--text-hi)" }}>
+          <h1
+            className="mt-2 text-[26px] sm:text-[30px] font-semibold tracking-tight"
+            style={{ color: "var(--text-hi)" }}
+          >
             {locale === "ar" ? "التزاماتك تجاه فريقك" : "Your obligations to your team"}
           </h1>
         </div>
@@ -500,14 +481,18 @@ export function ManagerScreen() {
               className="ast-card p-5 relative overflow-hidden"
               style={{
                 borderColor: "rgba(201,162,39,0.40)",
-                background: "linear-gradient(135deg, rgba(201,162,39,0.10) 0%, var(--surface-1) 60%)",
+                background:
+                  "linear-gradient(135deg, rgba(201,162,39,0.10) 0%, var(--surface-1) 60%)",
               }}
             >
               <div
                 className="absolute top-0 left-0 right-0 h-[3px]"
                 style={{ background: "var(--accent-500)" }}
               />
-              <p className="text-[11px] uppercase tracking-[0.14em] font-medium" style={{ color: "var(--accent-500)" }}>
+              <p
+                className="text-[11px] uppercase tracking-[0.14em] font-medium"
+                style={{ color: "var(--accent-500)" }}
+              >
                 {locale === "ar" ? "بانتظارك" : "Waiting on you"}
               </p>
               <p className="text-[44px] leading-none font-semibold mt-2 tabular ast-brass">
@@ -522,10 +507,16 @@ export function ManagerScreen() {
 
             {/* Joiners count */}
             <div className="ast-card p-5">
-              <p className="text-[11px] uppercase tracking-[0.14em] font-medium" style={{ color: "var(--text-lo)" }}>
+              <p
+                className="text-[11px] uppercase tracking-[0.14em] font-medium"
+                style={{ color: "var(--text-lo)" }}
+              >
                 {locale === "ar" ? "المنضمّون" : "Joiners"}
               </p>
-              <p className="text-[44px] leading-none font-semibold mt-2 tabular" style={{ color: "var(--text-hi)" }}>
+              <p
+                className="text-[44px] leading-none font-semibold mt-2 tabular"
+                style={{ color: "var(--text-hi)" }}
+              >
                 {stats.joiners}
               </p>
               <p className="text-[12px] mt-2" style={{ color: "var(--text-mid)" }}>
@@ -535,13 +526,25 @@ export function ManagerScreen() {
 
             {/* Aggregate completion */}
             <div className="ast-card p-5">
-              <p className="text-[11px] uppercase tracking-[0.14em] font-medium" style={{ color: "var(--text-lo)" }}>
+              <p
+                className="text-[11px] uppercase tracking-[0.14em] font-medium"
+                style={{ color: "var(--text-lo)" }}
+              >
                 {locale === "ar" ? "نسبة الإنجاز" : "Avg completion"}
               </p>
-              <p className="text-[44px] leading-none font-semibold mt-2 tabular" style={{ color: "var(--text-hi)" }}>
-                {stats.avgCompletion}<span className="text-[24px] font-normal" style={{ color: "var(--text-mid)" }}>%</span>
+              <p
+                className="text-[44px] leading-none font-semibold mt-2 tabular"
+                style={{ color: "var(--text-hi)" }}
+              >
+                {stats.avgCompletion}
+                <span className="text-[24px] font-normal" style={{ color: "var(--text-mid)" }}>
+                  %
+                </span>
               </p>
-              <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ background: "var(--surface-3)" }}>
+              <div
+                className="mt-3 h-1.5 rounded-full overflow-hidden"
+                style={{ background: "var(--surface-3)" }}
+              >
                 <motion.div
                   initial={false}
                   animate={{ width: `${stats.avgCompletion}%` }}
@@ -557,14 +560,20 @@ export function ManagerScreen() {
           {view === "cohort" && (
             <section>
               <div className="flex items-center gap-2 mb-4">
-                <Users className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+                <Users
+                  className="w-4 h-4"
+                  strokeWidth={1.75}
+                  style={{ color: "var(--brand-400)" }}
+                />
                 <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
                   {locale === "ar" ? "المنضمّون لديك" : "My joiners"}
                 </h2>
               </div>
               <ul className="space-y-3">
                 {items.map((item) => {
-                  const waitingCount = item.ownedSteps.filter((s) => s.status === "waiting_owner").length;
+                  const waitingCount = item.ownedSteps.filter(
+                    (s) => s.status === "waiting_owner",
+                  ).length;
                   return (
                     <motion.li
                       key={item.employeeId}
@@ -573,37 +582,55 @@ export function ManagerScreen() {
                     >
                       <div className="flex items-start gap-4 flex-wrap">
                         <div className="flex-1 min-w-0">
-                          <p className="text-[15px] font-medium" style={{ color: "var(--text-hi)" }}>
+                          <p
+                            className="text-[15px] font-medium"
+                            style={{ color: "var(--text-hi)" }}
+                          >
                             {item.employeeName}
                           </p>
                           <p className="text-[12px] mt-0.5" style={{ color: "var(--text-mid)" }}>
-                            {item.journeyType === "onboarding" ? (locale === "ar" ? "التحاق" : "Onboarding") : (locale === "ar" ? "تنقل" : "Mobility")}
+                            {item.journeyType === "onboarding"
+                              ? locale === "ar"
+                                ? "التحاق"
+                                : "Onboarding"
+                              : locale === "ar"
+                                ? "تنقل"
+                                : "Mobility"}
                             <span className="mx-1.5">·</span>
                             {stageLabel(item.stage, locale)}
                             <span className="mx-1.5">·</span>
                             <span className="tabular">
-                              {locale === "ar" ? `يوم ${item.dayInStage}` : `Day ${item.dayInStage}`}
+                              {locale === "ar"
+                                ? `يوم ${item.dayInStage}`
+                                : `Day ${item.dayInStage}`}
                             </span>
                           </p>
 
                           {/* Aggregate completion bar */}
                           <div className="mt-3 flex items-center gap-3">
-                            <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "var(--surface-3)" }}>
+                            <div
+                              className="flex-1 h-2 rounded-full overflow-hidden"
+                              style={{ background: "var(--surface-3)" }}
+                            >
                               <motion.div
                                 initial={false}
                                 animate={{ width: `${item.aggregateCompletion}%` }}
                                 transition={{ duration: 0.4 }}
                                 className="h-full rounded-full"
                                 style={{
-                                  background: item.aggregateCompletion >= 80
-                                    ? "var(--status-steady)"
-                                    : item.aggregateCompletion >= 40
-                                    ? "var(--brand-500)"
-                                    : "var(--status-watch)",
+                                  background:
+                                    item.aggregateCompletion >= 80
+                                      ? "var(--status-steady)"
+                                      : item.aggregateCompletion >= 40
+                                        ? "var(--brand-500)"
+                                        : "var(--status-watch)",
                                 }}
                               />
                             </div>
-                            <span className="text-[12px] tabular font-medium shrink-0" style={{ color: "var(--text-hi)" }}>
+                            <span
+                              className="text-[12px] tabular font-medium shrink-0"
+                              style={{ color: "var(--text-hi)" }}
+                            >
                               {item.aggregateCompletion}%
                             </span>
                           </div>
@@ -611,7 +638,10 @@ export function ManagerScreen() {
 
                         {/* Waiting-on-me badge */}
                         <div className="shrink-0 ml-auto text-right">
-                          <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                          <p
+                            className="text-[11px] uppercase tracking-[0.12em]"
+                            style={{ color: "var(--text-lo)" }}
+                          >
                             {locale === "ar" ? "بانتظارك" : "Waiting on you"}
                           </p>
                           <p
@@ -635,12 +665,18 @@ export function ManagerScreen() {
           {view === "my_steps" && (
             <section>
               <div className="flex items-center gap-2 mb-4">
-                <ClipboardList className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+                <ClipboardList
+                  className="w-4 h-4"
+                  strokeWidth={1.75}
+                  style={{ color: "var(--brand-400)" }}
+                />
                 <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
                   {locale === "ar" ? "التزاماتي" : "My obligations"}
                 </h2>
                 <span className="text-[12px] tabular" style={{ color: "var(--text-mid)" }}>
-                  {locale === "ar" ? `${allObligations.length} خطوة` : `${allObligations.length} step${allObligations.length === 1 ? "" : "s"}`}
+                  {locale === "ar"
+                    ? `${allObligations.length} خطوة`
+                    : `${allObligations.length} step${allObligations.length === 1 ? "" : "s"}`}
                 </span>
               </div>
 
@@ -695,9 +731,7 @@ export function ManagerScreen() {
               Privacy boundary: same schema as the cohort API — aggregate
               completion + owned steps only. NO sentiment, pulse, or friction
               per person. */}
-          {view === "compare" && (
-            <CompareView items={items} locale={locale} />
-          )}
+          {view === "compare" && <CompareView items={items} locale={locale} />}
 
           {/* 30-60-90 outline (PRD §11-207) — below "My obligations".
               For each joiner in the cohort, a collapsible card with three
@@ -706,7 +740,11 @@ export function ManagerScreen() {
           {view === "my_steps" && items && items.length > 0 && (
             <section className="mt-6">
               <div className="flex items-center gap-2 mb-4">
-                <ClipboardList className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+                <ClipboardList
+                  className="w-4 h-4"
+                  strokeWidth={1.75}
+                  style={{ color: "var(--brand-400)" }}
+                />
                 <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
                   {locale === "ar" ? "مخطط 30-60-90" : "30-60-90 outline"}
                 </h2>
@@ -730,7 +768,10 @@ export function ManagerScreen() {
           )}
 
           {/* Schema-boundary footer */}
-          <p className="mt-6 text-[11px] flex items-center justify-center gap-1.5" style={{ color: "var(--text-lo)" }}>
+          <p
+            className="mt-6 text-[11px] flex items-center justify-center gap-1.5"
+            style={{ color: "var(--text-lo)" }}
+          >
             <Lock className="w-3 h-3" strokeWidth={1.75} />
             {locale === "ar"
               ? "هذا العرض مقيّد بنمط البيانات. لا تُرسل النبضات أو التعليقات لأي موظف."
@@ -793,11 +834,41 @@ interface NudgeHistoryEntry {
 /** Seed the last 5 historical nudges so the chart demonstrates that
  *  nudges actually convert to resolution. Synthetic pack times only. */
 const SEED_NUDGE_HISTORY: NudgeHistoryEntry[] = [
-  { id: "nh-001", date: "2024-10-14T08:00:00Z", stepLabel: "Buddy assignment",        employeeName: "Daniel Okonkwo", action: "resolved" },
-  { id: "nh-002", date: "2024-10-15T09:00:00Z", stepLabel: "HR induction confirmation", employeeName: "Sara Kovač",     action: "snoozed" },
-  { id: "nh-003", date: "2024-10-16T09:00:00Z", stepLabel: "Probation check-in",      employeeName: "Daniel Okonkwo", action: "resolved" },
-  { id: "nh-004", date: "2024-10-17T09:00:00Z", stepLabel: "Visa support letter",     employeeName: "James Park",     action: "ignored" },
-  { id: "nh-005", date: "2024-10-18T09:00:00Z", stepLabel: "Workstation readiness",   employeeName: "Maria Santos",   action: "resolved" },
+  {
+    id: "nh-001",
+    date: "2024-10-14T08:00:00Z",
+    stepLabel: "Buddy assignment",
+    employeeName: "Daniel Okonkwo",
+    action: "resolved",
+  },
+  {
+    id: "nh-002",
+    date: "2024-10-15T09:00:00Z",
+    stepLabel: "HR induction confirmation",
+    employeeName: "Sara Kovač",
+    action: "snoozed",
+  },
+  {
+    id: "nh-003",
+    date: "2024-10-16T09:00:00Z",
+    stepLabel: "Probation check-in",
+    employeeName: "Daniel Okonkwo",
+    action: "resolved",
+  },
+  {
+    id: "nh-004",
+    date: "2024-10-17T09:00:00Z",
+    stepLabel: "Visa support letter",
+    employeeName: "James Park",
+    action: "ignored",
+  },
+  {
+    id: "nh-005",
+    date: "2024-10-18T09:00:00Z",
+    stepLabel: "Workstation readiness",
+    employeeName: "Maria Santos",
+    action: "resolved",
+  },
 ];
 
 /* ---------- Late steps nudge banner ---------- */
@@ -839,15 +910,26 @@ function LateStepsBanner({
         <div className="flex items-start gap-3">
           <div
             className="flex items-center justify-center w-11 h-11 rounded-full shrink-0"
-            style={{ background: "rgba(201,162,39,0.14)", color: "var(--accent-500)", border: "1px solid rgba(201,162,39,0.36)" }}
+            style={{
+              background: "rgba(201,162,39,0.14)",
+              color: "var(--accent-500)",
+              border: "1px solid rgba(201,162,39,0.36)",
+            }}
           >
             <BellRing className="w-5 h-5" strokeWidth={1.75} />
           </div>
           <div className="min-w-0">
-            <p className="text-[17px] font-semibold ast-brass" style={{ color: "var(--accent-500)" }}>
+            <p
+              className="text-[17px] font-semibold ast-brass"
+              style={{ color: "var(--accent-500)" }}
+            >
               {t === 1
-                ? (locale === "ar" ? "خطوة واحدة بانتظارك" : "1 step is waiting on you")
-                : (locale === "ar" ? `${t} خطوات بانتظارك` : `${t} steps are waiting on you`)}
+                ? locale === "ar"
+                  ? "خطوة واحدة بانتظارك"
+                  : "1 step is waiting on you"
+                : locale === "ar"
+                  ? `${t} خطوات بانتظارك`
+                  : `${t} steps are waiting on you`}
             </p>
             <p className="text-[12px] mt-1 leading-relaxed" style={{ color: "var(--text-mid)" }}>
               {locale === "ar"
@@ -894,29 +976,46 @@ function LateStepsBanner({
               className="flex items-center gap-2 text-[12px] flex-wrap"
               style={{ color: "var(--text-mid)" }}
             >
-              <BellRing className="w-3 h-3 shrink-0" strokeWidth={1.75} style={{ color: "var(--accent-500)" }} />
-              <span className="font-medium" style={{ color: "var(--text-hi)" }}>{step.label}</span>
+              <BellRing
+                className="w-3 h-3 shrink-0"
+                strokeWidth={1.75}
+                style={{ color: "var(--accent-500)" }}
+              />
+              <span className="font-medium" style={{ color: "var(--text-hi)" }}>
+                {step.label}
+              </span>
               <span style={{ color: "var(--text-lo)" }}>·</span>
               <span>{employee.employeeName}</span>
               {dueInPast ? (
                 <>
                   <span style={{ color: "var(--text-lo)" }}>·</span>
                   <span className="tabular" dir="ltr">
-                    {locale === "ar" ? `كان مستحقاً ${format(due!, "EEEE d MMM")}` : `was due ${format(due!, "EEEE d MMM")}`}
+                    {locale === "ar"
+                      ? `كان مستحقاً ${format(due!, "EEEE d MMM")}`
+                      : `was due ${format(due!, "EEEE d MMM")}`}
                   </span>
                   <span style={{ color: "var(--text-lo)" }}>·</span>
                   <span className="tabular" style={{ color: "var(--status-friction)" }}>
                     {dl === 0
-                      ? (locale === "ar" ? "متأخر اليوم" : "late today")
+                      ? locale === "ar"
+                        ? "متأخر اليوم"
+                        : "late today"
                       : dl === 1
-                      ? (locale === "ar" ? "متأخر بيوم" : "1 day late")
-                      : (locale === "ar" ? `متأخر ${dl} أيام` : `${dl} days late`)}
+                        ? locale === "ar"
+                          ? "متأخر بيوم"
+                          : "1 day late"
+                        : locale === "ar"
+                          ? `متأخر ${dl} أيام`
+                          : `${dl} days late`}
                   </span>
                 </>
               ) : (
                 <>
                   <span style={{ color: "var(--text-lo)" }}>·</span>
-                  <span className="tabular inline-flex items-center gap-1" style={{ color: "var(--status-friction)" }}>
+                  <span
+                    className="tabular inline-flex items-center gap-1"
+                    style={{ color: "var(--status-friction)" }}
+                  >
                     <AlertTriangle className="w-3 h-3" strokeWidth={2} />
                     {locale === "ar" ? "اختراق SLA" : "SLA breached"}
                   </span>
@@ -934,9 +1033,30 @@ function LateStepsBanner({
 
 function ActionChip({ action, locale }: { action: NudgeAction; locale: "en" | "ar" }) {
   const cfg = {
-    resolved: { color: "var(--status-steady)", bg: "rgba(14,159,110,0.10)", border: "rgba(14,159,110,0.30)", label: "Resolved", labelAr: "حُلّ", Icon: CheckCircle2 },
-    snoozed:  { color: "var(--status-watch)",  bg: "rgba(217,119,6,0.10)",  border: "rgba(217,119,6,0.30)",  label: "Snoozed",  labelAr: "مؤجّل", Icon: Clock3 },
-    ignored:  { color: "var(--text-lo)",        bg: "var(--surface-2)",      border: "var(--border)",         label: "Ignored",  labelAr: "مُتجاهل", Icon: X },
+    resolved: {
+      color: "var(--status-steady)",
+      bg: "rgba(14,159,110,0.10)",
+      border: "rgba(14,159,110,0.30)",
+      label: "Resolved",
+      labelAr: "حُلّ",
+      Icon: CheckCircle2,
+    },
+    snoozed: {
+      color: "var(--status-watch)",
+      bg: "rgba(217,119,6,0.10)",
+      border: "rgba(217,119,6,0.30)",
+      label: "Snoozed",
+      labelAr: "مؤجّل",
+      Icon: Clock3,
+    },
+    ignored: {
+      color: "var(--text-lo)",
+      bg: "var(--surface-2)",
+      border: "var(--border)",
+      label: "Ignored",
+      labelAr: "مُتجاهل",
+      Icon: X,
+    },
   }[action];
   const Icon = cfg.Icon;
   return (
@@ -965,8 +1085,16 @@ function BarRow({
   return (
     <div>
       <div className="flex items-baseline justify-between mb-1">
-        <span className="text-[12px]" style={{ color: "var(--text-mid)" }}>{label}</span>
-        <span className="text-[15px] font-semibold tabular" style={{ color: "var(--text-hi)" }} dir="ltr">{value}</span>
+        <span className="text-[12px]" style={{ color: "var(--text-mid)" }}>
+          {label}
+        </span>
+        <span
+          className="text-[15px] font-semibold tabular"
+          style={{ color: "var(--text-hi)" }}
+          dir="ltr"
+        >
+          {value}
+        </span>
       </div>
       <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--surface-2)" }}>
         <motion.div
@@ -981,13 +1109,7 @@ function BarRow({
   );
 }
 
-function NudgeHistory({
-  history,
-  locale,
-}: {
-  history: NudgeHistoryEntry[];
-  locale: "en" | "ar";
-}) {
+function NudgeHistory({ history, locale }: { history: NudgeHistoryEntry[]; locale: "en" | "ar" }) {
   const [open, setOpen] = useState(false);
   const recent = history.slice(0, 5);
   const nudgesSent = history.length;
@@ -1044,7 +1166,9 @@ function NudgeHistory({
                     <span className="tabular" style={{ color: "var(--text-lo)" }} dir="ltr">
                       {format(new Date(h.date), "d MMM · HH:mm")}
                     </span>
-                    <span className="font-medium truncate" style={{ color: "var(--text-hi)" }}>{h.stepLabel}</span>
+                    <span className="font-medium truncate" style={{ color: "var(--text-hi)" }}>
+                      {h.stepLabel}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span style={{ color: "var(--text-mid)" }}>{h.employeeName}</span>
@@ -1053,7 +1177,10 @@ function NudgeHistory({
                 </li>
               ))}
               {recent.length === 0 && (
-                <li className="ast-card-2 p-3 text-[12px] text-center" style={{ color: "var(--text-lo)" }}>
+                <li
+                  className="ast-card-2 p-3 text-[12px] text-center"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {locale === "ar" ? "لا تنبيهات بعد." : "No nudges yet."}
                 </li>
               )}
@@ -1062,8 +1189,15 @@ function NudgeHistory({
             {/* Bar chart */}
             <div className="ast-card-2 p-4">
               <div className="flex items-center gap-2 mb-1">
-                <BarChart3 className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
-                <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                <BarChart3
+                  className="w-3.5 h-3.5"
+                  strokeWidth={1.75}
+                  style={{ color: "var(--brand-400)" }}
+                />
+                <p
+                  className="text-[11px] uppercase tracking-[0.12em]"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {locale === "ar" ? "التنبيهات تعمل" : "Nudges work"}
                 </p>
               </div>
@@ -1086,14 +1220,19 @@ function NudgeHistory({
                   color="var(--status-steady)"
                 />
               </div>
-              <div className="mt-4 pt-3 flex items-center justify-between text-[11px] tabular" style={{ borderTop: "1px solid var(--border-soft)", color: "var(--text-lo)" }}>
-                <span>
-                  {locale === "ar" ? `${snoozedCount} مؤجّل` : `${snoozedCount} snoozed`}
-                </span>
+              <div
+                className="mt-4 pt-3 flex items-center justify-between text-[11px] tabular"
+                style={{ borderTop: "1px solid var(--border-soft)", color: "var(--text-lo)" }}
+              >
+                <span>{locale === "ar" ? `${snoozedCount} مؤجّل` : `${snoozedCount} snoozed`}</span>
                 <span>
                   {locale === "ar" ? `${ignoredCount} مُتجاهل` : `${ignoredCount} ignored`}
                 </span>
-                <span style={{ color: resolvedAfterNudge > 0 ? "var(--status-steady)" : "var(--text-lo)" }}>
+                <span
+                  style={{
+                    color: resolvedAfterNudge > 0 ? "var(--status-steady)" : "var(--text-lo)",
+                  }}
+                >
                   {locale === "ar"
                     ? `${nudgesSent > 0 ? Math.round((resolvedAfterNudge / nudgesSent) * 100) : 0}% نجاح`
                     : `${nudgesSent > 0 ? Math.round((resolvedAfterNudge / nudgesSent) * 100) : 0}% success`}
@@ -1145,11 +1284,12 @@ function ObligationRow({
       initial={false}
       className={cn("ast-card p-4 flex items-center gap-3 flex-wrap", completed && "opacity-70")}
       style={{
-        borderColor: late && !completed
-          ? "rgba(220,38,38,0.32)"
-          : isWaitingOwner && !completed
-          ? "rgba(201,162,39,0.32)"
-          : "var(--border)",
+        borderColor:
+          late && !completed
+            ? "rgba(220,38,38,0.32)"
+            : isWaitingOwner && !completed
+              ? "rgba(201,162,39,0.32)"
+              : "var(--border)",
       }}
     >
       {/* Status glyph */}
@@ -1159,17 +1299,17 @@ function ObligationRow({
           background: completed
             ? "rgba(14,159,110,0.12)"
             : late
-            ? "rgba(220,38,38,0.12)"
-            : isWaitingOwner
-            ? "rgba(201,162,39,0.12)"
-            : "var(--surface-2)",
+              ? "rgba(220,38,38,0.12)"
+              : isWaitingOwner
+                ? "rgba(201,162,39,0.12)"
+                : "var(--surface-2)",
           color: completed
             ? "var(--status-steady)"
             : late
-            ? "var(--status-friction)"
-            : isWaitingOwner
-            ? "var(--accent-500)"
-            : "var(--text-mid)",
+              ? "var(--status-friction)"
+              : isWaitingOwner
+                ? "var(--accent-500)"
+                : "var(--text-mid)",
         }}
       >
         {completed ? (
@@ -1188,13 +1328,19 @@ function ObligationRow({
         <p className="text-[14px] font-medium" style={{ color: "var(--text-hi)" }}>
           {step.label}
           {completed && (
-            <span className="ml-2 text-[11px] font-medium" style={{ color: "var(--status-steady)" }}>
+            <span
+              className="ml-2 text-[11px] font-medium"
+              style={{ color: "var(--status-steady)" }}
+            >
               {locale === "ar" ? "تم" : "done"}
             </span>
           )}
         </p>
         <p className="text-[12px] mt-0.5" style={{ color: "var(--text-mid)" }}>
-          {locale === "ar" ? "لـ" : "for"} <span className="font-medium" style={{ color: "var(--text-hi)" }}>{employee.employeeName}</span>
+          {locale === "ar" ? "لـ" : "for"}{" "}
+          <span className="font-medium" style={{ color: "var(--text-hi)" }}>
+            {employee.employeeName}
+          </span>
           {due && !completed && (
             <>
               <span className="mx-1.5">·</span>
@@ -1206,8 +1352,12 @@ function ObligationRow({
                 {format(due, "d MMM")}
                 <span style={{ color: "var(--text-lo)" }}>·</span>
                 {overdue
-                  ? (locale === "ar" ? `متأخر ${dueDistance}` : `${dueDistance} overdue`)
-                  : (locale === "ar" ? `بعد ${dueDistance}` : `in ${dueDistance}`)}
+                  ? locale === "ar"
+                    ? `متأخر ${dueDistance}`
+                    : `${dueDistance} overdue`
+                  : locale === "ar"
+                    ? `بعد ${dueDistance}`
+                    : `in ${dueDistance}`}
               </span>
             </>
           )}
@@ -1238,9 +1388,16 @@ function ObligationRow({
             <DropdownMenuContent
               align="end"
               className="min-w-[180px]"
-              style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+              style={{
+                background: "var(--surface-1)",
+                border: "1px solid var(--border)",
+                color: "var(--text-hi)",
+              }}
             >
-              <DropdownMenuLabel className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+              <DropdownMenuLabel
+                className="text-[11px] uppercase tracking-[0.12em]"
+                style={{ color: "var(--text-lo)" }}
+              >
                 {locale === "ar" ? "ذكّرني في" : "Remind me in"}
               </DropdownMenuLabel>
               <DropdownMenuSeparator style={{ background: "var(--border-soft)" }} />
@@ -1249,7 +1406,11 @@ function ObligationRow({
                 className="text-[12px] ast-focus"
                 style={{ color: "var(--text-hi)" }}
               >
-                <AlarmClock className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+                <AlarmClock
+                  className="w-3.5 h-3.5"
+                  strokeWidth={1.75}
+                  style={{ color: "var(--brand-400)" }}
+                />
                 {locale === "ar" ? "بعد ساعة" : "1 hour"}
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -1257,7 +1418,11 @@ function ObligationRow({
                 className="text-[12px] ast-focus"
                 style={{ color: "var(--text-hi)" }}
               >
-                <AlarmClock className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+                <AlarmClock
+                  className="w-3.5 h-3.5"
+                  strokeWidth={1.75}
+                  style={{ color: "var(--brand-400)" }}
+                />
                 {locale === "ar" ? "بعد 4 ساعات" : "4 hours"}
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -1265,7 +1430,11 @@ function ObligationRow({
                 className="text-[12px] ast-focus"
                 style={{ color: "var(--text-hi)" }}
               >
-                <Clock3 className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+                <Clock3
+                  className="w-3.5 h-3.5"
+                  strokeWidth={1.75}
+                  style={{ color: "var(--brand-400)" }}
+                />
                 {locale === "ar" ? "غداً" : "Tomorrow"}
               </DropdownMenuItem>
               <DropdownMenuSeparator style={{ background: "var(--border-soft)" }} />
@@ -1294,8 +1463,12 @@ function ObligationRow({
           >
             <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={1.75} />
             {completing
-              ? (locale === "ar" ? "..." : "Marking…")
-              : (locale === "ar" ? "أكمل الخطوة" : "Complete")}
+              ? locale === "ar"
+                ? "..."
+                : "Marking…"
+              : locale === "ar"
+                ? "أكمل الخطوة"
+                : "Complete"}
           </button>
         )}
       </div>
@@ -1430,7 +1603,7 @@ function TrendSparkline({
               <stop offset="100%" stopColor="var(--brand-500)" stopOpacity={1} />
             </linearGradient>
             <linearGradient id={areaGradId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--brand-500)" stopOpacity={0.30} />
+              <stop offset="0%" stopColor="var(--brand-500)" stopOpacity={0.3} />
               <stop offset="100%" stopColor="var(--brand-500)" stopOpacity={0} />
             </linearGradient>
           </defs>
@@ -1471,7 +1644,12 @@ function TrendSparkline({
                     border: "1px solid var(--border)",
                   }}
                 >
-                  {i === 0 ? "Day -7" : i === values.length - 1 ? "Day 0" : `Day -${values.length - 1 - i}`} · {v}%
+                  {i === 0
+                    ? "Day -7"
+                    : i === values.length - 1
+                      ? "Day 0"
+                      : `Day -${values.length - 1 - i}`}{" "}
+                  · {v}%
                 </TooltipContent>
               </Tooltip>
             ))}
@@ -1541,13 +1719,7 @@ function TrendLabel({ values, locale }: { values: number[]; locale: "en" | "ar" 
 
 type CompareSort = "completion" | "dayInStage" | "waitingOnMe";
 
-function CompareView({
-  items,
-  locale,
-}: {
-  items: CohortItem[] | null;
-  locale: "en" | "ar";
-}) {
+function CompareView({ items, locale }: { items: CohortItem[] | null; locale: "en" | "ar" }) {
   const [sortBy, setSortBy] = useState<CompareSort>("completion");
 
   // Sort a copy of items — never mutate the source. items may be null/empty;
@@ -1591,15 +1763,22 @@ function CompareView({
 
   // Fastest improver + needs-attention — by slope of the trend.
   const { fastest, slowest } = useMemo(() => {
-    if (sorted.length === 0) return { fastest: null as CohortItem | null, slowest: null as CohortItem | null };
+    if (sorted.length === 0)
+      return { fastest: null as CohortItem | null, slowest: null as CohortItem | null };
     let fast: CohortItem | null = null;
     let fastSlope = -Infinity;
     let slow: CohortItem | null = null;
     let slowSlope = Infinity;
     for (const it of sorted) {
       const slope = trendSlope(trendsByEmployee[it.employeeId] ?? []);
-      if (slope > fastSlope) { fastSlope = slope; fast = it; }
-      if (slope < slowSlope) { slowSlope = slope; slow = it; }
+      if (slope > fastSlope) {
+        fastSlope = slope;
+        fast = it;
+      }
+      if (slope < slowSlope) {
+        slowSlope = slope;
+        slow = it;
+      }
     }
     return { fastest: fast, slowest: slow };
   }, [sorted, trendsByEmployee]);
@@ -1609,7 +1788,11 @@ function CompareView({
     return (
       <section>
         <div className="flex items-center gap-2 mb-4">
-          <ArrowLeftRight className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+          <ArrowLeftRight
+            className="w-4 h-4"
+            strokeWidth={1.75}
+            style={{ color: "var(--brand-400)" }}
+          />
           <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
             {locale === "ar" ? "قارن" : "Compare"}
           </h2>
@@ -1653,12 +1836,18 @@ function CompareView({
   return (
     <section>
       <div className="flex items-center gap-2 mb-4">
-        <ArrowLeftRight className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+        <ArrowLeftRight
+          className="w-4 h-4"
+          strokeWidth={1.75}
+          style={{ color: "var(--brand-400)" }}
+        />
         <h2 className="text-[17px] font-semibold" style={{ color: "var(--text-hi)" }}>
           {locale === "ar" ? "قارن" : "Compare"}
         </h2>
         <span className="text-[12px] tabular" style={{ color: "var(--text-mid)" }}>
-          {locale === "ar" ? `${totalJoiners} موظف` : `${totalJoiners} joiner${totalJoiners === 1 ? "" : "s"}`}
+          {locale === "ar"
+            ? `${totalJoiners} موظف`
+            : `${totalJoiners} joiner${totalJoiners === 1 ? "" : "s"}`}
         </span>
       </div>
 
@@ -1678,7 +1867,9 @@ function CompareView({
               dir="ltr"
             >
               {avgCompletion}
-              <span className="text-[18px] font-normal" style={{ color: "var(--text-mid)" }}>%</span>
+              <span className="text-[18px] font-normal" style={{ color: "var(--text-mid)" }}>
+                %
+              </span>
             </p>
           </div>
           <div>
@@ -1718,7 +1909,11 @@ function CompareView({
           style={{ borderTop: "1px solid var(--border-soft)" }}
         >
           <div className="flex items-center gap-2 shrink-0">
-            <TrendingUp className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+            <TrendingUp
+              className="w-3.5 h-3.5"
+              strokeWidth={1.75}
+              style={{ color: "var(--brand-400)" }}
+            />
             <span
               className="text-[10px] uppercase tracking-[0.14em] font-medium"
               style={{ color: "var(--text-lo)" }}
@@ -1737,7 +1932,11 @@ function CompareView({
               uniqueId="cohort-avg"
             />
           </div>
-          <span className="text-[11px] tabular shrink-0" style={{ color: "var(--text-lo)" }} dir="ltr">
+          <span
+            className="text-[11px] tabular shrink-0"
+            style={{ color: "var(--text-lo)" }}
+            dir="ltr"
+          >
             {locale === "ar"
               ? `اليوم -7: ${cohortTrend[0]}% → اليوم 0: ${cohortTrend[6]}%`
               : `Day -7: ${cohortTrend[0]}% → Day 0: ${cohortTrend[6]}%`}
@@ -1747,7 +1946,11 @@ function CompareView({
         {/* Mini bar chart — completion per joiner */}
         <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--border-soft)" }}>
           <div className="flex items-center gap-2 mb-2">
-            <BarChart3 className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
+            <BarChart3
+              className="w-3.5 h-3.5"
+              strokeWidth={1.75}
+              style={{ color: "var(--brand-400)" }}
+            />
             <span
               className="text-[10px] uppercase tracking-[0.14em] font-medium"
               style={{ color: "var(--text-lo)" }}
@@ -1826,10 +2029,7 @@ function CompareView({
 
       {/* Side-by-side columns — horizontally scrollable on mobile */}
       <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0 pb-2">
-        <div
-          className="flex gap-3"
-          style={{ minWidth: "min-content" }}
-        >
+        <div className="flex gap-3" style={{ minWidth: "min-content" }}>
           {sorted.map((it, i) => (
             <CompareColumn
               key={it.employeeId}
@@ -1862,13 +2062,23 @@ function CompareView({
                 <Zap className="w-5 h-5" strokeWidth={1.75} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] uppercase tracking-[0.12em] font-medium" style={{ color: "var(--text-lo)" }}>
+                <p
+                  className="text-[10px] uppercase tracking-[0.12em] font-medium"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {locale === "ar" ? "الأسرع تحسناً" : "Who's improving fastest?"}
                 </p>
-                <p className="text-[14px] font-medium mt-0.5 truncate" style={{ color: "var(--text-hi)" }}>
+                <p
+                  className="text-[14px] font-medium mt-0.5 truncate"
+                  style={{ color: "var(--text-hi)" }}
+                >
                   {fastest.employeeName}
                 </p>
-                <p className="text-[11px] tabular mt-0.5" style={{ color: "var(--text-mid)" }} dir="ltr">
+                <p
+                  className="text-[11px] tabular mt-0.5"
+                  style={{ color: "var(--text-mid)" }}
+                  dir="ltr"
+                >
                   {locale === "ar"
                     ? `اليوم -7: ${(trendsByEmployee[fastest.employeeId] ?? [0])[0]}% → اليوم 0: ${fastest.aggregateCompletion}%`
                     : `Day -7: ${(trendsByEmployee[fastest.employeeId] ?? [0])[0]}% → Day 0: ${fastest.aggregateCompletion}%`}
@@ -1902,13 +2112,23 @@ function CompareView({
                 <AlertTriangle className="w-5 h-5" strokeWidth={1.75} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] uppercase tracking-[0.12em] font-medium" style={{ color: "var(--text-lo)" }}>
+                <p
+                  className="text-[10px] uppercase tracking-[0.12em] font-medium"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {locale === "ar" ? "بحاجة لانتباه" : "Who needs attention?"}
                 </p>
-                <p className="text-[14px] font-medium mt-0.5 truncate" style={{ color: "var(--text-hi)" }}>
+                <p
+                  className="text-[14px] font-medium mt-0.5 truncate"
+                  style={{ color: "var(--text-hi)" }}
+                >
                   {slowest.employeeName}
                 </p>
-                <p className="text-[11px] tabular mt-0.5" style={{ color: "var(--text-mid)" }} dir="ltr">
+                <p
+                  className="text-[11px] tabular mt-0.5"
+                  style={{ color: "var(--text-mid)" }}
+                  dir="ltr"
+                >
                   {locale === "ar"
                     ? `اليوم -7: ${(trendsByEmployee[slowest.employeeId] ?? [0])[0]}% → اليوم 0: ${slowest.aggregateCompletion}%`
                     : `Day -7: ${(trendsByEmployee[slowest.employeeId] ?? [0])[0]}% → Day 0: ${slowest.aggregateCompletion}%`}
@@ -1931,10 +2151,7 @@ function CompareView({
       )}
 
       {/* Privacy reminder */}
-      <p
-        className="mt-4 text-[11px] flex items-center gap-1.5"
-        style={{ color: "var(--text-lo)" }}
-      >
+      <p className="mt-4 text-[11px] flex items-center gap-1.5" style={{ color: "var(--text-lo)" }}>
         <Lock className="w-3 h-3" strokeWidth={1.75} />
         {locale === "ar"
           ? "هذه المقارنة مقيّدة بنمط بيانات المجموعة — لا نبضات أو احتكاك لكل فرد."
@@ -1984,13 +2201,13 @@ function CompareColumn({
         borderColor: isFastest
           ? "rgba(22,154,165,0.40)"
           : isSlowest
-          ? "rgba(217,119,6,0.40)"
-          : "var(--border)",
+            ? "rgba(217,119,6,0.40)"
+            : "var(--border)",
         background: isFastest
           ? "rgba(22,154,165,0.04)"
           : isSlowest
-          ? "rgba(217,119,6,0.04)"
-          : "var(--surface-1)",
+            ? "rgba(217,119,6,0.04)"
+            : "var(--surface-1)",
       }}
     >
       {/* Name */}
@@ -2008,28 +2225,25 @@ function CompareColumn({
           style={{
             color: item.journeyType === "onboarding" ? "var(--brand-400)" : "var(--accent-500)",
             background:
-              item.journeyType === "onboarding"
-                ? "rgba(22,154,165,0.08)"
-                : "rgba(201,162,39,0.08)",
+              item.journeyType === "onboarding" ? "rgba(22,154,165,0.08)" : "rgba(201,162,39,0.08)",
             borderColor:
-              item.journeyType === "onboarding"
-                ? "rgba(22,154,165,0.25)"
-                : "rgba(201,162,39,0.30)",
+              item.journeyType === "onboarding" ? "rgba(22,154,165,0.25)" : "rgba(201,162,39,0.30)",
             height: 22,
             fontSize: 10,
           }}
         >
           {item.journeyType === "onboarding"
-            ? (locale === "ar" ? "التحاق" : "Onboarding")
-            : (locale === "ar" ? "تنقل" : "Mobility")}
+            ? locale === "ar"
+              ? "التحاق"
+              : "Onboarding"
+            : locale === "ar"
+              ? "تنقل"
+              : "Mobility"}
         </span>
       </div>
 
       {/* Stage + day-in-stage */}
-      <p
-        className="text-[11px] mt-2 leading-snug"
-        style={{ color: "var(--text-mid)" }}
-      >
+      <p className="text-[11px] mt-2 leading-snug" style={{ color: "var(--text-mid)" }}>
         {stageLabel(item.stage, locale)}
         <span className="mx-1">·</span>
         <span className="tabular" dir="ltr">
@@ -2058,7 +2272,9 @@ function CompareColumn({
           dir="ltr"
         >
           {item.aggregateCompletion}
-          <span className="text-[16px] font-normal" style={{ color: "var(--text-mid)" }}>%</span>
+          <span className="text-[16px] font-normal" style={{ color: "var(--text-mid)" }}>
+            %
+          </span>
         </p>
       </div>
 
@@ -2088,13 +2304,7 @@ function CompareColumn({
             const isDone = i < currentIdx;
             const isActive = i === currentIdx;
             const isBlocked = isActive && hasBlocked;
-            const state = isBlocked
-              ? "blocked"
-              : isDone
-                ? "done"
-                : isActive
-                  ? "active"
-                  : "pending";
+            const state = isBlocked ? "blocked" : isDone ? "done" : isActive ? "active" : "pending";
             const bg = isBlocked
               ? "var(--status-blocked)"
               : isDone
@@ -2120,7 +2330,10 @@ function CompareColumn({
       </div>
 
       {/* Waiting on me count — sand-gold, large */}
-      <div className="mt-3 pt-3 flex items-center justify-between" style={{ borderTop: "1px solid var(--border-soft)" }}>
+      <div
+        className="mt-3 pt-3 flex items-center justify-between"
+        style={{ borderTop: "1px solid var(--border-soft)" }}
+      >
         <span
           className="text-[10px] uppercase tracking-[0.12em] font-medium"
           style={{ color: "var(--text-lo)" }}
@@ -2153,10 +2366,7 @@ function CompareColumn({
         ) : (
           <ul className="space-y-1.5">
             {item.ownedSteps.slice(0, 3).map((s) => (
-              <li
-                key={s.stepKey}
-                className="flex items-center justify-between gap-2 min-w-0"
-              >
+              <li key={s.stepKey} className="flex items-center justify-between gap-2 min-w-0">
                 <span
                   className="text-[11px] truncate"
                   style={{ color: "var(--text-mid)" }}
@@ -2184,17 +2394,9 @@ function CompareColumn({
 
 type OutlinePhase = "day30" | "day60" | "day90";
 
-function Outline3090Card({
-  item,
-  locale,
-}: {
-  item: CohortItem;
-  locale: "en" | "ar";
-}) {
+function Outline3090Card({ item, locale }: { item: CohortItem; locale: "en" | "ar" }) {
   const [open, setOpen] = useState(false);
-  const [outline, setOutline] = useState<Outline3090>(() =>
-    defaultOutline(item.journeyType),
-  );
+  const [outline, setOutline] = useState<Outline3090>(() => defaultOutline(item.journeyType));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -2219,15 +2421,12 @@ function Outline3090Card({
     setTimeout(() => {
       setSaving(false);
       setSaved(true);
-      toast.success(
-        locale === "ar" ? "تم حفظ المخطط" : "Outline saved",
-        {
-          description:
-            locale === "ar"
-              ? `مخطط 30-60-90 لـ ${item.employeeName}`
-              : `30-60-90 outline for ${item.employeeName}`,
-        },
-      );
+      toast.success(locale === "ar" ? "تم حفظ المخطط" : "Outline saved", {
+        description:
+          locale === "ar"
+            ? `مخطط 30-60-90 لـ ${item.employeeName}`
+            : `30-60-90 outline for ${item.employeeName}`,
+      });
     }, 420);
   };
 
@@ -2288,9 +2487,17 @@ function Outline3090Card({
           </span>
         )}
         {open ? (
-          <ChevronUp className="w-4 h-4 shrink-0" strokeWidth={1.75} style={{ color: "var(--text-lo)" }} />
+          <ChevronUp
+            className="w-4 h-4 shrink-0"
+            strokeWidth={1.75}
+            style={{ color: "var(--text-lo)" }}
+          />
         ) : (
-          <ChevronDown className="w-4 h-4 shrink-0" strokeWidth={1.75} style={{ color: "var(--text-lo)" }} />
+          <ChevronDown
+            className="w-4 h-4 shrink-0"
+            strokeWidth={1.75}
+            style={{ color: "var(--text-lo)" }}
+          />
         )}
       </button>
 
@@ -2344,9 +2551,7 @@ function Outline3090Card({
                   value={outline.buddy}
                   onChange={(e) => updateBuddy(e.target.value)}
                   placeholder={
-                    locale === "ar"
-                      ? "اسم الشخص المكلف كرفيق"
-                      : "Named person assigned as buddy"
+                    locale === "ar" ? "اسم الشخص المكلف كرفيق" : "Named person assigned as buddy"
                   }
                   className="ast-focus mt-1.5 w-full h-11 px-3 rounded-[10px] text-[14px] outline-none"
                   style={{
@@ -2372,8 +2577,12 @@ function Outline3090Card({
                 >
                   <CheckCircle2 className="w-4 h-4" strokeWidth={1.75} />
                   {saving
-                    ? (locale === "ar" ? "جارٍ الحفظ..." : "Saving…")
-                    : (locale === "ar" ? "حفظ المخطط" : "Save outline")}
+                    ? locale === "ar"
+                      ? "جارٍ الحفظ..."
+                      : "Saving…"
+                    : locale === "ar"
+                      ? "حفظ المخطط"
+                      : "Save outline"}
                 </button>
               </div>
             </div>
@@ -2438,7 +2647,13 @@ function OutlineColumn({
 
 /* ---------- Manager Weekly Summary Email Preview ---------- */
 
-function ManagerWeeklySummaryButton({ items, locale }: { items: CohortItem[] | null; locale: "en" | "ar" }) {
+function ManagerWeeklySummaryButton({
+  items,
+  locale,
+}: {
+  items: CohortItem[] | null;
+  locale: "en" | "ar";
+}) {
   const [open, setOpen] = useState(false);
   const ar = locale === "ar";
 
@@ -2457,12 +2672,22 @@ function ManagerWeeklySummaryButton({ items, locale }: { items: CohortItem[] | n
         <Mail className="w-3.5 h-3.5" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
         <span className="hidden sm:inline">{ar ? "ملخص أسبوعي" : "Weekly summary"}</span>
       </button>
-      {open && <ManagerWeeklySummaryModal items={items} locale={locale} onClose={() => setOpen(false)} />}
+      {open && (
+        <ManagerWeeklySummaryModal items={items} locale={locale} onClose={() => setOpen(false)} />
+      )}
     </>
   );
 }
 
-function ManagerWeeklySummaryModal({ items, locale, onClose }: { items: CohortItem[] | null; locale: "en" | "ar"; onClose: () => void }) {
+function ManagerWeeklySummaryModal({
+  items,
+  locale,
+  onClose,
+}: {
+  items: CohortItem[] | null;
+  locale: "en" | "ar";
+  onClose: () => void;
+}) {
   const ar = locale === "ar";
   const dir = ar ? "rtl" : "ltr";
   const [sent, setSent] = useState(false);
@@ -2470,16 +2695,34 @@ function ManagerWeeklySummaryModal({ items, locale, onClose }: { items: CohortIt
   // Build email content from cohort data
   const joiners = items ?? [];
   const totalJoiners = joiners.length;
-  const waitingOnMe = joiners.reduce((sum, j) => sum + j.ownedSteps.filter(s => s.status === "waiting_owner").length, 0);
-  const avgCompletion = totalJoiners > 0 ? Math.round(joiners.reduce((sum, j) => sum + j.aggregateCompletion, 0) / totalJoiners) : 0;
-  const lateSteps = joiners.flatMap(j => j.ownedSteps.filter(s => s.breachLevel === "breached" || s.breachLevel === "hard"));
+  const waitingOnMe = joiners.reduce(
+    (sum, j) => sum + j.ownedSteps.filter((s) => s.status === "waiting_owner").length,
+    0,
+  );
+  const avgCompletion =
+    totalJoiners > 0
+      ? Math.round(joiners.reduce((sum, j) => sum + j.aggregateCompletion, 0) / totalJoiners)
+      : 0;
+  const lateSteps = joiners.flatMap((j) =>
+    j.ownedSteps.filter((s) => s.breachLevel === "breached" || s.breachLevel === "hard"),
+  );
 
-  const emailSubject = ar ? `ملخصك الأسبوعي — ${totalJoiners} موظف، ${waitingOnMe} بانتظارك` : `Your weekly summary — ${totalJoiners} joiners, ${waitingOnMe} waiting on you`;
+  const emailSubject = ar
+    ? `ملخصك الأسبوعي — ${totalJoiners} موظف، ${waitingOnMe} بانتظارك`
+    : `Your weekly summary — ${totalJoiners} joiners, ${waitingOnMe} waiting on you`;
   const dateRange = "13–19 Oct 2024";
 
   return (
-    <Dialog open={true} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-[820px] p-0 overflow-hidden" style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}>
+    <Dialog
+      open={true}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
+      <DialogContent
+        className="max-w-[820px] p-0 overflow-hidden"
+        style={{ background: "var(--surface-1)", border: "1px solid var(--border)" }}
+      >
         <DialogHeader className="p-5 border-b" style={{ borderColor: "var(--border)" }}>
           <div className="flex items-center gap-2">
             <Mail className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
@@ -2488,16 +2731,23 @@ function ManagerWeeklySummaryModal({ items, locale, onClose }: { items: CohortIt
             </DialogTitle>
           </div>
           <p className="text-[12px] mt-1" style={{ color: "var(--text-mid)" }}>
-            {ar ? "هذا ما سيستلمه مديرو آخرون كل صباح إثنين." : "This is what you'll receive every Monday morning."}
+            {ar
+              ? "هذا ما سيستلمه مديرو آخرون كل صباح إثنين."
+              : "This is what you'll receive every Monday morning."}
           </p>
         </DialogHeader>
 
         <div className="p-5 space-y-4" dir={dir} style={{ maxHeight: "60vh", overflowY: "auto" }}>
           {/* Email metadata */}
-          <div className="ast-card-2 p-3 space-y-1.5 text-[12px]" style={{ color: "var(--text-mid)" }}>
+          <div
+            className="ast-card-2 p-3 space-y-1.5 text-[12px]"
+            style={{ color: "var(--text-mid)" }}
+          >
             <div className="flex justify-between">
               <span>{ar ? "إلى" : "To"}</span>
-              <span className="tabular" style={{ color: "var(--text-hi)" }}>ahmed.mgr@astrolabe.internal</span>
+              <span className="tabular" style={{ color: "var(--text-hi)" }}>
+                ahmed.mgr@astrolabe.internal
+              </span>
             </div>
             <div className="flex justify-between">
               <span>{ar ? "الموضوع" : "Subject"}</span>
@@ -2505,7 +2755,9 @@ function ManagerWeeklySummaryModal({ items, locale, onClose }: { items: CohortIt
             </div>
             <div className="flex justify-between">
               <span>{ar ? "الفترة" : "Period"}</span>
-              <span className="tabular" style={{ color: "var(--text-hi)" }}>{dateRange}</span>
+              <span className="tabular" style={{ color: "var(--text-hi)" }}>
+                {dateRange}
+              </span>
             </div>
           </div>
 
@@ -2522,22 +2774,42 @@ function ManagerWeeklySummaryModal({ items, locale, onClose }: { items: CohortIt
 
             {/* Stats grid */}
             <div className="grid grid-cols-3 gap-3">
-              <EmailStatCard label={ar ? "الموظفون" : "Joiners"} value={totalJoiners} color="var(--brand-400)" />
-              <EmailStatCard label={ar ? "بانتظارك" : "Waiting on you"} value={waitingOnMe} color="var(--accent-500)" />
-              <EmailStatCard label={ar ? "متوسط الإنجاز" : "Avg completion"} value={`${avgCompletion}%`} color="var(--brand-400)" />
+              <EmailStatCard
+                label={ar ? "الموظفون" : "Joiners"}
+                value={totalJoiners}
+                color="var(--brand-400)"
+              />
+              <EmailStatCard
+                label={ar ? "بانتظارك" : "Waiting on you"}
+                value={waitingOnMe}
+                color="var(--accent-500)"
+              />
+              <EmailStatCard
+                label={ar ? "متوسط الإنجاز" : "Avg completion"}
+                value={`${avgCompletion}%`}
+                color="var(--brand-400)"
+              />
             </div>
 
             {/* Late steps */}
             {lateSteps.length > 0 && (
               <div>
-                <h4 className="text-[12px] font-semibold uppercase tracking-[0.12em] mb-2" style={{ color: "var(--text-lo)" }}>
+                <h4
+                  className="text-[12px] font-semibold uppercase tracking-[0.12em] mb-2"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {ar ? "خطوات متأخرة تحتاج إليك" : "Late steps that need you"}
                 </h4>
                 <div className="space-y-1.5">
                   {lateSteps.slice(0, 5).map((s, i) => (
-                    <div key={i} className="flex items-center justify-between ast-card-2 px-3 py-2 text-[12px]">
+                    <div
+                      key={i}
+                      className="flex items-center justify-between ast-card-2 px-3 py-2 text-[12px]"
+                    >
                       <span style={{ color: "var(--text-hi)" }}>{s.label}</span>
-                      <span className="tabular" style={{ color: "var(--status-friction)" }}>{s.breachLevel === "hard" ? "Hard breach" : "Breached"}</span>
+                      <span className="tabular" style={{ color: "var(--status-friction)" }}>
+                        {s.breachLevel === "hard" ? "Hard breach" : "Breached"}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -2546,14 +2818,22 @@ function ManagerWeeklySummaryModal({ items, locale, onClose }: { items: CohortIt
 
             {/* Joiners summary */}
             <div>
-              <h4 className="text-[12px] font-semibold uppercase tracking-[0.12em] mb-2" style={{ color: "var(--text-lo)" }}>
+              <h4
+                className="text-[12px] font-semibold uppercase tracking-[0.12em] mb-2"
+                style={{ color: "var(--text-lo)" }}
+              >
                 {ar ? "ملخص الموظفين" : "Joiner summary"}
               </h4>
               <div className="space-y-1.5">
                 {joiners.slice(0, 5).map((j) => (
-                  <div key={j.employeeId} className="flex items-center justify-between ast-card-2 px-3 py-2 text-[12px]">
+                  <div
+                    key={j.employeeId}
+                    className="flex items-center justify-between ast-card-2 px-3 py-2 text-[12px]"
+                  >
                     <span style={{ color: "var(--text-hi)" }}>{j.employeeName}</span>
-                    <span className="tabular" style={{ color: "var(--brand-400)" }}>{j.aggregateCompletion}%</span>
+                    <span className="tabular" style={{ color: "var(--brand-400)" }}>
+                      {j.aggregateCompletion}%
+                    </span>
                   </div>
                 ))}
               </div>
@@ -2568,22 +2848,37 @@ function ManagerWeeklySummaryModal({ items, locale, onClose }: { items: CohortIt
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t flex items-center justify-between gap-3" style={{ borderColor: "var(--border)" }}>
+        <div
+          className="p-4 border-t flex items-center justify-between gap-3"
+          style={{ borderColor: "var(--border)" }}
+        >
           <span className="text-[11px]" style={{ color: "var(--text-lo)" }}>
             {ar ? "يُرسل كل إثنين 09:00 Asia/Dubai" : "Sent every Monday 09:00 Asia/Dubai"}
           </span>
           <div className="flex items-center gap-2">
-            <button onClick={onClose} className="ast-focus h-9 px-4 rounded-full text-[12px] font-medium" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}>
+            <button
+              onClick={onClose}
+              className="ast-focus h-9 px-4 rounded-full text-[12px] font-medium"
+              style={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+                color: "var(--text-mid)",
+              }}
+            >
               {ar ? "إغلاق" : "Close"}
             </button>
             <button
-              onClick={() => { setSent(true); toast.success(ar ? "أُرسل الملخص" : "Summary sent"); setTimeout(onClose, 1500); }}
+              onClick={() => {
+                setSent(true);
+                toast.success(ar ? "أُرسل الملخص" : "Summary sent");
+                setTimeout(onClose, 1500);
+              }}
               disabled={sent}
               className="ast-focus inline-flex items-center gap-2 h-9 px-4 rounded-full text-[12px] font-semibold transition-transform hover:-translate-y-0.5 disabled:opacity-50"
               style={{ background: "var(--brand-500)", color: "var(--surface-0)" }}
             >
               {sent ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Mail className="w-3.5 h-3.5" />}
-              {sent ? (ar ? "أُرسل" : "Sent") : (ar ? "أرسل الآن" : "Send now")}
+              {sent ? (ar ? "أُرسل" : "Sent") : ar ? "أرسل الآن" : "Send now"}
             </button>
           </div>
         </div>
@@ -2592,11 +2887,23 @@ function ManagerWeeklySummaryModal({ items, locale, onClose }: { items: CohortIt
   );
 }
 
-function EmailStatCard({ label, value, color }: { label: string; value: string | number; color: string }) {
+function EmailStatCard({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string | number;
+  color: string;
+}) {
   return (
     <div className="ast-card-2 p-3 text-center">
-      <p className="text-[10px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>{label}</p>
-      <p className="text-[20px] font-bold tabular mt-1" style={{ color }}>{value}</p>
+      <p className="text-[10px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+        {label}
+      </p>
+      <p className="text-[20px] font-bold tabular mt-1" style={{ color }}>
+        {value}
+      </p>
     </div>
   );
 }

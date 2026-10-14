@@ -6,11 +6,7 @@
 import { NextRequest } from "next/server";
 import { success, error } from "@/lib/api/envelope";
 import { employees, steps as ALL_STEPS, events as ALL_EVENTS } from "@/lib/data/pack";
-import {
-  computeStepState,
-  inferStage,
-  engineNow,
-} from "@/lib/engine/engine";
+import { computeStepState, inferStage, engineNow } from "@/lib/engine/engine";
 import { guard } from "@/lib/privacy/guard";
 import { appendAudit } from "@/lib/privacy/audit";
 import { PERFORMANCE_USE, assertNotUsedForPerformance } from "@/lib/privacy/access";
@@ -67,18 +63,16 @@ export async function GET(req: NextRequest) {
 
   const cohort = employees.filter((e) => e.managerId === managerId);
   if (cohort.length === 0) {
-    return error(
-      "E_NOT_FOUND",
-      `No employees found for manager ${managerId}`,
-      404,
-      { hint: "Try MGR-1 or MGR-2." }
-    );
+    return error("E_NOT_FOUND", `No employees found for manager ${managerId}`, 404, {
+      hint: "Try MGR-1 or MGR-2.",
+    });
   }
 
   // Row-level scope: a manager session only ever sees its own reporting line.
-  const visibleCohort = session.role === "admin" || session.role === "judge"
-    ? cohort
-    : cohort.filter((e) => session.scope.includes(e.id));
+  const visibleCohort =
+    session.role === "admin" || session.role === "judge"
+      ? cohort
+      : cohort.filter((e) => session.scope.includes(e.id));
 
   appendAudit({
     actor: session.sub,
@@ -95,14 +89,12 @@ export async function GET(req: NextRequest) {
   const items: ManagerCohortRow[] = visibleCohort.map((employee) => {
     const employeeEvents = ALL_EVENTS.filter((e) => e.employeeId === employee.id);
     const journeySteps = ALL_STEPS.filter((s) => s.journeyType === employee.journeyType);
-    const stepStates = journeySteps.map((s) =>
-      computeStepState(employee, s, employeeEvents, asOf)
-    );
+    const stepStates = journeySteps.map((s) => computeStepState(employee, s, employeeEvents, asOf));
 
     const { stage, dayInStage } = inferStage(employee, employeeEvents, asOf);
 
     const doneCount = stepStates.filter(
-      (s) => s.status === "done" || s.status === "skipped"
+      (s) => s.status === "done" || s.status === "skipped",
     ).length;
     const aggregateCompletion =
       stepStates.length > 0 ? Math.round((doneCount / stepStates.length) * 100) : 0;
@@ -142,7 +134,13 @@ export async function GET(req: NextRequest) {
      */
     boundary: {
       purpose: "steps the manager owns, plus cohort completion",
-      notProvided: ["sentiment", "pulse scores", "comments", "transcripts", "per-person friction bands"],
+      notProvided: [
+        "sentiment",
+        "pulse scores",
+        "comments",
+        "transcripts",
+        "per-person friction bands",
+      ],
       performanceUse: PERFORMANCE_USE,
       onScreenNotice: "This view shows the steps you own. It is not a way to watch people.",
     },
@@ -151,12 +149,9 @@ export async function GET(req: NextRequest) {
   // declaration of the rule, not a violation of it.
   assertNotUsedForPerformance({ managerId, items });
 
-  return success(
-    payload,
-    {
-      servedFrom: "live",
-      asOf: asOf.toISOString(),
-      latencyMs: Date.now() - start,
-    }
-  );
+  return success(payload, {
+    servedFrom: "live",
+    asOf: asOf.toISOString(),
+    latencyMs: Date.now() - start,
+  });
 }

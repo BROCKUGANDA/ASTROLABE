@@ -16,11 +16,7 @@
 
 import { NextResponse } from "next/server";
 import { validateConfig } from "@/lib/config";
-import {
-  ENGINE_VERSION,
-  PACK_VERSION,
-  CORPUS_VERSION,
-} from "@/lib/data/pack";
+import { ENGINE_VERSION, PACK_VERSION, CORPUS_VERSION } from "@/lib/data/pack";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

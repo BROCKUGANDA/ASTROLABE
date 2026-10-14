@@ -16,7 +16,15 @@
 import { NextRequest } from "next/server";
 import { success, error } from "@/lib/api/envelope";
 import { employees, getOwner } from "@/lib/data/pack";
-import { assess, computeStepStates, nextBestSteps, eventsForEmployee, buildGraph, packData, resolveAsOf } from "@/lib/engine/engine";
+import {
+  assess,
+  computeStepStates,
+  nextBestSteps,
+  eventsForEmployee,
+  buildGraph,
+  packData,
+  resolveAsOf,
+} from "@/lib/engine/engine";
 import { engineNow } from "@/lib/engine/clock";
 import { steps as ALL_STEPS } from "@/lib/data/pack";
 import { guard, subjectGuard } from "@/lib/privacy/guard";
@@ -56,7 +64,15 @@ export async function GET(req: NextRequest) {
   const ranked = nextBestSteps(employee, asOf);
   const employeeEvents = eventsForEmployee(employee.id);
   const engineData = packData();
-  const stepStates = [...computeStepStates(employee, ALL_STEPS, employeeEvents, asOf, buildGraph(engineData.steps)).values()];
+  const stepStates = [
+    ...computeStepStates(
+      employee,
+      ALL_STEPS,
+      employeeEvents,
+      asOf,
+      buildGraph(engineData.steps),
+    ).values(),
+  ];
 
   const manager = getOwner(employee.managerId);
   const hrbp = getOwner(employee.hrbpId);

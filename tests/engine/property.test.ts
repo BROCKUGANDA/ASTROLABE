@@ -8,7 +8,15 @@
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { assess, fuse, nextBestSteps, packData, computeStepStates, buildGraph, resolveAsOf } from "../../src/lib/engine/engine";
+import {
+  assess,
+  fuse,
+  nextBestSteps,
+  packData,
+  computeStepStates,
+  buildGraph,
+  resolveAsOf,
+} from "../../src/lib/engine/engine";
 import { employees, events as PACK_EVENTS } from "../../src/lib/data/pack";
 import { SIGNAL_CATALOGUE } from "../../src/lib/engine/signal-catalogue";
 import { baseEmployee, consent, ev, runCase, world, dataFor, CLOCK } from "./world";
@@ -42,7 +50,12 @@ describe("replay and leakage", () => {
         events: [
           ...data.events,
           ...Array.from({ length: 10 }, (_, i) =>
-            ev(employee.id, "ob_90day_review", "completed", new Date(CLOCK.getTime() + (i + 1) * 86400000).toISOString())
+            ev(
+              employee.id,
+              "ob_90day_review",
+              "completed",
+              new Date(CLOCK.getTime() + (i + 1) * 86400000).toISOString(),
+            ),
           ),
         ],
       };
@@ -53,13 +66,23 @@ describe("replay and leakage", () => {
       expect(after.dayInStage).toBe(withAll.dayInStage);
       expect(after.band).toBe(withAll.band);
       // No substantive signal may appear or disappear because of a later event.
-      const substantive = (a: typeof after) => a.signals.filter((s) => !s.dataQuality).map((s) => s.code).sort();
+      const substantive = (a: typeof after) =>
+        a.signals
+          .filter((s) => !s.dataQuality)
+          .map((s) => s.code)
+          .sort();
       expect(substantive(after)).toEqual(substantive(withAll));
       // The only permitted difference is the operator-facing data-quality flag
       // that reports the future-dated rows exist — which is also what makes
       // replay auditable rather than silently rewritten.
-      const dqBefore = withAll.signals.filter((s) => s.dataQuality).map((s) => s.code).sort();
-      const dqAfter = after.signals.filter((s) => s.dataQuality).map((s) => s.code).sort();
+      const dqBefore = withAll.signals
+        .filter((s) => s.dataQuality)
+        .map((s) => s.code)
+        .sort();
+      const dqAfter = after.signals
+        .filter((s) => s.dataQuality)
+        .map((s) => s.code)
+        .sort();
       expect(dqAfter.every((c) => dqBefore.includes(c) || c === "DQ-03")).toBe(true);
     }
   });
@@ -73,7 +96,11 @@ describe("replay and leakage", () => {
     });
     expect(after.stage).toBe(before.stage);
     expect(after.signals.some((s) => s.code === "DQ-03")).toBe(true);
-    expect(after.signals.find((s) => s.code === "DQ-03")?.evidenceRefs.some((r) => r.startsWith("event:"))).toBe(true);
+    expect(
+      after.signals
+        .find((s) => s.code === "DQ-03")
+        ?.evidenceRefs.some((r) => r.startsWith("event:")),
+    ).toBe(true);
   });
 
   test("a pulse answer, request or draft recorded after T cannot influence T", () => {
@@ -81,10 +108,53 @@ describe("replay and leakage", () => {
     const clean = assess(employee, CLOCK, data);
     const polluted = assess(employee, CLOCK, {
       ...data,
-      pulse: [...data.pulse, { id: "FUT-PULSE", employeeId: employee.id, stage: "first_week", score: 1, createdAt: daysAheadIso(30), consentId: "c" }],
-      requests: [...data.requests, { ...data.requests[0], id: "FUT-REQ", employeeId: employee.id, openedAt: daysAheadIso(30), status: "submitted" as const }],
-      answers: [...data.answers, { id: "FUT-ANS", employeeId: employee.id, question: "q", topicKey: "future", intent: "help_seeking" as const, kind: "abstain" as const, groundingScore: 0, chunkIds: [], askedAt: daysAheadIso(30), locale: "en" as const, corpusVersion: "x" }],
-      drafts: [...data.drafts, { id: "FUT-DRAFT", employeeId: employee.id, type: "it_kit" as const, status: "abandoned" as const, startedAt: daysAheadIso(30) }],
+      pulse: [
+        ...data.pulse,
+        {
+          id: "FUT-PULSE",
+          employeeId: employee.id,
+          stage: "first_week",
+          score: 1,
+          createdAt: daysAheadIso(30),
+          consentId: "c",
+        },
+      ],
+      requests: [
+        ...data.requests,
+        {
+          ...data.requests[0],
+          id: "FUT-REQ",
+          employeeId: employee.id,
+          openedAt: daysAheadIso(30),
+          status: "submitted" as const,
+        },
+      ],
+      answers: [
+        ...data.answers,
+        {
+          id: "FUT-ANS",
+          employeeId: employee.id,
+          question: "q",
+          topicKey: "future",
+          intent: "help_seeking" as const,
+          kind: "abstain" as const,
+          groundingScore: 0,
+          chunkIds: [],
+          askedAt: daysAheadIso(30),
+          locale: "en" as const,
+          corpusVersion: "x",
+        },
+      ],
+      drafts: [
+        ...data.drafts,
+        {
+          id: "FUT-DRAFT",
+          employeeId: employee.id,
+          type: "it_kit" as const,
+          status: "abandoned" as const,
+          startedAt: daysAheadIso(30),
+        },
+      ],
     });
     expect(JSON.stringify(polluted.signals)).toBe(JSON.stringify(clean.signals));
     expect(polluted.band).toBe(clean.band);
@@ -103,7 +173,9 @@ describe("replay and leakage", () => {
     const early = assess(maria, new Date("2024-10-15T10:00:00Z"), data);
     const late = assess(maria, new Date("2024-10-19T10:00:00Z"), data);
     expect(early.asOf).toBe("2024-10-15T10:00:00.000Z");
-    expect(early.signals.map((s) => s.code).sort()).not.toEqual(late.signals.map((s) => s.code).sort());
+    expect(early.signals.map((s) => s.code).sort()).not.toEqual(
+      late.signals.map((s) => s.code).sort(),
+    );
   });
 });
 
@@ -114,7 +186,9 @@ describe("event order", () => {
     const reference = JSON.stringify(assess(employee, CLOCK, { ...data, events: own }));
     for (const seed of [1, 7, 42, 199, 2024]) {
       const shuffled = seededShuffle(own, seed);
-      expect(JSON.stringify(assess(employee, CLOCK, { ...data, events: shuffled }))).toBe(reference);
+      expect(JSON.stringify(assess(employee, CLOCK, { ...data, events: shuffled }))).toBe(
+        reference,
+      );
     }
   });
 
@@ -169,14 +243,29 @@ describe("band arithmetic is monotone and honest", () => {
     const withPulse = fuse(signals, []);
     const withoutPulse = fuse(signals, ["PS"]);
     expect(withoutPulse.score).toBeLessThanOrEqual(withPulse.score);
-    expect(withoutPulse.score).toBe(withPulse.score - Math.min(12, signals.filter((s) => s.family === "PS").reduce((a, s) => a + s.weight, 0)));
+    expect(withoutPulse.score).toBe(
+      withPulse.score -
+        Math.min(
+          12,
+          signals.filter((s) => s.family === "PS").reduce((a, s) => a + s.weight, 0),
+        ),
+    );
   });
 
   test("a hard trip cannot be outvoted by the arithmetic, and consent can switch it off", () => {
     const plea = [
       {
-        code: "PS-05", family: "PS" as const, weight: 6, evidenceRefs: ["pulse:1"],
-        description: "", descriptionAr: "", hardTrip: true, forceBlocked: true, nudgeOnly: false, dataQuality: false, asOf: CLOCK.toISOString(),
+        code: "PS-05",
+        family: "PS" as const,
+        weight: 6,
+        evidenceRefs: ["pulse:1"],
+        description: "",
+        descriptionAr: "",
+        hardTrip: true,
+        forceBlocked: true,
+        nudgeOnly: false,
+        dataQuality: false,
+        asOf: CLOCK.toISOString(),
       },
     ];
     const heard = fuse(plea, []);
@@ -194,10 +283,28 @@ describe("band arithmetic is monotone and honest", () => {
   test("adding weight never lowers the band", () => {
     const rank = { steady: 0, watch: 1, friction: 2, blocked: 3 } as const;
     const one = [
-      { code: "TL-01", family: "TL" as const, weight: 3, evidenceRefs: ["step:a"], description: "", descriptionAr: "", hardTrip: false, forceBlocked: false, nudgeOnly: false, dataQuality: false, asOf: CLOCK.toISOString() },
+      {
+        code: "TL-01",
+        family: "TL" as const,
+        weight: 3,
+        evidenceRefs: ["step:a"],
+        description: "",
+        descriptionAr: "",
+        hardTrip: false,
+        forceBlocked: false,
+        nudgeOnly: false,
+        dataQuality: false,
+        asOf: CLOCK.toISOString(),
+      },
     ];
-    const two = [...one, { ...one[0], code: "RQ-01", family: "RQ" as const, weight: 3, evidenceRefs: ["request:b"] }];
-    const three = [...two, { ...one[0], code: "DP-01", family: "DP" as const, weight: 5, evidenceRefs: ["step:c"] }];
+    const two = [
+      ...one,
+      { ...one[0], code: "RQ-01", family: "RQ" as const, weight: 3, evidenceRefs: ["request:b"] },
+    ];
+    const three = [
+      ...two,
+      { ...one[0], code: "DP-01", family: "DP" as const, weight: 5, evidenceRefs: ["step:c"] },
+    ];
     const bands = [one, two, three].map((s) => fuse(s, []).band);
     for (let i = 1; i < bands.length; i++) {
       expect(rank[bands[i]]).toBeGreaterThanOrEqual(rank[bands[i - 1]]);
@@ -206,8 +313,17 @@ describe("band arithmetic is monotone and honest", () => {
 
   test("family caps hold the pile-on at twelve per family", () => {
     const manyTl = Array.from({ length: 20 }, (_, i) => ({
-      code: "TL-01", family: "TL" as const, weight: 3, evidenceRefs: [`step:${i}`],
-      description: "", descriptionAr: "", hardTrip: false, forceBlocked: false, nudgeOnly: false, dataQuality: false, asOf: CLOCK.toISOString(),
+      code: "TL-01",
+      family: "TL" as const,
+      weight: 3,
+      evidenceRefs: [`step:${i}`],
+      description: "",
+      descriptionAr: "",
+      hardTrip: false,
+      forceBlocked: false,
+      nudgeOnly: false,
+      dataQuality: false,
+      asOf: CLOCK.toISOString(),
     }));
     expect(fuse(manyTl, []).score).toBe(12);
   });
@@ -226,7 +342,14 @@ describe("consent is a computation gate, not a UI gate", () => {
     ev(E, "ob_induction_complete", "completed", daysOffset(1)),
   ];
   const pulseData = [
-    { id: "P1", employeeId: E, stage: "first_week", score: 1, createdAt: daysOffset(1), consentId: "c1" },
+    {
+      id: "P1",
+      employeeId: E,
+      stage: "first_week",
+      score: 1,
+      createdAt: daysOffset(1),
+      consentId: "c1",
+    },
   ];
 
   test("pulse off zeroes the family inside the engine", () => {
@@ -282,7 +405,13 @@ describe("next best step", () => {
       ];
       const after = nextBestSteps(employee, CLOCK, { ...data, events });
       const blockedOf = (result: typeof before) => {
-        const states = computeStepStates(employee, data.steps, result === before ? PACK_EVENTS.filter((e) => e.employeeId === employee.id) : events, CLOCK, buildGraph(data.steps));
+        const states = computeStepStates(
+          employee,
+          data.steps,
+          result === before ? PACK_EVENTS.filter((e) => e.employeeId === employee.id) : events,
+          CLOCK,
+          buildGraph(data.steps),
+        );
         return [...states.values()].filter((s) => s.blockedBy.length > 0).length;
       };
       expect(blockedOf(after)).toBeLessThanOrEqual(blockedOf(before));
@@ -329,9 +458,16 @@ describe("the engine stays pure", () => {
       const source = readFileSync(join(engineDir, file), "utf8");
       const lines = source.split("\n");
       lines.forEach((line, i) => {
-        const isComment = line.trim().startsWith("*") || line.trim().startsWith("//") || line.trim().startsWith("/*");
+        const isComment =
+          line.trim().startsWith("*") ||
+          line.trim().startsWith("//") ||
+          line.trim().startsWith("/*");
         if (isComment) return;
-        if (file === "clock.ts" && (line.includes("liveClockEnabled") || line.includes("new Date()"))) return;
+        if (
+          file === "clock.ts" &&
+          (line.includes("liveClockEnabled") || line.includes("new Date()"))
+        )
+          return;
         if (file === "world.ts") return;
         if (line.includes("Math.random") || line.includes("Date.now(")) {
           offenders.push(`${file}:${i + 1}: ${line.trim()}`);
@@ -354,7 +490,7 @@ describe("the engine stays pure", () => {
 describe("dependency safety", () => {
   test("a cyclic map fails loudly instead of overflowing the stack", () => {
     const cyclic = data.steps.map((s) =>
-      s.key === "ob_offer_signed" ? { ...s, dependsOn: ["ob_visa_approval"] } : s
+      s.key === "ob_offer_signed" ? { ...s, dependsOn: ["ob_visa_approval"] } : s,
     );
     const graph = buildGraph(cyclic);
     expect(graph.cycles.length).toBeGreaterThan(0);
@@ -363,10 +499,18 @@ describe("dependency safety", () => {
 
   test("a diamond and a five-deep chain both resolve", () => {
     const employee = employees.find((e) => e.id === "E-1042")!;
-    const states = computeStepStates(employee, data.steps, data.events, CLOCK, buildGraph(data.steps));
+    const states = computeStepStates(
+      employee,
+      data.steps,
+      data.events,
+      CLOCK,
+      buildGraph(data.steps),
+    );
     const approval = states.get("ob_visa_approval")!;
     expect(approval.downstreamAtRisk).toBeGreaterThan(2);
-    const deepest = [...states.values()].sort((a, b) => b.blockerChainLength - a.blockerChainLength)[0];
+    const deepest = [...states.values()].sort(
+      (a, b) => b.blockerChainLength - a.blockerChainLength,
+    )[0];
     expect(deepest.blockerChainLength).toBeGreaterThanOrEqual(1);
   });
 });

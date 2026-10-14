@@ -17,7 +17,9 @@ const targetStatic = join(standalone, ".next", "static");
 const targetPublic = join(standalone, "public");
 
 if (!existsSync(standalone)) {
-  console.error("postbuild: .next/standalone is missing — is output: standalone set in next.config?");
+  console.error(
+    "postbuild: .next/standalone is missing — is output: standalone set in next.config?",
+  );
   process.exit(1);
 }
 

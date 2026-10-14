@@ -50,6 +50,23 @@ test
 prompt
 
 server.log
+
+# Session and agent artifacts: local working history, never published.
+/tool-results/
+/upload/
+/download/
+/agent-ctx/
+/worklog.md
+/examples/
+/.zscripts/dev.pid
+
+# Local environment and the generated SQLite file (CI recreates it via db:push).
+.env
+/db/*.db
+
+# Formatting/build output
+/coverage
+
 # Skills directory
 /skills/
 # ...but the documented template must be committed.

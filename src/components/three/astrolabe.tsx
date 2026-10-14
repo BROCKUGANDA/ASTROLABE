@@ -22,7 +22,10 @@ interface AstrolabeProps {
    instead of crashing the whole page.
    ============================================================ */
 
-class Canvas3DErrorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { hasError: boolean }> {
+class Canvas3DErrorBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { hasError: boolean }
+> {
   constructor(props: { children: ReactNode; fallback: ReactNode }) {
     super(props);
     this.state = { hasError: false };
@@ -58,7 +61,8 @@ function AstrolabeCSSFallback({ size = 1 }: { size?: number }) {
         style={{
           width: dim * 0.55,
           height: dim * 0.55,
-          background: "radial-gradient(circle at 30% 30%, rgba(201,162,39,0.25), rgba(14,92,99,0.15))",
+          background:
+            "radial-gradient(circle at 30% 30%, rgba(201,162,39,0.25), rgba(14,92,99,0.15))",
           border: "1px solid rgba(22,154,165,0.30)",
         }}
       />
@@ -66,7 +70,15 @@ function AstrolabeCSSFallback({ size = 1 }: { size?: number }) {
   );
 }
 
-function BrassRing({ radius, tube, segments = 96 }: { radius: number; tube: number; segments?: number }) {
+function BrassRing({
+  radius,
+  tube,
+  segments = 96,
+}: {
+  radius: number;
+  tube: number;
+  segments?: number;
+}) {
   return (
     <Torus args={[radius, tube, 16, segments]}>
       <meshStandardMaterial
@@ -181,11 +193,7 @@ function InnerDial() {
       </mesh>
       <mesh position={[0, 0, 0.02]}>
         <circleGeometry args={[0.05, 32]} />
-        <meshStandardMaterial
-          color="#F6ECC9"
-          emissive="#F6ECC9"
-          emissiveIntensity={1}
-        />
+        <meshStandardMaterial color="#F6ECC9" emissive="#F6ECC9" emissiveIntensity={1} />
       </mesh>
     </group>
   );
@@ -243,7 +251,13 @@ function Astrolabe({ size = 1, spin = true }: AstrolabeProps) {
       {/* hanging crown at top */}
       <mesh position={[0, 1.85, 0]}>
         <torusGeometry args={[0.12, 0.025, 8, 24]} />
-        <meshStandardMaterial color="#C9A227" metalness={1} roughness={0.2} emissive="#5A4516" emissiveIntensity={0.4} />
+        <meshStandardMaterial
+          color="#C9A227"
+          metalness={1}
+          roughness={0.2}
+          emissive="#5A4516"
+          emissiveIntensity={0.4}
+        />
       </mesh>
       <mesh position={[0, 1.72, 0]}>
         <boxGeometry args={[0.04, 0.3, 0.04]} />
@@ -254,52 +268,53 @@ function Astrolabe({ size = 1, spin = true }: AstrolabeProps) {
 }
 
 function FloatingParticles() {
-  return (
-    <Sparkles
-      count={80}
-      scale={8}
-      size={2}
-      speed={0.3}
-      opacity={0.5}
-      color="#169AA5"
-    />
-  );
+  return <Sparkles count={80} scale={8} size={2} speed={0.3} opacity={0.5} color="#169AA5" />;
 }
 
-export function Astrolabe3D({ size = 1, spin = true, interactive = false }: AstrolabeProps & { interactive?: boolean }) {
+export function Astrolabe3D({
+  size = 1,
+  spin = true,
+  interactive = false,
+}: AstrolabeProps & { interactive?: boolean }) {
   return (
     <Canvas3DErrorBoundary fallback={<AstrolabeCSSFallback size={size} />}>
-    <Canvas
-      camera={{ position: [0, 0, 5], fov: 40 }}
-      dpr={[1, 2]}
-      gl={{ antialias: true, alpha: true }}
-      style={{ background: "transparent" }}
-    >
-      <ambientLight intensity={0.35} />
-      <directionalLight position={[5, 5, 5]} intensity={1.2} color="#F6ECC9" />
-      <pointLight position={[-3, -2, 2]} intensity={0.8} color="#169AA5" />
-      <pointLight position={[3, 2, 2]} intensity={0.6} color="#C9A227" />
+      <Canvas
+        camera={{ position: [0, 0, 5], fov: 40 }}
+        dpr={[1, 2]}
+        gl={{ antialias: true, alpha: true }}
+        style={{ background: "transparent" }}
+      >
+        <ambientLight intensity={0.35} />
+        <directionalLight position={[5, 5, 5]} intensity={1.2} color="#F6ECC9" />
+        <pointLight position={[-3, -2, 2]} intensity={0.8} color="#169AA5" />
+        <pointLight position={[3, 2, 2]} intensity={0.6} color="#C9A227" />
 
-      <Float speed={1.4} rotationIntensity={0.25} floatIntensity={0.6}>
-        <Astrolabe size={size} spin={spin} />
-      </Float>
+        <Float speed={1.4} rotationIntensity={0.25} floatIntensity={0.6}>
+          <Astrolabe size={size} spin={spin} />
+        </Float>
 
-      <FloatingParticles />
+        <FloatingParticles />
 
-      {/* Enhanced lighting replaces CDN-fetched Environment HDR — no external fetch */}
-      <hemisphereLight args={["#F6ECC9", "#0B111C", 0.3]} />
-      <spotLight position={[0, 5, 5]} angle={0.3} penumbra={0.5} intensity={0.4} color="#169AA5" />
-
-      {interactive && (
-        <OrbitControls
-          enablePan={false}
-          enableZoom={false}
-          minPolarAngle={Math.PI / 3}
-          maxPolarAngle={Math.PI / 1.6}
-          autoRotate={false}
+        {/* Enhanced lighting replaces CDN-fetched Environment HDR — no external fetch */}
+        <hemisphereLight args={["#F6ECC9", "#0B111C", 0.3]} />
+        <spotLight
+          position={[0, 5, 5]}
+          angle={0.3}
+          penumbra={0.5}
+          intensity={0.4}
+          color="#169AA5"
         />
-      )}
-    </Canvas>
+
+        {interactive && (
+          <OrbitControls
+            enablePan={false}
+            enableZoom={false}
+            minPolarAngle={Math.PI / 3}
+            maxPolarAngle={Math.PI / 1.6}
+            autoRotate={false}
+          />
+        )}
+      </Canvas>
     </Canvas3DErrorBoundary>
   );
 }
@@ -314,7 +329,17 @@ interface OrbitStep {
   status: "done" | "active" | "blocked" | "waiting" | "todo";
 }
 
-function OrbitNode({ angle, radius, status, label }: { angle: number; radius: number; status: OrbitStep["status"]; label: string }) {
+function OrbitNode({
+  angle,
+  radius,
+  status,
+  label,
+}: {
+  angle: number;
+  radius: number;
+  status: OrbitStep["status"];
+  label: string;
+}) {
   const ref = useRef<THREE.Group>(null);
   useFrame((state) => {
     if (ref.current) {
@@ -322,8 +347,24 @@ function OrbitNode({ angle, radius, status, label }: { angle: number; radius: nu
       ref.current.position.y = Math.sin(t * 0.8 + angle) * 0.05;
     }
   });
-  const color = status === "done" ? "#169AA5" : status === "active" ? "#C9A227" : status === "blocked" ? "#9F1239" : status === "waiting" ? "#D97706" : "#3F4C60";
-  const emissive = status === "done" ? "#0E5C63" : status === "active" ? "#C9A227" : status === "blocked" ? "#9F1239" : "#1A2535";
+  const color =
+    status === "done"
+      ? "#169AA5"
+      : status === "active"
+        ? "#C9A227"
+        : status === "blocked"
+          ? "#9F1239"
+          : status === "waiting"
+            ? "#D97706"
+            : "#3F4C60";
+  const emissive =
+    status === "done"
+      ? "#0E5C63"
+      : status === "active"
+        ? "#C9A227"
+        : status === "blocked"
+          ? "#9F1239"
+          : "#1A2535";
 
   return (
     <group ref={ref} position={[Math.cos(angle) * radius, Math.sin(angle) * radius, 0]}>
@@ -340,7 +381,14 @@ function OrbitNode({ angle, radius, status, label }: { angle: number; radius: nu
       {status === "active" && (
         <mesh>
           <ringGeometry args={[0.18, 0.22, 32]} />
-          <meshStandardMaterial color="#C9A227" emissive="#C9A227" emissiveIntensity={1} transparent opacity={0.6} side={THREE.DoubleSide} />
+          <meshStandardMaterial
+            color="#C9A227"
+            emissive="#C9A227"
+            emissiveIntensity={1}
+            transparent
+            opacity={0.6}
+            side={THREE.DoubleSide}
+          />
         </mesh>
       )}
     </group>
@@ -388,7 +436,14 @@ function OrbitScene({ journeySteps }: { journeySteps: OrbitStep[] }) {
         {/* orbit ring guide */}
         <mesh>
           <ringGeometry args={[2.35, 2.45, 128]} />
-          <meshStandardMaterial color="#169AA5" emissive="#0E5C63" emissiveIntensity={0.3} transparent opacity={0.25} side={THREE.DoubleSide} />
+          <meshStandardMaterial
+            color="#169AA5"
+            emissive="#0E5C63"
+            emissiveIntensity={0.3}
+            transparent
+            opacity={0.25}
+            side={THREE.DoubleSide}
+          />
         </mesh>
         {/* step nodes */}
         {journeySteps.map((s, i) => {
@@ -400,7 +455,14 @@ function OrbitScene({ journeySteps }: { journeySteps: OrbitStep[] }) {
           const next = (i + 1) % journeySteps.length;
           const a1 = (i / journeySteps.length) * Math.PI * 2;
           const a2 = (next / journeySteps.length) * Math.PI * 2;
-          return <OrbitConnector key={i} from={a1} to={a2} active={s.status === "done" || s.status === "active"} />;
+          return (
+            <OrbitConnector
+              key={i}
+              from={a1}
+              to={a2}
+              active={s.status === "done" || s.status === "active"}
+            />
+          );
         })}
       </group>
 
@@ -411,10 +473,21 @@ function OrbitScene({ journeySteps }: { journeySteps: OrbitStep[] }) {
 
 export function JourneyOrbit3D({ steps: journeySteps }: { steps: OrbitStep[] }) {
   return (
-    <Canvas3DErrorBoundary fallback={<div className="flex items-center justify-center h-[280px]"><AstrolabeCSSFallback size={0.7} /></div>}>
-    <Canvas camera={{ position: [0, 0, 6], fov: 40 }} dpr={[1, 2]} gl={{ alpha: true, antialias: true }} style={{ background: "transparent" }}>
-      <OrbitScene journeySteps={journeySteps} />
-    </Canvas>
+    <Canvas3DErrorBoundary
+      fallback={
+        <div className="flex items-center justify-center h-[280px]">
+          <AstrolabeCSSFallback size={0.7} />
+        </div>
+      }
+    >
+      <Canvas
+        camera={{ position: [0, 0, 6], fov: 40 }}
+        dpr={[1, 2]}
+        gl={{ alpha: true, antialias: true }}
+        style={{ background: "transparent" }}
+      >
+        <OrbitScene journeySteps={journeySteps} />
+      </Canvas>
     </Canvas3DErrorBoundary>
   );
 }
@@ -462,9 +535,14 @@ function BandSphereScene({ band }: { band: "steady" | "watch" | "friction" | "bl
 export function BandSphere3D({ band }: { band: "steady" | "watch" | "friction" | "blocked" }) {
   return (
     <Canvas3DErrorBoundary fallback={<div className="w-[200px] h-[200px]" />}>
-    <Canvas camera={{ position: [0, 0, 3], fov: 40 }} dpr={[1, 2]} gl={{ alpha: true, antialias: true }} style={{ background: "transparent" }}>
-      <BandSphereScene band={band} />
-    </Canvas>
+      <Canvas
+        camera={{ position: [0, 0, 3], fov: 40 }}
+        dpr={[1, 2]}
+        gl={{ alpha: true, antialias: true }}
+        style={{ background: "transparent" }}
+      >
+        <BandSphereScene band={band} />
+      </Canvas>
     </Canvas3DErrorBoundary>
   );
 }

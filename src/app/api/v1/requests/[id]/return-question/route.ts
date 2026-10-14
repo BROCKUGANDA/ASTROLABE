@@ -16,10 +16,7 @@ import { serviceRequests, type ReturnQuestion } from "@/lib/data/pack";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const start = Date.now();
   const { id } = await params;
   const request = serviceRequests.find((r) => r.id === id);
@@ -32,14 +29,11 @@ export async function GET(
       servedFrom: "live",
       asOf: new Date().toISOString(),
       latencyMs: Date.now() - start,
-    }
+    },
   );
 }
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const start = Date.now();
   const { id } = await params;
 
@@ -92,6 +86,6 @@ export async function POST(
       servedFrom: "live",
       asOf: new Date().toISOString(),
       latencyMs: Date.now() - start,
-    }
+    },
   );
 }

@@ -20,10 +20,21 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const session = await readSession(req);
   const response = success({ signedOut: true });
-  response.cookies.set(SESSION_COOKIE, "", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 0 });
+  response.cookies.set(SESSION_COOKIE, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
   if (session) {
     revokeSessionsFor(session.sub);
-    appendAudit({ actor: session.sub, actorRole: session.role, action: "auth.sign_out", subject: session.sub, lawfulBasis: "contract_necessary" });
+    appendAudit({
+      actor: session.sub,
+      actorRole: session.role,
+      action: "auth.sign_out",
+      subject: session.sub,
+      lawfulBasis: "contract_necessary",
+    });
   }
   return response;
 }
@@ -31,7 +42,10 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const session = await readSession(req);
   if (!session) {
-    return error("E_AUTH", "No active session.", 401, { hint: "POST /api/v1/auth/sign-in.", retryable: true });
+    return error("E_AUTH", "No active session.", 401, {
+      hint: "POST /api/v1/auth/sign-in.",
+      retryable: true,
+    });
   }
   return success({
     id: session.sub,
@@ -48,8 +62,16 @@ export async function PUT(req: NextRequest) {
   if (!existing) {
     return error("E_AUTH", "Sign in before re-authenticating.", 401, { retryable: true });
   }
-  const refreshed = newSession({ sub: existing.sub, role: existing.role, name: existing.name, scope: existing.scope });
-  const response = success({ reauthenticatedAt: new Date(refreshed.reauthAt * 1000).toISOString(), role: refreshed.role });
+  const refreshed = newSession({
+    sub: existing.sub,
+    role: existing.role,
+    name: existing.name,
+    scope: existing.scope,
+  });
+  const response = success({
+    reauthenticatedAt: new Date(refreshed.reauthAt * 1000).toISOString(),
+    role: refreshed.role,
+  });
   response.cookies.set(SESSION_COOKIE, await signSession(refreshed), {
     httpOnly: true,
     sameSite: "lax",
@@ -57,6 +79,12 @@ export async function PUT(req: NextRequest) {
     path: "/",
     maxAge: 15 * 60,
   });
-  appendAudit({ actor: refreshed.sub, actorRole: refreshed.role, action: "auth.reauth", subject: refreshed.sub, lawfulBasis: "contract_necessary" });
+  appendAudit({
+    actor: refreshed.sub,
+    actorRole: refreshed.role,
+    action: "auth.reauth",
+    subject: refreshed.sub,
+    lawfulBasis: "contract_necessary",
+  });
   return response;
 }

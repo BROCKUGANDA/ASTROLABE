@@ -37,7 +37,12 @@ import {
   type NextBestStepResult,
 } from "./assess";
 import type { FiredSignal } from "./signals";
-import { SIGNAL_CATALOGUE, FAMILY_CAPS, BAND_THRESHOLDS, SIGNAL_PACK_VERSION } from "./signal-catalogue";
+import {
+  SIGNAL_CATALOGUE,
+  FAMILY_CAPS,
+  BAND_THRESHOLDS,
+  SIGNAL_PACK_VERSION,
+} from "./signal-catalogue";
 import { CALENDARS, type WorkingCalendar } from "./calendar";
 
 export type StepStatus = import("./state").StepStatus;
@@ -46,7 +51,14 @@ export type Band = Assessment["band"];
 export type SignalFamily = keyof typeof FAMILY_CAPS;
 export type StepState = import("./state").StepState;
 export type FrictionSignal = FiredSignal;
-export type { Assessment, EngineData, NextBestStep, NextBestStepResult, FiredSignal, WorkingCalendar };
+export type {
+  Assessment,
+  EngineData,
+  NextBestStep,
+  NextBestStepResult,
+  FiredSignal,
+  WorkingCalendar,
+};
 export { FAMILY_CAPS, BAND_THRESHOLDS, SIGNAL_CATALOGUE, SIGNAL_PACK_VERSION, CALENDARS };
 export { ENGINE_VERSION, MAP_VERSION, CORPUS_VERSION } from "../data/pack";
 export { resolveAsOf, engineNow, frozenNow } from "./clock";
@@ -59,13 +71,25 @@ export {
   learnedBy,
 } from "./state";
 export type { UnmappedActivity, StageInference } from "./state";
-export { computeSignals, DAY_N_EXPECTATIONS, BLOCKED_IGNORED_LEXICON, HELP_NOW_LEXICON } from "./signals";
+export {
+  computeSignals,
+  DAY_N_EXPECTATIONS,
+  BLOCKED_IGNORED_LEXICON,
+  HELP_NOW_LEXICON,
+} from "./signals";
 export type { SignalInput } from "./signals";
 export { buildGraph, assertAcyclic, lintMap, rootBlockers, snapshotMap, diffMaps } from "./graph";
 export type { JourneyGraph, MapLint } from "./graph";
 export { assess, packData, employeeById, fuse } from "./assess";
 export type { FamilyArithmetic } from "./assess";
-export { addWorkingHours, elapsedSplit, calendarFor, isWorkingDay, humanDuration, CALENDARS as LOCATION_CALENDARS } from "./calendar";
+export {
+  addWorkingHours,
+  elapsedSplit,
+  calendarFor,
+  isWorkingDay,
+  humanDuration,
+  CALENDARS as LOCATION_CALENDARS,
+} from "./calendar";
 
 /* ============================================================
    COMPATIBILITY SHIMS — call sites written before the split
@@ -78,7 +102,7 @@ export { addWorkingHours, elapsedSplit, calendarFor, isWorkingDay, humanDuration
 export function nextBestSteps(
   employee: Employee,
   asOf?: Date | string,
-  data: EngineData = packData()
+  data: EngineData = packData(),
 ): NextBestStepResult {
   return nextBestStepsFull(employee, asOf, data);
 }
@@ -96,7 +120,7 @@ export function nextBestStep(employee: Employee, asOf?: Date | string): NextBest
 export function inferStage(
   employee: Employee,
   employeeEvents: JourneyEvent[],
-  asOf: Date
+  asOf: Date,
 ): { stage: string; dayInStage: number } {
   const data = { ...packData(), events: employeeEvents };
   const graph = buildGraph(data.steps);
@@ -110,10 +134,16 @@ export function computeStepState(
   employee: Employee,
   step: { key: string },
   employeeEvents: JourneyEvent[],
-  asOf: Date
+  asOf: Date,
 ): StepState {
   const data = { ...packData(), events: employeeEvents };
-  const states = computeStepStates(employee, data.steps, employeeEvents, asOf, buildGraph(data.steps));
+  const states = computeStepStates(
+    employee,
+    data.steps,
+    employeeEvents,
+    asOf,
+    buildGraph(data.steps),
+  );
   const state = states.get(step.key);
   if (!state) throw new Error(`Step ${step.key} is not in the journey map`);
   return state;
@@ -131,9 +161,21 @@ export interface EngineTrace {
   employeeId: string;
   asOf: string;
   stageInference: { stage: string; reason: string };
-  signalsFired: { code: string; weight: number; family: string; evidence: string[]; hardTrip: boolean }[];
+  signalsFired: {
+    code: string;
+    weight: number;
+    family: string;
+    evidence: string[];
+    hardTrip: boolean;
+  }[];
   signalsSuppressed: { family: string; reason: string }[];
-  familyArithmetic: { family: string; raw: number; capped: number; cap: number; suppressed: boolean }[];
+  familyArithmetic: {
+    family: string;
+    raw: number;
+    capped: number;
+    cap: number;
+    suppressed: boolean;
+  }[];
   band: { score: number; band: Band; hardTrips: string[]; forcedBlocked: boolean; reason: string };
   nextBestStep: { stepKey: string; reason: string } | null;
   nextBestStepRanking: string[];
@@ -174,9 +216,14 @@ export function trace(employee: Employee, asOf?: Date | string): EngineTrace {
       forcedBlocked: assessment.forcedBlocked,
       reason: assessment.bandReason,
     },
-    nextBestStep: ranked.primary ? { stepKey: ranked.primary.stepKey, reason: ranked.primary.reason } : null,
+    nextBestStep: ranked.primary
+      ? { stepKey: ranked.primary.stepKey, reason: ranked.primary.reason }
+      : null,
     nextBestStepRanking: ranked.explanation,
-    unmappedActivity: assessment.unmappedActivity.map((u) => ({ stepKey: u.stepKey, eventIds: u.eventIds })),
+    unmappedActivity: assessment.unmappedActivity.map((u) => ({
+      stepKey: u.stepKey,
+      eventIds: u.eventIds,
+    })),
     versions: {
       map: assessment.mapVersion,
       corpus: assessment.corpusVersion,

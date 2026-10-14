@@ -56,7 +56,7 @@ const ITEMS: ChecklistItem[] = [
   {
     id: "01",
     category: "functionality",
-    title: "Today screen answers \"what do I do now?\" above the fold",
+    title: 'Today screen answers "what do I do now?" above the fold',
     status: "pass",
     evidence:
       "today-screen renders NextBestStep card + LateItemsPanel + StageRail above the fold; the decisive sentence is the headline, not buried.",
@@ -155,7 +155,7 @@ const ITEMS: ChecklistItem[] = [
   {
     id: "12",
     category: "functionality",
-    title: "Requests: structured \"needs more info\" lifecycle (PRD §11-212)",
+    title: 'Requests: structured "needs more info" lifecycle (PRD §11-212)',
     status: "pass",
     evidence:
       "transition route attaches a structured `ReturnQuestion { question, additionalDetail, returnedBy, returnedAt }` on `to=returned` and clears it on `to=submitted` after capturing the answer.",
@@ -254,7 +254,7 @@ const ITEMS: ChecklistItem[] = [
   {
     id: "23",
     category: "functionality",
-    title: "Manager view: \"waiting on you\" only, no monitoring (PRD §11-201/203)",
+    title: 'Manager view: "waiting on you" only, no monitoring (PRD §11-201/203)',
     status: "pass",
     evidence:
       "manager-screen renders only the manager's own steps + 'Nothing waiting on you' empty state + 'This is not a monitoring tool' disclaimer; no per-person scores or sentiment.",
@@ -532,7 +532,7 @@ export async function GET() {
       servedFrom: "live",
       asOf: new Date().toISOString(),
       latencyMs: Date.now() - start,
-    }
+    },
   );
 }
 

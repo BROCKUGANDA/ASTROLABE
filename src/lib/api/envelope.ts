@@ -35,7 +35,12 @@ export function makeRequestId(): string {
 
 export function success<T>(
   data: T,
-  opts: { servedFrom?: ApiEnvelope<T>["meta"]["servedFrom"]; degraded?: string[]; asOf?: string; latencyMs?: number } = {}
+  opts: {
+    servedFrom?: ApiEnvelope<T>["meta"]["servedFrom"];
+    degraded?: string[];
+    asOf?: string;
+    latencyMs?: number;
+  } = {},
 ): NextResponse<ApiEnvelope<T>> {
   return NextResponse.json({
     ok: true,
@@ -60,7 +65,11 @@ export function error(
   code: string,
   message: string,
   status: number,
-  opts: { hint?: string; retryable?: boolean; ownerHint?: { name: string; role: string; email: string } } = {}
+  opts: {
+    hint?: string;
+    retryable?: boolean;
+    ownerHint?: { name: string; role: string; email: string };
+  } = {},
 ): NextResponse<ApiEnvelope<null>> {
   return NextResponse.json(
     {
@@ -86,6 +95,6 @@ export function error(
         ownerHint: opts.ownerHint,
       },
     },
-    { status }
+    { status },
   );
 }

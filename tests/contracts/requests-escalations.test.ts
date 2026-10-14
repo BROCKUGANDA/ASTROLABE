@@ -32,9 +32,7 @@ import {
 
 const signInRoute = await import("../../src/app/api/v1/auth/sign-in/route");
 const requestsRoute = await import("../../src/app/api/v1/requests/route");
-const transitionRoute = await import(
-  "../../src/app/api/v1/requests/[id]/transition/route"
-);
+const transitionRoute = await import("../../src/app/api/v1/requests/[id]/transition/route");
 const escalationsRoute = await import("../../src/app/api/v1/escalations/route");
 
 const BASE = "http://localhost:3100";
@@ -49,16 +47,14 @@ async function cookieFor(body: Record<string, unknown>): Promise<string> {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
-    })
+    }),
   );
   expect(res.status).toBe(200);
   const setCookies: string[] =
     typeof (res.headers as Headers).getSetCookie === "function"
       ? (res.headers as Headers).getSetCookie()
       : [res.headers.get("set-cookie") ?? ""];
-  const token = setCookies
-    .join(";")
-    .match(/astrolabe_session=([^;]+)/)?.[1];
+  const token = setCookies.join(";").match(/astrolabe_session=([^;]+)/)?.[1];
   expect(token, "sign-in must set the session cookie").not.toBeNull();
   expect((token ?? "").length > 10).toBe(true);
   return `astrolabe_session=${token}`;
@@ -80,7 +76,7 @@ async function postCreate(
   cookie: string,
   employeeId: string,
   payload: Record<string, unknown>,
-  headers: Record<string, string> = {}
+  headers: Record<string, string> = {},
 ) {
   const res = await requestsRoute.POST(
     new NextRequest(`${BASE}/api/v1/requests`, {
@@ -92,7 +88,7 @@ async function postCreate(
         ...headers,
       },
       body: JSON.stringify({ employeeId, type: "it_kit", payload }),
-    })
+    }),
   );
   const body = await res.json();
   if (res.status === 200 && body.data?.id && !body.data.duplicate) {
@@ -106,7 +102,7 @@ async function postTransition(
   cookie: string,
   id: string,
   to: string,
-  extra: Record<string, unknown> = {}
+  extra: Record<string, unknown> = {},
 ) {
   const res = await transitionRoute.POST(
     new NextRequest(`${BASE}/api/v1/requests/${id}/transition`, {
@@ -118,7 +114,7 @@ async function postTransition(
       },
       body: JSON.stringify({ to, idempotencyKey: `tx-key-${id}-${++txSeq}`, ...extra }),
     }),
-    { params: Promise.resolve({ id }) }
+    { params: Promise.resolve({ id }) },
   );
   return { status: res.status, body: await res.json() };
 }
@@ -129,7 +125,7 @@ async function postEscalation(cookie: string, body: Record<string, unknown>) {
       method: "POST",
       headers: { "content-type": "application/json", cookie, "x-request-id": "escalation-test" },
       body: JSON.stringify(body),
-    })
+    }),
   );
   return { status: res.status, body: await res.json() };
 }
@@ -141,14 +137,7 @@ const storedRequest = (id: string) => serviceRequests.find((r) => r.id === id);
    ------------------------------------------------------------------ */
 
 const cookies: Record<string, string> = {};
-const [
-  c1043,
-  c1044,
-  c1045,
-  c1046,
-  c1047,
-  cHrbp1,
-] = await Promise.all([
+const [c1043, c1044, c1045, c1046, c1047, cHrbp1] = await Promise.all([
   cookieFor({ employeeId: "E-1043" }),
   cookieFor({ employeeId: "E-1044" }),
   cookieFor({ employeeId: "E-1045" }),
@@ -172,7 +161,10 @@ describe("requests POST — server-derived dedup", () => {
     expect(first.body.ok).toBe(true);
     expect(first.body.data.duplicate).toBe(false);
     expect(first.body.data.id).toStartWith("SR-");
-    expect(first.body.data.expectedBy, "expectedBy must come back from the working calendar").toStartWith("20");
+    expect(
+      first.body.data.expectedBy,
+      "expectedBy must come back from the working calendar",
+    ).toStartWith("20");
     const createdId = first.body.data.id as string;
 
     const second = await postCreate(cookies["E-1043"], "E-1043", payload);
@@ -183,7 +175,10 @@ describe("requests POST — server-derived dedup", () => {
     expect(second.body.data.expectedBy).toStartWith("20");
 
     const rows = serviceRequests.filter(
-      (r) => r.employeeId === "E-1043" && r.type === "it_kit" && r.payloadHash === first.body.data.payloadHash
+      (r) =>
+        r.employeeId === "E-1043" &&
+        r.type === "it_kit" &&
+        r.payloadHash === first.body.data.payloadHash,
     );
     expect(rows.length, "a double-submit must create exactly one record").toBe(1);
 
@@ -197,7 +192,7 @@ describe("requests POST — server-derived dedup", () => {
   test("10 identical creates fired concurrently → exactly one record", async () => {
     const payload = itKitPayload({ delivery_location: "AUH" });
     const results = await Promise.all(
-      Array.from({ length: 10 }, () => postCreate(cookies["E-1044"], "E-1044", payload))
+      Array.from({ length: 10 }, () => postCreate(cookies["E-1044"], "E-1044", payload)),
     );
     const fresh = results.filter((r) => r.status === 200 && r.body.data?.duplicate === false);
     const dupes = results.filter((r) => r.status === 200 && r.body.data?.duplicate === true);
@@ -207,14 +202,19 @@ describe("requests POST — server-derived dedup", () => {
     expect(refs.size, "all ten calls return the same ref").toBe(1);
 
     const rows = serviceRequests.filter(
-      (r) => r.employeeId === "E-1044" && r.type === "it_kit" && r.payloadHash === fresh[0].body.data.payloadHash
+      (r) =>
+        r.employeeId === "E-1044" &&
+        r.type === "it_kit" &&
+        r.payloadHash === fresh[0].body.data.payloadHash,
     );
     expect(rows.length).toBe(1);
   });
 
   test("same idempotency key, different payload → 409 E_CONFLICT", async () => {
     const key = "caller-key-e1045";
-    const a = await postCreate(cookies["E-1045"], "E-1045", itKitPayload(), { "x-idempotency-key": key });
+    const a = await postCreate(cookies["E-1045"], "E-1045", itKitPayload(), {
+      "x-idempotency-key": key,
+    });
     expect(a.status).toBe(200);
     expect(a.body.data.duplicate).toBe(false);
 
@@ -222,13 +222,15 @@ describe("requests POST — server-derived dedup", () => {
       cookies["E-1045"],
       "E-1045",
       itKitPayload({ kit_type: "cabin_crew" }),
-      { "x-idempotency-key": key }
+      { "x-idempotency-key": key },
     );
     expect(b.status).toBe(409);
     expect(b.body.error.code).toBe("E_CONFLICT");
 
     // The same key with the SAME payload still replays the original ticket.
-    const c = await postCreate(cookies["E-1045"], "E-1045", itKitPayload(), { "x-idempotency-key": key });
+    const c = await postCreate(cookies["E-1045"], "E-1045", itKitPayload(), {
+      "x-idempotency-key": key,
+    });
     expect(c.status).toBe(200);
     expect(c.body.data.duplicate).toBe(true);
     expect(c.body.data.id).toBe(a.body.data.id);
@@ -260,7 +262,11 @@ describe("requests transition — reopened, rejections, server-side counts", () 
     expect(illegal.status).toBe(409);
     expect(illegal.body.error.code).toBe("E_CONFLICT");
 
-    const fresh = await postCreate(cookies["E-1046"], "E-1046", itKitPayload({ kit_type: "replacement" }));
+    const fresh = await postCreate(
+      cookies["E-1046"],
+      "E-1046",
+      itKitPayload({ kit_type: "replacement" }),
+    );
     expect(fresh.status).toBe(200);
     const bad = await postTransition(cookies["E-1046"], fresh.body.data.id, "closed");
     expect(bad.status).toBe(409);
@@ -340,7 +346,9 @@ describe("escalations POST — packet persistence, dedup, ack clock, re-route", 
     const stored = escalationById(escalationId as string);
     expect(stored).not.toBeNull();
     const deadline = new Date(stored!.ackDeadlineAt).getTime();
-    expect(deadline, "4-working-hour ack deadline must be computed").toBeGreaterThan(engineNow().getTime());
+    expect(deadline, "4-working-hour ack deadline must be computed").toBeGreaterThan(
+      engineNow().getTime(),
+    );
     expect(stored!.acknowledgedAt).toBeNull();
 
     // Snapshot the humans BEFORE the reroute: the store mutates the packet in

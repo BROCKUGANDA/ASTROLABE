@@ -106,7 +106,7 @@ export function assertAcyclic(graph: JourneyGraph): void {
     throw new Error(
       `Journey map has ${graph.cycles.length} dependency cycle(s): ${graph.cycles
         .map((c) => c.join(" -> "))
-        .join(" | ")}`
+        .join(" | ")}`,
     );
   }
 }
@@ -119,7 +119,7 @@ export function assertAcyclic(graph: JourneyGraph): void {
 export function rootBlockers(
   stepKey: string,
   graph: JourneyGraph,
-  isOpen: (key: string) => boolean
+  isOpen: (key: string) => boolean,
 ): { key: string; chainLength: number }[] {
   const step = graph.steps.get(stepKey);
   if (!step) return [];
@@ -161,7 +161,8 @@ export function lintMap(steps: JourneyStep[], policies: PolicyChunk[]): MapLint 
   const slugs = new Set(policies.map((p) => p.docSlug));
 
   for (const s of steps) {
-    for (const d of s.dependsOn) if (!seen.has(d)) unknownDependencies.push({ stepKey: s.key, dependsOn: d });
+    for (const d of s.dependsOn)
+      if (!seen.has(d)) unknownDependencies.push({ stepKey: s.key, dependsOn: d });
     if (!s.targetHours || s.targetHours <= 0) missingTarget.push(s.key);
     if (!s.actor) missingActor.push(s.key);
     for (const ref of s.policyRefs) {
@@ -198,7 +199,7 @@ export function snapshotMap(steps: JourneyStep[]): string {
         requestType: s.requestType ?? null,
       })),
     null,
-    2
+    2,
   );
 }
 
@@ -213,8 +214,10 @@ export function diffMaps(before: JourneyStep[], after: JourneyStep[]) {
   for (const [k, s] of a) {
     const old = b.get(k);
     if (!old) continue;
-    if (old.targetHours !== s.targetHours) retimed.push({ key: k, from: old.targetHours, to: s.targetHours });
-    if (old.ownerGroup !== s.ownerGroup) reowned.push({ key: k, from: old.ownerGroup, to: s.ownerGroup });
+    if (old.targetHours !== s.targetHours)
+      retimed.push({ key: k, from: old.targetHours, to: s.targetHours });
+    if (old.ownerGroup !== s.ownerGroup)
+      reowned.push({ key: k, from: old.ownerGroup, to: s.ownerGroup });
   }
   return { added, removed, retimed, reowned };
 }

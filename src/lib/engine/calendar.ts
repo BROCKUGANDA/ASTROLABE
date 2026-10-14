@@ -42,11 +42,26 @@ export interface ElapsedSplit {
  * holidays 2024–2025; maintained by Workplace Operations (PRD §3-060).
  */
 const UAE_HOLIDAYS = [
-  "2024-06-17", "2024-06-18", "2024-06-19", "2024-09-01", "2024-11-15",
-  "2024-12-01", "2024-12-02", "2024-12-03",
-  "2025-01-01", "2025-03-30", "2025-03-31", "2025-04-01", "2025-04-02",
-  "2025-05-31", "2025-06-01", "2025-06-02", "2025-06-03",
-  "2025-12-01", "2025-12-02", "2025-12-03",
+  "2024-06-17",
+  "2024-06-18",
+  "2024-06-19",
+  "2024-09-01",
+  "2024-11-15",
+  "2024-12-01",
+  "2024-12-02",
+  "2024-12-03",
+  "2025-01-01",
+  "2025-03-30",
+  "2025-03-31",
+  "2025-04-01",
+  "2025-04-02",
+  "2025-05-31",
+  "2025-06-01",
+  "2025-06-02",
+  "2025-06-03",
+  "2025-12-01",
+  "2025-12-02",
+  "2025-12-03",
 ];
 
 export const CALENDARS: Record<string, WorkingCalendar> = {
@@ -74,7 +89,11 @@ export function isWorkingDay(cal: WorkingCalendar, at: Date): boolean {
 
 /** Leave windows come from the employee record (PRD §3-042). */
 export function pauseWindowsFor(employee: Employee, waits: PauseWindow[]): PauseWindow[] {
-  const leaves = (employee.leaveWindows ?? []).map((l) => ({ from: l.from, to: l.to, reason: l.reason }));
+  const leaves = (employee.leaveWindows ?? []).map((l) => ({
+    from: l.from,
+    to: l.to,
+    reason: l.reason,
+  }));
   return [...leaves, ...waits];
 }
 
@@ -97,7 +116,13 @@ function pausedInSlice(from: number, to: number, pauses: PauseWindow[], asOf: Da
  * Split a span into wall time, chargeable time and paused time. Walking one day
  * at a time keeps the cost proportional to the journey length, not its resolution.
  */
-export function elapsedSplit(from: number, to: number, cal: WorkingCalendar, pauses: PauseWindow[], asOf: Date): ElapsedSplit {
+export function elapsedSplit(
+  from: number,
+  to: number,
+  cal: WorkingCalendar,
+  pauses: PauseWindow[],
+  asOf: Date,
+): ElapsedSplit {
   if (to <= from) return { wallMs: 0, chargeableMs: 0, pausedMs: 0 };
   let chargeableMs = 0;
   let pausedMs = 0;
@@ -121,7 +146,12 @@ export function elapsedSplit(from: number, to: number, cal: WorkingCalendar, pau
 }
 
 /** Total time spent inside the pause windows before `asOf`. */
-export function pausedMsBetween(from: number, to: number, pauses: PauseWindow[], asOf: Date): number {
+export function pausedMsBetween(
+  from: number,
+  to: number,
+  pauses: PauseWindow[],
+  asOf: Date,
+): number {
   return pausedInSlice(from, to, pauses, asOf);
 }
 
@@ -135,7 +165,7 @@ export function addWorkingHours(
   targetHours: number,
   cal: WorkingCalendar,
   pauses: PauseWindow[],
-  asOf: Date
+  asOf: Date,
 ): string {
   if (!targetHours || targetHours <= 0) return startIso;
   let remaining = targetHours * 3600000;

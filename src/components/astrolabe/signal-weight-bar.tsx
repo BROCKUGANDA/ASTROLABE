@@ -129,10 +129,7 @@ export function SignalWeightBar({
             >
               {code}
             </span>
-            <span
-              className="text-[11px] truncate"
-              style={{ color: "var(--text-mid)" }}
-            >
+            <span className="text-[11px] truncate" style={{ color: "var(--text-mid)" }}>
               {description ?? famLabel}
             </span>
           </div>
@@ -176,11 +173,7 @@ export function SignalWeightBar({
             }}
             initial={false}
             animate={{ width: `${w * 100}%` }}
-            transition={
-              reduce
-                ? { duration: 0 }
-                : { duration: 0.48, ease: [0, 0, 0.2, 1] }
-            }
+            transition={reduce ? { duration: 0 } : { duration: 0.48, ease: [0, 0, 0.2, 1] }}
           />
         </div>
         <span

@@ -11,12 +11,7 @@
 import { NextRequest } from "next/server";
 import { success, error } from "@/lib/api/envelope";
 import { NOW } from "@/lib/data/pack";
-import {
-  markRead,
-  snooze,
-  archive,
-  setKillSwitch,
-} from "@/lib/notifications/store";
+import { markRead, snooze, archive, setKillSwitch } from "@/lib/notifications/store";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +52,7 @@ export async function POST(req: NextRequest) {
         servedFrom: "live",
         asOf: NOW.toISOString(),
         latencyMs: Date.now() - start,
-      }
+      },
     );
   }
 
@@ -71,8 +66,7 @@ export async function POST(req: NextRequest) {
       at = markRead(id);
       break;
     case "snooze": {
-      const hours =
-        typeof body.hours === "number" && body.hours > 0 ? body.hours : 1;
+      const hours = typeof body.hours === "number" && body.hours > 0 ? body.hours : 1;
       at = snooze(id, hours);
       break;
     }
@@ -89,6 +83,6 @@ export async function POST(req: NextRequest) {
       servedFrom: "live",
       asOf: NOW.toISOString(),
       latencyMs: Date.now() - start,
-    }
+    },
   );
 }

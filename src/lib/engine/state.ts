@@ -5,12 +5,7 @@
  * the same state (PRD §29 01, §22-378).
  */
 
-import type {
-  Employee,
-  JourneyEvent,
-  JourneyStage,
-  JourneyStep,
-} from "../data/pack";
+import type { Employee, JourneyEvent, JourneyStage, JourneyStep } from "../data/pack";
 import { addWorkingHours, calendarFor, elapsedSplit, type PauseWindow } from "./calendar";
 import { buildGraph, rootBlockers, type JourneyGraph } from "./graph";
 import { daysBetween } from "./clock";
@@ -78,7 +73,11 @@ export interface StageInference {
 }
 
 /** Events for one employee that are visible at or before `asOf`. */
-export function visibleEvents(events: JourneyEvent[], employeeId: string, asOf: Date): JourneyEvent[] {
+export function visibleEvents(
+  events: JourneyEvent[],
+  employeeId: string,
+  asOf: Date,
+): JourneyEvent[] {
   return events
     .filter((e) => e.employeeId === employeeId && new Date(e.occurredAt) <= asOf)
     .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt) || a.id.localeCompare(b.id));
@@ -89,10 +88,12 @@ export function learnedBy(events: JourneyEvent[], asOf: Date): JourneyEvent[] {
   return events.filter((e) => new Date(e.recordedAt) <= asOf);
 }
 
-export function futureEvents(events: JourneyEvent[], employeeId: string, asOf: Date): JourneyEvent[] {
-  return events.filter(
-    (e) => e.employeeId === employeeId && new Date(e.occurredAt) > asOf
-  );
+export function futureEvents(
+  events: JourneyEvent[],
+  employeeId: string,
+  asOf: Date,
+): JourneyEvent[] {
+  return events.filter((e) => e.employeeId === employeeId && new Date(e.occurredAt) > asOf);
 }
 
 /**
@@ -178,7 +179,7 @@ export function computeStepStates(
   steps: JourneyStep[],
   events: JourneyEvent[],
   asOf: Date,
-  graph?: JourneyGraph
+  graph?: JourneyGraph,
 ): Map<string, StepState> {
   const g = graph ?? buildGraph(steps);
   const journeySteps = steps.filter((s) => s.journeyType === employee.journeyType);
@@ -190,7 +191,10 @@ export function computeStepStates(
     byStep.set(ev.stepKey, list);
   }
 
-  const raw = new Map<string, { status: StepStatus; startedAt?: string; completedAt?: string; contradictions: string[] }>();
+  const raw = new Map<
+    string,
+    { status: StepStatus; startedAt?: string; completedAt?: string; contradictions: string[] }
+  >();
   for (const s of journeySteps) raw.set(s.key, applyEventSequence(byStep.get(s.key) ?? []));
 
   const isOpen = (key: string) => {
@@ -200,7 +204,11 @@ export function computeStepStates(
   };
 
   const cal = calendarFor(employee.location);
-  const leaves: PauseWindow[] = (employee.leaveWindows ?? []).map((l) => ({ from: l.from, to: l.to, reason: l.reason }));
+  const leaves: PauseWindow[] = (employee.leaveWindows ?? []).map((l) => ({
+    from: l.from,
+    to: l.to,
+    reason: l.reason,
+  }));
 
   const out = new Map<string, StepState>();
   for (const s of journeySteps) {
@@ -218,15 +226,22 @@ export function computeStepStates(
     const waits = waitingEmployeeWindows(stepEvents, asOf);
     const pauses = [...leaves, ...waits];
     const untimed = !s.targetHours || s.targetHours <= 0;
-    const dueAt = r.startedAt && !untimed
-      ? addWorkingHours(r.startedAt, s.targetHours, cal, pauses, asOf)
-      : undefined;
+    const dueAt =
+      r.startedAt && !untimed
+        ? addWorkingHours(r.startedAt, s.targetHours, cal, pauses, asOf)
+        : undefined;
 
     let wallElapsedMs = 0;
     let chargeableMs = 0;
     let pausedMs = 0;
     if (r.startedAt && status !== "done" && status !== "skipped") {
-      const split = elapsedSplit(new Date(r.startedAt).getTime(), asOf.getTime(), cal, pauses, asOf);
+      const split = elapsedSplit(
+        new Date(r.startedAt).getTime(),
+        asOf.getTime(),
+        cal,
+        pauses,
+        asOf,
+      );
       wallElapsedMs = split.wallMs;
       chargeableMs = split.chargeableMs;
       pausedMs = split.pausedMs;
@@ -269,9 +284,10 @@ export function computeStepStates(
         chainLength: b.chainLength,
       })),
       blockerChainLength: blockers.reduce((m, b) => Math.max(m, b.chainLength), 0),
-      breachLevel: untimed || status === "done" || status === "skipped"
-        ? "none"
-        : breachLevel(workingElapsedHours, s.targetHours),
+      breachLevel:
+        untimed || status === "done" || status === "skipped"
+          ? "none"
+          : breachLevel(workingElapsedHours, s.targetHours),
       targetHours: s.targetHours,
       elapsedHours: Math.max(0, (wallElapsedMs - pausedMs) / 3600000),
       workingElapsedHours,
@@ -320,7 +336,7 @@ export function inferStage(
   steps: JourneyStep[],
   events: JourneyEvent[],
   asOf: Date,
-  states: Map<string, StepState>
+  states: Map<string, StepState>,
 ): StageInference {
   const journeyStages = stages
     .filter((s) => s.journeyType === employee.journeyType)
@@ -355,10 +371,16 @@ export function inferStage(
     }
   }
 
-  const stageStepKeys = new Set(journeySteps.filter((s) => s.stage === chosen.key).map((s) => s.key));
+  const stageStepKeys = new Set(
+    journeySteps.filter((s) => s.stage === chosen.key).map((s) => s.key),
+  );
   const firstInStage = byEmployee.find((e) => stageStepKeys.has(e.stepKey));
   const anchor = firstInStage?.occurredAt ?? byEmployee[0].occurredAt;
-  return { stage: chosen.key, dayInStage: Math.max(1, Math.floor(daysBetween(anchor, asOf)) + 1), reason };
+  return {
+    stage: chosen.key,
+    dayInStage: Math.max(1, Math.floor(daysBetween(anchor, asOf)) + 1),
+    reason,
+  };
 }
 
 /** Events whose step key is not in the map: surfaced, never dropped (§10, §23-7). */
@@ -366,13 +388,17 @@ export function unmappedActivity(
   steps: JourneyStep[],
   events: JourneyEvent[],
   employeeId: string,
-  asOf: Date
+  asOf: Date,
 ): UnmappedActivity[] {
   const known = new Set(steps.map((s) => s.key));
   const grouped = new Map<string, UnmappedActivity>();
   for (const ev of visibleEvents(events, employeeId, asOf)) {
     if (known.has(ev.stepKey)) continue;
-    const cur = grouped.get(ev.stepKey) ?? { stepKey: ev.stepKey, eventIds: [], latestOccurredAt: ev.occurredAt };
+    const cur = grouped.get(ev.stepKey) ?? {
+      stepKey: ev.stepKey,
+      eventIds: [],
+      latestOccurredAt: ev.occurredAt,
+    };
     cur.eventIds.push(ev.id);
     if (ev.occurredAt > cur.latestOccurredAt) cur.latestOccurredAt = ev.occurredAt;
     grouped.set(ev.stepKey, cur);

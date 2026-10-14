@@ -32,7 +32,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import { toast } from "sonner";
 import { useAppStore } from "@/lib/store/app-store";
 import { cn } from "@/lib/utils";
@@ -72,23 +79,71 @@ interface WeeklyAction {
    Counts are tiny and bounded — they reflect the seed pack. */
 
 const OWNER_STALL_ROWS: OwnerStallRow[] = [
-  { group: "IT", groupAr: "تقنية المعلومات", newStalls: 2, stillOpen: 1, medianDays: 2, topReason: "Kit delayed", topReasonAr: "تأخر العُدّة" },
-  { group: "Immigration", groupAr: "الهجرة", newStalls: 1, stillOpen: 1, medianDays: 7, topReason: "Visa processing", topReasonAr: "معالجة التأشيرة" },
-  { group: "Payroll", groupAr: "الرواتب", newStalls: 0, stillOpen: 0, medianDays: null, topReason: "—", topReasonAr: "—" },
+  {
+    group: "IT",
+    groupAr: "تقنية المعلومات",
+    newStalls: 2,
+    stillOpen: 1,
+    medianDays: 2,
+    topReason: "Kit delayed",
+    topReasonAr: "تأخر العُدّة",
+  },
+  {
+    group: "Immigration",
+    groupAr: "الهجرة",
+    newStalls: 1,
+    stillOpen: 1,
+    medianDays: 7,
+    topReason: "Visa processing",
+    topReasonAr: "معالجة التأشيرة",
+  },
+  {
+    group: "Payroll",
+    groupAr: "الرواتب",
+    newStalls: 0,
+    stillOpen: 0,
+    medianDays: null,
+    topReason: "—",
+    topReasonAr: "—",
+  },
 ];
 
 const STAGE_STALL_ROWS: StageStallRow[] = [
-  { key: "pre_boarding", label: "Pre-boarding", labelAr: "ما قبل الالتحاق", count: 0, band: "steady" },
-  { key: "visa_processing", label: "Visa Processing", labelAr: "معالجة التأشيرة", count: 1, band: "watch" },
+  {
+    key: "pre_boarding",
+    label: "Pre-boarding",
+    labelAr: "ما قبل الالتحاق",
+    count: 0,
+    band: "steady",
+  },
+  {
+    key: "visa_processing",
+    label: "Visa Processing",
+    labelAr: "معالجة التأشيرة",
+    count: 1,
+    band: "watch",
+  },
   { key: "first_day", label: "First Day", labelAr: "اليوم الأول", count: 2, band: "friction" },
   { key: "first_week", label: "First Week", labelAr: "الأسبوع الأول", count: 0, band: "steady" },
   { key: "first_90", label: "First 90 Days", labelAr: "أول 90 يوماً", count: 0, band: "steady" },
 ];
 
 const INITIAL_ACTIONS: Omit<WeeklyAction, "done">[] = [
-  { id: "act-1", text: "Follow up with IT on E-1042 laptop kit (3 days late)", textAr: "تابع مع تقنية المعلومات عُدّة E-1042 (تأخر 3 أيام)" },
-  { id: "act-2", text: "Check with Immigration on E-1043 visa (7 days stalled)", textAr: "تحقق مع الهجرة بشأن تأشيرة E-1043 (توقف 7 أيام)" },
-  { id: "act-3", text: "Confirm payroll change for E-1044 before cutoff", textAr: "أكّد تغيير الرواتب لـ E-1044 قبل موعد القطع" },
+  {
+    id: "act-1",
+    text: "Follow up with IT on E-1042 laptop kit (3 days late)",
+    textAr: "تابع مع تقنية المعلومات عُدّة E-1042 (تأخر 3 أيام)",
+  },
+  {
+    id: "act-2",
+    text: "Check with Immigration on E-1043 visa (7 days stalled)",
+    textAr: "تحقق مع الهجرة بشأن تأشيرة E-1043 (توقف 7 أيام)",
+  },
+  {
+    id: "act-3",
+    text: "Confirm payroll change for E-1044 before cutoff",
+    textAr: "أكّد تغيير الرواتب لـ E-1044 قبل موعد القطع",
+  },
 ];
 
 const STAGE_BAND_COLOR: Record<StageStallRow["band"], string> = {
@@ -121,7 +176,7 @@ export interface HrbpDigestModalProps {
 export function HrbpDigestModal({ open, onOpenChange }: HrbpDigestModalProps) {
   const locale = useAppStore((s) => s.locale);
   const [actions, setActions] = useState<WeeklyAction[]>(
-    INITIAL_ACTIONS.map((a) => ({ ...a, done: false }))
+    INITIAL_ACTIONS.map((a) => ({ ...a, done: false })),
   );
   const [scheduled, setScheduled] = useState(false);
   const [emailing, setEmailing] = useState(false);
@@ -178,7 +233,7 @@ export function HrbpDigestModal({ open, onOpenChange }: HrbpDigestModalProps) {
       toast.success(
         locale === "ar"
           ? "أُرسل الملخّص إلى fatima.hrbp@astrolabe.internal"
-          : "Digest sent to fatima.hrbp@astrolabe.internal"
+          : "Digest sent to fatima.hrbp@astrolabe.internal",
       );
     } catch (e) {
       toast.error(locale === "ar" ? "تعذّر الإرسال" : "Couldn't send the digest", {
@@ -195,7 +250,7 @@ export function HrbpDigestModal({ open, onOpenChange }: HrbpDigestModalProps) {
       toast.success(
         locale === "ar"
           ? "تمت جدولة الملخّص الأسبوعي — كل اثنين 09:00 آسيا/دبي"
-          : "Weekly digest scheduled for Mondays at 09:00 Asia/Dubai"
+          : "Weekly digest scheduled for Mondays at 09:00 Asia/Dubai",
       );
     } else {
       toast.success(locale === "ar" ? "أُلغت جدولة الملخّص" : "Weekly digest schedule cleared");
@@ -210,15 +265,30 @@ export function HrbpDigestModal({ open, onOpenChange }: HrbpDigestModalProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="sm:max-w-[820px] max-h-[92vh] overflow-y-auto"
-        style={{ background: "var(--surface-1)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+        style={{
+          background: "var(--surface-1)",
+          border: "1px solid var(--border)",
+          color: "var(--text-hi)",
+        }}
       >
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 flex-wrap" style={{ color: "var(--text-hi)" }}>
+          <DialogTitle
+            className="flex items-center gap-2 flex-wrap"
+            style={{ color: "var(--text-hi)" }}
+          >
             <Inbox className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--brand-400)" }} />
-            <span>{locale === "ar" ? "أين توقفت الرحلات هذا الأسبوع" : "Where journeys stalled this week"}</span>
+            <span>
+              {locale === "ar"
+                ? "أين توقفت الرحلات هذا الأسبوع"
+                : "Where journeys stalled this week"}
+            </span>
             <span
               className="inline-flex items-center gap-1 h-6 px-2.5 rounded-full text-[11px] font-mono tabular"
-              style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}
+              style={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+                color: "var(--text-mid)",
+              }}
               dir="ltr"
             >
               <Calendar className="w-3 h-3" strokeWidth={1.75} />
@@ -251,11 +321,18 @@ export function HrbpDigestModal({ open, onOpenChange }: HrbpDigestModalProps) {
                   >
                     <Icon className="w-3.5 h-3.5" strokeWidth={1.75} />
                   </div>
-                  <p className="text-[10px] uppercase tracking-[0.10em] leading-tight" style={{ color: "var(--text-lo)" }}>
+                  <p
+                    className="text-[10px] uppercase tracking-[0.10em] leading-tight"
+                    style={{ color: "var(--text-lo)" }}
+                  >
                     {m.label}
                   </p>
                 </div>
-                <p className="text-[22px] font-semibold tabular mt-2" style={{ color: m.color }} dir="ltr">
+                <p
+                  className="text-[22px] font-semibold tabular mt-2"
+                  style={{ color: m.color }}
+                  dir="ltr"
+                >
                   {m.value}
                 </p>
                 <p className="text-[11px] mt-0.5" style={{ color: "var(--text-lo)" }}>
@@ -280,19 +357,34 @@ export function HrbpDigestModal({ open, onOpenChange }: HrbpDigestModalProps) {
             <Table>
               <TableHeader>
                 <TableRow style={{ borderColor: "var(--border)" }}>
-                  <TableHead className="text-[11px] uppercase tracking-[0.10em]" style={{ color: "var(--text-lo)" }}>
+                  <TableHead
+                    className="text-[11px] uppercase tracking-[0.10em]"
+                    style={{ color: "var(--text-lo)" }}
+                  >
                     {locale === "ar" ? "المجموعة المالكة" : "Owner group"}
                   </TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-[0.10em] text-right" style={{ color: "var(--text-lo)" }}>
+                  <TableHead
+                    className="text-[11px] uppercase tracking-[0.10em] text-right"
+                    style={{ color: "var(--text-lo)" }}
+                  >
                     {locale === "ar" ? "جديدة" : "New"}
                   </TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-[0.10em] text-right" style={{ color: "var(--text-lo)" }}>
+                  <TableHead
+                    className="text-[11px] uppercase tracking-[0.10em] text-right"
+                    style={{ color: "var(--text-lo)" }}
+                  >
                     {locale === "ar" ? "لا تزال مفتوحة" : "Still open"}
                   </TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-[0.10em] text-right" style={{ color: "var(--text-lo)" }}>
+                  <TableHead
+                    className="text-[11px] uppercase tracking-[0.10em] text-right"
+                    style={{ color: "var(--text-lo)" }}
+                  >
                     {locale === "ar" ? "وسيط الأيام" : "Median days"}
                   </TableHead>
-                  <TableHead className="text-[11px] uppercase tracking-[0.10em]" style={{ color: "var(--text-lo)" }}>
+                  <TableHead
+                    className="text-[11px] uppercase tracking-[0.10em]"
+                    style={{ color: "var(--text-lo)" }}
+                  >
                     {locale === "ar" ? "السبب الأعلى" : "Top reason"}
                   </TableHead>
                 </TableRow>
@@ -300,16 +392,31 @@ export function HrbpDigestModal({ open, onOpenChange }: HrbpDigestModalProps) {
               <TableBody>
                 {OWNER_STALL_ROWS.map((row) => (
                   <TableRow key={row.group} style={{ borderColor: "var(--border-soft)" }}>
-                    <TableCell className="text-[13px] font-medium" style={{ color: "var(--text-hi)" }}>
+                    <TableCell
+                      className="text-[13px] font-medium"
+                      style={{ color: "var(--text-hi)" }}
+                    >
                       {locale === "ar" ? row.groupAr : row.group}
                     </TableCell>
-                    <TableCell className="text-[13px] tabular text-right" style={{ color: "var(--text-hi)" }} dir="ltr">
+                    <TableCell
+                      className="text-[13px] tabular text-right"
+                      style={{ color: "var(--text-hi)" }}
+                      dir="ltr"
+                    >
                       {row.newStalls}
                     </TableCell>
-                    <TableCell className="text-[13px] tabular text-right" style={{ color: "var(--text-hi)" }} dir="ltr">
+                    <TableCell
+                      className="text-[13px] tabular text-right"
+                      style={{ color: "var(--text-hi)" }}
+                      dir="ltr"
+                    >
                       {row.stillOpen}
                     </TableCell>
-                    <TableCell className="text-[13px] tabular text-right" style={{ color: "var(--text-hi)" }} dir="ltr">
+                    <TableCell
+                      className="text-[13px] tabular text-right"
+                      style={{ color: "var(--text-hi)" }}
+                      dir="ltr"
+                    >
                       {row.medianDays !== null ? `${row.medianDays}d` : "—"}
                     </TableCell>
                     <TableCell className="text-[12px]" style={{ color: "var(--text-mid)" }}>
@@ -341,7 +448,10 @@ export function HrbpDigestModal({ open, onOpenChange }: HrbpDigestModalProps) {
                       {locale === "ar" ? row.labelAr : row.label}
                     </span>
                   </div>
-                  <div className="flex-1 h-6 rounded-full overflow-hidden" style={{ background: "var(--surface-3)" }}>
+                  <div
+                    className="flex-1 h-6 rounded-full overflow-hidden"
+                    style={{ background: "var(--surface-3)" }}
+                  >
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${pct}%` }}
@@ -368,13 +478,21 @@ export function HrbpDigestModal({ open, onOpenChange }: HrbpDigestModalProps) {
         {/* Top 3 actions this week */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <ListChecks className="w-4 h-4" strokeWidth={1.75} style={{ color: "var(--accent-500)" }} />
+            <ListChecks
+              className="w-4 h-4"
+              strokeWidth={1.75}
+              style={{ color: "var(--accent-500)" }}
+            />
             <h3 className="text-[13px] font-semibold" style={{ color: "var(--text-hi)" }}>
               {locale === "ar" ? "أهم 3 إجراءات هذا الأسبوع" : "Top 3 actions this week"}
             </h3>
             <span
               className="inline-flex items-center gap-1 h-5 px-2 rounded-full text-[11px] font-mono tabular"
-              style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-mid)" }}
+              style={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+                color: "var(--text-mid)",
+              }}
               dir="ltr"
             >
               {doneCount}/{actions.length}
@@ -400,7 +518,15 @@ export function HrbpDigestModal({ open, onOpenChange }: HrbpDigestModalProps) {
                     color: a.done ? "white" : "var(--text-lo)",
                     border: `1px solid ${a.done ? "var(--status-steady)" : "var(--border)"}`,
                   }}
-                  aria-label={a.done ? (locale === "ar" ? "تم" : "Done") : (locale === "ar" ? "اضغط لإنهاء" : "Mark done")}
+                  aria-label={
+                    a.done
+                      ? locale === "ar"
+                        ? "تم"
+                        : "Done"
+                      : locale === "ar"
+                        ? "اضغط لإنهاء"
+                        : "Mark done"
+                  }
                 >
                   {a.done && <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={2} />}
                 </button>
@@ -451,7 +577,11 @@ export function HrbpDigestModal({ open, onOpenChange }: HrbpDigestModalProps) {
             type="button"
             onClick={() => onOpenChange(false)}
             className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium"
-            style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-hi)" }}
+            style={{
+              background: "var(--surface-2)",
+              border: "1px solid var(--border)",
+              color: "var(--text-hi)",
+            }}
           >
             {locale === "ar" ? "إغلاق" : "Close"}
           </button>
@@ -460,7 +590,11 @@ export function HrbpDigestModal({ open, onOpenChange }: HrbpDigestModalProps) {
             onClick={handleEmail}
             disabled={emailing}
             className="ast-focus inline-flex items-center gap-2 h-11 px-4 rounded-full text-[13px] font-medium disabled:opacity-60"
-            style={{ background: "var(--brand-500)", color: "var(--surface-0)", border: "1px solid var(--brand-500)" }}
+            style={{
+              background: "var(--brand-500)",
+              color: "var(--surface-0)",
+              border: "1px solid var(--brand-500)",
+            }}
           >
             {emailing ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" strokeWidth={1.75} />

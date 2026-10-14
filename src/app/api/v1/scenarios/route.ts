@@ -60,6 +60,6 @@ export async function GET(_req: NextRequest) {
       servedFrom: "live",
       asOf: new Date().toISOString(),
       latencyMs: Date.now() - start,
-    }
+    },
   );
 }

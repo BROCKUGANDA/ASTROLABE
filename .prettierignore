@@ -1,0 +1,14 @@
+node_modules
+.next
+out
+dist
+coverage
+bun.lock
+package-lock.json
+tests/engine/__snapshots__
+tool-results
+demo/.work
+public
+download
+upload
+*.md

@@ -26,13 +26,13 @@
   --color-sidebar: var(--surface-1);
   --color-chart-5: var(--accent-500);
   --color-chart-4: var(--brand-500);
-  --color-chart-3: #2563EB;
-  --color-chart-2: #D97706;
-  --color-chart-1: #0E9F6E;
+  --color-chart-3: #2563eb;
+  --color-chart-2: #d97706;
+  --color-chart-1: #0e9f6e;
   --color-ring: var(--ring);
   --color-input: var(--border);
   --color-border: var(--border);
-  --color-destructive: #DC2626;
+  --color-destructive: #dc2626;
   --color-accent-foreground: var(--surface-0);
   --color-accent: var(--accent-500);
   --color-muted-foreground: var(--text-mid);
@@ -57,49 +57,49 @@
 :root,
 .dark {
   /* Surfaces — calm navy */
-  --surface-0: #0B111C;
+  --surface-0: #0b111c;
   --surface-1: #101827;
-  --surface-2: #16202F;
-  --surface-3: #1C2839;
+  --surface-2: #16202f;
+  --surface-3: #1c2839;
   --surface-glass: rgba(22, 32, 47, 0.65);
 
   /* Text */
-  --text-hi: #F2F6FB;
-  --text-mid: #B8C4D4;
-  --text-lo: #7D8DA1;
+  --text-hi: #f2f6fb;
+  --text-mid: #b8c4d4;
+  --text-lo: #7d8da1;
 
   /* Brand — teal instrument */
-  --brand-700: #0E5C63;
-  --brand-600: #12767F;
-  --brand-500: #169AA5;
-  --brand-400: #2FB5BF;
-  --brand-100: #D6F0F2;
+  --brand-700: #0e5c63;
+  --brand-600: #12767f;
+  --brand-500: #169aa5;
+  --brand-400: #2fb5bf;
+  --brand-100: #d6f0f2;
 
   /* Accent — sand-gold reserved for "your next move" */
-  --accent-500: #C9A227;
-  --accent-400: #D9B445;
-  --accent-100: #F6ECC9;
+  --accent-500: #c9a227;
+  --accent-400: #d9b445;
+  --accent-100: #f6ecc9;
 
   /* Emirates accent — subtle UAE flag-inspired (used very sparingly) */
-  --emirates-red: #C8102E;
-  --emirates-green: #006C35;
+  --emirates-red: #c8102e;
+  --emirates-green: #006c35;
   --emirates-black: #000000;
 
   /* UAE geometric pattern — Islamic-inspired 8-point star */
   --uae-pattern: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23169AA5' stroke-opacity='0.04' stroke-width='1'%3E%3Cpath d='M20 0 L25 15 L40 20 L25 25 L20 40 L15 25 L0 20 L15 15 Z'/%3E%3Ccircle cx='20' cy='20' r='3'/%3E%3C/g%3E%3C/svg%3E");
 
   /* Status */
-  --status-steady: #0E9F6E;
-  --status-watch: #D97706;
-  --status-friction: #DC2626;
-  --status-blocked: #9F1239;
-  --status-info: #2563EB;
-  --status-neutral: #64748B;
+  --status-steady: #0e9f6e;
+  --status-watch: #d97706;
+  --status-friction: #dc2626;
+  --status-blocked: #9f1239;
+  --status-info: #2563eb;
+  --status-neutral: #64748b;
 
   /* Border / ring */
-  --border: #22303F;
-  --border-soft: #1A2535;
-  --ring: #169AA5;
+  --border: #22303f;
+  --border-soft: #1a2535;
+  --ring: #169aa5;
 
   /* Elevation */
   --e1: 0 1px 2px rgba(0, 0, 0, 0.18);
@@ -108,11 +108,11 @@
   --e-glow: 0 0 0 1px rgba(22, 154, 165, 0.18), 0 12px 32px rgba(22, 154, 165, 0.12);
 
   /* Gradients */
-  --g-horizon: linear-gradient(135deg, #0E5C63 0%, #12767F 55%, #C9A227 100%);
+  --g-horizon: linear-gradient(135deg, #0e5c63 0%, #12767f 55%, #c9a227 100%);
   --g-veil: radial-gradient(120% 80% at 50% -20%, rgba(22, 154, 165, 0.26), transparent 60%);
   --g-glass: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
   --g-card: linear-gradient(180deg, rgba(22, 154, 165, 0.04), rgba(11, 17, 28, 0));
-  --g-brass: linear-gradient(135deg, #C9A227 0%, #8A6F1A 40%, #C9A227 60%, #F6ECC9 100%);
+  --g-brass: linear-gradient(135deg, #c9a227 0%, #8a6f1a 40%, #c9a227 60%, #f6ecc9 100%);
 
   /* Motion tokens */
   --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -127,18 +127,18 @@
 
 /* Optional light variant — projector mode / daytime review */
 .light {
-  --surface-0: #FFFFFF;
-  --surface-1: #F7F9FC;
-  --surface-2: #EEF2F7;
-  --surface-3: #E2E8F0;
+  --surface-0: #ffffff;
+  --surface-1: #f7f9fc;
+  --surface-2: #eef2f7;
+  --surface-3: #e2e8f0;
   --surface-glass: rgba(255, 255, 255, 0.8);
 
-  --text-hi: #0B1221;
-  --text-mid: #3F4C60;
-  --text-lo: #6B7A8F;
+  --text-hi: #0b1221;
+  --text-mid: #3f4c60;
+  --text-lo: #6b7a8f;
 
-  --border: #D6DEE9;
-  --border-soft: #E5EAF1;
+  --border: #d6dee9;
+  --border-soft: #e5eaf1;
 
   --e1: 0 1px 2px rgba(15, 23, 42, 0.06);
   --e2: 0 6px 18px rgba(15, 23, 42, 0.08);
@@ -246,7 +246,7 @@
   .ast-card:hover {
     border-color: rgba(22, 154, 165, 0.35);
     box-shadow:
-      0 0 0 1px rgba(22, 154, 165, 0.10),
+      0 0 0 1px rgba(22, 154, 165, 0.1),
       0 6px 18px rgba(0, 0, 0, 0.22),
       0 0 24px rgba(22, 154, 165, 0.06);
   }
@@ -275,7 +275,7 @@
     border-radius: inherit;
   }
   .ast-card-glass:hover {
-    border-color: rgba(22, 154, 165, 0.40);
+    border-color: rgba(22, 154, 165, 0.4);
     box-shadow:
       0 0 0 1px rgba(22, 154, 165, 0.12),
       0 6px 18px rgba(0, 0, 0, 0.22),
@@ -332,10 +332,25 @@
     border-radius: 999px;
     display: inline-block;
   }
-  .ast-dot-steady { background: var(--status-steady); box-shadow: 0 0 8px rgba(14, 159, 110, 0.5); }
-  .ast-dot-watch  { background: var(--status-watch);  border-radius: 999px 999px 999px 0; box-shadow: 0 0 8px rgba(217, 119, 6, 0.5); }
-  .ast-dot-friction { background: var(--status-friction); transform: rotate(45deg); box-shadow: 0 0 8px rgba(220, 38, 38, 0.5); }
-  .ast-dot-blocked { background: var(--status-blocked); border-radius: 2px; box-shadow: 0 0 8px rgba(159, 18, 57, 0.5); }
+  .ast-dot-steady {
+    background: var(--status-steady);
+    box-shadow: 0 0 8px rgba(14, 159, 110, 0.5);
+  }
+  .ast-dot-watch {
+    background: var(--status-watch);
+    border-radius: 999px 999px 999px 0;
+    box-shadow: 0 0 8px rgba(217, 119, 6, 0.5);
+  }
+  .ast-dot-friction {
+    background: var(--status-friction);
+    transform: rotate(45deg);
+    box-shadow: 0 0 8px rgba(220, 38, 38, 0.5);
+  }
+  .ast-dot-blocked {
+    background: var(--status-blocked);
+    border-radius: 2px;
+    box-shadow: 0 0 8px rgba(159, 18, 57, 0.5);
+  }
 
   /* Focus ring — visible everywhere */
   .ast-focus:focus-visible {
@@ -351,12 +366,16 @@
     background: var(--surface-3);
     transition: background var(--dur-md) var(--ease-standard);
   }
-  .ast-rail-seg[data-state="done"] { background: var(--brand-500); }
+  .ast-rail-seg[data-state="done"] {
+    background: var(--brand-500);
+  }
   .ast-rail-seg[data-state="active"] {
     background: linear-gradient(90deg, var(--brand-500), var(--accent-500));
     box-shadow: 0 0 8px rgba(22, 154, 165, 0.4);
   }
-  .ast-rail-seg[data-state="blocked"] { background: var(--status-blocked); }
+  .ast-rail-seg[data-state="blocked"] {
+    background: var(--status-blocked);
+  }
 
   /* Enhanced active rail — locator beacon */
   .ast-rail-beacon {
@@ -367,12 +386,21 @@
     height: 8px;
     border-radius: 999px;
     background: var(--accent-500);
-    box-shadow: 0 0 8px var(--accent-500), 0 0 16px rgba(201,162,39,0.4);
+    box-shadow:
+      0 0 8px var(--accent-500),
+      0 0 16px rgba(201, 162, 39, 0.4);
     animation: ast-beacon-pulse 2s ease-in-out infinite;
   }
   @keyframes ast-beacon-pulse {
-    0%, 100% { opacity: 1; transform: translateY(-50%) scale(1); }
-    50% { opacity: 0.6; transform: translateY(-50%) scale(1.3); }
+    0%,
+    100% {
+      opacity: 1;
+      transform: translateY(-50%) scale(1);
+    }
+    50% {
+      opacity: 0.6;
+      transform: translateY(-50%) scale(1.3);
+    }
   }
 
   /* Instrument panel scan-line texture */
@@ -396,7 +424,8 @@
 
   /* UAE flag accent stripe — red/green/white/black used VERY sparingly */
   .ast-uae-stripe {
-    background: linear-gradient(90deg,
+    background: linear-gradient(
+      90deg,
       var(--emirates-red) 0%,
       var(--emirates-red) 25%,
       var(--emirates-green) 25%,
@@ -450,39 +479,78 @@
 .projector {
   font-size: 1.25rem;
 }
-.projector body { font-size: 20px; }
+.projector body {
+  font-size: 20px;
+}
 
 /* ============================================================
    CUSTOM KEYFRAMES
    ============================================================ */
 @keyframes ast-fade-rise {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 @keyframes ast-spin-slow {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 @keyframes ast-pulse-ring {
-  0% { box-shadow: 0 0 0 0 rgba(22, 154, 165, 0.5); }
-  70% { box-shadow: 0 0 0 12px rgba(22, 154, 165, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(22, 154, 165, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(22, 154, 165, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(22, 154, 165, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(22, 154, 165, 0);
+  }
 }
 @keyframes ast-ticker {
-  from { transform: translateY(8px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 @keyframes ast-shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
-.ast-fade-rise { animation: ast-fade-rise var(--dur-md) var(--ease-standard) both; }
-.ast-spin-slow { animation: ast-spin-slow 24s linear infinite; }
-.ast-pulse-ring { animation: ast-pulse-ring 2.4s var(--ease-standard) infinite; }
-.ast-ticker { animation: ast-ticker var(--dur-md) var(--ease-decel) both; }
+.ast-fade-rise {
+  animation: ast-fade-rise var(--dur-md) var(--ease-standard) both;
+}
+.ast-spin-slow {
+  animation: ast-spin-slow 24s linear infinite;
+}
+.ast-pulse-ring {
+  animation: ast-pulse-ring 2.4s var(--ease-standard) infinite;
+}
+.ast-ticker {
+  animation: ast-ticker var(--dur-md) var(--ease-decel) both;
+}
 
 /* Shimmer for skeletons */
 .ast-shimmer {
-  background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    var(--surface-3) 50%,
+    var(--surface-2) 75%
+  );
   background-size: 200% 100%;
   animation: ast-shimmer 1.6s infinite linear;
 }
@@ -499,11 +567,15 @@
 @media print {
   /* Hide all body content but keep it in flow (visibility, not display,
      so absolute-positioned children can still be revealed). */
-  body * { visibility: hidden; }
+  body * {
+    visibility: hidden;
+  }
 
   /* Reveal only the printable checklist and its descendants. */
   .print-checklist,
-  .print-checklist * { visibility: visible; }
+  .print-checklist * {
+    visibility: visible;
+  }
 
   /* Pin the checklist to the top-left of the page so it prints cleanly. */
   .print-checklist {
@@ -514,12 +586,15 @@
   }
 
   /* Hard-hide any element marked `.no-print` — buttons, toggles, etc. */
-  .no-print { display: none !important; }
+  .no-print {
+    display: none !important;
+  }
 
   /* Use the system paper background for the checklist so it reads on
      white paper. The inline style on the .print-checklist div sets
      `background: #fff` + `color: #000` already. */
-  html, body {
+  html,
+  body {
     background: #fff !important;
   }
 }

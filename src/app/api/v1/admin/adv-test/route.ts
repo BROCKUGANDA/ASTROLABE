@@ -34,13 +34,37 @@ export const dynamic = "force-dynamic";
 /* Handoff owner lookup by owner-group (PRD §13). The conflict handoff
    defaults to the top chunk's owning team. */
 const HANDOFF_BY_GROUP: Record<string, { name: string; role: string; email: string }> = {
-  Mobility: { name: "Rania Hassan", role: "Mobility Specialist", email: "mobility@astrolabe.internal" },
+  Mobility: {
+    name: "Rania Hassan",
+    role: "Mobility Specialist",
+    email: "mobility@astrolabe.internal",
+  },
   Payroll: { name: "Mona Said", role: "Payroll Specialist", email: "payroll@astrolabe.internal" },
-  HR: { name: "Fatima Al-Mansouri", role: "HRBP — Cabin Crew", email: "fatima.hrbp@astrolabe.internal" },
-  IT: { name: "Ahmed Al-Rashid", role: "IT Provisioning Lead", email: "it-prov@astrolabe.internal" },
-  Immigration: { name: "Saeed Al-Marri", role: "Immigration Officer", email: "immigration@astrolabe.internal" },
-  Learning: { name: "Lina Khoury", role: "Learning Coordinator", email: "learning@astrolabe.internal" },
-  Facilities: { name: "Omar Farouk", role: "Facilities Supervisor", email: "facilities@astrolabe.internal" },
+  HR: {
+    name: "Fatima Al-Mansouri",
+    role: "HRBP — Cabin Crew",
+    email: "fatima.hrbp@astrolabe.internal",
+  },
+  IT: {
+    name: "Ahmed Al-Rashid",
+    role: "IT Provisioning Lead",
+    email: "it-prov@astrolabe.internal",
+  },
+  Immigration: {
+    name: "Saeed Al-Marri",
+    role: "Immigration Officer",
+    email: "immigration@astrolabe.internal",
+  },
+  Learning: {
+    name: "Lina Khoury",
+    role: "Learning Coordinator",
+    email: "learning@astrolabe.internal",
+  },
+  Facilities: {
+    name: "Omar Farouk",
+    role: "Facilities Supervisor",
+    email: "facilities@astrolabe.internal",
+  },
 };
 
 /* Map docSlug → owner group for handoff resolution */
@@ -97,7 +121,11 @@ export async function POST(req: NextRequest) {
           abstainReason: null,
           handoff: null,
         },
-        { servedFrom: "deterministic", asOf: PACK_NOW.toISOString(), latencyMs: Date.now() - start },
+        {
+          servedFrom: "deterministic",
+          asOf: PACK_NOW.toISOString(),
+          latencyMs: Date.now() - start,
+        },
       );
     }
 
@@ -220,10 +248,9 @@ export async function POST(req: NextRequest) {
     const restoredAssess = assess(employee, asOf);
     const restored = !restoredAssess.suppressedFamilies.includes("PS" as never);
 
-    const disclosure =
-      after.suppressedFamilies.includes("PS")
-        ? "Pulse signals are off, so this view uses journey and request data only."
-        : "All consent purposes granted — full signal set in use.";
+    const disclosure = after.suppressedFamilies.includes("PS")
+      ? "Pulse signals are off, so this view uses journey and request data only."
+      : "All consent purposes granted — full signal set in use.";
 
     return success(
       {

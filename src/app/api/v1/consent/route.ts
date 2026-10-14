@@ -6,12 +6,7 @@
 import { NextRequest } from "next/server";
 import { createHash } from "node:crypto";
 import { success, error } from "@/lib/api/envelope";
-import {
-  consentRecords,
-  employees,
-  pulseResponses,
-  type ConsentRecord,
-} from "@/lib/data/pack";
+import { consentRecords, employees, pulseResponses, type ConsentRecord } from "@/lib/data/pack";
 import { assess, engineNow, resolveAsOf } from "@/lib/engine/engine";
 import { guard } from "@/lib/privacy/guard";
 import { appendAudit } from "@/lib/privacy/audit";
@@ -26,9 +21,12 @@ export const dynamic = "force-dynamic";
 const CONSENT_TEXTS: Record<string, string> = {
   journey_assistance: "We use your journey data to tell you what is next and who owns it.",
   pulse_capture: "Optional short surveys at stage gates, only if you say yes.",
-  share_pulse_summary: "Optional: share a summary of your answers with your HR partner when a human needs to step in.",
-  comment_retention: "Optional: keep what you typed in the comment box. If this is off, the text is deleted and only the score remains.",
-  aggregate_analytics: "Counts of people like you in cohorts of five or more, never about you specifically.",
+  share_pulse_summary:
+    "Optional: share a summary of your answers with your HR partner when a human needs to step in.",
+  comment_retention:
+    "Optional: keep what you typed in the comment box. If this is off, the text is deleted and only the score remains.",
+  aggregate_analytics:
+    "Counts of people like you in cohorts of five or more, never about you specifically.",
   manager_visibility: "Your manager sees only the steps they themselves own.",
 };
 
@@ -70,14 +68,9 @@ export async function POST(req: NextRequest) {
     return error("E_VALIDATION", "`employeeId` is required", 422);
   }
   if (!purpose || !VALID_PURPOSES.has(purpose)) {
-    return error(
-      "E_VALIDATION",
-      "`purpose` is required and must be a known purpose",
-      422,
-      {
-        hint: "One of: journey_assistance, pulse_capture, share_pulse_summary, comment_retention, aggregate_analytics, manager_visibility",
-      }
-    );
+    return error("E_VALIDATION", "`purpose` is required and must be a known purpose", 422, {
+      hint: "One of: journey_assistance, pulse_capture, share_pulse_summary, comment_retention, aggregate_analytics, manager_visibility",
+    });
   }
   if (typeof granted !== "boolean") {
     return error("E_VALIDATION", "`granted` must be a boolean", 422);
@@ -92,7 +85,9 @@ export async function POST(req: NextRequest) {
   const auth = await guard(req, "consent.write");
   if (!auth.ok) return auth.response;
   if (auth.session.role !== "employee" || auth.session.sub !== employeeId) {
-    return error("E_FORBIDDEN", "Only the employee can change their own consent.", 403, { retryable: false });
+    return error("E_FORBIDDEN", "Only the employee can change their own consent.", 403, {
+      retryable: false,
+    });
   }
 
   // Optional: warn (not fail) if employee unknown — still allow consent record.
@@ -168,6 +163,6 @@ export async function POST(req: NextRequest) {
       servedFrom: "live",
       asOf: now.toISOString(),
       latencyMs: Date.now() - start,
-    }
+    },
   );
 }

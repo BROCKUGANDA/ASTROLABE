@@ -105,12 +105,54 @@ interface DataOwnerRow {
 }
 
 const DATA_OWNERS: DataOwnerRow[] = [
-  { type: "Employee record", typeAr: "ملف الموظف", owner: "HRBP", ownerAr: "شريك الموارد البشرية", route: "HR self-service portal", routeAr: "بوابة الخدمة الذاتية" },
-  { type: "Journey events", typeAr: "أحداث الرحلة", owner: "Platform team", ownerAr: "فريق المنصة", route: "Data file export (Me → Export)", routeAr: "تصدير ملف البيانات (حسابي → تصدير)" },
-  { type: "Service requests", typeAr: "طلبات الخدمة", owner: "Service owner (per group)", ownerAr: "مالك الخدمة (لكل مجموعة)", route: "Service owner console", routeAr: "وحدة مالك الخدمة" },
-  { type: "Pulse responses", typeAr: "ردود النبضة", owner: "HRBP (consent-gated)", ownerAr: "شريك الموارد (تحت موافقة)", route: "HRBP queue (summary only)", routeAr: "قائمة شريك الموارد (ملخص فقط)" },
-  { type: "Consent records", typeAr: "سجلات الموافقة", owner: "Privacy office", ownerAr: "مكتب الخصوصية", route: "Privacy office email", routeAr: "بريد مكتب الخصوصية" },
-  { type: "Audit events", typeAr: "أحداث التدقيق", owner: "Security team", ownerAr: "فريق الأمان", route: "Audit chain (Admin console)", routeAr: "سلسلة التدقيق (وحدة الإدارة)" },
+  {
+    type: "Employee record",
+    typeAr: "ملف الموظف",
+    owner: "HRBP",
+    ownerAr: "شريك الموارد البشرية",
+    route: "HR self-service portal",
+    routeAr: "بوابة الخدمة الذاتية",
+  },
+  {
+    type: "Journey events",
+    typeAr: "أحداث الرحلة",
+    owner: "Platform team",
+    ownerAr: "فريق المنصة",
+    route: "Data file export (Me → Export)",
+    routeAr: "تصدير ملف البيانات (حسابي → تصدير)",
+  },
+  {
+    type: "Service requests",
+    typeAr: "طلبات الخدمة",
+    owner: "Service owner (per group)",
+    ownerAr: "مالك الخدمة (لكل مجموعة)",
+    route: "Service owner console",
+    routeAr: "وحدة مالك الخدمة",
+  },
+  {
+    type: "Pulse responses",
+    typeAr: "ردود النبضة",
+    owner: "HRBP (consent-gated)",
+    ownerAr: "شريك الموارد (تحت موافقة)",
+    route: "HRBP queue (summary only)",
+    routeAr: "قائمة شريك الموارد (ملخص فقط)",
+  },
+  {
+    type: "Consent records",
+    typeAr: "سجلات الموافقة",
+    owner: "Privacy office",
+    ownerAr: "مكتب الخصوصية",
+    route: "Privacy office email",
+    routeAr: "بريد مكتب الخصوصية",
+  },
+  {
+    type: "Audit events",
+    typeAr: "أحداث التدقيق",
+    owner: "Security team",
+    ownerAr: "فريق الأمان",
+    route: "Audit chain (Admin console)",
+    routeAr: "سلسلة التدقيق (وحدة الإدارة)",
+  },
 ];
 
 /* ============================================================
@@ -122,10 +164,11 @@ export function PrivacyPage() {
   const isAr = locale === "ar";
 
   const handleCorrect = () => {
-    toast.success(
-      isAr ? "بدأ طلب تصحيح البيانات" : "Data correction request started",
-      { description: isAr ? "سيتواصل معك مكتب الخصوصية خلال 48 ساعة." : "The Privacy office will reach you within 48 hours." }
-    );
+    toast.success(isAr ? "بدأ طلب تصحيح البيانات" : "Data correction request started", {
+      description: isAr
+        ? "سيتواصل معك مكتب الخصوصية خلال 48 ساعة."
+        : "The Privacy office will reach you within 48 hours.",
+    });
   };
 
   const rights = [
@@ -178,10 +221,7 @@ export function PrivacyPage() {
   ];
 
   return (
-    <div
-      dir={dir}
-      className="max-w-[800px] mx-auto"
-    >
+    <div dir={dir} className="max-w-[800px] mx-auto">
       {/* Header */}
       <header className="mb-5">
         <div
@@ -191,7 +231,10 @@ export function PrivacyPage() {
           <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
           <span>{isAr ? "الخصوصية بالكامل" : "Privacy in full"}</span>
         </div>
-        <h2 className="mt-2 text-[22px] sm:text-[26px] font-semibold tracking-tight" style={{ color: "var(--text-hi)" }}>
+        <h2
+          className="mt-2 text-[22px] sm:text-[26px] font-semibold tracking-tight"
+          style={{ color: "var(--text-hi)" }}
+        >
           {isAr ? "خصوصيتك، ب plain language" : "Your privacy, in plain language"}
         </h2>
       </header>
@@ -299,24 +342,44 @@ export function PrivacyPage() {
           </h3>
         </div>
         <div className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-1 sm:gap-3 py-2.5" style={{ borderBottom: "1px solid var(--border-soft)" }}>
-            <span className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+          <div
+            className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-1 sm:gap-3 py-2.5"
+            style={{ borderBottom: "1px solid var(--border-soft)" }}
+          >
+            <span
+              className="text-[11px] uppercase tracking-[0.12em]"
+              style={{ color: "var(--text-lo)" }}
+            >
               {isAr ? "الغرض" : "Purpose"}
             </span>
             <span className="text-[13px]" style={{ color: "var(--text-hi)" }}>
               {isAr ? "ملاحة رحلة الموظف" : "Employee journey navigation"}
             </span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-1 sm:gap-3 py-2.5" style={{ borderBottom: "1px solid var(--border-soft)" }}>
-            <span className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+          <div
+            className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-1 sm:gap-3 py-2.5"
+            style={{ borderBottom: "1px solid var(--border-soft)" }}
+          >
+            <span
+              className="text-[11px] uppercase tracking-[0.12em]"
+              style={{ color: "var(--text-lo)" }}
+            >
               {isAr ? "الأساس القانوني" : "Lawful basis"}
             </span>
             <span className="text-[13px]" style={{ color: "var(--text-hi)" }}>
-              {isAr ? "ضرورة تعاقدية + موافقة صريحة للأغراض الاختيارية" : "Contractual necessity + explicit consent for optional purposes"}
+              {isAr
+                ? "ضرورة تعاقدية + موافقة صريحة للأغراض الاختيارية"
+                : "Contractual necessity + explicit consent for optional purposes"}
             </span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-1 sm:gap-3 py-2.5" style={{ borderBottom: "1px solid var(--border-soft)" }}>
-            <span className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+          <div
+            className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-1 sm:gap-3 py-2.5"
+            style={{ borderBottom: "1px solid var(--border-soft)" }}
+          >
+            <span
+              className="text-[11px] uppercase tracking-[0.12em]"
+              style={{ color: "var(--text-lo)" }}
+            >
               {isAr ? "تقليل البيانات" : "Data minimisation"}
             </span>
             <span className="text-[13px]" style={{ color: "var(--text-hi)" }}>
@@ -326,7 +389,10 @@ export function PrivacyPage() {
             </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-1 sm:gap-3 py-2.5">
-            <span className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+            <span
+              className="text-[11px] uppercase tracking-[0.12em]"
+              style={{ color: "var(--text-lo)" }}
+            >
               {isAr ? "تخفيف المخاطر" : "Risk mitigations"}
             </span>
             <span className="text-[13px]" style={{ color: "var(--text-hi)" }}>
@@ -351,17 +417,29 @@ export function PrivacyPage() {
             {isAr ? "جدول الاحتفاظ" : "Retention schedule"}
           </h3>
         </div>
-        <div className="rounded-[10px] overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+        <div
+          className="rounded-[10px] overflow-hidden"
+          style={{ border: "1px solid var(--border)" }}
+        >
           <Table>
             <TableHeader>
               <TableRow style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}>
-                <TableHead className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                <TableHead
+                  className="text-[11px] uppercase tracking-[0.12em]"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {isAr ? "نوع البيانات" : "Data type"}
                 </TableHead>
-                <TableHead className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                <TableHead
+                  className="text-[11px] uppercase tracking-[0.12em]"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {isAr ? "الاحتفاظ" : "Retention"}
                 </TableHead>
-                <TableHead className="text-[11px] uppercase tracking-[0.12em] hidden sm:table-cell" style={{ color: "var(--text-lo)" }}>
+                <TableHead
+                  className="text-[11px] uppercase tracking-[0.12em] hidden sm:table-cell"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {isAr ? "السبب" : "Reason"}
                 </TableHead>
               </TableRow>
@@ -369,13 +447,19 @@ export function PrivacyPage() {
             <TableBody>
               {RETENTION_SCHEDULE.map((row) => (
                 <TableRow key={row.type} style={{ borderColor: "var(--border-soft)" }}>
-                  <TableCell className="text-[13px] font-medium" style={{ color: "var(--text-hi)" }}>
+                  <TableCell
+                    className="text-[13px] font-medium"
+                    style={{ color: "var(--text-hi)" }}
+                  >
                     {isAr ? row.typeAr : row.type}
                   </TableCell>
                   <TableCell className="text-[13px] tabular" style={{ color: "var(--brand-400)" }}>
                     {isAr ? row.retentionAr : row.retention}
                   </TableCell>
-                  <TableCell className="text-[12px] hidden sm:table-cell" style={{ color: "var(--text-mid)" }}>
+                  <TableCell
+                    className="text-[12px] hidden sm:table-cell"
+                    style={{ color: "var(--text-mid)" }}
+                  >
                     {isAr ? row.reasonAr : row.reason}
                   </TableCell>
                 </TableRow>
@@ -398,17 +482,29 @@ export function PrivacyPage() {
             {isAr ? "مالكو البيانات" : "Data owners"}
           </h3>
         </div>
-        <div className="rounded-[10px] overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+        <div
+          className="rounded-[10px] overflow-hidden"
+          style={{ border: "1px solid var(--border)" }}
+        >
           <Table>
             <TableHeader>
               <TableRow style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}>
-                <TableHead className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                <TableHead
+                  className="text-[11px] uppercase tracking-[0.12em]"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {isAr ? "نوع البيانات" : "Data type"}
                 </TableHead>
-                <TableHead className="text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--text-lo)" }}>
+                <TableHead
+                  className="text-[11px] uppercase tracking-[0.12em]"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {isAr ? "المالك" : "Owner"}
                 </TableHead>
-                <TableHead className="text-[11px] uppercase tracking-[0.12em] hidden sm:table-cell" style={{ color: "var(--text-lo)" }}>
+                <TableHead
+                  className="text-[11px] uppercase tracking-[0.12em] hidden sm:table-cell"
+                  style={{ color: "var(--text-lo)" }}
+                >
                   {isAr ? "طريقة الاتصال" : "Contact route"}
                 </TableHead>
               </TableRow>
@@ -416,13 +512,19 @@ export function PrivacyPage() {
             <TableBody>
               {DATA_OWNERS.map((row) => (
                 <TableRow key={row.type} style={{ borderColor: "var(--border-soft)" }}>
-                  <TableCell className="text-[13px] font-medium" style={{ color: "var(--text-hi)" }}>
+                  <TableCell
+                    className="text-[13px] font-medium"
+                    style={{ color: "var(--text-hi)" }}
+                  >
                     {isAr ? row.typeAr : row.type}
                   </TableCell>
                   <TableCell className="text-[13px]" style={{ color: "var(--brand-400)" }}>
                     {isAr ? row.ownerAr : row.owner}
                   </TableCell>
-                  <TableCell className="text-[12px] hidden sm:table-cell" style={{ color: "var(--text-mid)" }}>
+                  <TableCell
+                    className="text-[12px] hidden sm:table-cell"
+                    style={{ color: "var(--text-mid)" }}
+                  >
                     {isAr ? row.routeAr : row.route}
                   </TableCell>
                 </TableRow>
@@ -473,8 +575,15 @@ export function PrivacyPage() {
                       <ChevronRight className="w-3 h-3" strokeWidth={1.75} />
                     </button>
                   ) : (
-                    <p className="text-[11px] mt-2 inline-flex items-center gap-1.5" style={{ color: "var(--text-lo)" }}>
-                      <ChevronRight className="w-3 h-3" strokeWidth={1.75} style={{ transform: isAr ? "scaleX(-1)" : undefined }} />
+                    <p
+                      className="text-[11px] mt-2 inline-flex items-center gap-1.5"
+                      style={{ color: "var(--text-lo)" }}
+                    >
+                      <ChevronRight
+                        className="w-3 h-3"
+                        strokeWidth={1.75}
+                        style={{ transform: isAr ? "scaleX(-1)" : undefined }}
+                      />
                       {isAr ? r.ctaAr : r.ctaEn}
                     </p>
                   )}
@@ -498,7 +607,16 @@ export function PrivacyPage() {
 /* Small inline ban icon for non-use chips */
 function Ban() {
   return (
-    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+    <svg
+      width="9"
+      height="9"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
       <circle cx="12" cy="12" r="10" />
       <path d="m4.9 4.9 14.2 14.2" />
     </svg>
