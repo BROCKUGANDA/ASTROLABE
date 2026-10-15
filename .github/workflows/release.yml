@@ -1,0 +1,53 @@
+# Cut a GitHub Release and record the production deployment on every v* tag.
+#
+# docker-publish.yml ships the image; this workflow stamps the release that
+# points at it and marks the production environment deployed with the live URL,
+# so the GitHub Deployment history says what the VPS is actually running.
+# Cutting a version is therefore: tag, push the tag — nothing else.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  deployments: write
+
+jobs:
+  release:
+    name: release · deployment status
+    # Same reason as ci.yml: this account gets no GitHub-hosted runner minutes.
+    runs-on: [self-hosted, astrolabe]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF#refs/tags/}"
+          gh release create "$tag" \
+            --title "ASTROLABE ${tag#v}" \
+            --generate-notes \
+            --verify-tag
+
+      - name: Mark the production environment deployed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF#refs/tags/}"
+          sha="$(git rev-parse HEAD)"
+          deployment="$(gh api repos/${{ github.repository }}/deployments \
+            -f ref="$sha" -f environment=production -f auto_merge=false \
+            --jq .id)"
+          gh api -X POST "repos/${{ github.repository }}/deployments/$deployment/statuses" \
+            -f state=success \
+            -f environment_url=https://astrolabe.svalley.tech \
+            -f description="Container image $tag published to ghcr.io and served behind the shared Caddy edge"
