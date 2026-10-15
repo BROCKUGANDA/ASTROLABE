@@ -8,6 +8,13 @@ db
 # The re-included file exists because `next build` type-checks scripts/backtest.ts,
 # which imports its clock helpers and World type from tests/engine/world — the
 # container build failed on its absence while every local and CI build passed.
+#
+# Do NOT add a bare `tests` line back above this. Docker cannot re-include a
+# file whose parent directory has already been excluded, so the two together
+# silently cancel this out and the image build fails on the missing module
+# again. Excluding the individual test directories works; excluding `tests` does
+# not. Nothing here changes the shipped image: the final stage copies only
+# .next/standalone, so no test source reaches the container.
 coverage
 .env
 .env.*
