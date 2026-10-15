@@ -9,7 +9,7 @@
    message. One kill switch stops all outbound.
    ============================================================ */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDistance } from "date-fns";
@@ -161,6 +161,32 @@ export function NotificationsBell() {
   // after mount so this never runs during server rendering.
   const [portal, setPortal] = useState<HTMLElement | null>(null);
   useEffect(() => setPortal(document.body), []);
+
+  /* The panel declares `aria-modal="true"`, so it has to behave like a modal:
+     take focus on open, close on Escape, and hand focus back on close. A
+     declared dialog that does none of those is worse than no declaration — a
+     screen reader announces a dialog and then leaves the reader in the page
+     behind it, and the only visible way out was a small X in the corner. */
+  const panelRef = useRef<HTMLDivElement>(null);
+  const bellRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    panelRef.current?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      // Return to the bell by name. `document.activeElement` would be the
+      // obvious source, but clicking a <button> does not focus it in every
+      // engine, so the reader would land back at the top of the document.
+      bellRef.current?.focus();
+    };
+  }, [open]);
 
   const isAr = locale === "ar";
   const dateLocale: Locale = isAr ? arLocale : enUS;
@@ -328,6 +354,7 @@ export function NotificationsBell() {
     <>
       {/* ---------- BELL BUTTON ---------- */}
       <button
+        ref={bellRef}
         onClick={() => setOpen(true)}
         aria-label={
           isAr
@@ -404,6 +431,8 @@ export function NotificationsBell() {
                   role="dialog"
                   aria-modal="true"
                   aria-label={isAr ? "صندوق الإشعارات" : "Notifications inbox"}
+                  ref={panelRef}
+                  tabIndex={-1}
                 >
                   {/* ===== Header ===== */}
                   <div
