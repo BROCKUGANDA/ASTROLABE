@@ -8,8 +8,8 @@ needed, it drafts the packet and names the human. It never decides about a perso
 Built for the Emirates challenge. **Synthetic data only** — 14 fictional employees, no real
 records, nothing uploaded to a service that retains or trains on data.
 
-**Live demo: <https://astrolabe.svalley.tech>** — the same build as the `v1.0.1` release, running
-in a container on the submission VPS behind Caddy. The employee, HRBP, manager and service-owner
+**Live demo: <https://astrolabe.svalley.tech>** — deployed from `main` by `scripts/deploy-vps.sh`,
+running in a container on the submission VPS behind Caddy. The employee, HRBP, manager and service-owner
 consoles are open there; the admin and judge consoles are closed, because on a production host an
 unset key closes a console rather than defaulting it open. See [§2](#2-deploy-it) for the wiring.
 
@@ -112,7 +112,9 @@ carry. Create the schema in the mounted directory once with `bun run db:push`.
 
 ### Where it is deployed
 
-`https://astrolabe.svalley.tech` — container `ghcr.io/brockuganda/astrolabe:1.0.1`, bound to
+`https://astrolabe.svalley.tech` — deployed from `main` by `scripts/deploy-vps.sh` (builds the
+current checkout as a local image tagged with the commit, swaps the container, re-attaches it to
+the edge network and smoke-tests the public URL), bound to
 `127.0.0.1:3100` on the VPS and published through the shared Caddy edge via a machine-local
 `sites.d/astrolabe.svalley.tech.caddy` block. The DNS record is DNS-only, so Caddy issues its own
 Let's Encrypt certificate (renewed automatically; nothing to rotate). `SESSION_SECRET` is a
