@@ -4,7 +4,6 @@ node_modules
 .github
 demo
 db
-tests
 !tests/engine/world.ts
 # The re-included file exists because `next build` type-checks scripts/backtest.ts,
 # which imports its clock helpers and World type from tests/engine/world — the
