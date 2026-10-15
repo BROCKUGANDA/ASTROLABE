@@ -8,6 +8,11 @@ needed, it drafts the packet and names the human. It never decides about a perso
 Built for the Emirates challenge. **Synthetic data only** — 14 fictional employees, no real
 records, nothing uploaded to a service that retains or trains on data.
 
+**Live demo: <https://astrolabe.svalley.tech>** — the same build as the `v1.0.1` release, running
+in a container on the submission VPS behind Caddy. The employee, HRBP, manager and service-owner
+consoles are open there; the admin and judge consoles are closed, because on a production host an
+unset key closes a console rather than defaulting it open. See [§2](#2-deploy-it) for the wiring.
+
 ```
 bun install
 bun run dev        # http://localhost:3000 — demo-ready, no configuration needed
@@ -103,6 +108,26 @@ The image runs Next's standalone output as a non-root user and health-checks
 resolved against `prisma/schema.prisma`, which the standalone bundle does not
 carry. Create the schema in the mounted directory once with `bun run db:push`.
 `ghcr.io/brockuganda/astrolabe` is published on every `v*` tag.
+
+### Where it is deployed
+
+`https://astrolabe.svalley.tech` — container `ghcr.io/brockuganda/astrolabe:1.0.1`, bound to
+`127.0.0.1:3100` on the VPS and published through the shared Caddy edge via a machine-local
+`sites.d/astrolabe.svalley.tech.caddy` block. The DNS record is DNS-only, so Caddy issues its own
+Let's Encrypt certificate (renewed automatically; nothing to rotate). `SESSION_SECRET` is a
+generated 256-bit value held only on the box; `ASTROLABE_ADMIN_TOKEN` and `ASTROLABE_JUDGE_KEY`
+are deliberately **not** set, which is what closes those two consoles in production.
+
+Verified against the public URL with the same gate CI runs:
+`bash scripts/ci-smoke.sh https://astrolabe.svalley.tech` → readiness all-green, the shell
+rendered rather than a stranded boundary, a working sign-in, an authorised journey read, and three
+refused cross-role calls.
+
+Two things that recreation of the edge container breaks, recorded because they bit during this
+deployment and are not visible in any config file: every network attachment not declared in the
+edge's own compose file is dropped (the crucible upstreams need `docker network connect
+crucible_default securevoice-ai-caddy-1` again), and the TLS volumes must be owned by the compose
+service user or Caddy starts with no certificate for any hostname.
 
 ## 3. How it is put together
 

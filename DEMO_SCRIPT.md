@@ -10,6 +10,11 @@ bun install && bun run dev          # http://localhost:3000
 bun run backtest                    # paste the scorecard into your notes
 ```
 
+No laptop to hand? The same build is live at **<https://astrolabe.svalley.tech>**, and it is the
+fall-back when the room has no network for a local run — but the local run is the one that works
+with the network off entirely, so prefer it. Admin and judge consoles are closed on the hosted
+instance by design; open them locally with the dev keys in `.env.example`.
+
 - Open five tabs: **Employee · Today**, **Employee · Ask**, **Employee · Requests**, **Employee · Me**,
   **Judge**. One more for **HRBP** if the room is big.
 - Set the display to 125–150% zoom, turn on **projector mode** (header toggle), and check the

@@ -3,6 +3,9 @@
 **Employee Journey Companion** for onboarding and internal mobility. Two pages: what it does, how
 it is built, and how consent, privacy and human oversight are enforced rather than described.
 
+Live: **<https://astrolabe.svalley.tech>** · repo: **<https://github.com/BROCKUGANDA/ASTROLABE>**
+(`v1.0.1`, container `ghcr.io/brockuganda/astrolabe:1.0.1`)
+
 ## The problem it attacks
 
 A joining or a transfer passes through HR, IT, Learning, Facilities, Immigration, Payroll and two
