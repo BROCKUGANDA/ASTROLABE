@@ -187,7 +187,7 @@ async function main(): Promise<number> {
   await sleep(2500);
   console.log(`capturing ${Object.keys(CAPTURES).length} beats from ${BASE}`);
 
-  for (const id of Object.keys(CAPTURES)) await CAPTURES[id]();
+  for (const id of Object.keys(CAPTURES)) await beat(id, CAPTURES[id]);
 
   await browser.close();
   if (problems.length) {
