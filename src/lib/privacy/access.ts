@@ -13,6 +13,7 @@
  * only and never appears in the client bundle.
  */
 
+import { timingSafeEqual } from "node:crypto";
 import type { ActorRole } from "./audit";
 
 export interface Session {
@@ -244,6 +245,37 @@ export function adminTokenExpected(): string {
 export function judgeKeyExpected(): string {
   if (process.env.ASTROLABE_JUDGE_KEY) return process.env.ASTROLABE_JUDGE_KEY;
   return process.env.NODE_ENV === "production" ? "" : "astrolabe-dev-judge";
+}
+
+/**
+ * Length-independent constant-time comparison.
+ *
+ * `token === expected` leaks the position of the first differing byte to anyone
+ * who can measure response time, which is the classic way a secret gets
+ * recovered one byte at a time. The length is compared up front because
+ * `timingSafeEqual` throws on a length mismatch — length is not a secret here,
+ * the token is.
+ */
+export function secretEquals(provided: string | null | undefined, expected: string): boolean {
+  if (!expected) return false; // an unset secret matches nothing, including ""
+  if (typeof provided !== "string" || provided.length === 0) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
+/**
+ * Does this request present the judge key?
+ *
+ * The comparison used to be `header === judgeKeyExpected()`. On a production
+ * host with no judge key configured that returns "", and a request carrying an
+ * empty `x-judge-key:` header satisfies "" === "" — which turned "the judge
+ * console is closed" into "anyone with an admin session becomes a judge by
+ * sending a blank header". An unset key now means no judge, full stop.
+ */
+export function judgeKeyPresented(headerValue: string | null): boolean {
+  return secretEquals(headerValue, judgeKeyExpected());
 }
 
 /**

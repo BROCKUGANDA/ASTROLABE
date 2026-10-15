@@ -50,8 +50,25 @@ ANON=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/v1/journey/me")
 
 # 5. Sign-in must work in production. A 500 here previously meant the session layer
 #    had no secret, and every console then spun on a 401 it never surfaced.
+#
+# The bot gate sits in front of this endpoint in production: a client that cannot
+# run JavaScript has no business authenticating, so it is refused by User-Agent
+# signature. Assert that first — a future edit that drops the check should fail
+# here rather than silently — then run the functional checks as a browser would.
+BOTUA=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+  -H 'content-type: application/json' \
+  -d '{"employeeId":"E-1042"}' "$BASE/api/v1/auth/sign-in")
+if [ "$BOTUA" = "403" ]; then
+  echo "bot gate: scripted client refused at sign-in (403)"
+elif [ "$BOTUA" = "200" ]; then
+  echo "bot gate: not armed (bare curl accepted). Only correct when NODE_ENV is not production."
+else
+  fail "sign-in with a scripted UA returned $BOTUA; expected 403 (armed) or 200 (dev, gate off)"
+fi
+
+BROWSER_UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
 CJ=$(mktemp)
-SIGNIN=$(curl -s -c "$CJ" -o /tmp/signin.json -w '%{http_code}' \
+SIGNIN=$(curl -s -A "$BROWSER_UA" -c "$CJ" -o /tmp/signin.json -w '%{http_code}' \
   -X POST -H 'content-type: application/json' \
   -d '{"employeeId":"E-1042"}' "$BASE/api/v1/auth/sign-in")
 [ "$SIGNIN" = "200" ] || fail "sign-in returned $SIGNIN"

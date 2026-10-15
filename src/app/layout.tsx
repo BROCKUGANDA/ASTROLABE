@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, IBM_Plex_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { SITE_FAQ, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL, absolute } from "@/lib/site";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 
 const inter = Inter({
@@ -23,72 +24,151 @@ const plexArabic = IBM_Plex_Sans_Arabic({
   display: "swap",
 });
 
-const SITE_URL = "https://astrolabe.internal";
-const SITE_TITLE = "ASTROLABE · Employee Journey Companion";
-const SITE_DESCRIPTION =
-  "A navigation instrument for onboarding and internal mobility. The deterministic engine decides — the model explains. Every answer cites its source. Unsure is a first-class answer.";
-
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: SITE_TITLE,
+  title: {
+    default: SITE_TITLE,
+    template: `%s · ${SITE_NAME}`,
+  },
   description: SITE_DESCRIPTION,
-  applicationName: "ASTROLABE",
+  applicationName: SITE_NAME,
   keywords: [
-    "ASTROLABE",
     "employee journey",
-    "onboarding",
+    "onboarding companion",
     "internal mobility",
     "responsible AI",
-    "Emirates",
+    "deterministic engine",
+    "consent-gated analytics",
+    "human oversight",
+    "Emirates cabin crew",
+    "policy citation",
+    "ASTROLABE",
   ],
-  authors: [{ name: "ASTROLABE" }],
-  creator: "ASTROLABE",
-  publisher: "ASTROLABE",
-  icons: { icon: "/logo.svg", apple: "/logo.svg" },
+  authors: [{ name: `${SITE_NAME} — Emirates challenge submission`, url: SITE_URL }],
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml", sizes: "any" },
+      { url: "/icons/favicon-32.png", type: "image/png", sizes: "32x32" },
+      { url: "/icons/favicon-64.png", type: "image/png", sizes: "64x64" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+  },
   manifest: "/manifest.webmanifest",
-  // Prototype is indexable; a real prod deployment would flip to noindex
-  // until the app is GA.
+  // The shell is public; everything behind a session is not, and the API says
+  // so itself with X-Robots-Tag (see src/middleware.ts).
   robots: {
     index: true,
     follow: true,
-    googleBot: { index: true, follow: true, "max-image-preview": "large" },
+    nocache: false,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
   },
   alternates: {
-    canonical: "/",
+    canonical: absolute("/"),
     languages: {
-      en: "/",
-      ar: "/?locale=ar",
+      "en-AE": absolute("/"),
+      "ar-AE": absolute("/?locale=ar"),
     },
   },
   openGraph: {
+    type: "website",
+    url: absolute("/"),
+    siteName: SITE_NAME,
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
-    type: "website",
-    locale: "en_US",
+    locale: "en_AE",
     alternateLocale: ["ar_AE"],
-    siteName: "ASTROLABE",
-    url: SITE_URL,
     images: [
       {
-        url: "/logo.svg",
-        width: 512,
-        height: 512,
-        alt: "ASTROLABE — Employee Journey Companion",
+        url: absolute("/og.png"),
+        width: 1200,
+        height: 630,
+        alt: `${SITE_NAME} — the employee journey console showing a named next step, its owner and its due date`,
       },
     ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
+    site: SITE_NAME,
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
-    images: ["/logo.svg"],
+    images: [absolute("/og.png")],
   },
-  verification: {
-    google: "astrolabe-verification",
-  },
+  appLinks: { web: { url: absolute("/"), should_fallback: true } },
   category: "technology",
   formatDetection: { telephone: false, address: false, email: false },
 };
+
+export const viewport: Viewport = {
+  themeColor: "#169AA5",
+  colorScheme: "dark",
+  width: "device-width",
+  initialScale: 1,
+};
+
+/**
+ * Structured data for search and answer engines. A graph rather than one blob
+ * because the three nodes answer different questions: what the application is,
+ * who publishes it, and the specific claims a model is asked to repeat.
+ *
+ * Every answer in the FAQ node is a behaviour the repository enforces, not
+ * marketing copy — an answer engine quoting a claim the product does not keep is
+ * the worst possible outcome of publishing structured data.
+ */
+function jsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebApplication",
+        "@id": absolute("/#app"),
+        name: `${SITE_NAME} — Employee Journey Companion`,
+        url: absolute("/"),
+        description: SITE_DESCRIPTION,
+        applicationCategory: "BusinessApplication",
+        applicationSubCategory: "Employee journey navigation",
+        operatingSystem: "Web",
+        browserRequirements: "Requires JavaScript",
+        inLanguage: ["en-AE", "ar-AE"],
+        isAccessibleForFree: true,
+        offers: { "@type": "Offer", price: "0", priceCurrency: "AED" },
+        featureList: [
+          "deterministic journey engine over an append-only event log",
+          "42 versioned friction signals in seven families",
+          "as-of replay with no future-data leakage",
+          "cited bilingual policy answers with abstain-and-handoff",
+          "consent-gated pulse analytics",
+          "hash-chained audit log exposed to the employee",
+          "named-human escalation packets",
+        ],
+      },
+      {
+        "@type": "Organization",
+        "@id": absolute("/#org"),
+        name: SITE_NAME,
+        url: SITE_URL,
+        logo: absolute("/icon.svg"),
+        sameAs: ["https://github.com/BROCKUGANDA/ASTROLABE"],
+      },
+      {
+        "@type": "FAQPage",
+        "@id": absolute("/#faq"),
+        mainEntity: SITE_FAQ.map((f) => ({
+          "@type": "Question",
+          name: f.question,
+          acceptedAnswer: { "@type": "Answer", text: f.answer },
+        })),
+      },
+    ],
+  };
+}
 
 export default function RootLayout({
   children,
@@ -103,6 +183,10 @@ export default function RootLayout({
         {children}
         <Toaster />
         <SonnerToaster />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd()) }}
+        />
       </body>
     </html>
   );

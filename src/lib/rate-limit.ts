@@ -79,25 +79,33 @@ export function rateLimit(identifier: string, limit: number, windowMs: number): 
 }
 
 /**
- * Pull the client IP out of the incoming request. Falls back to the
- * connection's remote address when no proxy header is present, and finally
- * to the literal string "unknown" so the limiter always has a key to hash.
+ * The client identity the limiter keys on.
  *
- * The limiter is per-IP for general traffic, and per-(ip+userId) for the
- * authenticated endpoints (ask, requests, escalations) — see the presets
- * below.
+ * This used to take the LEFTMOST `X-Forwarded-For` entry, which is the one value
+ * a caller writes themselves: `curl -H 'X-Forwarded-For: 1.2.3.4'` bought a fresh
+ * budget on every request and the rate limits were decorative.
+ *
+ * Trust order, for a topology where Caddy is the only way in:
+ *   1. `X-Real-IP`, which the edge sets from the true peer and overwrites.
+ *   2. the RIGHTMOST `X-Forwarded-For` entry — the hop the trusted proxy appended
+ *      last, not anything the client claimed.
+ *   3. the socket address, when there is no proxy in front (a local run).
+ * A deployment behind a second proxy must extend this list rather than loosen it.
  */
 export function getClientIp(req: NextRequest): string {
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp && realIp.trim()) return realIp.trim();
+
   const xff = req.headers.get("x-forwarded-for");
   if (xff) {
-    const first = xff.split(",")[0]?.trim();
-    if (first) return first;
+    const hops = xff
+      .split(",")
+      .map((h) => h.trim())
+      .filter(Boolean);
+    const last = hops[hops.length - 1];
+    if (last) return last;
   }
-  const realIp = req.headers.get("x-real-ip");
-  if (realIp) return realIp.trim();
-  // `request.ip` is only available on Next.js' edge runtime / pages router.
-  // In the App Router it lives on `req` as a non-typed accessor — read it
-  // defensively so the limiter never throws.
+
   const ipFromConn = (req as unknown as { ip?: string }).ip;
   if (ipFromConn) return ipFromConn;
   return "unknown";

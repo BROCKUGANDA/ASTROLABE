@@ -15,10 +15,12 @@ import {
   SESSION_COOKIE,
   SESSION_MAX_AGE_SECONDS,
   adminTokenExpected,
-  judgeKeyExpected,
+  judgeKeyPresented,
   newSession,
+  secretEquals,
   signSession,
 } from "@/lib/privacy/access";
+import { clearSignInFailures, recordSignInFailure, signInLockState } from "@/lib/antibot";
 import { appendAudit } from "@/lib/privacy/audit";
 import { logger } from "@/lib/logger";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
@@ -282,11 +284,25 @@ export async function POST(req: NextRequest) {
   // Admin and judge are separate, revocable keys — not a clickable role.
   const adminExpected = adminTokenExpected();
   if (body.adminToken) {
-    if (!adminExpected || body.adminToken !== adminExpected) {
-      logger.warn("auth failure", { reason: "bad_admin_token" });
+    // Two secrets are checked on this path, so this is the only place a bot can
+    // actually guess something. Rejections escalate: five bad tokens start a
+    // one-minute lock, and each further five quadruples it.
+    const strikeKey = `signin:${ip}`;
+    const lock = signInLockState(strikeKey);
+    if (lock.locked) {
+      logger.warn("auth failure", { reason: "locked_out", ip, retryAfter: lock.retryAfterSeconds });
+      return error("E_RATE_LIMIT", "Too many rejected attempts from this address.", 429, {
+        hint: `Try again in ${lock.retryAfterSeconds}s.`,
+        retryable: true,
+      });
+    }
+    if (!secretEquals(body.adminToken, adminExpected)) {
+      recordSignInFailure(strikeKey);
+      logger.warn("auth failure", { reason: "bad_admin_token", ip });
       return error("E_AUTH", "Admin token rejected.", 401, { retryable: false });
     }
-    const isJudge = req.headers.get("x-judge-key") === judgeKeyExpected();
+    clearSignInFailures(strikeKey);
+    const isJudge = judgeKeyPresented(req.headers.get("x-judge-key"));
     const session = newSession({
       sub: isJudge ? "judge-mode" : "admin-console",
       role: isJudge ? "judge" : "admin",

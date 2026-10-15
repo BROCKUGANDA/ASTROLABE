@@ -10,6 +10,7 @@
    ============================================================ */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDistance } from "date-fns";
 import { ar as arLocale, enUS } from "date-fns/locale";
@@ -156,6 +157,10 @@ export function NotificationsBell() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  // The drawer is portalled to <body> (see the note at the panel). Resolved
+  // after mount so this never runs during server rendering.
+  const [portal, setPortal] = useState<HTMLElement | null>(null);
+  useEffect(() => setPortal(document.body), []);
 
   const isAr = locale === "ar";
   const dateLocale: Locale = isAr ? arLocale : enUS;
@@ -360,315 +365,333 @@ export function NotificationsBell() {
         )}
       </button>
 
-      {/* ---------- PANEL ---------- */}
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            key="notif-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            className="fixed inset-0 z-50"
-            style={{ background: "rgba(11,17,28,0.72)", backdropFilter: "blur(6px)" }}
-            onClick={() => setOpen(false)}
-            dir={isAr ? "rtl" : "ltr"}
-          >
-            <motion.div
-              key="notif-panel"
-              initial={{ x: isAr ? "-100%" : "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: isAr ? "-100%" : "100%" }}
-              transition={{ type: "spring", stiffness: 360, damping: 36 }}
-              onClick={(e) => e.stopPropagation()}
-              className="ast-card-glass absolute top-0 bottom-0 w-full sm:w-[420px] flex flex-col"
-              style={{
-                [isAr ? "left" : "right"]: 0,
-                borderRadius: 0,
-                borderInlineStart: "1px solid rgba(22, 154, 165, 0.18)",
-                boxShadow: "var(--e3)",
-              }}
-              role="dialog"
-              aria-modal="true"
-              aria-label={isAr ? "صندوق الإشعارات" : "Notifications inbox"}
-            >
-              {/* ===== Header ===== */}
-              <div
-                className="flex items-center gap-2 px-4 h-14 shrink-0 border-b"
-                style={{ borderColor: "var(--border)" }}
+      {/* ---------- PANEL ----------
+          Portalled to <body>: <header> is sticky with backdrop-blur and a
+          transform, and either makes an element the containing block for
+          `position: fixed` descendants. Inside the header, `fixed inset-0`
+          resolved to the 178px header box instead of the viewport, the panel
+          came out 177px tall, and its list had zero height — nothing to scroll
+          and the newest items unreachable. */}
+      {portal &&
+        createPortal(
+          <AnimatePresence>
+            {open && (
+              <motion.div
+                key="notif-overlay"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+                className="fixed inset-0 z-50"
+                style={{ background: "rgba(11,17,28,0.72)", backdropFilter: "blur(6px)" }}
+                onClick={() => setOpen(false)}
+                dir={isAr ? "rtl" : "ltr"}
               >
-                <div className="flex items-center gap-2">
+                <motion.div
+                  key="notif-panel"
+                  initial={{ x: isAr ? "-100%" : "100%" }}
+                  animate={{ x: 0 }}
+                  exit={{ x: isAr ? "-100%" : "100%" }}
+                  transition={{ type: "spring", stiffness: 360, damping: 36 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="ast-card-glass absolute top-0 bottom-0 w-full sm:w-[420px] flex flex-col"
+                  style={{
+                    [isAr ? "left" : "right"]: 0,
+                    borderRadius: 0,
+                    borderInlineStart: "1px solid rgba(22, 154, 165, 0.18)",
+                    boxShadow: "var(--e3)",
+                  }}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label={isAr ? "صندوق الإشعارات" : "Notifications inbox"}
+                >
+                  {/* ===== Header ===== */}
                   <div
-                    className="flex items-center justify-center w-7 h-7 rounded-full"
-                    style={{
-                      background: "rgba(22,154,165,0.12)",
-                      border: "1px solid rgba(22,154,165,0.30)",
-                      color: "var(--brand-400)",
-                    }}
+                    className="flex items-center gap-2 px-4 h-14 shrink-0 border-b"
+                    style={{ borderColor: "var(--border)" }}
                   >
-                    <Bell className="w-3.5 h-3.5" strokeWidth={1.75} />
-                  </div>
-                  <div className="flex flex-col leading-none">
-                    <span className="text-[14px] font-semibold" style={{ color: "var(--text-hi)" }}>
-                      {isAr ? "الإشعارات" : "Notifications"}
-                    </span>
-                    <span
-                      className="text-[10px] tabular mt-0.5"
-                      style={{ color: "var(--text-lo)" }}
-                    >
-                      {unreadCount > 0
-                        ? isAr
-                          ? `${unreadCount} غير مقروء`
-                          : `${unreadCount} unread`
-                        : isAr
-                          ? "كل شيء مقروء"
-                          : "All caught up"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="ms-auto flex items-center gap-1">
-                  <button
-                    onClick={markAllRead}
-                    disabled={unreadCount === 0 || pendingAction === "mark-all"}
-                    aria-label={isAr ? "تعليم الكل كمقروء" : "Mark all read"}
-                    title={isAr ? "تعليم الكل كمقروء" : "Mark all read"}
-                    className="ast-focus inline-flex items-center gap-1.5 h-8 px-2.5 rounded-full text-[11px] font-medium transition-colors disabled:opacity-40"
-                    style={{
-                      background: "var(--surface-2)",
-                      border: "1px solid var(--border)",
-                      color: "var(--text-mid)",
-                    }}
-                  >
-                    <CheckCheck className="w-3 h-3" strokeWidth={1.75} />
-                    <span className="hidden sm:inline">{isAr ? "قراءة الكل" : "Mark all"}</span>
-                  </button>
-                  <button
-                    onClick={() => setOpen(false)}
-                    aria-label={isAr ? "إغلاق" : "Close"}
-                    className="ast-focus inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors"
-                    style={{
-                      background: "var(--surface-2)",
-                      border: "1px solid var(--border)",
-                      color: "var(--text-mid)",
-                    }}
-                  >
-                    <X className="w-3.5 h-3.5" strokeWidth={1.75} />
-                  </button>
-                </div>
-              </div>
-
-              {/* ===== Filter tabs ===== */}
-              <div
-                className="flex items-center gap-1 px-3 py-2 shrink-0 border-b overflow-x-auto"
-                style={{ borderColor: "var(--border-soft)" }}
-              >
-                {(
-                  [
-                    { id: "all", label: "All", labelAr: "الكل" },
-                    { id: "unread", label: "Unread", labelAr: "غير مقروء" },
-                    { id: "urgent", label: "Urgent", labelAr: "عاجل" },
-                    { id: "archived", label: "Archived", labelAr: "مؤرشف" },
-                  ] as { id: Filter; label: string; labelAr: string }[]
-                ).map((t) => {
-                  const isActive = filter === t.id;
-                  const count =
-                    t.id === "all"
-                      ? items.filter((n) => !n.archivedAt).length
-                      : t.id === "unread"
-                        ? unreadCount
-                        : t.id === "urgent"
-                          ? items.filter((n) => n.priority === "urgent" && !n.archivedAt).length
-                          : items.filter((n) => !!n.archivedAt).length;
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => setFilter(t.id)}
-                      aria-pressed={isActive}
-                      className="ast-focus relative inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-[11px] font-medium whitespace-nowrap transition-colors"
-                      style={{
-                        background: isActive ? "var(--brand-500)" : "transparent",
-                        color: isActive ? "var(--surface-0)" : "var(--text-mid)",
-                        border: `1px solid ${isActive ? "var(--brand-500)" : "var(--border)"}`,
-                      }}
-                    >
-                      {isAr ? t.labelAr : t.label}
-                      {count > 0 && (
-                        <span className="tabular text-[10px] opacity-80" aria-hidden="true">
-                          {count}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* ===== List (scrollable) ===== */}
-              <div className="flex-1 overflow-y-auto">
-                {loading && !data ? (
-                  <div className="p-4 space-y-3" aria-hidden="true">
-                    {[0, 1, 2, 3].map((i) => (
+                    <div className="flex items-center gap-2">
                       <div
-                        key={i}
-                        className="ast-shimmer h-[88px] rounded-xl"
-                        style={{ border: "1px solid var(--border-soft)" }}
-                      />
-                    ))}
-                  </div>
-                ) : error ? (
-                  <div className="p-6 text-center">
-                    <AlertTriangle
-                      className="w-6 h-6 mx-auto mb-2"
-                      style={{ color: "var(--status-friction)" }}
-                      strokeWidth={1.75}
-                    />
-                    <p className="text-[12px] mb-3" style={{ color: "var(--text-mid)" }}>
-                      {error}
-                    </p>
-                    <button
-                      onClick={fetchNotifications}
-                      className="ast-focus inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[11px]"
-                      style={{
-                        background: "var(--surface-2)",
-                        border: "1px solid var(--border)",
-                        color: "var(--text-hi)",
-                      }}
-                    >
-                      {isAr ? "إعادة المحاولة" : "Retry"}
-                    </button>
-                  </div>
-                ) : filtered.length === 0 ? (
-                  <EmptyState isAr={isAr} filter={filter} />
-                ) : (
-                  <div className="py-2">
-                    {(["today", "yesterday", "earlier"] as const).map((bucket) => {
-                      const list = grouped[bucket];
-                      if (list.length === 0) return null;
-                      const label =
-                        bucket === "today"
-                          ? isAr
-                            ? "اليوم"
-                            : "Today"
-                          : bucket === "yesterday"
+                        className="flex items-center justify-center w-7 h-7 rounded-full"
+                        style={{
+                          background: "rgba(22,154,165,0.12)",
+                          border: "1px solid rgba(22,154,165,0.30)",
+                          color: "var(--brand-400)",
+                        }}
+                      >
+                        <Bell className="w-3.5 h-3.5" strokeWidth={1.75} />
+                      </div>
+                      <div className="flex flex-col leading-none">
+                        <span
+                          className="text-[14px] font-semibold"
+                          style={{ color: "var(--text-hi)" }}
+                        >
+                          {isAr ? "الإشعارات" : "Notifications"}
+                        </span>
+                        <span
+                          className="text-[10px] tabular mt-0.5"
+                          style={{ color: "var(--text-lo)" }}
+                        >
+                          {unreadCount > 0
                             ? isAr
-                              ? "أمس"
-                              : "Yesterday"
+                              ? `${unreadCount} غير مقروء`
+                              : `${unreadCount} unread`
                             : isAr
-                              ? "أقدم"
-                              : "Earlier";
+                              ? "كل شيء مقروء"
+                              : "All caught up"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="ms-auto flex items-center gap-1">
+                      <button
+                        onClick={markAllRead}
+                        disabled={unreadCount === 0 || pendingAction === "mark-all"}
+                        aria-label={isAr ? "تعليم الكل كمقروء" : "Mark all read"}
+                        title={isAr ? "تعليم الكل كمقروء" : "Mark all read"}
+                        className="ast-focus inline-flex items-center gap-1.5 h-8 px-2.5 rounded-full text-[11px] font-medium transition-colors disabled:opacity-40"
+                        style={{
+                          background: "var(--surface-2)",
+                          border: "1px solid var(--border)",
+                          color: "var(--text-mid)",
+                        }}
+                      >
+                        <CheckCheck className="w-3 h-3" strokeWidth={1.75} />
+                        <span className="hidden sm:inline">{isAr ? "قراءة الكل" : "Mark all"}</span>
+                      </button>
+                      <button
+                        onClick={() => setOpen(false)}
+                        aria-label={isAr ? "إغلاق" : "Close"}
+                        className="ast-focus inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors"
+                        style={{
+                          background: "var(--surface-2)",
+                          border: "1px solid var(--border)",
+                          color: "var(--text-mid)",
+                        }}
+                      >
+                        <X className="w-3.5 h-3.5" strokeWidth={1.75} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* ===== Filter tabs ===== */}
+                  <div
+                    className="flex items-center gap-1 px-3 py-2 shrink-0 border-b overflow-x-auto"
+                    style={{ borderColor: "var(--border-soft)" }}
+                  >
+                    {(
+                      [
+                        { id: "all", label: "All", labelAr: "الكل" },
+                        { id: "unread", label: "Unread", labelAr: "غير مقروء" },
+                        { id: "urgent", label: "Urgent", labelAr: "عاجل" },
+                        { id: "archived", label: "Archived", labelAr: "مؤرشف" },
+                      ] as { id: Filter; label: string; labelAr: string }[]
+                    ).map((t) => {
+                      const isActive = filter === t.id;
+                      const count =
+                        t.id === "all"
+                          ? items.filter((n) => !n.archivedAt).length
+                          : t.id === "unread"
+                            ? unreadCount
+                            : t.id === "urgent"
+                              ? items.filter((n) => n.priority === "urgent" && !n.archivedAt).length
+                              : items.filter((n) => !!n.archivedAt).length;
                       return (
-                        <section key={bucket} className="mb-1">
-                          <div
-                            className="px-4 py-1.5 text-[10px] uppercase tracking-[0.16em] sticky top-0"
-                            style={{
-                              color: "var(--text-lo)",
-                              background: "var(--surface-1)",
-                            }}
-                          >
-                            {label}
-                          </div>
-                          {list.map((n) => (
-                            <NotificationCard
-                              key={n.id}
-                              n={n}
-                              isAr={isAr}
-                              dateLocale={dateLocale}
-                              pendingAction={pendingAction}
-                              onActionClick={handleActionClick}
-                              onSnooze={(hours) => postAction(n.id, "snooze", hours)}
-                              onArchive={() => postAction(n.id, "archive")}
-                            />
-                          ))}
-                        </section>
+                        <button
+                          key={t.id}
+                          onClick={() => setFilter(t.id)}
+                          aria-pressed={isActive}
+                          className="ast-focus relative inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-[11px] font-medium whitespace-nowrap transition-colors"
+                          style={{
+                            background: isActive ? "var(--brand-500)" : "transparent",
+                            color: isActive ? "var(--surface-0)" : "var(--text-mid)",
+                            border: `1px solid ${isActive ? "var(--brand-500)" : "var(--border)"}`,
+                          }}
+                        >
+                          {isAr ? t.labelAr : t.label}
+                          {count > 0 && (
+                            <span className="tabular text-[10px] opacity-80" aria-hidden="true">
+                              {count}
+                            </span>
+                          )}
+                        </button>
                       );
                     })}
                   </div>
-                )}
-              </div>
 
-              {/* ===== Footer: quiet hours + kill switch ===== */}
-              <div
-                className="shrink-0 border-t px-4 py-3 space-y-3"
-                style={{
-                  borderColor: "var(--border)",
-                  background: "var(--surface-2)",
-                }}
-              >
-                {/* Quiet hours */}
-                <div
-                  className="flex items-center gap-2 text-[11px]"
-                  style={{ color: "var(--text-mid)" }}
-                >
-                  <Moon
-                    className="w-3.5 h-3.5 shrink-0"
-                    style={{ color: "var(--brand-400)" }}
-                    strokeWidth={1.75}
-                  />
-                  <span className="leading-snug">
-                    {isAr ? "ساعات الهدوء: " : "Quiet hours: "}
-                    <span className="tabular" style={{ color: "var(--text-hi)" }}>
-                      {data?.quietHours.start}–{data?.quietHours.end}
-                    </span>{" "}
-                    <span style={{ color: "var(--text-lo)" }}>({data?.quietHours.tz})</span>
-                    {isAr ? " — لن نزعجك خلالها." : " — we won't disturb you then."}
-                  </span>
-                </div>
-
-                {/* Kill switch */}
-                <div
-                  className="flex items-center gap-3 p-2.5 rounded-lg"
-                  style={{
-                    background: killSwitchOn ? "rgba(220,38,38,0.08)" : "var(--surface-3)",
-                    border: `1px solid ${killSwitchOn ? "rgba(220,38,38,0.30)" : "var(--border)"}`,
-                  }}
-                >
-                  <div
-                    className="flex items-center justify-center w-8 h-8 rounded-full shrink-0"
-                    style={{
-                      background: killSwitchOn ? "rgba(220,38,38,0.14)" : "var(--surface-2)",
-                      color: killSwitchOn ? "var(--status-friction)" : "var(--text-mid)",
-                    }}
-                  >
-                    {killSwitchOn ? (
-                      <BellOff className="w-4 h-4" strokeWidth={1.75} />
+                  {/* ===== List (scrollable) =====
+                  min-h-0 is what makes it scroll. A flex item's default
+                  min-height is `auto`, so without it this row grows to the full
+                  height of the notification list, the drawer never becomes
+                  shorter than its content, and `overflow-y-auto` has nothing to
+                  scroll — the last items were unreachable by any input. */}
+                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+                    {loading && !data ? (
+                      <div className="p-4 space-y-3" aria-hidden="true">
+                        {[0, 1, 2, 3].map((i) => (
+                          <div
+                            key={i}
+                            className="ast-shimmer h-[88px] rounded-xl"
+                            style={{ border: "1px solid var(--border-soft)" }}
+                          />
+                        ))}
+                      </div>
+                    ) : error ? (
+                      <div className="p-6 text-center">
+                        <AlertTriangle
+                          className="w-6 h-6 mx-auto mb-2"
+                          style={{ color: "var(--status-friction)" }}
+                          strokeWidth={1.75}
+                        />
+                        <p className="text-[12px] mb-3" style={{ color: "var(--text-mid)" }}>
+                          {error}
+                        </p>
+                        <button
+                          onClick={fetchNotifications}
+                          className="ast-focus inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[11px]"
+                          style={{
+                            background: "var(--surface-2)",
+                            border: "1px solid var(--border)",
+                            color: "var(--text-hi)",
+                          }}
+                        >
+                          {isAr ? "إعادة المحاولة" : "Retry"}
+                        </button>
+                      </div>
+                    ) : filtered.length === 0 ? (
+                      <EmptyState isAr={isAr} filter={filter} />
                     ) : (
-                      <Bell className="w-4 h-4" strokeWidth={1.75} />
+                      <div className="py-2">
+                        {(["today", "yesterday", "earlier"] as const).map((bucket) => {
+                          const list = grouped[bucket];
+                          if (list.length === 0) return null;
+                          const label =
+                            bucket === "today"
+                              ? isAr
+                                ? "اليوم"
+                                : "Today"
+                              : bucket === "yesterday"
+                                ? isAr
+                                  ? "أمس"
+                                  : "Yesterday"
+                                : isAr
+                                  ? "أقدم"
+                                  : "Earlier";
+                          return (
+                            <section key={bucket} className="mb-1">
+                              <div
+                                className="px-4 py-1.5 text-[10px] uppercase tracking-[0.16em] sticky top-0"
+                                style={{
+                                  color: "var(--text-lo)",
+                                  background: "var(--surface-1)",
+                                }}
+                              >
+                                {label}
+                              </div>
+                              {list.map((n) => (
+                                <NotificationCard
+                                  key={n.id}
+                                  n={n}
+                                  isAr={isAr}
+                                  dateLocale={dateLocale}
+                                  pendingAction={pendingAction}
+                                  onActionClick={handleActionClick}
+                                  onSnooze={(hours) => postAction(n.id, "snooze", hours)}
+                                  onArchive={() => postAction(n.id, "archive")}
+                                />
+                              ))}
+                            </section>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
+
+                  {/* ===== Footer: quiet hours + kill switch ===== */}
+                  <div
+                    className="shrink-0 border-t px-4 py-3 space-y-3"
+                    style={{
+                      borderColor: "var(--border)",
+                      background: "var(--surface-2)",
+                    }}
+                  >
+                    {/* Quiet hours */}
                     <div
-                      className="text-[12px] font-semibold leading-tight"
+                      className="flex items-center gap-2 text-[11px]"
+                      style={{ color: "var(--text-mid)" }}
+                    >
+                      <Moon
+                        className="w-3.5 h-3.5 shrink-0"
+                        style={{ color: "var(--brand-400)" }}
+                        strokeWidth={1.75}
+                      />
+                      <span className="leading-snug">
+                        {isAr ? "ساعات الهدوء: " : "Quiet hours: "}
+                        <span className="tabular" style={{ color: "var(--text-hi)" }}>
+                          {data?.quietHours.start}–{data?.quietHours.end}
+                        </span>{" "}
+                        <span style={{ color: "var(--text-lo)" }}>({data?.quietHours.tz})</span>
+                        {isAr ? " — لن نزعجك خلالها." : " — we won't disturb you then."}
+                      </span>
+                    </div>
+
+                    {/* Kill switch */}
+                    <div
+                      className="flex items-center gap-3 p-2.5 rounded-lg"
                       style={{
-                        color: killSwitchOn ? "var(--status-friction)" : "var(--text-hi)",
+                        background: killSwitchOn ? "rgba(220,38,38,0.08)" : "var(--surface-3)",
+                        border: `1px solid ${killSwitchOn ? "rgba(220,38,38,0.30)" : "var(--border)"}`,
                       }}
                     >
-                      {isAr ? "إيقاف كل الإشعارات" : "Stop all notifications"}
-                    </div>
-                    <div
-                      className="text-[10px] leading-tight mt-0.5"
-                      style={{ color: "var(--text-lo)" }}
-                    >
-                      {killSwitchOn
-                        ? isAr
-                          ? "كل الإشعارات الصادرة متوقفة الآن."
-                          : "All outbound notifications are off right now."
-                        : isAr
-                          ? "مفتاح إيقاف فوري لكل الرسائل."
-                          : "Instant kill switch for every outbound message."}
+                      <div
+                        className="flex items-center justify-center w-8 h-8 rounded-full shrink-0"
+                        style={{
+                          background: killSwitchOn ? "rgba(220,38,38,0.14)" : "var(--surface-2)",
+                          color: killSwitchOn ? "var(--status-friction)" : "var(--text-mid)",
+                        }}
+                      >
+                        {killSwitchOn ? (
+                          <BellOff className="w-4 h-4" strokeWidth={1.75} />
+                        ) : (
+                          <Bell className="w-4 h-4" strokeWidth={1.75} />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div
+                          className="text-[12px] font-semibold leading-tight"
+                          style={{
+                            color: killSwitchOn ? "var(--status-friction)" : "var(--text-hi)",
+                          }}
+                        >
+                          {isAr ? "إيقاف كل الإشعارات" : "Stop all notifications"}
+                        </div>
+                        <div
+                          className="text-[10px] leading-tight mt-0.5"
+                          style={{ color: "var(--text-lo)" }}
+                        >
+                          {killSwitchOn
+                            ? isAr
+                              ? "كل الإشعارات الصادرة متوقفة الآن."
+                              : "All outbound notifications are off right now."
+                            : isAr
+                              ? "مفتاح إيقاف فوري لكل الرسائل."
+                              : "Instant kill switch for every outbound message."}
+                        </div>
+                      </div>
+                      <Switch
+                        checked={killSwitchOn}
+                        onCheckedChange={toggleKillSwitch}
+                        aria-label={isAr ? "مفتاح إيقاف الإشعارات" : "Notification kill switch"}
+                        className="data-[state=checked]:bg-[var(--status-friction)]"
+                      />
                     </div>
                   </div>
-                  <Switch
-                    checked={killSwitchOn}
-                    onCheckedChange={toggleKillSwitch}
-                    aria-label={isAr ? "مفتاح إيقاف الإشعارات" : "Notification kill switch"}
-                    className="data-[state=checked]:bg-[var(--status-friction)]"
-                  />
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          portal,
         )}
-      </AnimatePresence>
     </>
   );
 }

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="ASTROLABE">
+  <!-- The brand mark from the console header: a teal-lit disc with a brass
+       rim, the compass glyph, and the brass signal dot at the shoulder.
+       Drawn on a full square canvas so it is also valid as a maskable icon. -->
+  <defs>
+    <radialGradient id="disc" cx="30%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#169AA5" stop-opacity="0.55" />
+      <stop offset="55%" stop-color="#0E5C63" stop-opacity="0.42" />
+      <stop offset="100%" stop-color="#0B111C" stop-opacity="1" />
+    </radialGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="14" fill="#0B111C" />
+  <circle cx="32" cy="32" r="27" fill="url(#disc)" />
+  <circle cx="32" cy="32" r="27" fill="none" stroke="#169AA5" stroke-opacity="0.45" stroke-width="1.5" />
+  <circle cx="32" cy="32" r="29" fill="none" stroke="#C9A227" stroke-opacity="0.18" stroke-width="1" />
+
+  <!-- lucide <Compass> at strokeWidth 1.75, scaled 2x into the 64 grid -->
+  <g transform="translate(11 11) scale(1.75)" fill="none" stroke="#2FB5BF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z" fill="#2FB5BF" fill-opacity="0.9" />
+  </g>
+
+  <circle cx="52" cy="12" r="4.5" fill="#C9A227" />
+  <circle cx="52" cy="12" r="6.5" fill="#C9A227" fill-opacity="0.22" />
+</svg>

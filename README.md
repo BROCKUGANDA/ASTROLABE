@@ -58,7 +58,7 @@ bun run backtest     # PRD §22 scorecard with every metric gate
 bun run verify       # all of the above plus a production build
 ```
 
-`bun test` is the gate that matters: **92 tests** covering all 42 friction signals at their
+`bun test` is the gate that matters: **155 tests** covering all 42 friction signals at their
 boundary values, replay/leakage invariance, consent suppression, band arithmetic, golden
 assessment snapshots, and negative authority tests that pass only when the server refuses.
 
@@ -73,6 +73,7 @@ Everything runs with defaults. Optional variables, all server-side only:
 | `ASTROLABE_JUDGE_KEY` | `astrolabe-dev-judge` in dev | Separate, revocable judge-mode key |
 | `ASTROLABE_LIVE_CLOCK` | off | Off = the frozen demo clock (2024-10-19). `1` = real wall clock for live data |
 | `DATABASE_URL` | `file:./db/custom.db` | Prisma/SQLite. The prototype's source of truth is the append-only pack log in memory |
+| `SITE_URL` | `https://astrolabe.svalley.tech` | Public origin. Canonical URLs, the sitemap, robots' `Sitemap:` line, Open Graph and the structured data all resolve against it |
 
 The clock matters: the synthetic pack is frozen at a fixed instant, so all reads share **one
 authoritative clock** (`src/lib/engine/clock.ts`). Point `ASTROLABE_LIVE_CLOCK=1` at real data and
@@ -128,6 +129,77 @@ deployment and are not visible in any config file: every network attachment not 
 edge's own compose file is dropped (the crucible upstreams need `docker network connect
 crucible_default securevoice-ai-caddy-1` again), and the TLS volumes must be owned by the compose
 service user or Caddy starts with no certificate for any hostname.
+
+### Hardening
+
+`src/middleware.ts` is the whole surface, and each choice is a trade rather than a
+default:
+
+- **CSP.** `script-src` keeps `'unsafe-inline'` (Next emits inline bootstrap scripts and
+  the app styles with inline `style` attributes) but drops `'unsafe-eval'` in production —
+  it is a dev-server need and shipping it advertises that the page executes strings.
+  `img-src` no longer carries a bare `https:`; every image here is local, a `data:` URI or
+  a blob, and a wildcard image source is a tracking and exfiltration channel nobody asked
+  for. `upgrade-insecure-requests`, `frame-ancestors 'none'`, `base-uri`, `form-action`.
+- **COOP / CORP / `X-Permitted-Cross-Domain-Policies: none` / `Origin-Agent-Cluster`**, and
+  `X-Powered-By` disabled — the framework version is not information this deployment needs
+  to volunteer.
+- **`X-Robots-Tag: noindex, nofollow, noarchive`** on every `/api/*` response. `robots.txt`
+  is a request; the header is the part that still applies when someone links straight to a
+  response anyway.
+- **`x-request-id` is validated, not trusted.** It is copied into logs and echoed back in a
+  response header, so an unchecked client value is a log-injection and header-splitting
+  primitive. Anything that is not `[A-Za-z0-9._:-]{1,64}` is discarded and regenerated.
+  Verified: `judge-rehearsal-7` passes through, `<script>alert(1)</script>` comes back as a
+  fresh UUID.
+- **The build no longer ignores type errors.** The scaffold shipped
+  `typescript.ignoreBuildErrors: true`, which let `next build` emit an artifact from code the
+  type checker rejects — in a product whose claim is that a wrong number is caught before it
+  ships, that is a loaded gun.
+
+### Bot exposure, stated honestly
+
+`src/lib/antibot.ts` refuses clients that cannot run JavaScript at the credential endpoint
+(`/api/v1/auth/*`) and refuses cross-origin writes. **A User-Agent string is written by the
+caller**, so this raises the cost of naive scripting; it is not a wall, and anyone determined
+sets a Chrome UA.
+
+What actually holds is behind it:
+
+- The rate limiter keys on an **un-spoofable** client identity. It used to take the leftmost
+  `X-Forwarded-For` entry — the one value a caller writes themselves — so `curl -H
+  'X-Forwarded-For: 1.2.3.4'` bought a fresh budget on every request and the published limits
+  were decorative. It now prefers the edge-set `X-Real-IP`, then the rightmost forwarded hop.
+- Rejected privileged sign-ins **escalate**: five rejections start a one-minute lock and each
+  further five quadruples it, capped at an hour.
+- Privileged secrets are compared in **constant time**, and an unset secret matches nothing —
+  including the empty string.
+- Headless browsers are deliberately **not** blocked: they execute the app, their UA is
+  spoofable anyway, and this project's own verification (frame capture, accessibility audits)
+  runs in one.
+
+`scripts/ci-smoke.sh` asserts the gate is armed *before* it runs the functional sign-in as a
+browser would, so a future edit that drops the check fails the pipeline.
+
+### Being found
+
+`src/lib/site.ts` is the single source for the origin, the description and the answer set.
+Metadata, `robots.txt`, `sitemap.xml`, the PWA manifest and the structured data all read it —
+previously the origin was the literal `https://astrolabe.internal` pasted into four files, a
+host that does not exist, so every canonical URL and the `Sitemap:` line pointed nowhere.
+
+- **Icons** are the header's own brand mark (teal disc, compass, brass signal dot), authored at
+  `public/icon.svg` and rendered to PNG by `bun run scripts/make-icons.ts`: favicons at 32/64,
+  `apple-touch-icon` at 180, PWA 192/512 plus a `maskable` copy that keeps the mark inside the
+  launcher's safe zone, and a 1200×630 `og.png`. The scaffold's unrelated `logo.svg` is gone.
+- **Structured data** is a `@graph` of `WebApplication`, `Organization` and a six-question
+  `FAQPage`. Every answer is a behaviour the repository enforces — consent gating the
+  arithmetic, the absent sentiment field, k=5 suppression, abstain-and-handoff — because an
+  answer engine quoting a claim the product does not keep is worse than no structured data.
+- **`/llms.txt`** publishes the same claims as plain text for models that read the document
+  rather than execute the console.
+- A fabricated `verification.google` token was removed; a verification tag that verifies
+  nothing is the same kind of decoration this project keeps deleting.
 
 ## 3. How it is put together
 
