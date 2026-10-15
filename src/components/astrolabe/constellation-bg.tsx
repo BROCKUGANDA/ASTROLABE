@@ -45,8 +45,8 @@ interface ShootingStar {
   speed: number; // |v| (px/sec) — cached for trail math
 }
 
-const SHOOT_MIN_INTERVAL = 8; // seconds
-const SHOOT_MAX_INTERVAL = 12; // seconds
+const SHOOT_MIN_INTERVAL = 14; // seconds
+const SHOOT_MAX_INTERVAL = 22; // seconds
 const SHOOT_TTL = 0.6; // total streak lifetime (fade-in + hold + fade-out)
 const SHOOT_SPEED_MIN = 540; // px/sec
 const SHOOT_SPEED_MAX = 780; // px/sec
@@ -77,6 +77,9 @@ function spawnShootingStar(w: number, h: number): ShootingStar {
  * bright head. Opacity follows a 3-phase curve: 0→1 fade-in over
  * the first 15% of ttl, hold at 1 until 60%, then 1→0 fade-out for
  * the remainder.
+ *
+ * The whole streak is capped at low opacity: at full brightness it
+ * crossed headline text and read as a rendering glitch, not a star.
  */
 function drawShootingStar(c: CanvasRenderingContext2D, s: ShootingStar) {
   const t = s.age / s.ttl; // 0..1
@@ -88,6 +91,7 @@ function drawShootingStar(c: CanvasRenderingContext2D, s: ShootingStar) {
   } else {
     opacity = Math.max(0, 1 - (t - 0.6) / 0.4);
   }
+  opacity *= 0.38;
   if (opacity <= 0) return;
 
   // Trail — linear gradient from transparent (tail) to teal (head).
@@ -99,27 +103,27 @@ function drawShootingStar(c: CanvasRenderingContext2D, s: ShootingStar) {
   grad.addColorStop(0.6, `rgba(22, 154, 165, ${(opacity * 0.35).toFixed(3)})`);
   grad.addColorStop(1, `rgba(22, 154, 165, ${(opacity * 0.85).toFixed(3)})`);
   c.strokeStyle = grad;
-  c.lineWidth = 1.4;
+  c.lineWidth = 1;
   c.lineCap = "round";
   c.beginPath();
   c.moveTo(tailX, tailY);
   c.lineTo(s.x, s.y);
   c.stroke();
 
-  // Head — bright sand-gold pinprick with a soft teal glow.
-  const headGrad = c.createRadialGradient(s.x, s.y, 0, s.x, s.y, 4);
+  // Head — soft sand-gold pinprick with a faint teal glow.
+  const headGrad = c.createRadialGradient(s.x, s.y, 0, s.x, s.y, 2.5);
   headGrad.addColorStop(0, `rgba(246, 236, 201, ${opacity.toFixed(3)})`);
   headGrad.addColorStop(0.5, `rgba(22, 154, 165, ${(opacity * 0.5).toFixed(3)})`);
   headGrad.addColorStop(1, "rgba(22, 154, 165, 0)");
   c.fillStyle = headGrad;
   c.beginPath();
-  c.arc(s.x, s.y, 4, 0, Math.PI * 2);
+  c.arc(s.x, s.y, 2.5, 0, Math.PI * 2);
   c.fill();
 
   // Solid core dot for crispness.
   c.fillStyle = `rgba(246, 236, 201, ${opacity.toFixed(3)})`;
   c.beginPath();
-  c.arc(s.x, s.y, 1.2, 0, Math.PI * 2);
+  c.arc(s.x, s.y, 1, 0, Math.PI * 2);
   c.fill();
 }
 

@@ -272,7 +272,11 @@ function Pointer({ angle = Math.PI / 4 }: { angle?: number }) {
   );
 }
 
-function Astrolabe({ size = 1, spin = true }: AstrolabeProps) {
+function Astrolabe({
+  size = 1,
+  spin = true,
+  pointerAngle = Math.PI / 5,
+}: AstrolabeProps & { pointerAngle?: number }) {
   const group = useRef<THREE.Group>(null);
   useFrame((state) => {
     if (!group.current || !spin) return;
@@ -294,8 +298,9 @@ function Astrolabe({ size = 1, spin = true }: AstrolabeProps) {
       <StarRing radius={Mater.radius + Mater.tube} count={48} />
       {/* inner rotating dial */}
       <InnerDial />
-      {/* pointer (the "alidade") — points to the next move */}
-      <Pointer angle={Math.PI / 5} />
+      {/* pointer (the "alidade") — points to the next move; the journey orbit
+          aims it at the active step so the instrument reads as navigation */}
+      <Pointer angle={pointerAngle} />
       {/* hanging crown at top */}
       <mesh position={[0, Crown.y, 0]}>
         <torusGeometry args={[Crown.radius, Crown.tube, 8, 24]} />
@@ -316,7 +321,9 @@ function Astrolabe({ size = 1, spin = true }: AstrolabeProps) {
 }
 
 function FloatingParticles() {
-  return <Sparkles count={80} scale={5} size={1.6} speed={0.3} opacity={0.45} color="#169AA5" />;
+  /* scale stays inside the fitted camera volume (fit radius ≈ 2.25): sparks
+     beyond it pop in and out at the hard canvas edge, which read as glitches. */
+  return <Sparkles count={80} scale={2.4} size={1.6} speed={0.3} opacity={0.45} color="#169AA5" />;
 }
 
 /**
@@ -468,16 +475,23 @@ function OrbitScene({ journeySteps }: { journeySteps: OrbitStep[] }) {
     if (groupRef.current) groupRef.current.rotation.z += delta * 0.04;
   });
 
+  const activeIndex = journeySteps.findIndex((s) => s.status === "active");
+  const pointerAngle =
+    activeIndex >= 0 ? (activeIndex / journeySteps.length) * Math.PI * 2 : Math.PI / 5;
+
   return (
     <>
+      {/* Light balance matters at 0.55 scale: the cream directional at 0.9 with
+          a strong front teal point washed the gold alidade out to white. */}
       <ambientLight intensity={0.4} />
-      <directionalLight position={[4, 6, 6]} intensity={0.9} color="#F6ECC9" />
-      <pointLight position={[0, 0, 3]} intensity={1.2} color="#169AA5" />
-      <pointLight position={[3, 3, 2]} intensity={0.6} color="#C9A227" />
+      <directionalLight position={[4, 6, 6]} intensity={0.5} color="#F6ECC9" />
+      <pointLight position={[0, 0, 3]} intensity={0.7} color="#169AA5" />
+      <pointLight position={[3, 3, 2]} intensity={0.9} color="#C9A227" />
 
       <group ref={groupRef}>
-        {/* central astrolabe */}
-        <Astrolabe size={0.55} spin={false} />
+        {/* central astrolabe — its rule aims at the active step, or rests at
+            the default bearing when nothing is active */}
+        <Astrolabe size={0.55} spin={false} pointerAngle={pointerAngle} />
         {/* orbit ring guide */}
         <mesh>
           <ringGeometry args={[ORBIT_RADIUS - 0.05, ORBIT_RADIUS + 0.05, 128]} />
@@ -511,7 +525,7 @@ function OrbitScene({ journeySteps }: { journeySteps: OrbitStep[] }) {
         })}
       </group>
 
-      <Sparkles count={40} scale={5} size={1.5} speed={0.2} color="#C9A227" opacity={0.4} />
+      <Sparkles count={40} scale={2.6} size={1.5} speed={0.2} color="#C9A227" opacity={0.4} />
     </>
   );
 }
@@ -567,7 +581,7 @@ function BandSphereScene({ band }: { band: "steady" | "watch" | "friction" | "bl
           flatShading
         />
       </mesh>
-      <Sparkles count={30} scale={3} size={2} speed={0.4} color={m.c} opacity={0.7} />
+      <Sparkles count={30} scale={1.6} size={2} speed={0.4} color={m.c} opacity={0.7} />
     </>
   );
 }

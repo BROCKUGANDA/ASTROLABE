@@ -80,6 +80,30 @@ describe("same-origin writes", () => {
   test("an unparseable Origin is treated as foreign", () => {
     expect(sameOriginViolation(requestLike("POST", "not a url"))).toBe(true);
   });
+
+  test("same-origin is judged against the Host header, not the bind address", () => {
+    // The regression this pins: the standalone server reports nextUrl.host as
+    // its bind address (0.0.0.0:3200), which no browser Origin matches — every
+    // genuine same-origin POST was refused as cross-origin while CI stayed
+    // green, because the smoke test posts without an Origin header.
+    const headers = new Headers();
+    headers.set("origin", "http://localhost:3200");
+    headers.set("host", "localhost:3200");
+    expect(
+      sameOriginViolation({ method: "POST", headers, nextUrl: { host: "0.0.0.0:3200" } }),
+    ).toBe(false);
+
+    const foreign = new Headers();
+    foreign.set("origin", "http://localhost:3200");
+    foreign.set("host", "localhost:3300");
+    expect(
+      sameOriginViolation({
+        method: "POST",
+        headers: foreign,
+        nextUrl: { host: "localhost:3300" },
+      }),
+    ).toBe(true);
+  });
 });
 
 describe("sign-in backoff", () => {

@@ -74,6 +74,22 @@ SIGNIN=$(curl -s -A "$BROWSER_UA" -c "$CJ" -o /tmp/signin.json -w '%{http_code}'
 [ "$SIGNIN" = "200" ] || fail "sign-in returned $SIGNIN"
 grep -q 'astrolabe_session' "$CJ" || fail "sign-in set no session cookie"
 
+# 5b. The same sign-in AS A BROWSER SENDS IT — with an Origin header. The
+#     standalone server reports nextUrl.host as its bind address, which once
+#     made every genuine same-origin POST refuse as "cross-origin" while this
+#     script stayed green, because these checks posted without Origin.
+ORIGIN_OK=$(curl -s -o /dev/null -w '%{http_code}' -A "$BROWSER_UA" -X POST \
+  -H 'content-type: application/json' \
+  -H "Origin: $BASE" \
+  -d '{"employeeId":"E-1042"}' "$BASE/api/v1/auth/sign-in")
+[ "$ORIGIN_OK" = "200" ] || fail "sign-in with a same-origin Origin header returned $ORIGIN_OK (the gate must judge against the Host header)"
+XORIGIN=$(curl -s -o /dev/null -w '%{http_code}' -A "$BROWSER_UA" -X POST \
+  -H 'content-type: application/json' \
+  -H 'Origin: https://evil.example' \
+  -d '{"employeeId":"E-1042"}' "$BASE/api/v1/auth/sign-in")
+[ "$XORIGIN" = "403" ] || fail "a cross-origin write was accepted (got $XORIGIN, wanted 403)"
+echo "origin gate: same-origin write with Origin accepted, cross-origin refused."
+
 # 6. With that session the employee gets their own verdict.
 ME=$(curl -s -b "$CJ" "$BASE/api/v1/journey/me")
 echo "$ME" | grep -q '"ok":true' || fail "journey/me rejected a valid session"

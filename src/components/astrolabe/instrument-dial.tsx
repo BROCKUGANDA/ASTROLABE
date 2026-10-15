@@ -203,9 +203,9 @@ export function InstrumentDial({
           </g>
         ))}
 
-        {/* Center hub */}
-        <circle cx={cx} cy={cy} r="6" fill={colors.ring} opacity="0.8" />
-        <circle cx={cx} cy={cy} r="3" fill="var(--surface-0)" />
+        {/* No center hub: the score reads through the middle of the dial, and
+            a pivot dot behind the digits renders in the gap between glyphs —
+            at 28px it looked like a glitch character inside the number. */}
       </svg>
 
       {/* Center label overlay */}

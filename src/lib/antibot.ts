@@ -82,6 +82,13 @@ export function isMutating(method: string): boolean {
  * sends Origin on a same-site fetch in current engines, but command-line and
  * server-to-server clients send neither, and this prototype documents its API for
  * both. Cross-origin is the case that is unambiguously wrong.
+ *
+ * The comparison uses the request's Host header, not `nextUrl.host`: the
+ * standalone server reports its bind address there (`0.0.0.0:3200`), which no
+ * browser Origin can ever match — every genuine same-origin POST was being
+ * refused as cross-origin. A browser cannot spoof either side of this
+ * comparison, which is what the check is for; scripted callers can lie, but
+ * they can already omit Origin entirely, so nothing new is opened.
  */
 export function sameOriginViolation(request: {
   method: string;
@@ -92,8 +99,9 @@ export function sameOriginViolation(request: {
   const origin = request.headers.get("origin");
   const source = origin ?? request.headers.get("referer");
   if (!source) return false;
+  const expected = request.headers.get("host") ?? request.nextUrl.host;
   try {
-    return new URL(source).host !== request.nextUrl.host;
+    return new URL(source).host !== expected;
   } catch {
     return true; // unparseable Origin is not a same-origin request
   }
