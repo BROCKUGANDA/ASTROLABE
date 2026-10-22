@@ -1,0 +1,17 @@
+# ASTROLABE — the names this product answers for on plain HTTP.
+#
+# Plain HTTP carries no SNI, so this table is keyed by the Host header
+# instead. It exists for two reasons and no others:
+#
+#   1. The ACME HTTP-01 challenge. Let's Encrypt fetches
+#      http://<name>/.well-known/acme-challenge/<token> from the public
+#      internet, so that request has to reach the edge that owns the name —
+#      and the edge still answers it itself, over its own :80, with its own
+#      certificate. The front door forwards it; it does not answer it.
+#   2. The HTTP-to-HTTPS redirect, which stays in this project's Caddyfile
+#      because that is where the security headers that belong with it live.
+#
+# Same format and same rules as the `.sni.map` sibling: one entry per line,
+# `address:port;`, and the trailing semicolon is required by nginx's `map`.
+# The address is this edge's loopback publication of port 80.
+astrolabe.svalley.tech 127.0.0.1:8082;

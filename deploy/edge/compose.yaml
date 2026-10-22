@@ -1,0 +1,91 @@
+# The edge — this project's own reverse proxy.
+#
+# A SEPARATE compose project, deliberately.
+#
+# The application is deployed by `scripts/deploy-vps.sh` as a bare `docker
+# run`, not by compose. So an edge service added to an application compose
+# file would be a service the application deploy path never reconciles, and a
+# network membership an application recreate would drop. This project's
+# network is the thing the edge needs to reach `astrolabe:3000` by name, and
+# it has to survive an application recreate — so the edge is its own project,
+# joined to the application's network as an EXTERNAL network.
+#
+# It is a separate project and not another service in the same one for a
+# second reason: a project owns its containers and its network. An edge that
+# belonged to the application's project would be torn down by the
+# application's deploy, which is a public outage caused by an application
+# release.
+#
+# The ports are LOOPBACK ONLY, and that is the security property, not a
+# convenience. The origin is reachable from the internet only through the
+# shared front door, which is the only process that binds the public :80 and
+# :443. Nothing here is published on a routable address, so a request that
+# has not been through the front door cannot reach this edge at all.
+#
+# The two host ports are reserved by the split:
+#
+#   8445  the TLS port  (the front door forwards SNI=astrolabe.svalley.tech here)
+#   8082  the HTTP port (the front door forwards the Host header here, which
+#         is how the ACME HTTP-01 challenge and the HTTP-to-HTTPS redirect
+#         reach this edge)
+#
+# They are in `nginx/edge.d/astrolabe.sni.map` and
+# `nginx/edge.d/astrolabe.host.map` in this directory, and
+# `deploy/edge/provision.sh` fails loudly if the two ever disagree.
+name: astrolabe-edge
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    user: "1000:1000" # non-root
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8445:443"
+      - "127.0.0.1:8082:80"
+    cap_add:
+      - NET_BIND_SERVICE
+    environment:
+      # ACME contact for certificate-expiry notices. This is the only Caddy
+      # environment variable this edge reads.
+      ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # The certificates and the ACME account, so a restart does not re-issue.
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      # ASTROLABE's own network, and only that one. It is what makes the name
+      # `astrolabe` resolve to the application container, and it is the
+      # reason this edge can serve the application without being able to
+      # reach any other project's containers.
+      - astrolabe_default
+    healthcheck:
+      # Proves Caddy is SERVING, not that a particular path answers. This
+      # edge deliberately serves no health path of its own — adding one would
+      # change the public surface of the product — so a request for a
+      # hostname Caddy does not serve answers 404, and a 404 still proves the
+      # process is up and bound.
+      test: ["CMD-SHELL", "wget -S --spider http://127.0.0.1/ 2>&1 | grep -qE 'HTTP/1\\.[01] [0-9]{3}'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        # Bounded per-service log disk. The application is a separate
+        # container with its own rotation; this cap is for the edge alone.
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  astrolabe_default:
+    # EXTERNAL, and it is ASTROLABE's. The application container joins this
+    # network in `scripts/deploy-vps.sh` (EDGE_NET), so the membership
+    # survives an application recreate instead of being a hand-made
+    # attachment that a recreate drops.
+    external: true
+
+volumes:
+  caddy-data:
+  caddy-config:

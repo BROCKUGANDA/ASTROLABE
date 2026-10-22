@@ -1,0 +1,24 @@
+# ASTROLABE — the names this product answers for on TLS.
+#
+# One entry per line:  <hostname>  <address:port>;
+#
+# The front door is an L4 SNI router: it reads the SNI out of the ClientHello
+# and forwards the connection to the address this table names. It terminates
+# no TLS, parses no HTTP and holds no certificate, so this table is the ONLY
+# thing the two projects share.
+#
+# The address is where this project's edge publishes 443 on the HOST's
+# loopback — the `ports:` in `deploy/edge/compose.yaml`. The two must agree,
+# and `deploy/edge/provision.sh` refuses to start if they do not.
+#
+# Format note: nginx's `map` reads each entry as `name value;`, so the value
+# is written as address:port with no scheme and no path — and the trailing
+# semicolon is REQUIRED. It is not a nicety: `nginx -t` refuses the whole
+# configuration without it, and the front door is what every public name on
+# this box depends on. A missing semicolon is a total outage of every name,
+# from a typo in a two-line file.
+#
+# The names in this file are checked against this project's Caddyfile by a
+# test, so the front door and the edge cannot disagree about what this
+# product serves.
+astrolabe.svalley.tech 127.0.0.1:8445;
