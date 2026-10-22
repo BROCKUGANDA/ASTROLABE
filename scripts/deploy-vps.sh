@@ -9,9 +9,14 @@
 #   1. The image is built on the box rather than pulled. ghcr.io packages
 #      created by a workflow are private by default, and the runner IS this
 #      machine, so building here is one fewer credential in the path.
-#   2. The container joins the edge's network with a name alias. Caddy resolves
-#      `astrolabe:3000` on securevoice-ai_default; a container recreated without
-#      that attachment leaves the hostname 502 until someone notices.
+#   2. The container joins ASTROLABE's OWN network with a name alias, and the
+#      edge is on that same network. The edge used to belong to a different
+#      project entirely, and this container used to be attached to THAT
+#      project's network by hand — so a recreate of their edge dropped the
+#      attachment and left this hostname answering 502 while every container
+#      here reported itself healthy. The membership is in this script now, so
+#      it survives a recreate instead of being a hand-made attachment that a
+#      recreate drops.
 #   3. The old container is stopped before the new one takes the port, and the
 #      new one is health-checked before the old one is removed — a failed build
 #      cannot take the site down on the way in.
@@ -25,7 +30,7 @@ set -euo pipefail
 REF="${1:-}"
 APP_DIR="${APP_DIR:-$HOME/astrolabe}"
 DATA_DIR="${DATA_DIR:-$HOME/astrolabe-data}"
-EDGE_NET="${EDGE_NET:-securevoice-ai_default}"
+EDGE_NET="${EDGE_NET:-astrolabe_default}"
 PUBLIC_URL="${PUBLIC_URL:-https://astrolabe.svalley.tech}"
 IMAGE="astrolabe"
 
